@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 static const GpuiApi *api;
+static int display_count;
 @interface GPScrollProbe : NSObject
 @property NSPoint locationInWindow;
 @property CGFloat scrollingDeltaX, scrollingDeltaY;
@@ -38,6 +39,32 @@ static void verify_clipboard_and_cursors(void) {
   assert(call_op(12,0,3,0,nil)==9);
   assert(call_op(12,0,0,0,nil)==0);
 }
+static void verify_display_snapshot(int64_t host, NSWindow *expected_window) {
+  double records[16 * 14] = {0};
+  display_count=gpui_macos_display_snapshot_v1(host,records,16*14);
+  assert(display_count>0 && display_count<=16);
+  int primary_count=0, window_count=0;
+  for(int i=0;i<display_count;i++) {
+    const double *record=&records[i*14];
+    assert(isfinite(record[0]) && isfinite(record[1]));
+    assert(isfinite(record[2]) && record[2]>0);
+    assert(isfinite(record[3]) && record[3]>0);
+    assert(isfinite(record[4]) && isfinite(record[5]));
+    assert(isfinite(record[6]) && record[6]>0);
+    assert(isfinite(record[7]) && record[7]>0);
+    assert(isfinite(record[8]) && record[8]>0 && record[8]<=8);
+    assert(record[9]>0 && record[10]>0);
+    assert(isfinite(record[11]) && record[11]>=0 && record[11]<=1000);
+    assert(record[12]==0 || record[12]==1);
+    assert(record[13]==0 || record[13]==1);
+    primary_count+=(int)record[12];
+    window_count+=(int)record[13];
+  }
+  assert(primary_count==1 && window_count<=1);
+  assert(window_count==(expected_window.isKeyWindow && expected_window.screen ? 1 : 0));
+  assert(gpui_macos_display_snapshot_v1(host,NULL,16*14)==-5);
+  assert(gpui_macos_display_snapshot_v1(host,records,15*14)==-5);
+}
 static void verify_scroll_delivery(int64_t token, CGScrollEventUnit units,
                                    BOOL precise, int32_t delta_x, int32_t delta_y) {
   GPWindow *window=windows[@(token)]; assert(window && window.window.contentView);
@@ -66,7 +93,11 @@ static void verify_scroll_delivery(int64_t token, CGScrollEventUnit units,
   assert(fabs(api->number(4)-event.scrollingDeltaY)<0.0001);
 }
 static void *wrong_thread(void *unused) {
-  (void)unused; assert(call_op(3,0,320,240,@"wrong thread") == 18); return NULL;
+  (void)unused;
+  double records[16 * 14] = {0};
+  assert(gpui_macos_display_snapshot_v1(host_epoch,records,16*14)==-18);
+  assert(call_op(3,0,320,240,@"wrong thread") == 18);
+  return NULL;
 }
 static void drain(void) {
   for(int i=0;i<256;i++) { assert(call_op(6,0,0,0,nil)==0); if (!api->integer(1)) return; }
@@ -126,6 +157,7 @@ int main(void) {
     int64_t token=api->integer(0), previous=0;
     GPWindow *w=windows[@(token)];
     assert(w && w.surface && w.window.visible);
+    verify_display_snapshot(host_epoch,w.window);
     double disabled_metrics[3]={0};
     unsetenv("GPUI_NATIVE_E2E");
     assert(gpui_macos_test_frame_meta_v1(token,disabled_metrics)==9);
@@ -241,8 +273,10 @@ int main(void) {
     assert(call_op(6,0,0,0,nil)==0 && api->integer(1)==15);
     assert(call_op(2,0,0,0,nil)==0); assert(call_op(2,0,0,0,nil)==0);
     assert(call_op(1,0,0,0,nil)==0); assert(call_op(0,epoch,0,0,nil)==10);
+    double stale_records[16 * 14] = {0};
+    assert(gpui_macos_display_snapshot_v1(epoch,stale_records,16*14)==-10);
     assert(call_op(2,0,0,0,nil)==0);
-    puts("GPUI_MACOS_E2E {\"gpu_pixels\":true,\"grayscale_text\":true,\"unsupported_control_text_preserves_frame\":true,\"frame_readback\":true,\"test_input\":true,\"scroll_responder_precise_and_coarse\":true,\"clipboard_utf8_isolated\":true,\"cursor_kinds\":true,\"logical_coordinates\":true,\"resize\":true,\"wrong_thread\":true,\"churn\":32,\"stale_callbacks\":true,\"device_loss\":true,\"device_recovery\":true}");
+    printf("GPUI_MACOS_E2E {\"gpu_pixels\":true,\"grayscale_text\":true,\"unsupported_control_text_preserves_frame\":true,\"frame_readback\":true,\"test_input\":true,\"scroll_responder_precise_and_coarse\":true,\"clipboard_utf8_isolated\":true,\"cursor_kinds\":true,\"display_snapshot\":true,\"display_count\":%d,\"logical_coordinates\":true,\"resize\":true,\"wrong_thread\":true,\"churn\":32,\"stale_callbacks\":true,\"device_loss\":true,\"device_recovery\":true}\n", display_count);
   }
   return 0;
 }

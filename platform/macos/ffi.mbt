@@ -10,6 +10,14 @@ extern "C" fn call(
 ) -> Int = "gpui_call"
 
 ///|
+#borrow(records)
+extern "C" fn native_display_snapshot(
+  host : Int64,
+  records : FixedArray[Double],
+  capacity : Int,
+) -> Int = "gpui_macos_display_snapshot"
+
+///|
 extern "C" fn integer(field : Int) -> Int64 = "gpui_integer"
 
 ///|
