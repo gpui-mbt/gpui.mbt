@@ -77,6 +77,14 @@ fn windows_button_session_error(
         backend="win32-d3d11",
         message="window is not currently presentable",
       )
+    StaleSession =>
+      @diagnostics.FrameworkError::new(
+        @diagnostics.InvalidInput,
+        operation,
+        subsystem="windows-button",
+        backend="win32-d3d11",
+        message="stale Button session cannot update the current owner",
+      )
   }
 }
 
@@ -90,6 +98,7 @@ fn windows_button_session_error_name(
     AccessibilityFailure =>
       "copied Button accessibility binding could not be created"
     Suspended => "window is not currently presentable"
+    StaleSession => "stale Button session cannot update the current owner"
   }
 }
 

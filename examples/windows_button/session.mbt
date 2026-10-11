@@ -9,6 +9,8 @@ pub struct WindowsButtonSession {
   scale : Double
   presentable : Bool
   closed : Bool
+  session_generation : UInt64
+  session_generation_source : Ref[UInt64?]
   repeat_keydowns : Int
   unmatched_key_releases : Int
   unmatched_pointer_releases : Int
@@ -20,6 +22,7 @@ enum WindowsButtonSessionError {
   FixtureFailure
   AccessibilityFailure
   Suspended
+  StaleSession
 }
 
 ///|
@@ -35,6 +38,38 @@ fn windows_button_fixture_result(
 ///|
 fn windows_button_valid_scale(scale : Double) -> Bool {
   !scale.is_nan() && !scale.is_inf() && scale > 0.0
+}
+
+///|
+const WINDOWS_BUTTON_SESSION_MAX_GENERATION : UInt64 = 0xffff_ffff_ffff_ffff
+
+///|
+/// Session-only transitions (such as a backing-scale update) can make an
+/// older immutable host value stale without changing the semantic fixture.
+/// Keep this separate from the fixture's live model fence and require both.
+fn windows_button_session_is_current(session : WindowsButtonSession) -> Bool {
+  session.session_generation_source.val == Some(session.session_generation) &&
+  session.demo.is_current()
+}
+
+///|
+/// Advance the host-session owner fence after returning a changed session.
+/// Exhaustion invalidates the source instead of wrapping to an old value.
+fn windows_button_session_advance(
+  session : WindowsButtonSession,
+) -> WindowsButtonSession {
+  match session.session_generation_source.val {
+    Some(current) if current == session.session_generation =>
+      if current == WINDOWS_BUTTON_SESSION_MAX_GENERATION {
+        session.session_generation_source.val = None
+        session
+      } else {
+        let next = current + 1UL
+        session.session_generation_source.val = Some(next)
+        { ..session, session_generation: next, }
+      }
+    _ => session
+  }
 }
 
 ///|
@@ -70,6 +105,8 @@ fn WindowsButtonSession::new(
         scale,
         presentable: true,
         closed: false,
+        session_generation: 1UL,
+        session_generation_source: Ref(Some(1UL)),
         repeat_keydowns: 0,
         unmatched_key_releases: 0,
         unmatched_pointer_releases: 0,
@@ -97,6 +134,12 @@ fn WindowsButtonSession::is_presentable(self : WindowsButtonSession) -> Bool {
 pub fn WindowsButtonSession::accessibility_snapshot(
   self : WindowsButtonSession,
 ) -> Result[WindowsButtonAccessibilitySnapshot, WindowsButtonAccessibilityError] {
+  // A closed session keeps returning its empty terminal snapshot. For every
+  // live-looking copy, consult the fixture's shared owner fence before even
+  // consulting the copied binding: its cached source snapshot is not authority.
+  if !self.closed && !windows_button_session_is_current(self) {
+    return Err(StaleSnapshot)
+  }
   windows_button_accessibility_snapshot(
     self.accessibility,
     self.demo.accessibility_snapshot(),
@@ -113,6 +156,9 @@ pub fn WindowsButtonSession::dispatch_accessibility_action(
   export_id : WindowsButtonAccessibilityId,
   action : @accessibility.AccessibilityAction,
 ) -> Result[WindowsButtonSession, WindowsButtonAccessibilityError] {
+  if !self.closed && !windows_button_session_is_current(self) {
+    return Err(StaleSnapshot)
+  }
   let node_id = match
     windows_button_accessibility_resolve(
       self.accessibility,
@@ -136,7 +182,7 @@ pub fn WindowsButtonSession::dispatch_accessibility_action(
           next.demo.accessibility_snapshot(),
           next.presentable,
         ) {
-        Ok(_) => Ok(next)
+        Ok(_) => Ok(windows_button_session_advance(next))
         Err(error) => {
           windows_button_accessibility_close(
             next.accessibility,
@@ -154,6 +200,12 @@ pub fn WindowsButtonSession::dispatch_accessibility_action(
 fn windows_button_session_reconcile_accessibility(
   session : WindowsButtonSession,
 ) -> WindowsButtonSession {
+  // A stale immutable copy must never publish or revoke the shared binding.
+  // The live session generation and fixture owner are the source of truth;
+  // this copy's cached source snapshot is never sufficient authority.
+  if !windows_button_session_is_current(session) {
+    return session
+  }
   if session.closed {
     return session.close()
   }
@@ -181,6 +233,11 @@ fn windows_button_session_reconcile_accessibility(
 fn WindowsButtonSession::close(
   self : WindowsButtonSession,
 ) -> WindowsButtonSession {
+  if !windows_button_session_is_current(self) {
+    // Preserve a local terminal value for stale callers without closing the
+    // shared accessibility binding or revoking the current fixture owner.
+    return { ..self, presentable: false, closed: true, }
+  }
   windows_button_accessibility_close(
     self.accessibility,
     self.demo.accessibility_snapshot().revision(),
@@ -198,7 +255,7 @@ fn WindowsButtonSession::sync_metrics(
   height : Double,
   scale : Double,
 ) -> (WindowsButtonSession, Bool) {
-  if self.closed {
+  if self.closed || !windows_button_session_is_current(self) {
     return (self, false)
   }
   if width.is_nan() ||
@@ -216,7 +273,7 @@ fn WindowsButtonSession::sync_metrics(
       scale,
       presentable: false,
     })
-    return (next, false)
+    return (windows_button_session_advance(next), false)
   }
   if self.presentable &&
     self.width == width &&
@@ -225,31 +282,35 @@ fn WindowsButtonSession::sync_metrics(
     return (self, false)
   }
   if self.presentable && self.width == width && self.height == height {
-    return ({ ..self, scale, }, true)
+    return (windows_button_session_advance({ ..self, scale, }), true)
   }
   match self.demo.resize(width, height) {
     Ok(demo) =>
       (
-        windows_button_session_reconcile_accessibility({
-          ..self,
-          demo,
-          width,
-          height,
-          scale,
-          presentable: true,
-        }),
+        windows_button_session_advance(
+          windows_button_session_reconcile_accessibility({
+            ..self,
+            demo,
+            width,
+            height,
+            scale,
+            presentable: true,
+          }),
+        ),
         true,
       )
     Err(_) =>
       (
-        windows_button_session_reconcile_accessibility({
-          ..self,
-          demo: self.demo.blur(),
-          width,
-          height,
-          scale,
-          presentable: false,
-        }),
+        windows_button_session_advance(
+          windows_button_session_reconcile_accessibility({
+            ..self,
+            demo: self.demo.blur(),
+            width,
+            height,
+            scale,
+            presentable: false,
+          }),
+        ),
         false,
       )
   }
@@ -307,6 +368,12 @@ fn WindowsButtonSession::handle_event(
 ) -> Result[(WindowsButtonSession, Bool), WindowsButtonSessionError] {
   if self.closed {
     return Ok((self, false))
+  }
+  // A session copy can outlive a newer immutable value sharing the fixture
+  // and accessibility binding. Reject all event-driven transitions before
+  // they can publish, suspend, or close that newer owner's state.
+  if !windows_button_session_is_current(self) {
+    return Err(StaleSession)
   }
   let mut next = { ..self, scale: event.scale(), }
   let mut repaint = false
@@ -398,5 +465,12 @@ fn WindowsButtonSession::handle_event(
       }
     _ => ()
   }
-  Ok((windows_button_session_reconcile_accessibility(next), repaint))
+  Ok(
+    (
+      windows_button_session_advance(
+        windows_button_session_reconcile_accessibility(next),
+      ),
+      repaint,
+    ),
+  )
 }

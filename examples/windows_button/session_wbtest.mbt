@@ -578,3 +578,73 @@ test "Windows Button copied actions reject wrong owners, stale state, and lifecy
   assert_true(!repaint)
   assert_true(!late_event.is_presentable())
 }
+
+///|
+test "Windows stale session copies cannot roll back or revoke the live owner" {
+  let old = WindowsButtonSession::new(640.0, 240.0, 1.0).unwrap()
+  let original_id = old.accessibility_snapshot().unwrap().nodes()[1].id()
+  let (current, _) = old
+    .handle_event(windows_button_test_key_down(1, @primitives.Tab, false))
+    .unwrap()
+  let focused = current.accessibility_snapshot().unwrap()
+  assert_true(focused.nodes()[1].is_focused())
+  assert_true(focused.nodes()[1].id() == original_id)
+  assert_true(!old.demo().is_current())
+  assert_true(old.accessibility_snapshot() is Err(StaleSnapshot))
+
+  // Wake, suspend/resize, and close/exit events from an older immutable copy
+  // must stop before touching the live fixture or copied accessibility state.
+  assert_true(
+    old.handle_event(windows_button_test_event(2, @platform.Wake))
+    is Err(StaleSession),
+  )
+  assert_true(
+    old.handle_event(
+      windows_button_test_event(3, @platform.Resized(width=0.0, height=0.0)),
+    )
+    is Err(StaleSession),
+  )
+  assert_true(
+    old.handle_event(windows_button_test_event(4, @platform.CloseRequested))
+    is Err(StaleSession),
+  )
+  assert_true(
+    old.handle_event(windows_button_test_event(5, @platform.ExitRequested))
+    is Err(StaleSession),
+  )
+  let (stale_metrics, repaint) = old.sync_metrics(0.0, 0.0, 1.0)
+  assert_true(!repaint)
+  assert_true(stale_metrics.is_presentable())
+
+  // Exercise the reconciliation and explicit close seams directly as well:
+  // both can see stale cached data but neither owns the shared live state.
+  let reconciled = windows_button_session_reconcile_accessibility(old)
+  assert_true(!reconciled.demo().is_current())
+  let stale_closed = old.close()
+  assert_true(stale_closed.closed)
+
+  let still_current = current.accessibility_snapshot().unwrap()
+  assert_true(still_current.is_available())
+  assert_true(still_current.nodes()[1].is_focused())
+  assert_true(still_current.nodes()[1].id() == original_id)
+  let invoked = current
+    .dispatch_accessibility_action(original_id, @accessibility.Invoke)
+    .unwrap()
+  assert_eq(invoked.demo().activations(), 1)
+
+  // A scale-only host transition changes no semantic fixture revision, so the
+  // independent session generation must still fence the prior value.
+  let scale_old = WindowsButtonSession::new(640.0, 240.0, 1.0).unwrap()
+  let (scale_current, repaint) = scale_old.sync_metrics(640.0, 240.0, 2.0)
+  assert_true(repaint)
+  assert_true(scale_old.demo().is_current())
+  assert_true(scale_old.accessibility_snapshot() is Err(StaleSnapshot))
+  assert_true(
+    scale_old.handle_event(windows_button_test_event(6, @platform.Wake))
+    is Err(StaleSession),
+  )
+  assert_true(scale_old.close().closed)
+  let scale_snapshot = scale_current.accessibility_snapshot().unwrap()
+  assert_true(scale_snapshot.is_available())
+  assert_true(scale_current.scene().unwrap().scale() == 2.0)
+}
