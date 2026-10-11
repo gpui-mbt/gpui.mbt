@@ -11,6 +11,9 @@
 - Reject fresh Ubuntu Button accessibility snapshot reads after source closure
   or an unpublished semantic change, while retaining readable detached copies.
   ([PR #61](https://github.com/gpui-mbt/gpui.mbt/pull/61))
+- Report actual source-data loss in bounded Ubuntu comparison logs and omit
+  truncation markers when the complete output is retained.
+  ([PR #63](https://github.com/gpui-mbt/gpui.mbt/pull/63))
 
 ### Deprecated
 

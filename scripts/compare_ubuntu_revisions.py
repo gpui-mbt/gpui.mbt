@@ -529,17 +529,20 @@ class _StreamCapture:
     def finish(self) -> dict[str, Any]:
         if self.line_buffer:
             self._inspect_line(bytes(self.line_buffer))
-        if self.total <= HEAD_LOG_BYTES:
-            data = bytes(self.head)
+        # Head and tail overlap for complete streams; markers are not source data.
+        buffered_source_bytes = len(self.head) + len(self.tail)
+        truncated = self.total > buffered_source_bytes
+        if truncated:
+            data = bytes(self.head) + TRUNCATION_MARKER + bytes(self.tail)
         else:
-            overlap = max(0, len(self.head) + len(self.tail) - self.total)
-            data = bytes(self.head) + TRUNCATION_MARKER + bytes(self.tail[overlap:])
+            overlap = buffered_source_bytes - self.total
+            data = bytes(self.head) + bytes(self.tail[overlap:])
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_bytes(data)
         return {
             "bytes_observed": self.total,
             "bytes_retained": len(data),
-            "truncated": self.total > len(data),
+            "truncated": truncated,
             "sha256": hashlib.sha256(data).hexdigest(),
             "sample_counts_by_scale": {str(k): v for k, v in sorted(self.sample_counts.items())},
             "sample_indices_by_scale": {

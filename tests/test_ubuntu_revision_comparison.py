@@ -283,6 +283,39 @@ timeout --foreground --kill-after=1s 30s sh -c 'sleep 30 & child=$!; pgid=$(ps -
                 baseline_sha=EXPECTED_BASELINE_SHA,
             )
 
+    def test_stream_capture_preserves_complete_output_after_head_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "stdout.log"
+            capture = _StreamCapture(target)
+            payload = b"x" * (HEAD_LOG_BYTES + 100)
+            capture.append(payload[:HEAD_LOG_BYTES - 1])
+            capture.append(payload[HEAD_LOG_BYTES - 1:])
+            result = capture.finish()
+            self.assertFalse(result["truncated"])
+            self.assertEqual(target.read_bytes(), payload)
+            self.assertEqual(result["bytes_observed"], len(payload))
+            self.assertEqual(result["bytes_retained"], len(payload))
+
+    def test_stream_capture_reports_source_loss_near_log_cap(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            for size in (
+                MAX_STREAM_LOG_BYTES - 1,
+                MAX_STREAM_LOG_BYTES,
+                MAX_STREAM_LOG_BYTES + 1,
+            ):
+                with self.subTest(size=size):
+                    target = Path(temp) / f"stdout-{size}.log"
+                    capture = _StreamCapture(target)
+                    capture.append(b"x" * size)
+                    result = capture.finish()
+                    data = target.read_bytes()
+                    self.assertLess(data.count(b"x"), size)
+                    self.assertTrue(result["truncated"])
+                    self.assertIn(b"comparison log truncated", data)
+                    self.assertLessEqual(len(data), MAX_STREAM_LOG_BYTES)
+                    self.assertEqual(result["bytes_observed"], size)
+                    self.assertEqual(result["bytes_retained"], len(data))
+
     def test_stream_capture_is_bounded_and_counts_samples_before_truncation(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             target = Path(temp) / "stdout.log"
