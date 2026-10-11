@@ -671,3 +671,92 @@ test "geometry-only owner sync waits behind an undelivered or unacknowledged bat
     mac_owner_sync_plan(None, false, true, false) is MacOwnerSyncPlan::Idle,
   )
 }
+
+///|
+fn sync_calls_trace(calls : Array[MacOwnerSyncCall]) -> String {
+  let labels : Array[String] = []
+  for call in calls {
+    labels.push(
+      match call {
+        MacOwnerSyncCall::Ack(sequence) => "ack(\{sequence})"
+        MacOwnerSyncCall::Geometry => "geometry"
+      },
+    )
+  }
+  labels.join(",")
+}
+
+///|
+test "owner sync emits calls in batch-FIFO order" {
+  let window = @platform.WindowId::new(9)
+  let owner = mac_text_owner(window, 31L, 7, 12)
+  let target = @macos.TextSessionTarget::{
+    window,
+    host_epoch: 31L,
+    epoch: 7,
+    sequence: 44L,
+    owner_revision: 3L,
+  }
+  // ScaleChanged answered while its TextSession batch is still queued: the
+  // frame emits no call at all — a bare geometry update would hit the
+  // native Busy rejection here.
+  assert_eq(
+    sync_calls_trace(
+      mac_owner_sync_calls(
+        mac_owner_sync_plan(Some(owner), false, true, false),
+        None,
+      ),
+    ),
+    "",
+  )
+  // The batch's own frame is accepted: it emits the ACK first and the
+  // deferred geometry sync second, preserving FIFO order.
+  assert_eq(
+    sync_calls_trace(
+      mac_owner_sync_calls(
+        mac_owner_sync_plan(Some(owner), true, true, false),
+        Some(target),
+      ),
+    ),
+    "ack(44),geometry",
+  )
+  // An empty-queue drain emits the deferred sync alone once no batch is
+  // outstanding.
+  assert_eq(
+    sync_calls_trace(
+      mac_owner_sync_calls(
+        mac_owner_sync_plan(Some(owner), false, true, true),
+        None,
+      ),
+    ),
+    "geometry",
+  )
+  assert_eq(
+    sync_calls_trace(
+      mac_owner_sync_calls(
+        mac_owner_sync_plan(Some(owner), true, false, false),
+        Some(target),
+      ),
+    ),
+    "ack(44)",
+  )
+  assert_eq(
+    sync_calls_trace(
+      mac_owner_sync_calls(
+        mac_owner_sync_plan(Some(owner), false, false, true),
+        None,
+      ),
+    ),
+    "",
+  )
+  // A missing ACK target can never fabricate an acknowledgement.
+  assert_eq(
+    sync_calls_trace(
+      mac_owner_sync_calls(
+        mac_owner_sync_plan(Some(owner), true, true, false),
+        None,
+      ),
+    ),
+    "",
+  )
+}

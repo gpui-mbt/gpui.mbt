@@ -300,26 +300,29 @@ fn run_window() -> Unit {
           }
           if running && pending_owner_sync {
             match owner {
-              Some(active) =>
-                if mac_owner_sync_plan(
+              Some(active) => {
+                let calls = mac_owner_sync_calls(
+                  mac_owner_sync_plan(
                     owner,
                     pending_ack is Some(_),
                     pending_owner_sync,
                     true,
-                  )
-                  is Deferred {
-                  match
-                    sync_macos_field_session(host, field, active, false, None) {
-                    Ok(value) => {
-                      owner = Some(value)
+                  ),
+                  pending_ack,
+                )
+                match mac_run_owner_sync_calls(host, field, active, calls) {
+                  Ok(value) => {
+                    owner = Some(value)
+                    if calls.contains(Geometry) {
                       pending_owner_sync = false
                     }
-                    Err(error) => {
-                      report(error)
-                      running = false
-                    }
+                  }
+                  Err(error) => {
+                    report(error)
+                    running = false
                   }
                 }
+              }
               None => pending_owner_sync = false
             }
           }
@@ -807,38 +810,19 @@ fn run_window() -> Unit {
               match pending_ack {
                 Some(target) =>
                   match owner {
-                    Some(active) =>
+                    Some(active) => {
+                      let calls = mac_owner_sync_calls(
+                        mac_owner_sync_plan(
+                          owner, true, pending_owner_sync, false,
+                        ),
+                        Some(target),
+                      )
                       match
-                        sync_macos_field_session(
-                          host,
-                          field,
-                          active,
-                          false,
-                          Some(target.sequence()),
-                        ) {
+                        mac_run_owner_sync_calls(host, field, active, calls) {
                         Ok(value) => {
                           owner = Some(value)
-                          if mac_owner_sync_plan(
-                              owner, true, pending_owner_sync, false,
-                            )
-                            is AckThenSync {
-                            match
-                              sync_macos_field_session(
-                                host,
-                                field,
-                                value,
-                                false,
-                                None,
-                              ) {
-                              Ok(deferred) => {
-                                owner = Some(deferred)
-                                pending_owner_sync = false
-                              }
-                              Err(error) => {
-                                report(error)
-                                running = false
-                              }
-                            }
+                          if calls.contains(Geometry) {
+                            pending_owner_sync = false
                           }
                         }
                         Err(error) => {
@@ -846,6 +830,7 @@ fn run_window() -> Unit {
                           running = false
                         }
                       }
+                    }
                     None => running = false
                   }
                 // A no-ACK sync here would race a text batch still queued

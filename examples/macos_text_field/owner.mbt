@@ -659,6 +659,57 @@ fn mac_owner_sync_plan(
 }
 
 ///|
+enum MacOwnerSyncCall {
+  Ack(Int64)
+  Geometry
+} derive(Eq)
+
+///|
+// Translate the decision into the calls a frame emits, in order: a pending
+// batch acknowledgement always precedes a deferred geometry-only mirror, and
+// no call carries an acknowledgement the frame never received.
+fn mac_owner_sync_calls(
+  plan : MacOwnerSyncPlan,
+  ack_target : @macos.TextSessionTarget?,
+) -> Array[MacOwnerSyncCall] {
+  match plan {
+    Idle => []
+    Deferred => [Geometry]
+    AckOnly | AckThenSync =>
+      match ack_target {
+        None => []
+        Some(target) =>
+          if plan is AckThenSync {
+            [Ack(target.sequence()), Geometry]
+          } else {
+            [Ack(target.sequence())]
+          }
+      }
+  }
+}
+
+///|
+fn mac_run_owner_sync_calls(
+  host : @macos.Host,
+  field : @text_field.TextField,
+  owner : MacTextOwner,
+  calls : Array[MacOwnerSyncCall],
+) -> Result[MacTextOwner, @diagnostics.FrameworkError] {
+  let mut current = owner
+  for call in calls {
+    let acknowledged = match call {
+      Ack(sequence) => Some(sequence)
+      Geometry => None
+    }
+    match mac_sync_owner(host, field, current, false, acknowledged) {
+      Ok(value) => current = value
+      Err(error) => return Err(error)
+    }
+  }
+  Ok(current)
+}
+
+///|
 // Fence stale native callbacks before rollback or an external edit. The
 // replacement session receives its mirror only after that state is presented.
 fn mac_fence_owner(
