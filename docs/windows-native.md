@@ -9,7 +9,9 @@ The backend is not a Windows support-tier claim.
 ## Build and run
 
 Use the pinned MoonBit `0.10.14+7d59c7ec9` toolchain and a Visual Studio native
-tools environment. From PowerShell:
+tools environment. Install Python 3 with `python3` available on `PATH`; Moon
+invokes the module's prebuild hook for native builds, including Windows, where
+the macOS-specific hook is a no-op. From PowerShell:
 
 ```powershell
 ./scripts/test_windows.ps1
@@ -99,6 +101,17 @@ back to Microsoft's WARP software driver when hardware device creation fails.
   coordinates are reported in logical units. The opt-in native test exercises
   ordinary resize; visual movement between physical monitors at different DPI
   is still pending.
+- A copied `Host::display_snapshot()` lists up to 16 current Win32 monitors.
+  Monitor and work-area rectangles and current mode dimensions are in physical
+  pixels in the host's per-monitor-v2 coordinate context. Effective DPI is
+  reported for the monitor containing the current HWND through
+  `GetDpiForWindow`; other monitors have no DPI value in this API. Refresh is
+  the integer-Hz value reported by `DEVMODE`, with zero meaning unavailable or
+  the OS default. Orientation is degrees or `-1` when Win32 does not report it.
+  Each entry marks the primary monitor and the monitor nearest the current
+  window. Enumeration order is temporary; the API does not report a persistent
+  device ID or physical panel dimensions, and the individual Win32 queries do
+  not form an atomic display-change transaction.
 - Basic pointer movement, mouse buttons, vertical/horizontal wheel, focus,
   common navigation keys, committed `WM_CHAR` text events, and arrow/hand/text
   cursors. Wheel deltas are attached only after their event slot is accepted,
@@ -265,6 +278,7 @@ established. Do not infer Tier 1 support from a successful build or smoke.
 | MSVC/Windows SDK build, native readback, clipboard and lifecycle E2E, app smoke | Passed in hosted run 37189457500 for PR head `a1f6e523dc41317064c5657179baa20456dcf6b1` |
 | Independent Win32 clipboard process: exact Unicode read/write, real-lock Busy/no-clobber/recovery, queued-wake preservation, lock expiry | Passed in the pinned local actrun native profile on 2026-10-07 against implementation source `dfa0695bc1903a55824635a5506f68b377548279`; no fixture processes remained |
 | Text-field owner/controller tests | 12/12 passed locally; synthetic geometry/session tests only |
+| Current monitor snapshot | Native E2E checks real monitor bounds, work area, primary flag, and the monitor containing the live HWND; portable decoder tests cover copied values and malformed records |
 | DirectWrite/D3D11 mixed-frame text readback and rejection atomicity | Passed in local MSVC/D3D11 backend tests; validates renderer pixels, not exact field caret/selection pixels |
 | Field startup smoke (default and opt-in session) | Both passed locally through `FrameCompleted`; default epoch 0, experimental session epoch 1; no typing or IME behavior exercised |
 | Pinned local actrun execution of the Windows workflow and portable profile | Passed locally on 2026-10-07 against implementation source `dfa0695bc1903a55824635a5506f68b377548279`; native and portable run 1 both exited 0 with all required tasks successful. WasmGC, JavaScript, and Wasm tests were each 382/382; contracts 30/30 plus repository validation; Windows package 12/12; DirectWrite 4/4; field 12/12; native GPU/clipboard E2E and lifecycle 1/1 each; both startup smokes reached `FrameCompleted`. Manifest and task logs: `_build/windows-actrun/manifest.json` and adjacent logs |
