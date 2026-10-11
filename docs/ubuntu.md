@@ -21,7 +21,7 @@ On Ubuntu 24.04 x86-64, install the system toolchain:
 sudo apt-get update
 sudo apt-get install -y build-essential pkg-config libwayland-dev wayland-protocols \
   libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libgl1-mesa-dri \
-  libpango1.0-dev libfontconfig1-dev fonts-dejavu-core fonts-noto-cjk \
+  libpango1.0-dev libfontconfig1-dev fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk \
   fonts-noto-color-emoji adwaita-icon-theme weston wayland-utils
 sh scripts/prepare_ubuntu.sh
 moon run examples/ubuntu --target native
@@ -48,6 +48,10 @@ Ubuntu native renderer. See the [Linux text guide](linux-text.md) for the
 measurement contract, raster scope, and separate headless test command.
 
 ## Implemented behavior
+
+See [desktop acceptance boundaries](ubuntu-desktop-acceptance.md) for the
+selected real-input VM smoke, virtual-output evidence, and remaining
+IME/AT-SPI/physical-display release gates. These are separate from headless E2E.
 
 - One UI-owner host and one live window at a time. A second host/window returns
   `Busy`. Startup and initial configure wait at most roughly three seconds each.

@@ -14,6 +14,7 @@ FONTCONFIG_PATH=$(dirname "$fontconfig_file")
 export FONTCONFIG_PATH
 export XDG_CACHE_HOME="$PWD/_build/ubuntu-e2e/font-cache"
 mkdir -p "$XDG_CACHE_HOME"
+sh scripts/check_linux_text_fonts.sh
 script/linux_text_cc.py -std=c11 -Wall -Wextra -Werror ${GPUI_TEST_CFLAGS:-} \
   tests/ubuntu/backend_test.c ubuntu/xdg-shell-protocol.c ubuntu/text-input-v1-protocol.c platform/linux_text/linux_text.c \
   -o _build/ubuntu-e2e/backend-test \

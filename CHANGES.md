@@ -8,6 +8,9 @@
 
 ### Fixed
 
+- Declare the missing `fonts-dejavu-extra` geometry-test dependency and check
+  neutral `sans` resolution before Linux text/Ubuntu E2E tests, preserving the
+  negative-bearing assertions and logging the actual font file hashes.
 - Avoid Weston's seatless kiosk-shell use-after-free in ordinary Ubuntu E2E
   and failure diagnostics by using an explicit, animation-free desktop-shell
   profile. Keep the historical paired kiosk comparison unchanged and include
