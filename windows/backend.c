@@ -1,5 +1,11 @@
 #include "backend.h"
 #include "../platform/windows_text/windows_text.h"
+#include "clipboard_diagnostics.h"
+
+int32_t gpui_windows_test_clipboard_diagnostics(void) {
+  return gpui_clipboard_diag_regression() ? GPUI_WINDOWS_OK
+                                          : GPUI_WINDOWS_NATIVE;
+}
 
 #if defined(_WIN32)
 
@@ -14,8 +20,20 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "clipboard_diagnostics_win32.inc"
+
+static int32_t gpui_windows_key_repeat_from_lparam(uintptr_t lparam) {
+  return (int32_t)((lparam >> 30) & (uintptr_t)1);
+}
+
+int32_t gpui_windows_test_clipboard_diagnostics_disabled(void) {
+  return gpui_clipboard_diag_is_enabled() ? GPUI_WINDOWS_NATIVE
+                                          : GPUI_WINDOWS_OK;
+}
 
 #define GPUI_EVENT_CAPACITY 4096
+#define GPUI_DISPLAY_CAPACITY 16
+#define GPUI_DISPLAY_INFO_FIELDS 18
 #define GPUI_MAX_QUADS 100000
 #define GPUI_MIXED_FRAME_ABI 2
 #define GPUI_MIXED_FRAME_STRIDE 25
@@ -23,6 +41,8 @@
 #define GPUI_MAX_FRAME_TEXT_BYTES 262144
 #define GPUI_WAKE_MESSAGE (WM_APP + 0x41)
 #define GPUI_EXIT_MESSAGE (WM_APP + 0x42)
+/* Reserved for the opt-in, scalar-only owner-thread IMM32 E2E bridge. */
+#define GPUI_IME_BRIDGE_MESSAGE (WM_APP + 0x43)
 #define GPUI_CLASS_NAME L"gpui_mbt_windows_host_v1"
 
 typedef struct gpui_vertex {
@@ -44,6 +64,12 @@ typedef BOOL(WINAPI *fn_are_dpi_awareness_contexts_equal)(
     DPI_AWARENESS_CONTEXT, DPI_AWARENESS_CONTEXT);
 typedef UINT(WINAPI *fn_get_dpi_for_system)(void);
 typedef UINT(WINAPI *fn_get_dpi_for_window)(HWND);
+typedef BOOL(WINAPI *fn_enum_display_monitors)(HDC, LPCRECT, MONITORENUMPROC,
+                                               LPARAM);
+typedef BOOL(WINAPI *fn_get_monitor_info_w)(HMONITOR, LPMONITORINFO);
+typedef BOOL(WINAPI *fn_enum_display_settings_ex_w)(LPCWSTR, DWORD,
+                                                    LPDEVMODEW, DWORD);
+typedef HMONITOR(WINAPI *fn_monitor_from_window)(HWND, DWORD);
 typedef ATOM(WINAPI *fn_register_class_ex_w)(const WNDCLASSEXW *);
 typedef BOOL(WINAPI *fn_unregister_class_w)(LPCWSTR, HINSTANCE);
 typedef HWND(WINAPI *fn_create_window_ex_w)(DWORD, LPCWSTR, LPCWSTR, DWORD,
@@ -56,6 +82,7 @@ typedef LONG_PTR(WINAPI *fn_get_window_long_ptr_w)(HWND, int);
 typedef BOOL(WINAPI *fn_show_window)(HWND, int);
 typedef BOOL(WINAPI *fn_update_window)(HWND);
 typedef BOOL(WINAPI *fn_set_window_text_w)(HWND, LPCWSTR);
+typedef int(WINAPI *fn_get_window_text_w)(HWND, LPWSTR, int);
 typedef BOOL(WINAPI *fn_set_window_pos)(HWND, HWND, int, int, int, int, UINT);
 typedef BOOL(WINAPI *fn_get_client_rect)(HWND, LPRECT);
 typedef BOOL(WINAPI *fn_get_window_rect)(HWND, LPRECT);
@@ -109,6 +136,10 @@ typedef struct gpui_windows_api {
   fn_are_dpi_awareness_contexts_equal are_dpi_awareness_contexts_equal;
   fn_get_dpi_for_system get_dpi_for_system;
   fn_get_dpi_for_window get_dpi_for_window;
+  fn_enum_display_monitors enum_display_monitors;
+  fn_get_monitor_info_w get_monitor_info_w;
+  fn_enum_display_settings_ex_w enum_display_settings_ex_w;
+  fn_monitor_from_window monitor_from_window;
   fn_register_class_ex_w register_class_ex_w;
   fn_unregister_class_w unregister_class_w;
   fn_create_window_ex_w create_window_ex_w;
@@ -119,6 +150,7 @@ typedef struct gpui_windows_api {
   fn_show_window show_window;
   fn_update_window update_window;
   fn_set_window_text_w set_window_text_w;
+  fn_get_window_text_w get_window_text_w;
   fn_set_window_pos set_window_pos;
   fn_get_client_rect get_client_rect;
   fn_get_window_rect get_window_rect;
@@ -146,6 +178,8 @@ typedef struct gpui_windows_api {
   fn_end_paint end_paint;
   fn_msg_wait_for_multiple_objects msg_wait_for_multiple_objects;
   fn_open_clipboard open_clipboard;
+  gpui_clipboard_diag_get_open_window_fn get_open_clipboard_window;
+  gpui_clipboard_diag_get_window_process_fn get_window_thread_process_id;
   fn_get_clipboard_data get_clipboard_data;
   fn_close_clipboard close_clipboard;
   fn_empty_clipboard empty_clipboard;
@@ -215,7 +249,39 @@ typedef struct gpui_windows_host {
   UINT staging_height;
   BOOL readback_enabled;
   BOOL readback_valid;
+  uint8_t *frame_pixels;
+  UINT frame_width;
+  UINT frame_height;
+  double frame_scale;
   BOOL frame_pending;
+  /* The command-palette E2E driver uses a nonce-checked scalar-only private
+   * message bridge so IMM32 calls execute on this HWND's owner thread.
+   * Snapshot values are copied here by WndProc and read by request ID; no
+   * cross-process pointers are accepted. The bridge is enabled only by the
+   * explicit E2E IME flag and valid per-run nonce. */
+  BOOL ime_bridge_enabled;
+  uint32_t ime_bridge_nonce;
+  int32_t ime_bridge_next_id;
+  int32_t ime_bridge_ime_id;
+  int32_t ime_bridge_ime_status;
+  DWORD ime_bridge_ime_error;
+  BOOL ime_bridge_ime_has_context;
+  BOOL ime_bridge_ime_open;
+  BOOL ime_bridge_ime_conversion_valid;
+  DWORD ime_bridge_ime_conversion_mode;
+  DWORD ime_bridge_ime_sentence_mode;
+  DWORD ime_bridge_ime_process_id;
+  DWORD ime_bridge_ime_thread_id;
+  int32_t ime_bridge_candidate_id;
+  int32_t ime_bridge_candidate_status;
+  DWORD ime_bridge_candidate_error;
+  BOOL ime_bridge_candidate_has_context;
+  DWORD ime_bridge_candidate_process_id;
+  DWORD ime_bridge_candidate_thread_id;
+  DWORD ime_bridge_candidate_index;
+  DWORD ime_bridge_candidate_style;
+  POINT ime_bridge_candidate_position;
+  RECT ime_bridge_candidate_area;
   int64_t test_clear_count;
   int64_t test_draw_count;
   int64_t test_present_count;
@@ -228,6 +294,10 @@ static gpui_windows_host g_host;
 static volatile LONG g_host_claimed;
 static volatile LONG g_next_host;
 static volatile LONG g_next_window;
+static BOOL native_e2e_enabled(void) {
+  const char *value = getenv("GPUI_NATIVE_E2E");
+  return value && strcmp(value, "1") == 0;
+}
 /* Wake and lifecycle calls can arrive on different threads. Keep the loaded
  * user32 function pointer and owner-thread ID alive while a wake is posted. */
 static SRWLOCK g_host_lifecycle_lock = SRWLOCK_INIT;
@@ -336,6 +406,18 @@ static void emit_event(gpui_windows_host *host, int32_t kind, double x,
   emit_event_for(host, host ? host->window_id : 0, kind, x, y, detail, mods);
 }
 
+static void emit_wheel_event(gpui_windows_host *host, double x, double y,
+                             int32_t horizontal, double delta, int32_t mods) {
+  if (!host)
+    return;
+  int32_t slot =
+      (host->event_read + host->event_count) % GPUI_EVENT_CAPACITY;
+  int32_t previous_count = host->event_count;
+  emit_event(host, 10, x, y, horizontal, mods);
+  if (host->event_count > previous_count)
+    host->events[slot][4] = delta;
+}
+
 static void discard_events_for(gpui_windows_host *host, int32_t window_id) {
   int32_t kept_count = 0;
   int32_t old_read = host->event_read;
@@ -418,6 +500,14 @@ static int32_t api_init(gpui_windows_host *host) {
             "GetDpiForSystem");
   GPUI_LOAD(user32, get_dpi_for_window, fn_get_dpi_for_window,
             "GetDpiForWindow");
+  GPUI_LOAD(user32, enum_display_monitors, fn_enum_display_monitors,
+            "EnumDisplayMonitors");
+  GPUI_LOAD(user32, get_monitor_info_w, fn_get_monitor_info_w,
+            "GetMonitorInfoW");
+  GPUI_LOAD(user32, enum_display_settings_ex_w,
+            fn_enum_display_settings_ex_w, "EnumDisplaySettingsExW");
+  GPUI_LOAD(user32, monitor_from_window, fn_monitor_from_window,
+            "MonitorFromWindow");
   GPUI_LOAD(user32, register_class_ex_w, fn_register_class_ex_w,
             "RegisterClassExW");
   GPUI_LOAD(user32, unregister_class_w, fn_unregister_class_w,
@@ -434,6 +524,7 @@ static int32_t api_init(gpui_windows_host *host) {
   GPUI_LOAD(user32, show_window, fn_show_window, "ShowWindow");
   GPUI_LOAD(user32, update_window, fn_update_window, "UpdateWindow");
   GPUI_LOAD(user32, set_window_text_w, fn_set_window_text_w, "SetWindowTextW");
+  GPUI_LOAD(user32, get_window_text_w, fn_get_window_text_w, "GetWindowTextW");
   GPUI_LOAD(user32, set_window_pos, fn_set_window_pos, "SetWindowPos");
   GPUI_LOAD(user32, get_client_rect, fn_get_client_rect, "GetClientRect");
   GPUI_LOAD(user32, get_window_rect, fn_get_window_rect, "GetWindowRect");
@@ -469,6 +560,12 @@ static int32_t api_init(gpui_windows_host *host) {
   GPUI_LOAD(user32, msg_wait_for_multiple_objects,
             fn_msg_wait_for_multiple_objects, "MsgWaitForMultipleObjects");
   GPUI_LOAD(user32, open_clipboard, fn_open_clipboard, "OpenClipboard");
+  host->api.get_open_clipboard_window =
+      (gpui_clipboard_diag_get_open_window_fn)(uintptr_t)GetProcAddress(
+          user32, "GetOpenClipboardWindow");
+  host->api.get_window_thread_process_id =
+      (gpui_clipboard_diag_get_window_process_fn)(uintptr_t)GetProcAddress(
+          user32, "GetWindowThreadProcessId");
   GPUI_LOAD(user32, get_clipboard_data, fn_get_clipboard_data,
             "GetClipboardData");
   GPUI_LOAD(user32, close_clipboard, fn_close_clipboard, "CloseClipboard");
@@ -1012,6 +1109,45 @@ static int32_t readback_frame(gpui_windows_host *host) {
   return GPUI_WINDOWS_OK;
 }
 
+static int32_t copy_staging_frame(gpui_windows_host *host,
+                                  uint8_t **pixels_out) {
+  *pixels_out = NULL;
+  int64_t pixels = (int64_t)host->staging_width * host->staging_height;
+  int64_t bytes = pixels * 4;
+  if (!host->staging_texture || host->staging_width == 0 ||
+      host->staging_height == 0 || host->staging_width > 16384 ||
+      host->staging_height > 16384 || pixels > 16 * 1024 * 1024 ||
+      bytes > INT32_MAX)
+    return GPUI_WINDOWS_RESOURCE;
+  uint8_t *copy = malloc((size_t)bytes);
+  if (!copy)
+    return GPUI_WINDOWS_RESOURCE;
+  D3D11_MAPPED_SUBRESOURCE mapped;
+  HRESULT hr = ID3D11DeviceContext_Map(host->context,
+                                       (ID3D11Resource *)host->staging_texture,
+                                       0, D3D11_MAP_READ, 0, &mapped);
+  if (FAILED(hr)) {
+    free(copy);
+    return map_hresult(hr);
+  }
+  size_t row_bytes = (size_t)host->staging_width * 4;
+  if (!mapped.pData || mapped.RowPitch < row_bytes) {
+    ID3D11DeviceContext_Unmap(host->context,
+                              (ID3D11Resource *)host->staging_texture, 0);
+    free(copy);
+    return GPUI_WINDOWS_CONVERSION;
+  }
+  for (UINT y = 0; y < host->staging_height; ++y) {
+    const uint8_t *row = (const uint8_t *)mapped.pData +
+                         (size_t)y * mapped.RowPitch;
+    memcpy(copy + (size_t)y * row_bytes, row, row_bytes);
+  }
+  ID3D11DeviceContext_Unmap(host->context,
+                            (ID3D11Resource *)host->staging_texture, 0);
+  *pixels_out = copy;
+  return GPUI_WINDOWS_OK;
+}
+
 static int32_t present_frame_internal(gpui_windows_host *host,
                                       int32_t abi, BOOL mixed,
                                       const double *data, int32_t length,
@@ -1310,13 +1446,29 @@ static int32_t present_frame_internal(gpui_windows_host *host,
     release_staged_text(texts, staged_count);
     return status;
   }
+  uint8_t *captured_frame = NULL;
+  if (native_e2e_enabled()) {
+    status = copy_staging_frame(host, &captured_frame);
+    if (status != GPUI_WINDOWS_OK) {
+      release_staged_text(texts, staged_count);
+      return status;
+    }
+  }
   ID3D11DeviceContext_End(host->context, (ID3D11Asynchronous *)host->frame_query);
   host->test_present_count++;
   HRESULT hr = IDXGISwapChain_Present(host->swap_chain, 1, 0);
   if (FAILED(hr)) {
     host->frame_pending = FALSE;
+    free(captured_frame);
     release_staged_text(texts, staged_count);
     return map_hresult(hr);
+  }
+  if (captured_frame) {
+    free(host->frame_pixels);
+    host->frame_pixels = captured_frame;
+    host->frame_width = host->staging_width;
+    host->frame_height = host->staging_height;
+    host->frame_scale = host->scale;
   }
   host->frame_pending = TRUE;
   release_staged_text(texts, staged_count);
@@ -1467,6 +1619,10 @@ static LRESULT CALLBACK gpui_window_proc(HWND hwnd, UINT message,
   }
   if (!host || host != &g_host || host->hwnd != hwnd ||
       host->window_id <= 0) {
+    /* Preserve the caption supplied through CREATESTRUCT during creation. */
+    if (message == WM_NCCREATE && host == &g_host && !host->hwnd &&
+        host->window_id > 0)
+      return host->api.def_window_proc_w(hwnd, message, wparam, lparam);
     if (message == WM_NCCREATE)
       return TRUE;
     return host ? host->api.def_window_proc_w(hwnd, message, wparam, lparam)
@@ -1474,6 +1630,11 @@ static LRESULT CALLBACK gpui_window_proc(HWND hwnd, UINT message,
   }
   if (host->destroying && message != WM_NCDESTROY)
     return host->api.def_window_proc_w(hwnd, message, wparam, lparam);
+  LRESULT ime_bridge_result = 0;
+  /* Authentication and request-shape checks run before bridge state changes. */
+  if (gpui_text_ime_bridge_wndproc(host, hwnd, message, wparam, lparam,
+                                  &ime_bridge_result))
+    return ime_bridge_result;
   LRESULT text_result = 0;
   if (gpui_text_session_wndproc(host, hwnd, message, wparam, lparam,
                                 &text_result))
@@ -1601,12 +1762,9 @@ static LRESULT CALLBACK gpui_window_proc(HWND hwnd, UINT message,
     host->api.screen_to_client(hwnd, &point);
     double delta = (double)(short)HIWORD(wparam) / WHEEL_DELTA * 40.0;
     int32_t horizontal = message == WM_MOUSEHWHEEL ? 1 : 0;
-    emit_event(host, 10, (double)point.x / host->scale,
-               (double)point.y / host->scale, horizontal,
-               modifiers_from_message(host, wparam));
-    int32_t at = (host->event_read + host->event_count - 1) %
-                GPUI_EVENT_CAPACITY;
-    host->events[at][4] = delta;
+    emit_wheel_event(host, (double)point.x / host->scale,
+                     (double)point.y / host->scale, horizontal, delta,
+                     modifiers_from_message(host, wparam));
     return 0;
   }
   case WM_KEYDOWN:
@@ -1614,11 +1772,20 @@ static LRESULT CALLBACK gpui_window_proc(HWND hwnd, UINT message,
   case WM_KEYUP:
   case WM_SYSKEYUP: {
     int32_t symbol = key_symbol_from_vk(wparam);
-    if (symbol != 0)
+    if (symbol != 0) {
+      int32_t previous_event_count = host->event_count;
       emit_event(host,
                  (message == WM_KEYDOWN || message == WM_SYSKEYDOWN) ? 11 : 12,
                  0, 0, symbol,
                  modifiers_from_message(host, 0));
+      if ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN) &&
+          host->event_count > previous_event_count) {
+        int32_t at = (host->event_read + host->event_count - 1) %
+                     GPUI_EVENT_CAPACITY;
+        host->events[at][7] = (double)gpui_windows_key_repeat_from_lparam(
+            (uintptr_t)lparam);
+      }
+    }
     if (message == WM_SYSKEYDOWN || message == WM_SYSKEYUP)
       return host->api.def_window_proc_w(hwnd, message, wparam, lparam);
     return 0;
@@ -1692,10 +1859,35 @@ int32_t gpui_windows_start(int32_t abi_version) {
   g_host.scale = 1.0;
   g_host.dpi = 96;
   const char *readback = getenv("GPUI_WINDOWS_READBACK");
-  g_host.readback_enabled = readback && strcmp(readback, "1") == 0;
+  g_host.readback_enabled = (readback && strcmp(readback, "1") == 0) ||
+                            native_e2e_enabled();
+  const char *ime_bridge = getenv("GPUI_WINDOWS_COMMAND_PALETTE_IME");
+  const char *ime_bridge_nonce =
+      getenv("GPUI_WINDOWS_COMMAND_PALETTE_IME_NONCE");
+  g_host.ime_bridge_nonce = 0;
+  if (ime_bridge_nonce && strlen(ime_bridge_nonce) == 8) {
+    BOOL valid_nonce = TRUE;
+    for (int32_t i = 0; i < 8; i++) {
+      char digit = ime_bridge_nonce[i];
+      if (!((digit >= '0' && digit <= '9') || (digit >= 'a' && digit <= 'f') ||
+            (digit >= 'A' && digit <= 'F'))) {
+        valid_nonce = FALSE;
+        break;
+      }
+    }
+    char *end = NULL;
+    unsigned long parsed = strtoul(ime_bridge_nonce, &end, 16);
+    if (valid_nonce && end == ime_bridge_nonce + 8 && *end == '\0' &&
+        parsed > 0 &&
+        parsed <= UINT32_MAX)
+      g_host.ime_bridge_nonce = (uint32_t)parsed;
+  }
+  g_host.ime_bridge_enabled = ime_bridge && strcmp(ime_bridge, "1") == 0 &&
+                              g_host.ime_bridge_nonce != 0;
   int32_t status = api_init(&g_host);
   if (status != GPUI_WINDOWS_OK)
     goto fail;
+  (void)gpui_clipboard_diag_is_enabled();
   DPI_AWARENESS_CONTEXT per_monitor_v2 =
       (DPI_AWARENESS_CONTEXT)(intptr_t)-4;
   if (!g_host.api.set_process_dpi_awareness_context(per_monitor_v2)) {
@@ -1909,6 +2101,10 @@ int32_t gpui_windows_destroy(int32_t token, int32_t window) {
   g_host.pixel_height = 0;
   g_host.logical_width = 0;
   g_host.logical_height = 0;
+  free(g_host.frame_pixels);
+  g_host.frame_pixels = NULL;
+  g_host.frame_width = g_host.frame_height = 0;
+  g_host.frame_scale = 0.0;
   return GPUI_WINDOWS_OK;
 }
 
@@ -1925,6 +2121,31 @@ int32_t gpui_windows_title(int32_t token, int32_t window,
   BOOL ok = g_host.api.set_window_text_w(g_host.hwnd, wide_title);
   free(wide_title);
   return ok ? GPUI_WINDOWS_OK : GPUI_WINDOWS_NATIVE;
+}
+
+/* Verify the initial caption through Win32's public retrieval API. This is
+ * exercised immediately after CreateWindowExW by the native E2E test. */
+int32_t gpui_windows_test_window_title(int32_t token, int32_t window,
+                                       const uint8_t *title,
+                                       int32_t title_length) {
+  int32_t status = check_window(token, window);
+  if (status != GPUI_WINDOWS_OK)
+    return status;
+  WCHAR *expected = NULL;
+  int32_t expected_length = 0;
+  status = utf8_to_wide(title, title_length, &expected, &expected_length);
+  if (status != GPUI_WINDOWS_OK)
+    return status;
+  WCHAR actual[512] = {0};
+  int actual_length = g_host.api.get_window_text_w(
+      g_host.hwnd, actual, (int)(sizeof(actual) / sizeof(actual[0])));
+  BOOL matches =
+      expected_length < (int32_t)(sizeof(actual) / sizeof(actual[0])) &&
+      actual_length == expected_length &&
+      memcmp(actual, expected,
+             (size_t)(expected_length + 1) * sizeof(WCHAR)) == 0;
+  free(expected);
+  return matches ? GPUI_WINDOWS_OK : GPUI_WINDOWS_NATIVE;
 }
 
 int32_t gpui_windows_size(int32_t token, int32_t window, int32_t width,
@@ -1955,6 +2176,149 @@ int32_t gpui_windows_metrics(int32_t token, int32_t window, double *metrics) {
   metrics[1] = g_host.logical_height;
   metrics[2] = g_host.scale;
   return GPUI_WINDOWS_OK;
+}
+
+typedef struct gpui_windows_display_snapshot_context {
+  HMONITOR window_monitor;
+  int32_t count;
+  int32_t status;
+  double records[GPUI_DISPLAY_CAPACITY][GPUI_DISPLAY_INFO_FIELDS];
+} gpui_windows_display_snapshot_context;
+
+static BOOL CALLBACK gpui_snapshot_monitor(HMONITOR monitor, HDC dc,
+                                           LPRECT clip, LPARAM data) {
+  (void)dc;
+  (void)clip;
+  gpui_windows_display_snapshot_context *context =
+      (gpui_windows_display_snapshot_context *)data;
+  if (!context || context->status != GPUI_WINDOWS_OK)
+    return FALSE;
+  if (context->count >= GPUI_DISPLAY_CAPACITY) {
+    context->status = GPUI_WINDOWS_RESOURCE;
+    return FALSE;
+  }
+
+  MONITORINFOEXW info;
+  ZeroMemory(&info, sizeof(info));
+  info.cbSize = sizeof(info);
+  if (!g_host.api.get_monitor_info_w(monitor, (LPMONITORINFO)&info)) {
+    context->status = GPUI_WINDOWS_NATIVE;
+    return FALSE;
+  }
+  int64_t bounds_width = (int64_t)info.rcMonitor.right - info.rcMonitor.left;
+  int64_t bounds_height = (int64_t)info.rcMonitor.bottom - info.rcMonitor.top;
+  int64_t work_width = (int64_t)info.rcWork.right - info.rcWork.left;
+  int64_t work_height = (int64_t)info.rcWork.bottom - info.rcWork.top;
+  if (bounds_width <= 0 || bounds_height <= 0 || work_width <= 0 ||
+      work_height <= 0 || bounds_width > INT32_MAX ||
+      bounds_height > INT32_MAX || work_width > INT32_MAX ||
+      work_height > INT32_MAX) {
+    context->status = GPUI_WINDOWS_CONVERSION;
+    return FALSE;
+  }
+
+  double *record = context->records[context->count];
+  record[0] = (double)info.rcMonitor.left;
+  record[1] = (double)info.rcMonitor.top;
+  record[2] = (double)bounds_width;
+  record[3] = (double)bounds_height;
+  record[4] = (double)info.rcWork.left;
+  record[5] = (double)info.rcWork.top;
+  record[6] = (double)work_width;
+  record[7] = (double)work_height;
+  record[8] = (info.dwFlags & MONITORINFOF_PRIMARY) != 0 ? 1.0 : 0.0;
+  record[9] = monitor == context->window_monitor ? 1.0 : 0.0;
+
+  /* GetDpiForMonitor is not DPI-aware and is explicitly unsupported for a
+   * per-monitor-aware calling thread. GetDpiForWindow is awareness-aware, but
+   * only supplies the monitor containing this host's HWND. */
+  UINT dpi = 0;
+  if (monitor == context->window_monitor && g_host.hwnd &&
+      g_host.api.get_dpi_for_window) {
+    dpi = g_host.api.get_dpi_for_window(g_host.hwnd);
+  }
+  if (dpi > 0 && dpi <= INT32_MAX) {
+    record[10] = 1.0;
+    record[11] = (double)dpi;
+    record[12] = (double)dpi;
+  }
+
+  DEVMODEW mode;
+  ZeroMemory(&mode, sizeof(mode));
+  mode.dmSize = sizeof(mode);
+  if (g_host.api.enum_display_settings_ex_w(
+          info.szDevice, ENUM_CURRENT_SETTINGS, &mode, 0)) {
+    if ((mode.dmFields & (DM_PELSWIDTH | DM_PELSHEIGHT)) ==
+            (DM_PELSWIDTH | DM_PELSHEIGHT) &&
+        mode.dmPelsWidth > 0 && mode.dmPelsHeight > 0 &&
+        mode.dmPelsWidth <= INT32_MAX && mode.dmPelsHeight <= INT32_MAX) {
+      record[13] = 1.0;
+      record[14] = (double)mode.dmPelsWidth;
+      record[15] = (double)mode.dmPelsHeight;
+      if ((mode.dmFields & DM_DISPLAYFREQUENCY) != 0 &&
+          mode.dmDisplayFrequency > 1 &&
+          mode.dmDisplayFrequency <= INT32_MAX)
+        record[16] = (double)mode.dmDisplayFrequency;
+    }
+    record[17] = -1.0;
+    if ((mode.dmFields & DM_DISPLAYORIENTATION) != 0) {
+      switch (mode.dmDisplayOrientation) {
+      case DMDO_DEFAULT:
+        record[17] = 0.0;
+        break;
+      case DMDO_90:
+        record[17] = 90.0;
+        break;
+      case DMDO_180:
+        record[17] = 180.0;
+        break;
+      case DMDO_270:
+        record[17] = 270.0;
+        break;
+      default:
+        context->status = GPUI_WINDOWS_CONVERSION;
+        return FALSE;
+      }
+    }
+  } else {
+    record[17] = -1.0;
+  }
+
+  context->count++;
+  return TRUE;
+}
+
+/* Copy a bounded view of current monitor metadata. Coordinates and mode
+ * dimensions are physical pixels; refresh is the integer Hz value reported
+ * by DEVMODE (zero means unavailable or the OS default). Physical panel size
+ * is intentionally omitted because Win32 does not provide reliable values. */
+int32_t gpui_windows_display_snapshot(int32_t token, double *records,
+                                      int32_t capacity) {
+  int32_t status = check_host(token, TRUE);
+  if (status != GPUI_WINDOWS_OK)
+    return -status;
+  if (!records || capacity < 0 ||
+      capacity < GPUI_DISPLAY_CAPACITY * GPUI_DISPLAY_INFO_FIELDS)
+    return -GPUI_WINDOWS_INVALID;
+  if (g_host.state != 0)
+    return -GPUI_WINDOWS_STOPPING;
+
+  gpui_windows_display_snapshot_context context;
+  ZeroMemory(&context, sizeof(context));
+  context.status = GPUI_WINDOWS_OK;
+  context.window_monitor = g_host.hwnd
+                               ? g_host.api.monitor_from_window(
+                                     g_host.hwnd, MONITOR_DEFAULTTONEAREST)
+                               : NULL;
+  BOOL enumerated = g_host.api.enum_display_monitors(
+      NULL, NULL, gpui_snapshot_monitor, (LPARAM)&context);
+  if (context.status != GPUI_WINDOWS_OK)
+    return -context.status;
+  if (!enumerated)
+    return -GPUI_WINDOWS_NATIVE;
+  memcpy(records, context.records,
+         (size_t)context.count * GPUI_DISPLAY_INFO_FIELDS * sizeof(double));
+  return context.count;
 }
 
 /* CI-only deterministic WM_SIZE probe. phase 0 sends SIZE_MINIMIZED, phase 1
@@ -2465,30 +2829,118 @@ static int32_t clipboard_utf16_to_utf8(const WCHAR *wide,
   return required;
 }
 
-int32_t gpui_windows_clipboard_read(int32_t token, uint8_t *output,
-                                    int32_t capacity) {
+typedef struct gpui_host_clipboard_open_metadata {
+  gpui_clipboard_diag_record *record;
+  HWND caller;
+} gpui_host_clipboard_open_metadata;
+
+static void gpui_host_clipboard_capture_open_metadata(void *context) {
+  gpui_host_clipboard_open_metadata *metadata =
+      (gpui_host_clipboard_open_metadata *)context;
+  gpui_clipboard_diag_fill_actor(metadata->record, metadata->caller);
+  gpui_clipboard_diag_fill_opener(
+      metadata->record, g_host.api.get_open_clipboard_window,
+      g_host.api.get_window_thread_process_id);
+}
+
+static void gpui_host_clipboard_diag_operation(const char *event,
+                                              const char *stage,
+                                              const char *api,
+                                              const char *result,
+                                              int error_valid,
+                                              DWORD error) {
+  if (!gpui_clipboard_diag_is_enabled())
+    return;
+  gpui_clipboard_diag_record record = {0};
+  record.role = "host";
+  record.event = event;
+  record.stage = stage;
+  record.api = api;
+  record.result = result;
+  record.error_valid = error_valid;
+  record.error = error;
+  gpui_clipboard_diag_fill_actor(&record, g_host.hwnd);
+  gpui_clipboard_diag_emit(GPUI_CLIPBOARD_DIAG_ROLE_HOST, &record);
+}
+
+static BOOL gpui_host_clipboard_open(const char *stage) {
+  BOOL enabled = gpui_clipboard_diag_is_enabled();
+  gpui_clipboard_diag_record record = {0};
+  record.role = "host";
+  record.event = "clipboard_open";
+  record.stage = stage;
+  record.api = "OpenClipboard";
+  gpui_host_clipboard_open_metadata metadata = {&record, g_host.hwnd};
+  BOOL opened = g_host.api.open_clipboard(g_host.hwnd);
+  /* The helper saves GetLastError before collecting the failure snapshot. */
+  DWORD error = gpui_clipboard_diag_after_open(
+      opened, gpui_clipboard_diag_get_last_error, NULL,
+      enabled ? gpui_host_clipboard_capture_open_metadata : NULL, &metadata);
+  if (enabled) {
+    if (opened)
+      gpui_clipboard_diag_fill_actor(&record, g_host.hwnd);
+    record.result = opened ? "success" : "failure";
+    record.error_valid = !opened;
+    record.error = error;
+    gpui_clipboard_diag_emit(GPUI_CLIPBOARD_DIAG_ROLE_HOST, &record);
+  }
+  return opened;
+}
+
+static BOOL gpui_host_clipboard_close(const char *stage) {
+  BOOL closed = g_host.api.close_clipboard();
+  DWORD error = closed ? 0 : GetLastError();
+  if (gpui_clipboard_diag_is_enabled()) {
+    gpui_clipboard_diag_record record = {0};
+    gpui_clipboard_diag_set_close_record(&record, "host", stage,
+                                         g_host.hwnd, closed, error);
+    gpui_clipboard_diag_emit(GPUI_CLIPBOARD_DIAG_ROLE_HOST, &record);
+  }
+  return closed;
+}
+
+static int32_t gpui_windows_clipboard_read_stage(int32_t token,
+                                                 uint8_t *output,
+                                                 int32_t capacity,
+                                                 const char *stage) {
   int32_t status = check_host(token, TRUE);
   if (status != GPUI_WINDOWS_OK)
     return -status;
   if (capacity < 0 || (capacity > 0 && !output))
     return -GPUI_WINDOWS_INVALID;
-  if (!g_host.api.open_clipboard(g_host.hwnd))
+  if (!gpui_host_clipboard_open(stage))
     return -GPUI_WINDOWS_BUSY;
   HANDLE handle = g_host.api.get_clipboard_data(CF_UNICODETEXT);
+  DWORD data_error = handle ? 0 : GetLastError();
+  gpui_host_clipboard_diag_operation(
+      "clipboard_data", stage, "GetClipboardData",
+      handle ? "success" : "failure", !handle, data_error);
   if (!handle) {
-    g_host.api.close_clipboard();
+    gpui_host_clipboard_close(stage);
     return -GPUI_WINDOWS_UNSUPPORTED;
   }
   const WCHAR *wide = (const WCHAR *)GlobalLock(handle);
   if (!wide) {
-    g_host.api.close_clipboard();
+    gpui_host_clipboard_close(stage);
     return -GPUI_WINDOWS_NATIVE;
   }
   int32_t result = clipboard_utf16_to_utf8(
       wide, GlobalSize(handle), output, capacity);
   GlobalUnlock(handle);
-  g_host.api.close_clipboard();
+  gpui_host_clipboard_close(stage);
   return result;
+}
+
+int32_t gpui_windows_clipboard_read_size(int32_t token, uint8_t *output,
+                                         int32_t capacity) {
+  return gpui_windows_clipboard_read_stage(token, output, capacity,
+                                           "read_size");
+}
+
+int32_t gpui_windows_clipboard_read_data(int32_t token, uint8_t *output,
+                                         int32_t capacity) {
+  return gpui_windows_clipboard_read_stage(token, output, capacity,
+                                           "read_data");
 }
 
 int32_t gpui_windows_test_clipboard_validation(void) {
@@ -2531,17 +2983,26 @@ int32_t gpui_windows_clipboard_write(int32_t token, const uint8_t *text,
   memcpy(target, wide, ((size_t)wide_length + 1) * sizeof(WCHAR));
   GlobalUnlock(memory);
   free(wide);
-  if (!g_host.api.open_clipboard(g_host.hwnd)) {
+  if (!gpui_host_clipboard_open("write")) {
     GlobalFree(memory);
     return GPUI_WINDOWS_BUSY;
   }
-  if (!g_host.api.empty_clipboard()) {
-    g_host.api.close_clipboard();
+  BOOL emptied = g_host.api.empty_clipboard();
+  DWORD empty_error = emptied ? 0 : GetLastError();
+  gpui_host_clipboard_diag_operation(
+      "clipboard_empty", "write", "EmptyClipboard",
+      emptied ? "success" : "failure", !emptied, empty_error);
+  if (!emptied) {
+    gpui_host_clipboard_close("write");
     GlobalFree(memory);
     return GPUI_WINDOWS_NATIVE;
   }
   HANDLE transferred = g_host.api.set_clipboard_data(CF_UNICODETEXT, memory);
-  g_host.api.close_clipboard();
+  DWORD set_error = transferred ? 0 : GetLastError();
+  gpui_host_clipboard_diag_operation(
+      "clipboard_set_data", "write", "SetClipboardData",
+      transferred ? "success" : "failure", !transferred, set_error);
+  gpui_host_clipboard_close("write");
   if (!transferred) {
     GlobalFree(memory);
     return GPUI_WINDOWS_NATIVE;
@@ -2562,6 +3023,49 @@ int32_t gpui_windows_readback(int32_t token, int32_t window, double *rgba) {
   if (!g_host.readback_valid)
     return GPUI_WINDOWS_BUSY;
   memcpy(rgba, g_host.readback_rgba, sizeof(g_host.readback_rgba));
+  return GPUI_WINDOWS_OK;
+}
+
+int32_t gpui_windows_frame_metrics_v1(int32_t token, int32_t window,
+                                      double *output) {
+  int32_t status = check_window(token, window);
+  if (status != GPUI_WINDOWS_OK)
+    return status;
+  if (!native_e2e_enabled() || !g_host.readback_enabled)
+    return GPUI_WINDOWS_UNSUPPORTED;
+  if (!output)
+    return GPUI_WINDOWS_INVALID;
+  if (!g_host.frame_pixels)
+    return GPUI_WINDOWS_BUSY;
+  int64_t pixels = (int64_t)g_host.frame_width * g_host.frame_height;
+  if (g_host.frame_width == 0 || g_host.frame_height == 0 ||
+      g_host.frame_width > 16384 || g_host.frame_height > 16384 ||
+      pixels > 16 * 1024 * 1024)
+    return GPUI_WINDOWS_RESOURCE;
+  output[0] = g_host.frame_width;
+  output[1] = g_host.frame_height;
+  output[2] = g_host.frame_scale;
+  return GPUI_WINDOWS_OK;
+}
+
+int32_t gpui_windows_frame_copy_v1(int32_t token, int32_t window,
+                                   uint8_t *output, int32_t capacity) {
+  int32_t status = check_window(token, window);
+  if (status != GPUI_WINDOWS_OK)
+    return status;
+  if (!native_e2e_enabled() || !g_host.readback_enabled)
+    return GPUI_WINDOWS_UNSUPPORTED;
+  if (!g_host.frame_pixels)
+    return GPUI_WINDOWS_BUSY;
+  int64_t pixels = (int64_t)g_host.frame_width * g_host.frame_height;
+  int64_t required = pixels * 4;
+  if (g_host.frame_width == 0 || g_host.frame_height == 0 ||
+      g_host.frame_width > 16384 || g_host.frame_height > 16384 ||
+      pixels > 16 * 1024 * 1024 || required > INT32_MAX)
+    return GPUI_WINDOWS_RESOURCE;
+  if (!output || capacity < 0 || capacity != required)
+    return GPUI_WINDOWS_INVALID;
+  memcpy(output, g_host.frame_pixels, (size_t)required);
   return GPUI_WINDOWS_OK;
 }
 
@@ -2796,11 +3300,137 @@ int32_t gpui_windows_stop(int32_t token) {
   }
   gpui_text_session_shutdown(&g_host);
   api_release(&g_host);
+  free(g_host.frame_pixels);
+  g_host.frame_pixels = NULL;
+  g_host.frame_width = g_host.frame_height = 0;
+  g_host.frame_scale = 0.0;
   InterlockedExchange(&g_host.state, 2);
   InterlockedExchange(&g_host_claimed, 0);
   ReleaseSRWLockExclusive(&g_host_lifecycle_lock);
   return GPUI_WINDOWS_OK;
 }
+
+static void seed_wheel_test_editor_slot(gpui_windows_host *host, int32_t slot,
+                                        uint8_t *payload) {
+  host->editor_events[slot] = TRUE;
+  for (int32_t i = 0; i < 10; ++i)
+    host->editor_fields[slot][i] = 1000.0 + i;
+  host->editor_payloads[slot] = payload;
+  host->editor_payload_bytes[slot] = 4;
+  host->editor_payload_total = 4;
+}
+
+static BOOL wheel_test_tail_unchanged(
+    gpui_windows_host *host, int32_t slot, const double event_before[10],
+    BOOL editor_before, const double editor_fields_before[10],
+    uint8_t *payload_before, int32_t payload_bytes_before,
+    int32_t payload_total_before) {
+  return memcmp(host->events[slot], event_before,
+                sizeof(host->events[slot])) == 0 &&
+         host->editor_events[slot] == editor_before &&
+         memcmp(host->editor_fields[slot], editor_fields_before,
+                sizeof(host->editor_fields[slot])) == 0 &&
+         host->editor_payloads[slot] == payload_before &&
+         host->editor_payload_bytes[slot] == payload_bytes_before &&
+         host->editor_payload_total == payload_total_before;
+}
+
+/* Exercise the production wheel enqueue helper without a real HWND. These
+ * cases cover the wrapped success path and both queue/sequence rejection
+ * paths while sentinel editor sidecars occupy the last accepted slot. */
+int32_t gpui_windows_test_wheel_enqueue(void) {
+  static gpui_windows_host host;
+  memset(&host, 0, sizeof(host));
+  host.window_id = 77;
+  host.scale = 1.5;
+  host.logical_width = 640.0;
+  host.logical_height = 480.0;
+  host.sequence = 11;
+  host.event_read = GPUI_EVENT_CAPACITY - 1;
+  host.event_count = 1;
+  host.events[host.event_read][0] = 7.0;
+  host.events[host.event_read][1] = 77.0;
+  host.events[host.event_read][2] = 11.0;
+  emit_wheel_event(&host, 12.5, 20.25, 1, -40.0, 9);
+  const double *accepted = host.events[0];
+  if (host.event_count != 2 || host.sequence != 12 || accepted[0] != 10.0 ||
+      accepted[1] != 77.0 || accepted[2] != 12.0 || accepted[3] != 1.5 ||
+      accepted[4] != -40.0 || accepted[5] != 480.0 ||
+      accepted[6] != 12.5 || accepted[7] != 20.25 || accepted[8] != 1.0 ||
+      accepted[9] != 9.0 || host.events[host.event_read][0] != 7.0 ||
+      host.events[host.event_read][4] != 0.0)
+    return 2;
+
+  memset(&host, 0, sizeof(host));
+  host.window_id = 77;
+  host.scale = 2.0;
+  host.logical_width = 640.0;
+  host.logical_height = 480.0;
+  host.sequence = 31;
+  host.event_read = GPUI_EVENT_CAPACITY - 8;
+  host.event_count = GPUI_EVENT_CAPACITY;
+  int32_t tail = (host.event_read + host.event_count - 1) %
+                 GPUI_EVENT_CAPACITY;
+  for (int32_t i = 0; i < 10; ++i)
+    host.events[tail][i] = 2000.0 + i;
+  uint8_t *payload = (uint8_t *)malloc(4);
+  if (!payload)
+    return GPUI_WINDOWS_RESOURCE;
+  memcpy(payload, "keep", 4);
+  seed_wheel_test_editor_slot(&host, tail, payload);
+  double event_before[10];
+  double editor_fields_before[10];
+  memcpy(event_before, host.events[tail], sizeof(event_before));
+  memcpy(editor_fields_before, host.editor_fields[tail],
+         sizeof(editor_fields_before));
+  int32_t count_before = host.event_count;
+  int64_t sequence_before = host.sequence;
+  emit_wheel_event(&host, 1.0, 2.0, 0, 40.0, 0);
+  BOOL queue_rejection_preserved =
+      host.error == GPUI_WINDOWS_RESOURCE && host.state == 1 &&
+      host.event_count == count_before && host.sequence == sequence_before &&
+      wheel_test_tail_unchanged(&host, tail, event_before, TRUE,
+                                editor_fields_before, payload, 4, 4);
+  if (host.editor_payloads[tail] == payload)
+    free(payload);
+  if (!queue_rejection_preserved)
+    return 3;
+
+  memset(&host, 0, sizeof(host));
+  host.window_id = 77;
+  host.scale = 2.0;
+  host.logical_width = 640.0;
+  host.logical_height = 480.0;
+  host.sequence = INT64_C(9007199254740991);
+  host.event_read = GPUI_EVENT_CAPACITY - 1;
+  host.event_count = 2;
+  tail = (host.event_read + host.event_count - 1) % GPUI_EVENT_CAPACITY;
+  for (int32_t i = 0; i < 10; ++i)
+    host.events[tail][i] = 3000.0 + i;
+  payload = (uint8_t *)malloc(4);
+  if (!payload)
+    return GPUI_WINDOWS_RESOURCE;
+  memcpy(payload, "stay", 4);
+  seed_wheel_test_editor_slot(&host, tail, payload);
+  memcpy(event_before, host.events[tail], sizeof(event_before));
+  memcpy(editor_fields_before, host.editor_fields[tail],
+         sizeof(editor_fields_before));
+  count_before = host.event_count;
+  sequence_before = host.sequence;
+  emit_wheel_event(&host, 3.0, 4.0, 1, 80.0, 0);
+  BOOL sequence_rejection_preserved =
+      host.error == GPUI_WINDOWS_RESOURCE && host.state == 1 &&
+      host.event_count == count_before && host.sequence == sequence_before &&
+      wheel_test_tail_unchanged(&host, tail, event_before, TRUE,
+                                editor_fields_before, payload, 4, 4);
+  if (host.editor_payloads[tail] == payload)
+    free(payload);
+  return sequence_rejection_preserved ? GPUI_WINDOWS_OK : 4;
+}
+
+/* Test-only independent-process probes pump sent ownership messages while
+ * awaiting a bounded challenge handshake. */
+#include "clipboard_interop_test.inc"
 
 #else
 
@@ -2867,6 +3497,13 @@ int32_t gpui_windows_metrics(int32_t host, int32_t window, double *metrics) {
   (void)window;
   (void)metrics;
   return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_display_snapshot(int32_t host, double *records,
+                                      int32_t capacity) {
+  (void)host;
+  (void)records;
+  (void)capacity;
+  return -GPUI_WINDOWS_UNSUPPORTED;
 }
 int32_t gpui_windows_dispatch(int32_t host, int32_t timeout_ms) {
   (void)host;
@@ -2945,6 +3582,15 @@ int32_t gpui_windows_session_end(int32_t host, int32_t window,
   (void)owner_generation;
   return -GPUI_WINDOWS_UNSUPPORTED;
 }
+int32_t gpui_windows_session_is_current(int32_t host, int32_t window,
+                                        int32_t epoch,
+                                        int32_t owner_generation) {
+  (void)host;
+  (void)window;
+  (void)epoch;
+  (void)owner_generation;
+  return -GPUI_WINDOWS_UNSUPPORTED;
+}
 int32_t gpui_windows_window_has_keyboard_focus(int32_t host, int32_t window) {
   (void)host;
   (void)window;
@@ -2980,8 +3626,15 @@ int32_t gpui_windows_cursor(int32_t host, int32_t cursor) {
   (void)cursor;
   return GPUI_WINDOWS_UNSUPPORTED;
 }
-int32_t gpui_windows_clipboard_read(int32_t host, uint8_t *output,
-                                    int32_t capacity) {
+int32_t gpui_windows_clipboard_read_size(int32_t host, uint8_t *output,
+                                         int32_t capacity) {
+  (void)host;
+  (void)output;
+  (void)capacity;
+  return -GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_clipboard_read_data(int32_t host, uint8_t *output,
+                                         int32_t capacity) {
   (void)host;
   (void)output;
   (void)capacity;
@@ -2998,6 +3651,21 @@ int32_t gpui_windows_readback(int32_t host, int32_t window, double *rgba) {
   (void)host;
   (void)window;
   (void)rgba;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_frame_metrics_v1(int32_t host, int32_t window,
+                                      double *output) {
+  (void)host;
+  (void)window;
+  (void)output;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_frame_copy_v1(int32_t host, int32_t window,
+                                   uint8_t *output, int32_t capacity) {
+  (void)host;
+  (void)window;
+  (void)output;
+  (void)capacity;
   return GPUI_WINDOWS_UNSUPPORTED;
 }
 int32_t gpui_windows_test_readback_region(int32_t host, int32_t window,
@@ -3034,11 +3702,46 @@ int32_t gpui_windows_test_wrong_thread(int32_t host, int32_t window) {
   (void)window;
   return GPUI_WINDOWS_UNSUPPORTED;
 }
+int32_t gpui_windows_test_window_title(int32_t host, int32_t window,
+                                       const uint8_t *title, int32_t length) {
+  (void)host;
+  (void)window;
+  (void)title;
+  (void)length;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
 int32_t gpui_windows_test_wake_stop_race(int32_t host) {
   (void)host;
   return GPUI_WINDOWS_UNSUPPORTED;
 }
 int32_t gpui_windows_test_clipboard_validation(void) {
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_clipboard_diagnostics_disabled(void) {
+  return GPUI_WINDOWS_OK;
+}
+int32_t gpui_windows_test_clipboard_fixture_read(int32_t token) {
+  (void)token;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_clipboard_fixture_write(int32_t token) {
+  (void)token;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_clipboard_fixture_read_line(int32_t token) {
+  (void)token;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_clipboard_fixture_lock_start(int32_t token) {
+  (void)token;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_clipboard_fixture_lock_stop(int32_t token) {
+  (void)token;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_clipboard_fixture_expiry(int32_t token) {
+  (void)token;
   return GPUI_WINDOWS_UNSUPPORTED;
 }
 int32_t gpui_windows_test_size_message(int32_t host, int32_t window,
@@ -3065,8 +3768,13 @@ int32_t gpui_windows_test_mouse_destroy_reset(int32_t host, int32_t window) {
   (void)window;
   return GPUI_WINDOWS_UNSUPPORTED;
 }
-int32_t gpui_windows_test_text_session_staging(int32_t *failed_stage) {
+int32_t gpui_windows_test_text_session_staging(int32_t *failed_stage,
+                                              double *repeat_event) {
   (void)failed_stage;
+  (void)repeat_event;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_wheel_enqueue(void) {
   return GPUI_WINDOWS_UNSUPPORTED;
 }
 

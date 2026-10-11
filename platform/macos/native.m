@@ -72,12 +72,19 @@ static int64_t next_token, result_token, host_epoch;
 static NSData *text_result;
 static int state; // 0 uninitialized/stopped, 1 running, 2 quiescing
 static BOOL overflow;
-#ifdef GPUI_TESTING
 static NSData *frame_pixels;
 static NSUInteger frame_width, frame_height, frame_stride;
+static int64_t frame_window_token;
+static double frame_scale;
 static double test_scale_override;
-#endif
+static NSPasteboard *test_clipboard;
 static BOOL key_window_owns_view(GPWindow *w);
+static NSPasteboard *clipboard_pasteboard(void) {
+#ifdef GPUI_TESTING
+  if (test_clipboard) return test_clipboard;
+#endif
+  return NSPasteboard.generalPasteboard;
+}
 static void request_application_activation(void) {
   if (@available(macOS 14.0, *)) {
     [NSApp activate];
@@ -1404,6 +1411,7 @@ static int present(GPWindow *w, const uint8_t *bytes, int32_t len) {
   [command waitUntilCompleted];
 #ifdef GPUI_TESTING
   frame_pixels=[NSData dataWithBytes:readback.contents length:frame_stride*frame_height];
+  frame_window_token=w.token; frame_scale=w.scale;
 #endif
   if (command.status != MTLCommandBufferStatusCompleted) return 16;
 #ifdef GPUI_TESTING
@@ -1643,6 +1651,8 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
       if (!state) return 0;
       for (GPWindow *w in windows.allValues) destroy(w);
       events=nil; current=nil; text_result=nil; windows=nil; white_mask_texture=nil; pipeline=nil; queue=nil; device=nil;
+      frame_pixels=nil; frame_width=frame_height=frame_stride=0; frame_window_token=0; frame_scale=0; test_scale_override=0;
+      [test_clipboard releaseGlobally]; test_clipboard=nil;
       NSApp.delegate=nil; app_delegate=nil; state=0;
       return 0;
     }
@@ -1736,15 +1746,15 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
     }
     if (op == 13) {
       current=nil;
-      NSString *text = [NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString] ?: @"";
+      NSString *text = [clipboard_pasteboard() stringForType:NSPasteboardTypeString] ?: @"";
       text_result = [text dataUsingEncoding:NSUTF8StringEncoding];
       return text_result.length <= 16*1024*1024 ? 0 : 13;
     }
     if (op == 14) {
       NSString *text = [[NSString alloc] initWithBytes:bytes length:len encoding:NSUTF8StringEncoding];
       if (!text) return 17;
-      [NSPasteboard.generalPasteboard clearContents];
-      return [NSPasteboard.generalPasteboard setString:text forType:NSPasteboardTypeString] ? 0 : 12;
+      [clipboard_pasteboard() clearContents];
+      return [clipboard_pasteboard() setString:text forType:NSPasteboardTypeString] ? 0 : 12;
     }
     if (op == 11) { if (state == 1) { state=2; emit(nil,15,0,0,0,0,0); } return 0; }
     GPWindow *w=windows[@(token)];
@@ -1931,4 +1941,250 @@ static double native_number(int32_t field) {
 const GpuiApi *gpui_macos_api_v1(void) {
   static const GpuiApi api={1,sizeof(GpuiApi),native_call,native_integer,native_number};
   return &api;
+}
+
+static BOOL valid_screen_rect(NSRect rect) {
+  return isfinite(NSMinX(rect)) && isfinite(NSMinY(rect)) &&
+      isfinite(NSWidth(rect)) && isfinite(NSHeight(rect)) &&
+      NSWidth(rect) > 0 && NSHeight(rect) > 0;
+}
+static BOOL screen_display_id(NSScreen *screen, CGDirectDisplayID *display) {
+  id value = screen.deviceDescription[@"NSScreenNumber"];
+  if (![value isKindOfClass:NSNumber.class]) return NO;
+  double number = [value doubleValue];
+  if (!isfinite(number) || number < 0 || number > UINT32_MAX ||
+      floor(number) != number) return NO;
+  *display = (CGDirectDisplayID)number;
+  return YES;
+}
+static NSWindow *host_key_window(void) {
+  NSWindow *key = NSApp.keyWindow;
+  if (!key) return nil;
+  for (GPWindow *window in windows.allValues)
+    if (!window.closing && window.window == key) return key;
+  return nil;
+}
+int32_t gpui_macos_display_snapshot_v1(int64_t host, double *records,
+                                      int32_t capacity) {
+  if (![NSThread isMainThread]) return -18;
+  if (!records || capacity != MACOS_DISPLAY_CAPACITY * MACOS_DISPLAY_FIELDS)
+    return -5;
+  if (!state) return -1;
+  if (state == 2) return -19;
+  if (host != host_epoch) return -10;
+  @autoreleasepool {
+    NSArray<NSScreen *> *screens = NSScreen.screens;
+    if (![screens isKindOfClass:NSArray.class]) return -20;
+    NSUInteger count = screens.count;
+    if (count > MACOS_DISPLAY_CAPACITY) return -13;
+    double copied[MACOS_DISPLAY_CAPACITY * MACOS_DISPLAY_FIELDS] = {0};
+    CGDirectDisplayID identifiers[MACOS_DISPLAY_CAPACITY] = {0};
+    NSWindow *key_window = host_key_window();
+    NSScreen *key_screen = key_window.screen;
+    CGDirectDisplayID key_display = 0;
+    if (key_screen && !screen_display_id(key_screen, &key_display))
+      return -17;
+    for (NSUInteger index = 0; index < count; index++) {
+      NSScreen *screen = screens[index];
+      if (![screen isKindOfClass:NSScreen.class]) return -20;
+      CGDirectDisplayID display = 0;
+      if (!screen_display_id(screen, &display)) return -17;
+      if (!CGDisplayIsOnline(display)) return -12;
+      NSRect frame = screen.frame;
+      NSRect visible = screen.visibleFrame;
+      double scale = screen.backingScaleFactor;
+      if (!valid_screen_rect(frame) || !valid_screen_rect(visible) ||
+          !isfinite(scale) || scale <= 0 || scale > 8) return -20;
+      CGDisplayModeRef mode = CGDisplayCopyDisplayMode(display);
+      if (!mode) return CGDisplayIsOnline(display) ? -20 : -12;
+      size_t mode_width = CGDisplayModeGetPixelWidth(mode);
+      size_t mode_height = CGDisplayModeGetPixelHeight(mode);
+      double refresh = CGDisplayModeGetRefreshRate(mode);
+      CGDisplayModeRelease(mode);
+      if (!mode_width || !mode_height || mode_width > INT32_MAX ||
+          mode_height > INT32_MAX || !isfinite(refresh) || refresh < 0 ||
+          refresh > 1000) return -20;
+      int base = (int)index * MACOS_DISPLAY_FIELDS;
+      copied[base] = NSMinX(frame);
+      copied[base + 1] = NSMinY(frame);
+      copied[base + 2] = NSWidth(frame);
+      copied[base + 3] = NSHeight(frame);
+      copied[base + 4] = NSMinX(visible);
+      copied[base + 5] = NSMinY(visible);
+      copied[base + 6] = NSWidth(visible);
+      copied[base + 7] = NSHeight(visible);
+      copied[base + 8] = scale;
+      copied[base + 9] = (double)mode_width;
+      copied[base + 10] = (double)mode_height;
+      copied[base + 11] = refresh;
+      copied[base + 12] = CGDisplayIsMain(display) ? 1 : 0;
+      copied[base + 13] = key_screen && display == key_display ? 1 : 0;
+      identifiers[index] = display;
+      if (!CGDisplayIsOnline(display)) return -12;
+    }
+    NSArray<NSScreen *> *current_screens = NSScreen.screens;
+    if (![current_screens isKindOfClass:NSArray.class] ||
+        current_screens.count != count) return -12;
+    for (NSUInteger index = 0; index < count; index++) {
+      CGDirectDisplayID current_display = 0;
+      if (!screen_display_id(current_screens[index], &current_display))
+        return -12;
+      if (current_display != identifiers[index] ||
+          !CGDisplayIsOnline(current_display)) return -12;
+    }
+    if (count) memcpy(records, copied, count * MACOS_DISPLAY_FIELDS * sizeof(double));
+    return (int32_t)count;
+  }
+
+int32_t gpui_macos_test_frame_meta_v1(int64_t window, double *output) {
+#ifdef GPUI_TESTING
+  if (![NSThread isMainThread]) return 18;
+  const char *enabled = getenv("GPUI_NATIVE_E2E");
+  if (!enabled || strcmp(enabled, "1") != 0) return 9;
+  if (!output) return 5;
+  GPWindow *target = windows[@(window)];
+  if (!target || !target.window) return 10;
+  if (!frame_pixels || frame_window_token != window) return 12;
+  if (!frame_width || !frame_height || frame_width > 16384 || frame_height > 16384 ||
+      frame_width * frame_height > 16 * 1024 * 1024 || frame_stride < frame_width * 4 ||
+      frame_pixels.length < frame_stride * frame_height) return 13;
+  output[0] = (double)frame_width;
+  output[1] = (double)frame_height;
+  output[2] = frame_scale;
+  return 0;
+#else
+  (void)window; (void)output;
+  return 9;
+#endif
+}
+
+int32_t gpui_macos_test_frame_copy_v1(int64_t window, uint8_t *output,
+                                      int32_t capacity) {
+#ifdef GPUI_TESTING
+  if (![NSThread isMainThread]) return 18;
+  const char *enabled = getenv("GPUI_NATIVE_E2E");
+  if (!enabled || strcmp(enabled, "1") != 0) return 9;
+  GPWindow *target = windows[@(window)];
+  if (!target || !target.window) return 10;
+  if (!frame_pixels || frame_window_token != window) return 12;
+  NSUInteger pixels = frame_width * frame_height;
+  if (!frame_width || !frame_height || frame_width > 16384 || frame_height > 16384 ||
+      pixels > 16 * 1024 * 1024 || frame_stride < frame_width * 4 ||
+      frame_pixels.length < frame_stride * frame_height || pixels * 4 > INT32_MAX) return 13;
+  NSUInteger required = pixels * 4;
+  if (!output || capacity < 0 || (NSUInteger)capacity != required) return 5;
+  const uint8_t *source = frame_pixels.bytes;
+  for (NSUInteger y = 0; y < frame_height; ++y) {
+    for (NSUInteger x = 0; x < frame_width; ++x) {
+      NSUInteger src = y * frame_stride + x * 4;
+      NSUInteger dst = (y * frame_width + x) * 4;
+      output[dst] = source[src + 2];
+      output[dst + 1] = source[src + 1];
+      output[dst + 2] = source[src];
+      output[dst + 3] = source[src + 3];
+    }
+  }
+  return 0;
+#else
+  (void)window; (void)output; (void)capacity;
+  return 9;
+#endif
+}
+
+/* Opt-in, window-scoped E2E events. They travel through NSWindow's normal
+ * dispatch path and cannot target arbitrary desktop windows. */
+int32_t gpui_macos_test_post_click_v1(int64_t token, double x, double y) {
+#ifdef GPUI_TESTING
+  if (![NSThread isMainThread]) return 18;
+  const char *enabled = getenv("GPUI_NATIVE_E2E");
+  if (!enabled || strcmp(enabled, "1") != 0) return 9;
+  GPWindow *target = windows[@(token)];
+  if (!target || !target.window || target.closing) return 10;
+  NSView *content = target.window.contentView;
+  if (!isfinite(x) || !isfinite(y) || x < 0 || y < 0 ||
+      x >= content.bounds.size.width || y >= content.bounds.size.height)
+    return 5;
+  NSPoint location = [content convertPoint:NSMakePoint(x, y) toView:nil];
+  NSTimeInterval timestamp = NSProcessInfo.processInfo.systemUptime;
+  NSEvent *down = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown
+      location:location modifierFlags:0 timestamp:timestamp
+      windowNumber:target.window.windowNumber context:nil eventNumber:1
+      clickCount:1 pressure:1.0];
+  NSEvent *up = [NSEvent mouseEventWithType:NSEventTypeLeftMouseUp
+      location:location modifierFlags:0 timestamp:timestamp + 0.001
+      windowNumber:target.window.windowNumber context:nil eventNumber:1
+      clickCount:1 pressure:0.0];
+  if (!down || !up) return 16;
+  [target.window sendEvent:down];
+  [target.window sendEvent:up];
+  return 0;
+#else
+  (void)token; (void)x; (void)y;
+  return 9;
+#endif
+}
+
+int32_t gpui_macos_test_post_key_v1(int64_t token, int32_t key_code,
+                                    int32_t modifier_bits,
+                                    const uint8_t *bytes, int32_t length) {
+#ifdef GPUI_TESTING
+  if (![NSThread isMainThread]) return 18;
+  const char *enabled = getenv("GPUI_NATIVE_E2E");
+  if (!enabled || strcmp(enabled, "1") != 0) return 9;
+  if (key_code < 0 || key_code > 127 || modifier_bits < 0 ||
+      (modifier_bits & ~15) != 0) return 5;
+  if (length < 0 || (length > 0 && !bytes) || length > 256) return 5;
+  GPWindow *target = windows[@(token)];
+  if (!target || !target.window || target.closing) return 10;
+  NSString *characters = [[NSString alloc] initWithBytes:bytes
+      length:(NSUInteger)length encoding:NSUTF8StringEncoding];
+  if (!characters) return 17;
+  NSUInteger flags = 0;
+  if (modifier_bits & 1) flags |= NSEventModifierFlagShift;
+  if (modifier_bits & 2) flags |= NSEventModifierFlagControl;
+  if (modifier_bits & 4) flags |= NSEventModifierFlagOption;
+  if (modifier_bits & 8) flags |= NSEventModifierFlagCommand;
+  NSTimeInterval timestamp = NSProcessInfo.processInfo.systemUptime;
+  NSEvent *down = [NSEvent keyEventWithType:NSEventTypeKeyDown
+      location:NSZeroPoint modifierFlags:flags timestamp:timestamp
+      windowNumber:target.window.windowNumber context:nil characters:characters
+      charactersIgnoringModifiers:characters isARepeat:NO keyCode:(unsigned short)key_code];
+  NSEvent *up = [NSEvent keyEventWithType:NSEventTypeKeyUp
+      location:NSZeroPoint modifierFlags:flags timestamp:timestamp + 0.001
+      windowNumber:target.window.windowNumber context:nil characters:characters
+      charactersIgnoringModifiers:characters isARepeat:NO keyCode:(unsigned short)key_code];
+  if (!down || !up) return 16;
+  [target.window sendEvent:down];
+  [target.window sendEvent:up];
+  return 0;
+#else
+  (void)token; (void)key_code; (void)modifier_bits; (void)bytes; (void)length;
+  return 9;
+#endif
+}
+
+int32_t gpui_macos_test_post_escape_v1(int64_t token) {
+#ifdef GPUI_TESTING
+  if (![NSThread isMainThread]) return 18;
+  const char *enabled = getenv("GPUI_NATIVE_E2E");
+  if (!enabled || strcmp(enabled, "1") != 0) return 9;
+  GPWindow *target = windows[@(token)];
+  if (!target || !target.window || target.closing) return 10;
+  NSTimeInterval timestamp = NSProcessInfo.processInfo.systemUptime;
+  NSEvent *down = [NSEvent keyEventWithType:NSEventTypeKeyDown
+      location:NSZeroPoint modifierFlags:0 timestamp:timestamp
+      windowNumber:target.window.windowNumber context:nil characters:@"\e"
+      charactersIgnoringModifiers:@"\e" isARepeat:NO keyCode:53];
+  NSEvent *up = [NSEvent keyEventWithType:NSEventTypeKeyUp
+      location:NSZeroPoint modifierFlags:0 timestamp:timestamp + 0.001
+      windowNumber:target.window.windowNumber context:nil characters:@"\e"
+      charactersIgnoringModifiers:@"\e" isARepeat:NO keyCode:53];
+  if (!down || !up) return 16;
+  [target.window sendEvent:down];
+  [target.window sendEvent:up];
+  return 0;
+#else
+  (void)token;
+  return 9;
+#endif
 }

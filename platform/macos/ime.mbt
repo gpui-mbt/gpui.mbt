@@ -1029,19 +1029,18 @@ fn decode_platform_event() -> Result[
     13 => @platform.Destroyed
     14 => @platform.Wake
     15 => @platform.ExitRequested
-    17 => {
-      let position = match @primitives.Point::new(number(1), number(2)) {
-        Ok(value) => value
-        Err(_) =>
-          return Err(error(@diagnostics.InvalidInput, "next_editor_event"))
+    17 =>
+      match
+        decode_scroll_event(
+          number(1),
+          number(2),
+          number(3),
+          number(4),
+          modifiers,
+        ) {
+        Ok(kind) => kind
+        Err(error) => return Err(error)
       }
-      let delta = match @primitives.Point::new(number(3), number(4)) {
-        Ok(value) => value
-        Err(_) =>
-          return Err(error(@diagnostics.InvalidInput, "next_editor_event"))
-      }
-      @platform.Input(@primitives.Scroll(position~, delta~, modifiers~))
-    }
     _ => return Err(error(@diagnostics.NativeFailure, "next_editor_event"))
   }
   Ok(

@@ -92,6 +92,7 @@ mkdir -p "$MACOS_BUILD_DIR"
 # Stop only an instance launched from this worktree, avoiding other checkouts.
 if [[ -f "$PID_FILE" ]]; then
   PREVIOUS_PID="$(cat "$PID_FILE")"
+
   if [[ "$PREVIOUS_PID" =~ ^[0-9]+$ ]] && ps -p "$PREVIOUS_PID" -o command= | rg -F "$APP_BINARY" >/dev/null; then
     kill "$PREVIOUS_PID" || true
   fi
@@ -105,10 +106,25 @@ if [[ "$TEST_HOOKS" == 1 ]]; then
   CLANG_FLAGS+=(-DGPUI_TESTING)
 fi
 xcrun clang "${CLANG_FLAGS[@]}" \
-  platform/macos/native.m platform/macos_text/core_text.c \
+  platform/macos/native.m platform/macos/accessibility.m \
+    platform/macos_text/core_text.c \
   -framework AppKit -framework QuartzCore -framework Metal \
-  -framework CoreText -framework CoreGraphics \
+  -framework CoreText -framework CoreGraphics -framework CoreFoundation \
   -o "$FRAMEWORKS_DIR/libgpui_macos.dylib"
+EXPORTED_SYMBOLS="$(/usr/bin/nm -gU "$FRAMEWORKS_DIR/libgpui_macos.dylib")"
+require_macos_symbol() {
+  if ! printf '%s\n' "$EXPORTED_SYMBOLS" | /usr/bin/grep -E " _$1$" >/dev/null; then
+    echo "The macOS GPUI library is missing required symbol _$1." >&2
+    exit 1
+  fi
+}
+require_macos_symbol gpui_macos_ax_publish_v1
+require_macos_symbol gpui_macos_ax_revoke_v1
+require_macos_symbol gpui_macos_ax_take_request_v1
+if [[ "$TEST_HOOKS" == 1 ]]; then
+  require_macos_symbol gpui_macos_ax_test_press_v1
+  require_macos_symbol gpui_macos_ax_test_child_count_v1
+fi
 moon build --target native --deny-warn --target-dir "$TARGET_DIR" "$PACKAGE"
 BUILT_BINARY="$TARGET_DIR/native/debug/build/$PACKAGE/$BINARY_NAME.exe"
 if [[ ! -x "$BUILT_BINARY" ]]; then
@@ -117,6 +133,7 @@ if [[ ! -x "$BUILT_BINARY" ]]; then
 fi
 cp "$BUILT_BINARY" "$APP_BINARY"
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
+
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -149,6 +166,7 @@ case "$MODE" in
   --debug)
     lldb -- "$APP_BINARY"
     ;;
+
   run|--verify|--logs|--telemetry)
     "$APP_BINARY" > "$LOG_FILE" 2>&1 &
     APP_PID=$!

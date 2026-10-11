@@ -28,7 +28,7 @@
 #include <xkbcommon/xkbcommon-compose.h>
 
 #define QUEUE_CAPACITY 1024
-#define OUTPUT_CAPACITY 16
+#define OUTPUT_CAPACITY GPUI_OUTPUT_CAPACITY
 #define CLIPBOARD_LIMIT (16 * 1024 * 1024)
 #define CLIPBOARD_TIMEOUT_MS 3000
 #define SOURCE_TRANSFER_CAPACITY 8
@@ -47,10 +47,18 @@ struct source_transfer {
   int fd;
   size_t offset;
 };
+struct output_metadata {
+  int32_t x, y, physical_width, physical_height, subpixel, transform;
+  int32_t geometry_valid;
+  uint32_t mode_flags;
+  int32_t mode_width, mode_height, mode_refresh;
+  int32_t scale;
+};
 struct output {
   struct wl_output *proxy;
   uint32_t name;
-  int scale, entered;
+  struct output_metadata committed, pending;
+  int entered, ready;
 };
 struct direct_event_meta {
   int epoch, direct_origin, text_length, revoked;
@@ -123,6 +131,8 @@ struct host {
   GLuint program, mask_program;
   GLint color_uniform, mask_color_uniform, mask_sampler_uniform;
   int width, height, pending_width, pending_height, scale, configured, seq;
+  uint8_t *frame_pixels;
+  int frame_width, frame_height, frame_scale;
   double px, py;
   int modifiers;
   double queue[QUEUE_CAPACITY][10];
@@ -142,6 +152,10 @@ static void collect_source(struct clipboard_source *source);
 static void ime_invalidate(struct host *h, int emit_leave, int deactivate);
 static void ime_drop_proxy(struct host *h);
 static void ime_free_slot(struct host *h, int slot);
+static int native_e2e_enabled(void) {
+  const char *value = getenv("GPUI_NATIVE_E2E");
+  return value && strcmp(value, "1") == 0;
+}
 static void ime_raw_keyboard_key(struct host *h, uint32_t state,
                                   xkb_keysym_t symbol);
 static void remember_input_serial(struct host *h, uint32_t serial,
@@ -191,6 +205,10 @@ static int check(int token, struct host **out) {
     *out = active;
   pthread_mutex_unlock(&registry_mutex);
   return status;
+}
+int32_t gpui_owner_thread_check(int32_t token) {
+  struct host *h;
+  return check(token, &h);
 }
 static int window_check(int token, int window, struct host **out) {
   int s = check(token, out);
@@ -934,11 +952,30 @@ static void apply_size(struct host *h) {
     wl_egl_window_resize(h->egl_window, h->width * h->scale,
                          h->height * h->scale, 0, 0);
 }
+static struct output *find_output(struct host *h, struct wl_output *proxy) {
+  if (!proxy)
+    return NULL;
+  for (int i = 0; i < OUTPUT_CAPACITY; ++i)
+    if (h->outputs[i].proxy == proxy)
+      return &h->outputs[i];
+  return NULL;
+}
+static void init_output(struct output *output, struct wl_output *proxy,
+                        uint32_t name) {
+  memset(output, 0, sizeof(*output));
+  output->proxy = proxy;
+  output->name = name;
+  output->committed.scale = 1;
+  output->pending = output->committed;
+}
+static void reset_output(struct output *output) {
+  memset(output, 0, sizeof(*output));
+}
 static void update_scale(struct host *h) {
   int scale = 1;
   for (int i = 0; i < OUTPUT_CAPACITY; ++i)
-    if (h->outputs[i].entered && h->outputs[i].scale > scale)
-      scale = h->outputs[i].scale;
+    if (h->outputs[i].entered && h->outputs[i].committed.scale > scale)
+      scale = h->outputs[i].committed.scale;
   if (scale != h->scale) {
     h->scale = scale;
     apply_size(h);
@@ -948,35 +985,50 @@ static void update_scale(struct host *h) {
 static void output_geometry(void *d, struct wl_output *o, int32_t x, int32_t y,
                             int32_t pw, int32_t ph, int32_t sub,
                             const char *make, const char *model, int32_t tr) {
-  UNUSED(d);
-  UNUSED(o);
-  UNUSED(x);
-  UNUSED(y);
-  UNUSED(pw);
-  UNUSED(ph);
-  UNUSED(sub);
+  struct host *h = d;
+  struct output *output = find_output(h, o);
+  if (!output)
+    return;
+  output->pending.x = x;
+  output->pending.y = y;
+  output->pending.physical_width = pw;
+  output->pending.physical_height = ph;
+  output->pending.subpixel = sub;
+  output->pending.transform = tr;
+  output->pending.geometry_valid = 1;
+  /* Manufacturer/model strings are not retained by this private snapshot. */
   UNUSED(make);
   UNUSED(model);
-  UNUSED(tr);
 }
 static void output_mode(void *d, struct wl_output *o, uint32_t f, int32_t w,
                         int32_t hh, int32_t r) {
-  UNUSED(d);
-  UNUSED(o);
-  UNUSED(f);
-  UNUSED(w);
-  UNUSED(hh);
-  UNUSED(r);
+  struct host *h = d;
+  struct output *output = find_output(h, o);
+  if (!output)
+    return;
+  /* Prefer the current mode when a batch also reports preferred modes. */
+  if ((f & WL_OUTPUT_MODE_CURRENT) ||
+      !(output->pending.mode_flags & WL_OUTPUT_MODE_CURRENT)) {
+    output->pending.mode_flags = f;
+    output->pending.mode_width = w;
+    output->pending.mode_height = hh;
+    output->pending.mode_refresh = r;
+  }
 }
 static void output_done(void *d, struct wl_output *o) {
-  UNUSED(o);
-  update_scale(d);
+  struct host *h = d;
+  struct output *output = find_output(h, o);
+  if (!output)
+    return;
+  output->committed = output->pending;
+  output->ready = 1;
+  update_scale(h);
 }
 static void output_scale(void *d, struct wl_output *o, int32_t scale) {
   struct host *h = d;
-  for (int i = 0; i < OUTPUT_CAPACITY; ++i)
-    if (h->outputs[i].proxy == o)
-      h->outputs[i].scale = scale > 0 ? scale : 1;
+  struct output *output = find_output(h, o);
+  if (output)
+    output->pending.scale = scale > 0 ? scale : 1;
 }
 static const struct wl_output_listener output_listener = {
     .geometry = output_geometry,
@@ -1098,10 +1150,11 @@ static void pointer_axis(void *d, struct wl_pointer *p, uint32_t time,
   struct host *h = d;
   if (p != h->pointer)
     return;
+  int slot = (h->read + h->count) % QUEUE_CAPACITY;
+  int prior = h->count;
   event(h, 10, axis, h->px, h->py);
-  if (h->count)
-    h->queue[(h->read + h->count - 1) % QUEUE_CAPACITY][4] =
-        wl_fixed_to_double(value);
+  if (h->count != prior)
+    h->queue[slot][4] = wl_fixed_to_double(value);
 }
 static const struct wl_pointer_listener pointer_listener = {
     .enter = pointer_enter,
@@ -1334,11 +1387,10 @@ static void global(void *d, struct wl_registry *r, uint32_t name,
   } else if (!strcmp(interface, "wl_output") && version >= 2) {
     for (int i = 0; i < OUTPUT_CAPACITY; ++i)
       if (!h->outputs[i].proxy) {
-        h->outputs[i].proxy =
+        struct wl_output *output =
             wl_registry_bind(r, name, &wl_output_interface, 2);
-        h->outputs[i].name = name;
-        h->outputs[i].scale = 1;
-        wl_output_add_listener(h->outputs[i].proxy, &output_listener, h);
+        init_output(&h->outputs[i], output, name);
+        wl_output_add_listener(output, &output_listener, h);
         break;
       }
   }
@@ -1377,7 +1429,7 @@ static void global_remove(void *d, struct wl_registry *r, uint32_t name) {
   for (int i = 0; i < OUTPUT_CAPACITY; ++i)
     if (h->outputs[i].name == name) {
       wl_output_destroy(h->outputs[i].proxy);
-      memset(&h->outputs[i], 0, sizeof(h->outputs[i]));
+      reset_output(&h->outputs[i]);
     }
   update_scale(h);
 }
@@ -1432,6 +1484,9 @@ static void release_window(struct host *h) {
     xdg_surface_destroy(h->xdg);
   if (h->surface)
     wl_surface_destroy(h->surface);
+  free(h->frame_pixels);
+  h->frame_pixels = NULL;
+  h->frame_width = h->frame_height = h->frame_scale = 0;
   h->toplevel = NULL;
   h->xdg = NULL;
   h->surface = NULL;
@@ -1463,6 +1518,8 @@ static void release_host(struct host *h) {
     free(source);
   }
   free(h->clipboard_result);
+  free(h->frame_pixels);
+  h->frame_pixels = NULL;
   detach_seat_data_device(h);
   if (h->data_manager)
     wl_data_device_manager_destroy(h->data_manager);
@@ -1993,6 +2050,43 @@ int32_t gpui_metrics(int32_t token, int32_t window, double *metrics) {
   metrics[2] = h->scale;
   return GPUI_OK;
 }
+int32_t gpui_output_snapshot_v1(int32_t abi, int32_t token,
+                                double *records, int32_t capacity) {
+  if (abi != GPUI_OUTPUT_SNAPSHOT_ABI)
+    return -GPUI_UNSUPPORTED;
+  struct host *h;
+  int s = check(token, &h);
+  if (s)
+    return -s;
+  if (!records ||
+      capacity < GPUI_OUTPUT_CAPACITY * GPUI_OUTPUT_INFO_FIELDS)
+    return -GPUI_INVALID;
+
+  int count = 0;
+  for (int i = 0; i < OUTPUT_CAPACITY; ++i) {
+    const struct output *output = &h->outputs[i];
+    if (!output->proxy)
+      continue;
+    const struct output_metadata *metadata = &output->committed;
+    int has_current_mode =
+        (metadata->mode_flags & WL_OUTPUT_MODE_CURRENT) != 0;
+    double *record = records + count * GPUI_OUTPUT_INFO_FIELDS;
+    record[0] = output->ready ? 1.0 : 0.0;
+    record[1] = metadata->geometry_valid ? 1.0 : 0.0;
+    record[2] = has_current_mode ? 1.0 : 0.0;
+    record[3] = metadata->scale;
+    record[4] = metadata->geometry_valid ? metadata->physical_width : 0;
+    record[5] = metadata->geometry_valid ? metadata->physical_height : 0;
+    record[6] = metadata->geometry_valid ? metadata->subpixel : 0;
+    record[7] = metadata->geometry_valid ? metadata->transform : 0;
+    record[8] = has_current_mode ? metadata->mode_width : 0;
+    record[9] = has_current_mode ? metadata->mode_height : 0;
+    record[10] = has_current_mode ? metadata->mode_refresh : 0;
+    record[11] = output->entered ? 1.0 : 0.0;
+    ++count;
+  }
+  return count;
+}
 int32_t gpui_dispatch(int32_t token, int32_t timeout) {
   struct host *h;
   int s = check(token, &h);
@@ -2453,13 +2547,65 @@ static int32_t present_mixed(int32_t abi, int32_t expected_abi, int stride,
   release_staged_text(texts, staged, 1);
   if (glGetError() != GL_NO_ERROR)
     return GPUI_DEVICE_LOST;
+  uint8_t *captured = NULL;
+  int capture_width = 0;
+  int capture_height = 0;
+  int64_t capture_width64 = (int64_t)h->width * h->scale;
+  int64_t capture_height64 = (int64_t)h->height * h->scale;
+  if (native_e2e_enabled()) {
+    int64_t capture_pixels = capture_width64 * capture_height64;
+    if (capture_width64 <= 0 || capture_height64 <= 0 ||
+        capture_width64 > 16384 || capture_height64 > 16384 ||
+        capture_pixels > 16 * 1024 * 1024)
+      return GPUI_RESOURCE;
+    capture_width = (int)capture_width64;
+    capture_height = (int)capture_height64;
+    size_t capture_bytes = (size_t)capture_pixels * 4;
+    captured = malloc(capture_bytes);
+    uint8_t *row = malloc((size_t)capture_width * 4);
+    if (!captured || !row) {
+      free(captured);
+      free(row);
+      return GPUI_RESOURCE;
+    }
+    GLint old_pack_alignment = 4;
+    glGetIntegerv(GL_PACK_ALIGNMENT, &old_pack_alignment);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glFinish();
+    glReadPixels(0, 0, capture_width, capture_height, GL_RGBA,
+                 GL_UNSIGNED_BYTE, captured);
+    GLenum capture_error = glGetError();
+    glPixelStorei(GL_PACK_ALIGNMENT, old_pack_alignment);
+    if (capture_error != GL_NO_ERROR || glGetError() != GL_NO_ERROR) {
+      free(captured);
+      free(row);
+      return GPUI_DEVICE_LOST;
+    }
+    for (int y = 0; y < capture_height / 2; ++y) {
+      uint8_t *top = captured + (size_t)y * (size_t)capture_width * 4;
+      uint8_t *bottom = captured + (size_t)(capture_height - y - 1) *
+                                       (size_t)capture_width * 4;
+      memcpy(row, top, (size_t)capture_width * 4);
+      memcpy(top, bottom, (size_t)capture_width * 4);
+      memcpy(bottom, row, (size_t)capture_width * 4);
+    }
+    free(row);
+  }
   h->frame = wl_surface_frame(h->surface);
   wl_callback_add_listener(h->frame, &frame_listener, h);
   if (!eglSwapBuffers(h->egl, h->egl_surface)) {
+    free(captured);
     wl_callback_destroy(h->frame);
     h->frame = NULL;
     return eglGetError() == EGL_CONTEXT_LOST ? GPUI_DEVICE_LOST
                                              : GPUI_SURFACE_LOST;
+  }
+  if (captured) {
+    free(h->frame_pixels);
+    h->frame_pixels = captured;
+    h->frame_width = capture_width;
+    h->frame_height = capture_height;
+    h->frame_scale = h->scale;
   }
   return GPUI_OK;
 
@@ -2483,6 +2629,43 @@ int32_t gpui_present_v3(int32_t abi, int32_t token, int32_t window,
                         const uint8_t *text, int32_t text_length) {
   return present_mixed(abi, GPUI_ORIGIN_FRAME_ABI, GPUI_ORIGIN_STRIDE, 1,
       token, window, data, length, text, text_length);
+}
+
+int32_t gpui_test_frame_metrics_v1(int32_t token, int32_t window,
+                                   double *output) {
+  struct host *h;
+  int status = window_check(token, window, &h);
+  if (status)
+    return status;
+  if (!native_e2e_enabled())
+    return GPUI_UNSUPPORTED;
+  if (!output)
+    return GPUI_INVALID;
+  if (!h->frame_pixels || h->frame_width <= 0 || h->frame_height <= 0)
+    return GPUI_BUSY;
+  output[0] = h->frame_width;
+  output[1] = h->frame_height;
+  output[2] = h->frame_scale;
+  return GPUI_OK;
+}
+
+int32_t gpui_test_frame_copy_v1(int32_t token, int32_t window,
+                                uint8_t *output, int32_t capacity) {
+  struct host *h;
+  int status = window_check(token, window, &h);
+  if (status)
+    return status;
+  if (!native_e2e_enabled())
+    return GPUI_UNSUPPORTED;
+  if (!h->frame_pixels || h->frame_width <= 0 || h->frame_height <= 0)
+    return GPUI_BUSY;
+  int64_t required = (int64_t)h->frame_width * h->frame_height * 4;
+  if (required > 64 * 1024 * 1024)
+    return GPUI_RESOURCE;
+  if (!output || capacity < 0 || capacity != required)
+    return GPUI_INVALID;
+  memcpy(output, h->frame_pixels, (size_t)required);
+  return GPUI_OK;
 }
 
 int32_t gpui_present(int32_t token, int32_t window, const double *data,

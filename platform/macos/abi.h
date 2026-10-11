@@ -24,4 +24,23 @@ typedef struct {
 // 4 modifiers, 5 button/key, 6 repeat, 7 ABI version, 8 UTF-8 output length, 9 host epoch,
 // 100+i UTF-8 output byte i. Output remains owned by the shim until the next call.
 // Number fields: 0 scale, 1 x, 2 y, 3 width, 4 height.
+// Event kind 16 is scroll: x/y are logical pointer coordinates, width/height
+// carry AppKit scrollingDeltaX/Y values (points for precise events, lines/rows
+// otherwise), with no cross-platform unit normalization.
+// Test-only E2E exports (GPUI_TESTING + GPUI_NATIVE_E2E=1): read metadata and
+// copy the last completed Metal frame as top-left RGBA8.
+int32_t gpui_macos_test_frame_meta_v1(int64_t window, double *output);
+int32_t gpui_macos_test_frame_copy_v1(int64_t window, uint8_t *output,
+                                      int32_t capacity);
+int32_t gpui_macos_test_post_click_v1(int64_t window, double x, double y);
+int32_t gpui_macos_test_post_escape_v1(int64_t window);
+int32_t gpui_macos_test_post_key_v1(int64_t window, int32_t key_code,
+                                    int32_t modifiers, const uint8_t *text,
+                                    int32_t text_length);
+// Copies bounded AppKit/CoreGraphics screen metadata into caller-owned storage.
+// Returns a display count, or the negative diagnostics.ErrorCode ordinal + 1.
+int32_t gpui_macos_display_snapshot_v1(int64_t host, double *records,
+                                       int32_t capacity);
+int32_t gpui_macos_display_snapshot(int64_t host, double *records,
+                                    int32_t capacity);
 #endif

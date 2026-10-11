@@ -453,9 +453,35 @@ fn field_changed_selection(
   } else {
     field.measurement
   }
-  let base = { ..field, document, measurement, focused, revision, }
+  let base = {
+    ..field,
+    document,
+    measurement,
+    focused,
+    revision,
+    history: field.history.close_group(),
+  }
   let scroll_offset = field_scroll_for_head(base, document.selection().head())
   Ok({ ..base, scroll_offset, })
+}
+
+///|
+/// Close a history run when an accepted no-op boundary changes no visible
+/// document state. Advance the revision only when private history state moves,
+/// so retained owner snapshots can still detect the boundary.
+fn field_close_history_group(
+  field : TextField,
+) -> Result[TextField, TextFieldError] {
+  match field.history.open_group {
+    None => Ok(field)
+    Some(_) => {
+      let revision = match bump_field_revision(field.revision) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      Ok({ ..field, revision, history: field.history.close_group(), })
+    }
+  }
 }
 
 ///|
@@ -574,6 +600,7 @@ fn prepare_field_replacement(
   field : TextField,
   range : @text.TextRange,
   replacement : String,
+  group_kind : FieldHistoryGroupKind?,
   measure : (@text.TextDocument) -> Result[
     @text_layout.TextMeasurement,
     TextFieldError,
@@ -623,7 +650,7 @@ fn prepare_field_replacement(
     Err(_) => return Err(InvalidSelection)
   }
   if intermediate == field.document {
-    return Ok(field)
+    return field_close_history_group(field)
   }
   match validate_field_text(intermediate) {
     Ok(_) => ()
@@ -668,9 +695,17 @@ fn prepare_field_replacement(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let history = match field.history.record(field.document, final_document) {
-    Ok(value) => value
-    Err(error) => return Err(error)
+  let history = match group_kind {
+    Some(kind) if final_head == desired_head =>
+      match field.history.record_group(field.document, final_document, kind) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+    _ =>
+      match field.history.record(field.document, final_document) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
   }
   Ok({ ..candidate, history, })
 }
@@ -700,6 +735,7 @@ pub fn TextField::replace_selection(
     self,
     self.document.selection().normalized_range(),
     replacement,
+    None,
     measure,
     admit,
   )
@@ -903,7 +939,12 @@ fn field_selection_at(
     Ok(_) => ()
     Err(error) => return Err(error)
   }
-  field_changed_selection({ ..field, measurement, }, document, focused)
+  let changed = match
+    field_changed_selection({ ..field, measurement, }, document, focused) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  field_close_history_group(changed)
 }
 
 ///|
@@ -987,7 +1028,16 @@ fn delete_field_selection(
     }
     @text.TextRange::new(start, end).unwrap()
   }
-  prepare_field_replacement(field, range, "", measure, admit)
+  let group_kind = if selection.is_collapsed() {
+    if backward {
+      Some(Backspace)
+    } else {
+      Some(ForwardDelete)
+    }
+  } else {
+    None
+  }
+  prepare_field_replacement(field, range, "", group_kind, measure, admit)
 }
 
 ///|
@@ -1118,6 +1168,7 @@ pub fn TextField::handle_input(
           self,
           self.document.selection().normalized_range(),
           text,
+          Some(Typing),
           measure,
           admit,
         ) {
@@ -1164,6 +1215,7 @@ pub fn TextField::handle_input(
               self,
               selection.normalized_range(),
               "",
+              None,
               measure,
               admit,
             ) {

@@ -118,29 +118,57 @@ no-ops when unfocused or empty. Ctrl/Meta+Z undoes; Shift+Ctrl/Meta+Z or Ctrl+Y
 redoes. Alt-modified shortcuts are ignored. Key labels identify shortcuts;
 only committed `TextInput` supplies inserted text.
 
-The repeat flag does not change the field's existing command policy. A repeated
+The repeat flag does not change the field's command policy. A repeated
 printable `KeyPressed` inserts nothing; its following `TextInput` inserts once.
-Each repeated content-changing commit or deletion is a separate history group.
-Repeated navigation adds no history. Repeated undo/redo executes once per press,
-and repeated copy/cut/paste, Submit and Blur still emit their usual owner actions.
-Consumers that want a one-shot command must check `KeyPressed.repeat` before
-routing that command. The native repeat feature adds no typing coalescing or
-new shortcut suppression.
+That committed text participates in the same adjacent-typing group as other
+`TextInput` commits. Repeated Backspace and repeated Forward Delete each extend
+their own direction-specific deletion group. Repeated navigation adds no
+history; an accepted cursor/selection command closes the current group even if
+the caret is already at that boundary. Unfocused, composing, rejected or
+otherwise ignored movement does not change history state. Repeated undo/redo
+still executes once per press, and repeated copy/cut/paste, Submit and Blur
+still emit their usual owner actions. Consumers that want a one-shot command
+must check `KeyPressed.repeat` before routing that command.
 
-Each successful content-changing text commit, deletion, paste or installed cut
-is one group, without typing coalescing. An entry stores immutable pre-edit and
-original post-edit documents including directional selections. Undo restores
-the former; redo restores the latter even after selection-only navigation.
-Copy, focus/bounds/selection changes, failed input or clipboard writes and stale
-paste add no group. Identical-content replacement may change selection/revision
-under the existing policy, but preserves redo. New content clears redo.
+History coalescing is deterministic and has no wall-clock timeout. Consecutive
+content-changing `TextInput` commits at the active caret form one typing group.
+Consecutive collapsed-caret Backspaces form a backward-deletion group;
+consecutive collapsed-caret Forward Deletes form a separate forward-deletion
+group. A group extends only when the new edit has the same kind, the complete
+new `before` document (including directional selection) equals the prior
+group's `after` document, and the resulting caret is collapsed at the requested
+cursor stop. If layout snaps the requested edit endpoint, that edit remains a
+standalone group. Switching edit kind/direction starts a new group. Typing may
+start by replacing a selection; deleting a selected range is standalone.
 
-The combined stacks retain at most 64 entries and 65,536 logical UTF-8 payload
-bytes. Each entry counts both endpoint texts, including duplicate content
-across entries; selection metadata is excluded. New edits evict whole oldest
-undo entries until both limits fit. This is logical payload accounting, not an
-exact heap bound or a bound on immutable snapshots retained by callers. Arrays
-are private and transitions use detached copies.
+Cursor/selection commands and accepted pointer placement close a group, even
+when they leave the selection unchanged. A focus transition, successful
+Undo/Redo restoration, composition start/commit/cancel, and a successful
+explicit replacement or paste/cut installation also close it. An empty
+Undo/Redo that restores nothing leaves the current run unchanged. Composition
+previews add no history and commit as one original-to-final group. Copy,
+bounds and scroll changes do not close a group. A successful replacement
+with equal content creates no entry and preserves redo, but still closes the
+open group. Failed edits, failed measurement/admission, rejected or stale
+paste, and failed clipboard writes leave the complete prior field/history
+state intact. A new content edit after Undo clears redo and starts a fresh
+group; successful Redo never reopens a previous run.
+
+An entry stores immutable first-before and latest-after documents including
+directional selections. Undo restores the former; redo restores the latter.
+The combined stacks retain at most 64 whole groups and 65,536 logical UTF-8
+payload bytes. Each retained group counts both endpoint texts; intermediate
+keystroke snapshots and selection metadata are excluded. Since each endpoint
+is limited to 4,096 UTF-8 bytes, one coalesced group costs at most 8,192 bytes.
+Appending or extending a group evicts whole oldest undo groups until both
+limits fit. This is logical payload accounting, not an exact heap bound or a
+bound on immutable snapshots retained by callers. Arrays are private and
+transitions use detached copies.
+
+TextInput carries committed text but no source/provenance tag. Consequently a
+direct keyboard Compose commit delivered through `TextInput` follows typing
+coalescing; the separate explicit `commit_composition` API remains standalone.
+The GPUI IME transport is still unimplemented.
 
 Restoration never reinstalls old focus, bounds, measurement or raster handles.
 It validates the stored document and cursor-stop selection, remeasures and
@@ -324,8 +352,9 @@ Evidence is tiered and must not be conflated:
   also checks clipboard transaction guards, `Busy`/rollback behavior, focus
   routing, and the rule that `Character` keys do not insert.
 - Repeat-specific portable and real-font controller tests cover printable
-  repeated-key/text ordering, one content-history group per repeat, navigation
-  without history, repeated undo/redo and clipboard/submit actions, and paste
+  repeated-key/text ordering, adjacent coalesced typing/deletion history,
+  navigation boundaries without added entries, repeated undo/redo and
+  clipboard/submit actions, and paste
   freshness and presentation rollback after repeated deletions. They inject
   input records into the model/controller; they do not inject a compositor key.
 - Local headless native tests cover direct-mode callbacks, epoch/stale-record

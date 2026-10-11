@@ -19,10 +19,6 @@ if [ ! -r "$fontconfig_file" ]; then
   echo "Fontconfig fixture configuration is not readable: $fontconfig_file" >&2
   exit 1
 fi
-if ! command -v fc-match >/dev/null 2>&1; then
-  echo "fontconfig's fc-match utility is required to verify test fixtures" >&2
-  exit 1
-fi
 
 build_dir=${GPUI_LINUX_TEXT_BUILD_DIR:-_build/linux-text}
 case "$build_dir" in
@@ -36,28 +32,7 @@ export FONTCONFIG_PATH
 export XDG_CACHE_HOME="$build_root/xdg-cache"
 mkdir -p "$XDG_CACHE_HOME"
 
-check_font() {
-  requested=$1
-  expected_family=$2
-  actual=$(fc-match -f '%{family}|%{file}\n' "$requested")
-  actual_family=${actual%%|*}
-  actual_file=${actual#*|}
-  case "$actual_family" in
-    "$expected_family"|"$expected_family,"*) ;;
-    *)
-      echo "Font fixture mismatch for '$requested': expected family '$expected_family', got '$actual_family' ($actual_file)" >&2
-      exit 1
-      ;;
-  esac
-  if [ -z "$actual_file" ]; then
-    echo "Font fixture path is empty for '$requested'" >&2
-    exit 1
-  fi
-  printf 'font fixture: %s -> %s [%s]\n' "$requested" "$actual_family" "$actual_file"
-}
-check_font 'DejaVu Sans' 'DejaVu Sans'
-check_font 'Noto Sans CJK JP' 'Noto Sans CJK JP'
-check_font 'Noto Color Emoji' 'Noto Color Emoji'
+sh scripts/check_linux_text_fonts.sh
 
 # Exercise the private raster ABI directly as well as its MoonBit provider.
 # The same compiler wrapper used by native packages supplies real distro

@@ -14,6 +14,7 @@ FONTCONFIG_PATH=$(dirname "$fontconfig_file")
 export FONTCONFIG_PATH
 export XDG_CACHE_HOME="$PWD/_build/ubuntu-e2e/font-cache"
 mkdir -p "$XDG_CACHE_HOME"
+sh scripts/check_linux_text_fonts.sh
 script/linux_text_cc.py -std=c11 -Wall -Wextra -Werror ${GPUI_TEST_CFLAGS:-} \
   tests/ubuntu/backend_test.c ubuntu/xdg-shell-protocol.c ubuntu/text-input-v1-protocol.c platform/linux_text/linux_text.c \
   -o _build/ubuntu-e2e/backend-test \
@@ -23,6 +24,8 @@ _build/ubuntu-e2e/backend-test --clipboard-unit
 sh scripts/test_ubuntu_ingress.sh
 env -u DISPLAY -u WAYLAND_DISPLAY \
   moon test examples/linux_text_field --target native --deny-warn --no-parallelize
+env -u DISPLAY -u WAYLAND_DISPLAY \
+  moon test examples/ubuntu_button/fixture --target native --deny-warn --no-parallelize
 # Preserve the original scenes emitted by actual control code with the same
 # real-font provider used by the renderer. GPF1/GPF2 replay is test-only injected
 # control-to-renderer gate, distinct from actual compositor keyboard ingress.
@@ -65,9 +68,9 @@ trap cleanup EXIT HUP INT TERM
 export XDG_RUNTIME_DIR="$runtime" XDG_SESSION_TYPE=wayland WAYLAND_DISPLAY=gpui-e2e
 export LIBGL_ALWAYS_SOFTWARE=1
 for scale in 1 2; do
-  weston --backend=headless-backend.so --use-gl --shell=kiosk-shell.so \
+  sh scripts/start_ubuntu_test_compositor.sh \
     --width=1024 --height=768 --scale="$scale" --socket="$WAYLAND_DISPLAY" \
-    --no-config --idle-time=0 --log="$PWD/_build/ubuntu-e2e/weston-scale-$scale.log" &
+    --log="$PWD/_build/ubuntu-e2e/weston-scale-$scale.log" &
   compositor_pid=$!
   # The Wayland socket appears before Weston has necessarily completed shell
   # initialization. In CI, require one successful protocol roundtrip before
@@ -96,7 +99,11 @@ for scale in 1 2; do
     tail -n 120 "$PWD/_build/ubuntu-e2e/weston-scale-$scale.log" >&2 || true
     exit "$moon_status"
   fi
+  # The native button adapter test starts a Host and exercises owner-thread
+  # projection callbacks while this isolated compositor is available.
+  GPUI_UBUNTU_E2E=1 timeout 120 moon test examples/ubuntu_button --target native --deny-warn --no-parallelize
   GPUI_UBUNTU_SMOKE=1 timeout 30 moon run examples/ubuntu --target native
+  GPUI_UBUNTU_BUTTON_SMOKE=1 timeout 30 moon run examples/ubuntu_button --target native
   GPUI_FIELD_E2E=1 timeout 120 moon test examples/linux_text_field \
     --target native --deny-warn --no-parallelize
   GPUI_FIELD_SMOKE=1 timeout 30 moon run examples/linux_text_field --target native

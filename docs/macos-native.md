@@ -14,9 +14,16 @@ Xcode command-line tools, then run:
 ./script/build_and_run.sh          # launch the interactive quad demo
 ./script/build_and_run.sh --build  # build _build/macos/GpuiNative.app
 ./script/build_and_run.sh --smoke  # MoonBit lifecycle + frame smoke
+./script/build_and_run.sh --test-hooks # build opt-in native E2E host hooks
+./script/test_macos.sh             # native GPU/input/lifecycle E2E + smoke
 ./script/test_macos.sh all --target-dir /private/tmp/gpui-macos-checks
                                    # native E2E + smoke + field checks
 ```
+
+Moon runs the module pre-build configuration for native and LLVM builds, so
+Python 3 is required to build GPUI for either backend. The hook emits CoreText
+framework link flags only for macOS native builds; built executables do not
+depend on Python at runtime.
 
 Click the quad or press Space to toggle its color; Escape requests close.
 The window's close button emits `CloseRequested`; application policy then calls
@@ -29,8 +36,9 @@ The bundle contains both the MoonBit executable and shim dylib. The C loader
 resolves the bundled library relative to the executable, or uses the explicit
 `GPUI_MACOS_LIBRARY` development override. It verifies ABI version and function
 table size before calling native code. No Rust, JavaScript, browser, or external
-runtime dependency is needed. Non-native MoonBit targets and non-macOS native
-builds return `UnsupportedCapability`; portable tests do not load AppKit.
+runtime dependency is needed at runtime. Non-native MoonBit targets and
+non-macOS native builds return `UnsupportedCapability`; portable tests do not
+load AppKit.
 
 ## Implemented boundary
 
@@ -47,11 +55,13 @@ scene, and application event values contain no OS or GPU pointers.
 | start / stop | Main-thread only; duplicate start is Busy; stop is idempotent; failed GPU setup rolls back; a host epoch rejects handles from earlier starts. |
 | create / title / size | Atomic logical token publication, owned UTF-8 title including embedded NUL, finite bounded content size, multiple windows. |
 | close / destroy | Close requests await application policy. Destruction drops pending callbacks for the token, releases the surface before the window, and enqueues a terminal event. Tokens are monotonic and never reused. |
-| next_event | Bounded 0–250 ms wait; per-window monotonic sequence, captured scale, logical pointer positions, focus/move/resize/backing-scale notifications and portable control/character keys. |
+| next_event | Bounded 0–250 ms wait; per-window monotonic sequence, captured scale, logical pointer positions, focus/move/resize/backing-scale notifications, portable control/character keys and AppKit scroll-wheel events. Scroll deltas preserve `NSEvent.scrollingDeltaX/Y`: precise values are points and non-precise values are line/row counts; the backend does not normalize units. |
 | wake / request_exit | UI-owner wake event and quiescing transition; new windows are rejected after exit is requested. Cross-thread enqueue is still pending. |
-| present | SceneSnapshot v1 quads and admitted grayscale text, affine transforms, opacity, ordered rectangle clip chains, paint order and alpha blending. Other resources and unknown item kinds return UnsupportedCapability. |
+| present | SceneSnapshot v1 quads plus bounded single-line `text` and `text_run` items, affine transforms, opacity, ordered rectangle clip chains, paint order and alpha blending. Text uses CoreText system sans and CoreGraphics grayscale coverage at the drawable scale; font sizes are limited to 32 points, multiline, bidirectional, unsupported/color glyphs and unknown item kinds return typed errors. |
+| text measurement | `platform/macos_text.measure` copies CoreText logical/ink bounds, ascent and scalar caret geometry into `TextMeasurement`. Use the system sans family (`"sans"`) at the same logical size used for rendering. |
 | metrics | Current logical size and backing scale; sampled before presenting to avoid using old queued resize metadata for a current drawable. |
-| clipboard / cursor | UTF-8 string clipboard and arrow/pointing-hand/text cursors. Clipboard busy/conversion failures are typed. |
+| display snapshot | `Host::display_snapshot()` returns a copied list capped at 16 screens. Full and visible frames use AppKit global screen points; mode dimensions are CoreGraphics pixels, scale is backing pixels per point, and refresh is optional when CoreGraphics reports no rate. Entries mark the primary screen and, when present, the screen containing a GPUI key window. Ordering is temporary and display IDs are not exposed. The call returns `Busy` if the screen set changes during sampling, `ResourceExhausted` above the cap, and `NativeFailure` when a CoreGraphics mode query fails. This is an on-demand, non-atomic snapshot with no display-change event. |
+| clipboard / cursor | UTF-8 string clipboard and arrow/pointing-hand/text cursors. Clipboard busy/conversion failures are typed. Native E2E uses a unique private pasteboard for roundtrip checks and dispatches each supported cursor kind; it does not read or replace the user's General Pasteboard. |
 | renderer recovery | Explicitly rebuilds the shared Metal device, queue and pipeline and rebinds every live `CAMetalLayer`, preserving logical window identities. Automatic recovery remains unimplemented. |
 
 Geometry remains logical until the native boundary. `CAMetalLayer.drawableSize`
@@ -90,28 +100,49 @@ shaders, and fixtures are independently authored from local contracts and Apple
 API documentation; no GPUI source or assets were adapted.
 
 Metal ownership follows Apple's [CAMetalLayer documentation](https://developer.apple.com/documentation/quartzcore/cametallayer).
-The synchronous completion path uses [waitUntilCompleted](https://developer.apple.com/documentation/metal/mtlcommandbuffer/waituntilcompleted%28%29?language=objc).
+The synchronous completion path uses [waitUntilCompleted](https://developer.apple.com/documentation/metal/mtlcommandbuffer/waituntilcompleted%28%29?language=objc). Scroll handling follows Apple's [`scrollingDeltaY` unit contract](https://developer.apple.com/documentation/appkit/nsevent/scrollingdeltay): non-precise events report lines or rows, while precise events report points.
 
 ## Evidence and remaining gates
 
 `tests/native/macos_e2e.m` exercises actual AppKit windows, window-dispatched
-pointer and application-queued keyboard input, logical coordinates, resize,
-close policy, wrong-thread rejection, failed initialization payloads, restart
-and stale-host checks, stale callback rejection, and 32 create/destroy cycles.
-A test-only Metal blit reads frame pixels to verify transform/clip/alpha/paint
-order and backing-pixel dimensions. Fault injection verifies DeviceLost reporting.
+pointer and keyboard input, logical coordinates, resize, close policy,
+wrong-thread rejection, failed initialization payloads, restart and stale-host
+checks, stale callback rejection, and 32 create/destroy cycles. It renders
+CoreText grayscale text and text runs into Metal and checks non-background
+pixels. The opt-in `GPUI_NATIVE_E2E=1` frame seam copies the completed drawable
+as bounded top-left RGBA8. `Host::post_test_click` and
+`Host::post_test_escape` send scoped NSEvents through the owned NSWindow for
+autonomous app-loop validation; they require the `--test-hooks` dylib and are
+not physical hardware input. A test-only Metal blit also checks
+transform/clip/alpha/paint order and backing-pixel dimensions. Fault injection verifies DeviceLost reporting.
 The test source also removes device/queue/pipeline state, invokes explicit
 recovery and checks the following frame through pixel readback. Hosted execution
 is recorded per run in the external actrun artifacts; capability negotiation
 stays disabled pending release-tier evidence. The tests do not establish bounded
+of this path remains pending, so capability negotiation stays disabled. The
+display smoke enumerates the active AppKit screens through CoreGraphics without
+changing display configuration, checks copied frame/mode/scale data, and
+rejects stale-host, wrong-thread, and invalid-buffer calls. It does not simulate
+display hot-plug or mode changes. The scroll smoke invokes `GPView.scrollWheel:` with a responder probe whose deltas,
+modifiers, and precision flag come from an AppKit `NSEvent` created from Core
+Graphics line- and pixel-unit scroll events. This verifies native delta
+extraction, event encoding, and portable decoding, but does not verify
+window-system delivery or physical-device scrolling. Clipboard smoke
+round-trips UTF-8 through a unique private pasteboard; cursor smoke exercises
+the three supported native cursor selections and unsupported-tag handling.
+General Pasteboard exchange and visible cursor confirmation remain open. The
+tests do not establish bounded memory over sustained churn.
 memory over sustained churn.
 
 The MoonBit smoke executable uses the portable Backend interface and checks
 creation, two completed GPU frames, resize, close request, destruction and event
-sequence ordering. Headless tests verify portable key and error adapters on all
-four MoonBit targets. Clipboard/cursor smoke, real display movement,
-accessibility, cross-thread command completion, automated renderer recovery,
-sustained resource growth and performance remain pending. The bounded text
+sequence ordering. Headless tests verify portable key, scroll, and error
+adapters on all four MoonBit targets. Real display movement, physical scroll
+input, General Pasteboard exchange, visible cursor confirmation, Japanese IME,
+accessibility, shaping beyond bounded system-sans single lines,
+cross-thread command completion, hosted automated renderer recovery, sustained
+resource growth and performance remain pending.
+The bounded text
 field's native CoreText/Metal and Japanese input checks are described below.
 
 ## Experimental single-line text field

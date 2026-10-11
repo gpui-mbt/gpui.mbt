@@ -39,7 +39,40 @@ extern "C" fn native_test_text_density2(
 extern "C" fn native_wrong_thread(host : Int, window : Int) -> Int = "gpui_windows_test_wrong_thread"
 
 ///|
+#borrow(title)
+extern "C" fn native_window_title_matches(
+  host : Int,
+  window : Int,
+  title : Bytes,
+  length : Int,
+) -> Int = "gpui_windows_test_window_title"
+
+///|
 extern "C" fn native_clipboard_validation() -> Int = "gpui_windows_test_clipboard_validation"
+
+///|
+extern "C" fn native_clipboard_diagnostics() -> Int = "gpui_windows_test_clipboard_diagnostics"
+
+///|
+extern "C" fn native_clipboard_diagnostics_disabled() -> Int = "gpui_windows_test_clipboard_diagnostics_disabled"
+
+///|
+extern "C" fn native_clipboard_fixture_read(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_read"
+
+///|
+extern "C" fn native_clipboard_fixture_write(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_write"
+
+///|
+extern "C" fn native_clipboard_fixture_read_line(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_read_line"
+
+///|
+extern "C" fn native_clipboard_fixture_lock_start(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_lock_start"
+
+///|
+extern "C" fn native_clipboard_fixture_lock_stop(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_lock_stop"
+
+///|
+extern "C" fn native_clipboard_fixture_expiry(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_expiry"
 
 ///|
 extern "C" fn native_wake_stop_race(host : Int) -> Int = "gpui_windows_test_wake_stop_race"
@@ -62,10 +95,14 @@ extern "C" fn native_mouse_arm_destroy(host : Int, window : Int) -> Int = "gpui_
 extern "C" fn native_mouse_destroy_reset(host : Int, window : Int) -> Int = "gpui_windows_test_mouse_destroy_reset"
 
 ///|
-#borrow(failed_stage)
+#borrow(failed_stage, repeat_event)
 extern "C" fn native_text_session_staging(
   failed_stage : FixedArray[Int],
+  repeat_event : FixedArray[Double],
 ) -> Int = "gpui_windows_test_text_session_staging"
+
+///|
+extern "C" fn native_wheel_enqueue() -> Int = "gpui_windows_test_wheel_enqueue"
 
 ///|
 fn rect(w : Double, h : Double) -> @primitives.Rect {
@@ -159,6 +196,23 @@ test "Win32 status adapter returns stable framework errors" {
     assert_eq(error.code().label(), expected.label())
     assert_eq(error.operation(), "operation")
     assert_true(error.backend() == Some("windows-d3d11"))
+  }
+}
+
+///|
+test "clipboard diagnostic snapshots preserve error and read stage" {
+  required(outcome(native_clipboard_diagnostics(), "clipboard_diagnostics"))
+}
+
+///|
+test "clipboard diagnostic sink is off without its opt-in path" {
+  if @env.get_env_var("GPUI_WINDOWS_CLIPBOARD_DIAGNOSTICS_PATH") is None {
+    required(
+      outcome(
+        native_clipboard_diagnostics_disabled(),
+        "clipboard_diagnostics_disabled",
+      ),
+    )
   }
 }
 
@@ -382,9 +436,10 @@ test "non-Windows native stub never claims a real host" {
 }
 
 ///|
-test "Win32 production IMM session staging preserves message ordering" {
+test "Win32 committed composition repeat travels through WndProc and decoder" {
   let failed_stage = FixedArray::make(1, -1)
-  let status = native_text_session_staging(failed_stage)
+  let repeat_event = FixedArray::make(10, 0.0)
+  let status = native_text_session_staging(failed_stage, repeat_event)
   if status == 1 {
     // The portable non-Windows backend keeps the experimental native path
     // explicitly unavailable.
@@ -393,6 +448,38 @@ test "Win32 production IMM session staging preserves message ordering" {
   }
   assert_eq(failed_stage[0], 0)
   assert_eq(status, 0)
+  assert_true(
+    decode_event(repeat_event)
+    is Some(
+      @platform.Input(
+        @primitives.KeyPressed(key=@primitives.Enter, repeat=true, ..)
+      )
+    ),
+  )
+}
+
+///|
+test "Windows wheel payload updates only an accepted event slot" {
+  let status = native_wheel_enqueue()
+  if status == 1 {
+    // The non-Windows backend keeps Win32 ingress unavailable.
+    return
+  }
+  assert_eq(status, 0)
+}
+
+///|
+test "Windows clipboard fixture line reader drains buffered exit response" {
+  if @env.get_env_var("GPUI_WINDOWS_E2E") == Some("1") {
+    let host = required(Host::start())
+    required(
+      outcome(
+        native_clipboard_fixture_read_line(host.token),
+        "clipboard_fixture_read_line",
+      ),
+    )
+    required(host.stop())
+  }
 }
 
 ///|
@@ -409,8 +496,37 @@ test "Windows D3D11 HWND renders and reads back first frame" {
         fail("second native host should be busy")
       }
     }
-    let window = required(
-      host.create_window(128, 96, "gpui.mbt Windows 日本語"),
+    let initial_title = "gpui.mbt Windows 日本語"
+    let window = required(host.create_window(128, 96, initial_title))
+    let displays = required(host.display_snapshot())
+    assert_true(displays.length() > 0)
+    let mut primary_displays = 0
+    let mut window_displays = 0
+    for display in displays {
+      assert_true(display.bounds_width_px > 0)
+      assert_true(display.bounds_height_px > 0)
+      assert_true(display.work_area_width_px > 0)
+      assert_true(display.work_area_height_px > 0)
+      if display.is_primary {
+        primary_displays += 1
+      }
+      if display.is_window_monitor {
+        window_displays += 1
+      }
+    }
+    assert_eq(primary_displays, 1)
+    assert_eq(window_displays, 1)
+    let initial_title_bytes = @utf8.encode(initial_title)
+    required(
+      outcome(
+        native_window_title_matches(
+          host.token,
+          window.value().to_int(),
+          initial_title_bytes,
+          initial_title_bytes.length(),
+        ),
+        "initial_window_title",
+      ),
     )
     match host.create_window(32, 32, "second window") {
       Err(error) => assert_eq(error.code().label(), "busy")
@@ -926,13 +1042,81 @@ test "Windows D3D11 HWND renders and reads back first frame" {
     }
     assert_eq(button_event_index, expected_buttons.length())
 
-    let sample_text = "clipboard 日本語 😀"
     match host.write_clipboard("prefix\u{0}suffix") {
       Err(error) => assert_eq(error.code().label(), "conversion_failed")
       Ok(_) => fail("clipboard text containing NUL must be rejected")
     }
-    required(host.write_clipboard(sample_text))
-    assert_eq(required(host.read_clipboard()), sample_text)
+    // A separate Win32 process reads our published CF_UNICODETEXT, then
+    // publishes its own exact multiline Unicode payload for the production
+    // adapter to consume.
+    let gpui_text = "gpui clipboard 日本語 😀 👩🏽‍💻 é\nsecond line\r\n終わり"
+    required(host.write_clipboard(gpui_text))
+    required(
+      outcome(
+        native_clipboard_fixture_read(host.token),
+        "clipboard_fixture_read",
+      ),
+    )
+    // The helper must leave this ordinary queued message for dispatch while it
+    // pumps synchronous clipboard ownership notifications with PM_NOREMOVE.
+    required(host.wake())
+    required(
+      outcome(
+        native_clipboard_fixture_write(host.token),
+        "clipboard_fixture_write",
+      ),
+    )
+    let queued_events = required(host.dispatch(0))
+    assert_true(queued_events.any(event => event.kind() is @platform.Wake))
+    for event in queued_events {
+      assert_true(event.sequence() > last_sequence)
+      last_sequence = event.sequence()
+    }
+    let fixture_text = "fixture clipboard 日本語 😀 👩🏽‍💻\nsecond line\r\n終わり"
+    assert_eq(required(host.read_clipboard()), fixture_text)
+
+    required(
+      outcome(
+        native_clipboard_fixture_lock_start(host.token),
+        "clipboard_fixture_lock_start",
+      ),
+    )
+    let read_was_busy = match host.read_clipboard() {
+      Err(error) => error.code().label() == "busy"
+      Ok(_) => false
+    }
+    let write_was_busy = match
+      host.write_clipboard("must not replace lock marker") {
+      Err(error) => error.code().label() == "busy"
+      Ok(_) => false
+    }
+    required(
+      outcome(
+        native_clipboard_fixture_lock_stop(host.token),
+        "clipboard_fixture_lock_stop",
+      ),
+    )
+    assert_true(read_was_busy)
+    assert_true(write_was_busy)
+    assert_eq(
+      required(host.read_clipboard()),
+      "clipboard lock marker 日本語 🔒\nleave intact",
+    )
+    let recovery_text = "clipboard recovered 日本語 😀\nsecond line"
+    required(host.write_clipboard(recovery_text))
+    assert_eq(required(host.read_clipboard()), recovery_text)
+    // Exercise the fixture's own bounded lock expiry path and confirm Windows
+    // releases the lock so the production adapter can read the sentinel.
+    required(
+      outcome(
+        native_clipboard_fixture_expiry(host.token),
+        "clipboard_fixture_expiry",
+      ),
+    )
+    assert_eq(
+      required(host.read_clipboard()),
+      "clipboard lock marker 日本語 🔒\nleave intact",
+    )
 
     required(host.set_size(window, 160, 120))
     let resize_events = required(host.dispatch(0))

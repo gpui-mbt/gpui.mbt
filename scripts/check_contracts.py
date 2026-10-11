@@ -634,6 +634,8 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
 
     allowed_internal_edges = {
         "primitives": set(),
+        # Shared semantics stay independent from layout, capabilities, and OS leaves.
+        "accessibility": {"primitives"},
         # Text editing semantics stay portable and depend only on core values.
         "text": set(),
         # Intrinsic layout results are portable values layered over text and
@@ -642,6 +644,8 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         # Reusable editing/paint state consumes portable layout results; native
         # shaping, raster admission and clipboard ownership remain in leaves.
         "controls/text_field": {"text", "text_layout", "primitives", "scene", "element"},
+        # Reusable button state stays portable above hit-testing and scene data.
+        "controls/button": {"primitives", "element", "scene"},
         "controls/command_palette": {"text", "text_layout", "primitives", "element", "controls/text_field", "capability", "diagnostics", "scene"},
         "diagnostics": {"primitives"},
         "core": {"primitives", "diagnostics"},
@@ -650,20 +654,49 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         "platform": {"primitives", "diagnostics", "scene"},
         # Native AppKit editor batches carry validated UTF-16 ranges and style
         # spans as portable values; editor ownership remains in the leaf.
-        "platform/macos": {"platform", "primitives", "diagnostics", "scene", "text"},
-        # CoreText shaping and monochrome raster admission are native leaf
-        # services over portable text/layout/scene values.
-        "platform/macos_text": {"text", "text_layout", "primitives"},
+        "platform/macos": {"platform", "primitives", "diagnostics", "scene", "text", "platform/testing"},
         "platform/linux_text": {"text_layout", "text", "primitives"},
         "platform/windows_text": {"text", "text_layout", "primitives"},
+        # CoreText shaping and monochrome raster admission are native leaf
+        # services over portable text/layout/scene values; the frame-readback
+        # seam is portable in shape on the shared platform contract.
+        "platform/macos_text": {"text_layout", "text", "primitives"},
+        "platform/testing": {"platform", "diagnostics"},
         "examples/native_macos": {"platform/macos", "platform", "primitives", "diagnostics", "scene"},
         "examples/macos_text_field": {
             "platform/macos", "platform/macos_text", "platform", "controls/text_field",
             "text", "text_layout", "element", "primitives", "scene", "diagnostics",
         },
-        "ubuntu": {"platform", "platform/linux_text", "text", "primitives", "diagnostics", "scene"},
+        "ubuntu": {
+            "accessibility", "platform", "platform/linux_text", "platform/testing",
+            "text", "primitives", "diagnostics", "scene",
+        },
         "examples/ubuntu": {
             "ubuntu", "platform", "platform/linux_text", "text", "primitives", "diagnostics", "scene",
+        },
+        # The Ubuntu button fixture owns its portable semantic projection; its
+        # native executable remains a leaf above that headless fixture.
+        "examples/ubuntu_button/fixture": {
+            "accessibility", "controls/button", "element", "primitives", "scene",
+        },
+        # The native Ubuntu Button executable owns an in-process adapter over
+        # the shared semantic model; it does not add an OS accessibility bridge.
+        "examples/ubuntu_button": {
+            "ubuntu", "accessibility", "platform", "diagnostics", "primitives",
+            "examples/ubuntu_button/fixture",
+        },
+        # The native macOS sample is a leaf above the portable Button fixture.
+        "examples/macos_button": {
+            "accessibility", "diagnostics", "examples/ubuntu_button/fixture", "platform",
+            "platform/macos", "platform/testing", "primitives", "scene",
+        },
+        # The macOS command palette is an executable leaf over the shared
+        # palette/TextField model and native measurement/rendering adapters.
+        "examples/macos_command_palette": {
+            "capability", "controls/command_palette", "controls/text_field",
+            "diagnostics", "element", "platform", "platform/macos",
+            "platform/macos_text", "platform/testing", "primitives", "scene",
+            "text", "text_layout",
         },
         "examples/linux_text_field": {
             "ubuntu", "platform", "platform/linux_text", "controls/text_field",
@@ -671,13 +704,26 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         },
         "windows": {
             "platform", "primitives", "diagnostics", "scene", "text",
-            "platform/windows_text",
+            "accessibility",
+            "platform/windows_text", "platform/testing",
         },
         "examples/windows": {"windows", "platform", "primitives", "diagnostics", "scene"},
         "examples/windows_text_field": {
             "windows", "platform/windows_text", "platform",
             "controls/text_field", "text", "text_layout", "element",
             "primitives", "scene", "diagnostics",
+        },
+        "examples/windows_command_palette": {
+            "windows", "platform/windows_text", "platform",
+            "controls/text_field", "controls/command_palette", "text",
+            "text_layout", "element", "primitives", "scene", "diagnostics",
+            "capability",
+        },
+        # The Windows Button executable is a native adapter above the shared
+        # platform-neutral fixture, with a narrow copied semantic binding.
+        "examples/windows_button": {
+            "windows", "platform", "platform/testing", "primitives", "scene",
+            "diagnostics", "accessibility", "examples/ubuntu_button/fixture",
         },
         "element": {"core", "primitives", "layout", "scene"},
         # Semantic capabilities are portable application-facing contracts. The
@@ -706,6 +752,7 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
     }
     required_runtime_packages = {
         "primitives",
+        "accessibility",
         "diagnostics",
         "core",
         "layout",
@@ -778,6 +825,9 @@ def _validate_workflow(path: Path) -> list[str]:
         "python3 -m unittest discover -s tests -p 'test_*.py'",
         "python3 scripts/check_contracts.py",
         "moon version --all",
+        "moon info --target native --package f4ah6o/gpui/ubuntu",
+        "cp _build/native/debug/check/ubuntu/ubuntu.mbti ubuntu/pkg.generated.mbti",
+        "git diff --exit-code -- ubuntu/pkg.generated.mbti",
         "moon fmt --check",
         "moon check --target all --deny-warn",
         "moon test --target all --deny-warn",

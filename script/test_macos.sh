@@ -43,7 +43,7 @@ build_native_runner() {
   xcrun clang -fobjc-arc -Wall -Wextra -Werror \
     -DGPUI_TESTING tests/native/macos_e2e.m platform/macos_text/core_text.c \
     -framework AppKit -framework QuartzCore -framework Metal \
-    -framework CoreText -framework CoreGraphics \
+    -framework CoreText -framework CoreGraphics -framework CoreFoundation \
     -o "$TEST_TARGET_DIR/native-e2e/macos_e2e"
 }
 
@@ -72,7 +72,7 @@ if [[ "$MODE" == --text-field ]]; then
 fi
 
 build_native_runner
-"$TEST_TARGET_DIR/native-e2e/macos_e2e"
+GPUI_NATIVE_E2E=1 "$TEST_TARGET_DIR/native-e2e/macos_e2e"
 ./script/build_and_run.sh --demo quad --smoke \
   --target-dir "$TEST_TARGET_DIR/quad-smoke"
 run_text_field_checks

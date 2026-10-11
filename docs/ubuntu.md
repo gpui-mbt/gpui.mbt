@@ -21,7 +21,7 @@ On Ubuntu 24.04 x86-64, install the system toolchain:
 sudo apt-get update
 sudo apt-get install -y build-essential pkg-config libwayland-dev wayland-protocols \
   libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libgl1-mesa-dri \
-  libpango1.0-dev libfontconfig1-dev fonts-dejavu-core fonts-noto-cjk \
+  libpango1.0-dev libfontconfig1-dev fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk \
   fonts-noto-color-emoji adwaita-icon-theme weston wayland-utils
 sh scripts/prepare_ubuntu.sh
 moon run examples/ubuntu --target native
@@ -48,6 +48,10 @@ Ubuntu native renderer. See the [Linux text guide](linux-text.md) for the
 measurement contract, raster scope, and separate headless test command.
 
 ## Implemented behavior
+
+See [desktop acceptance boundaries](ubuntu-desktop-acceptance.md) for the
+selected real-input VM smoke, virtual-output evidence, and remaining
+IME/AT-SPI/physical-display release gates. These are separate from headless E2E.
 
 - One UI-owner host and one live window at a time. A second host/window returns
   `Busy`. Startup and initial configure wait at most roughly three seconds each.
@@ -88,11 +92,26 @@ measurement contract, raster scope, and separate headless test command.
   remain pending. A separate opt-in [experimental v1 transport](ubuntu-ime.md)
   now exposes Ubuntu-local text sessions; owner integration and GPUI native IME
   acceptance are still pending.
-- Output enter/leave and maximum entered-output integer buffer scale. Scale is
-  queued before later input/frame events and EGL buffers resize to physical
-  pixels. Fractional scale, public display metadata and multi-display E2E are
-  pending. Output tracking is bounded to 16 outputs; this slice targets one CI
-  output and does not claim broader desktop coverage.
+- Output enter/leave and maximum entered-output integer buffer scale. Numeric
+  geometry fields, current-mode values, and scale callbacks are staged per
+  wl_output and become committed only at that output's done event;
+  enter/leave and EGL sizing read committed scale. Scale is queued before later
+  input/frame events and EGL buffers resize to physical pixels.
+  Host::display_snapshot() returns a copied, bounded list of currently bound
+  outputs with readiness, committed geometry/mode/transform, integer scale,
+  and whether the window surface is entered. Physical dimensions are in
+  millimeters, mode dimensions in pixels, and refresh in millihertz; subpixel
+  and transform are raw Wayland protocol enum integers. Geometry, current mode,
+  and scale reflect the most recent wl_output.done. Readiness follows that
+  output's done event, while entered state and the bound-output list reflect
+  current surface enter/leave and output add/remove events. Each returned
+  record is a copy and does not change later; list order is ephemeral, with no
+  durable output ID, protocol proxy, manufacturer/model, or compositor-global
+  position exposed.
+  The snapshot is an on-demand read; no generic display-change event is added.
+  Fractional scale and multi-display E2E remain pending. Output tracking is
+  bounded to 16 outputs; this slice targets one CI output and does not claim
+  broader desktop coverage.
 - Bounded 1024-event FIFO. Overflow returns `ResourceExhausted` and quiesces the
   host instead of silently losing input. Sequence exhaustion also fails closed.
 - Clipboard uses the core Wayland data-device protocol for UTF-8 plain text.
@@ -129,7 +148,8 @@ unsupported result before presentation. The Linux text adapter exposes
 to admit only a linked private raster ABI with Pango >= 1.50 glyph-color
 metadata. An unavailable ABI/runtime returns `UnsupportedRaster` at the
 adapter boundary and maps to typed `UnsupportedCapability` for the host.
-macOS keeps its existing native text rejection behavior. Windows has a separate
+macOS has a separate bounded CoreText system-sans text subset and measurement
+adapter. Windows has a separate
 experimental D3D11 grayscale text subset, a focused single-line field, and
 private default-off IMM32 text-session ingress; see the [Windows native
 guide](windows-native.md). These experimental paths do not promote a platform
@@ -268,9 +288,9 @@ typing history or qualification of desktop repeat accuracy. See the
 [field repeat contract](linux-text-field.md#bounded-direct-keyboard-repeat).
 
 The bounded experimental field now paints visible caret/selection and scrolls,
-but it is not a general control. Public TextInput/IME, semantic accessibility, menus,
-background enqueue, timers, fractional scaling, and broader service capability
-negotiation remain roadmap work. Native clipboard
+but it is not a general control. Public TextInput/IME, native/OS accessibility
+integration, menus, background enqueue, timers, fractional scaling, and broader
+service capability negotiation remain roadmap work. Native clipboard
 and cursor protocols are implemented, while a
 cross-client clipboard roundtrip and visible cursor smoke under an input-capable
 desktop remain unverified. Native handles and borrowed buffers do not escape
@@ -309,6 +329,37 @@ conformance gate in `testing/backend/`. Normal `moon test` does not run native
 E2E unless `GPUI_UBUNTU_E2E=1`; its pass count alone is not E2E evidence. Logs are
 written to `_build/ubuntu-e2e/`.
 
+### Headless Weston shell profile
+
+Ordinary E2E and failure diagnostics share
+`scripts/start_ubuntu_test_compositor.sh`: Weston headless GL **desktop-shell**,
+with an explicit `tests/ubuntu/weston.ini` disabling animations, panel and locking.
+The launcher uses `exec` so readiness checks and compositor termination still
+address Weston itself. The scale-1/2 workloads and client lifecycle are unchanged.
+This avoids a Weston kiosk-shell defect; it is not a GPUI client lifetime fix or
+a patch to the installed Weston package.
+
+On Ubuntu 24.04 with Weston `13.0.0-4build3`, the PR #63 MoonBit lifecycle
+reproduced a compositor use-after-free. In a seatless headless session,
+`desktop_surface_removed()` skips its seat/focus-dependent active-tree cleanup,
+then `kiosk_shell_surface_destroy()` frees the root surface. The next surface
+commit traverses the stale `shoutput->active_surface_tree` in
+`kiosk_shell_output_set_active_surface_tree()` and crashes at
+`kiosk-shell.c:549`. GDB breakpoints recorded an empty seat list, the destroyed
+root's list-head address, and that identical address as the next active tree;
+at SIGSEGV both list links contained `0xa5a5a5a5a5a5a5a5` with
+`MALLOC_PERTURB_=165` set on Weston only. Eight unperturbed attempts passed;
+allocator perturbation exposed the stale pointer rather than establishing a
+normal-run failure rate.
+
+The historical paired kiosk-shell comparison in
+`scripts/compare_ubuntu_revisions.py` intentionally retains its fixed original
+profile; its baseline/candidate rates are not desktop-shell evidence. The
+ordinary benchmark workload checksum now includes the test runner, compositor
+launcher and configuration, preventing comparisons against older kiosk reports.
+Historical observations below retain their original shell identities. This
+headless workaround does not qualify desktop input, IME or accessibility.
+
 Set `GPUI_BENCH_UBUNTU=1` when invoking the runner to emit 30
 `GPUI_BENCH_SAMPLE` records per scale. They measure first-frame completion after
 injected EGL renderer recovery, with the current `GL_RENDERER` value included;
@@ -317,9 +368,18 @@ log referenced by the JSON report. This keeps compositor diagnostics out of the
 strict sample records. The samples measure a headless llvmpipe recovery path, not
 a desktop frame-rate claim.
 
+GitHub native CI runs that benchmark once under a 480-second process-group
+limit. If it fails, the wrapper preserves that original exit status and starts
+one bounded diagnostic invocation; the diagnostic checks the MoonBit lifecycle
+E2E at scales 1 and 2, records numeric stage lines, separate Weston logs and a
+sanitized lifecycle-only Wayland trace capped at 256 KiB per scale. It does not
+capture protocol arguments or keyboard/data-offer interfaces. Both artifact
+roots are uploaded even when the benchmark fails. Diagnostic success never
+changes the benchmark result or proves desktop input/accessibility acceptance.
+
 | Evidence path | Distro / compositor | Graphics / session | Evidence state |
 | --- | --- | --- | --- |
-| Configured native CI | Ubuntu 24.04 x86-64; Ubuntu Weston 13 package | Weston headless GL kiosk shell; Mesa llvmpipe; integer scales 1/2 | Hosted run 2026-10-04 passed MoonBit E2E (4/4), C lifecycle/render/recovery checks at both scales, and 30 timing samples per scale. Measurement report completed with `no_baseline`; see [run and diagnostic results](performance.md#hosted-ubuntu-observation-2026-10-04). |
+| Historical native CI (kiosk profile) | Ubuntu 24.04 x86-64; Ubuntu Weston 13 package | Weston headless GL kiosk shell; Mesa llvmpipe; integer scales 1/2 | Hosted run 2026-10-04 passed MoonBit E2E (4/4), C lifecycle/render/recovery checks at both scales, and 30 timing samples per scale. Measurement report completed with `no_baseline`; see [run and diagnostic results](performance.md#hosted-ubuntu-observation-2026-10-04). |
 | PR28 grayscale text CI | Ubuntu 24.04 x86-64; Weston 13; PangoFT2 1.52.1; Fontconfig 2.15.0 | Weston headless GL kiosk shell; llvmpipe (LLVM 20.1.2); integer scales 1/2 | [Run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/37346110201) passed headless raster, 5/5 MoonBit E2E per scale and C mixed-scene/preservation assertions; readback PPMs retained. Recovery timing report is `captured_live` + `no_baseline`, not text performance qualification. |
 | PR30/31 field and origin CI | Ubuntu 24.04; Weston 13; declared sans/Pango fixture profile | Headless GL kiosk shell; llvmpipe; scales 1/2 | [PR31 exact-head run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/37392223946) passed actual Host.present and nine injected accepted field frames plus origin/preflight preservation checks. This rendering tier does not inject real keys; see compositor observation below. |
 | PR32 bounded history CI | Ubuntu 24.04; Weston 13; declared sans/Pango fixture profile | Headless GL kiosk shell; llvmpipe; scales 1/2 | [PR run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/37402479619) and [merged-main run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/37403927714) passed 16/16 Host.present field tests per scale and 11 accepted scenes from 13 fixtures; reviewed undo/redo decoded pixels agree. This is injected rendering, not keyboard/IME. |
@@ -329,6 +389,68 @@ a desktop frame-rate claim.
 | Real Ubuntu desktop | Ubuntu 24.04 GNOME Wayland/Mutter | Desktop GPU, IME and assistive technology | Pending |
 
 ### Known hosted-compositor observation
+
+On 2026-10-10 the exact main `4ef4bb2` and #53 `9c70225` runs each completed 30
+samples at scales 1 and 2 without a Weston exit failure
+([main run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/38042332540),
+[#53 run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/38045608524)). The
+subsequent #54 first attempt failed at scale 1 with Weston 13 exit 139; #58's
+first attempt failed at scale 2 with the same exit status. Their Ubuntu 24.04.5
+runner jobs were in different regions (`westus2` and `westus`); one failed-job
+retry per PR later passed. Those selected runs do not isolate source changes
+from host/region variability and do not establish a harmless-flake rate or a
+cause. The first failures and artifacts remain part of the record
+([#54 run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/38047565209),
+[#58 run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/38050672414)).
+A fixed, paired, finite comparison with the same workflow settings is still
+needed before attributing the failures to either source or runner.
+
+The integration branch `codex/linux-six-pr-integration-20261011` adds a
+bounded paired same-runner comparison to the Ubuntu native workflow. It pins the
+baseline to public #53 head `9c70225ddcee70385b64ee24f207ec0755b2b49f` and
+tests the exact integration-branch head as the candidate. The job uses Ubuntu
+24.04, the same MoonBit version, native package set, Weston headless GL setup,
+and the same test workload. It runs six predetermined baseline/candidate
+pairs at each of scales 1 and 2, alternating revision and scale order. Each
+scale is isolated, so a scale-1 failure cannot prevent scale-2 observations.
+The full two-scale benchmark step completed in under 80 seconds on a prior
+successful hosted run
+([job log](https://github.com/gpui-mbt/gpui.mbt/actions/runs/38047565209/job/114204130342));
+the per-attempt 180-second cap leaves more than twice that observed wall time
+for each single-scale run. This is timeout sizing evidence, not a runtime
+guarantee.
+
+To keep the workload comparable despite historical test-runner edits, each
+temporary worktree receives the same baseline-derived test drivers, C test
+fixtures and MoonBit test files. The only driver changes are the validated
+single-scale selector, stage and final-wait instrumentation, cleanup-trap status
+reporting, and foregrounded bounded `timeout` commands so an outer attempt
+timeout can terminate descendants in its process group. The manifest stores
+per-file source and overlay hashes; production files are not
+overlaid. The comparison does not invoke the failure diagnostic, replay a
+failure, or adapt the attempt sequence. It records the latest test-stage
+marker, Weston exit observations, and the relevant Weston log per attempt;
+Weston's controlled SIGTERM exit 143 after the disconnect test is distinguished
+from exit 139. Each stdout/stderr stream is capped at 1 MiB while retaining its
+beginning and tail; Weston logs are capped at 512 KiB and stored with per-attempt
+commit and status metadata. The total comparison
+budget is 60 minutes, the job timeout is 70 minutes, and each attempt is capped
+at 180 seconds plus a 10-second termination grace. If the budget expires,
+unstarted attempts are recorded as incomplete and the comparison fails. The
+normal Ubuntu workflow retains its separate single failure-only diagnostic.
+
+The comparison runs on the repository-owned integration PR's initial
+`opened` event. Later branch updates do not silently repeat the 24-attempt
+experiment. If the initial event is missing, use the existing Ubuntu
+workflow's manual dispatch
+with the exact integration branch selected; the job checks its candidate SHA
+against that ref and the pinned #53 baseline before running. The artifact also
+records the runner's core limit and kernel core pattern read-only. It does not
+change core-dump settings, attach a debugger, or upload core memory; a
+backtrace may therefore remain unavailable. Results are evidence about this
+declared hosted profile only, not a causal diagnosis or a general stability
+rate. Six observations per revision and scale cannot establish that exit 139
+is absent or harmless.
 
 The merged field/origin main source `73e7082` was checked in
 [Ubuntu run37393518087](https://github.com/gpui-mbt/gpui.mbt/actions/runs/37393518087).

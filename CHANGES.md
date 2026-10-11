@@ -4,6 +4,191 @@
 
 ### Added
 
+### Changed
+
+### Fixed
+
+- Declare the missing `fonts-dejavu-extra` geometry-test dependency and check
+  neutral `sans` resolution before Linux text/Ubuntu E2E tests, preserving the
+  negative-bearing assertions and logging the actual font file hashes.
+- Avoid Weston's seatless kiosk-shell use-after-free in ordinary Ubuntu E2E
+  and failure diagnostics by using an explicit, animation-free desktop-shell
+  profile. Keep the historical paired kiosk comparison unchanged and include
+  the compositor profile in benchmark workload checksums.
+  ([PR #63](https://github.com/gpui-mbt/gpui.mbt/pull/63))
+- Reject fresh Ubuntu Button accessibility snapshot reads after source closure
+  or an unpublished semantic change, while retaining readable detached copies.
+  ([PR #61](https://github.com/gpui-mbt/gpui.mbt/pull/61))
+- Report actual source-data loss in bounded Ubuntu comparison logs and omit
+  truncation markers when the complete output is retained.
+  ([PR #63](https://github.com/gpui-mbt/gpui.mbt/pull/63))
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.7.0 - 2026-10-11
+
+### Added
+
+- Added a transport-free Windows accessibility projection for copied semantic
+  snapshots, stable opaque export IDs, live action validation, and stale or
+  foreign owner rejection. Application owners remain responsible for effects;
+  native UI Automation remains unsupported. See the [accessibility design](docs/accessibility.md).
+
+### Changed
+
+### Fixed
+
+- Prevent stale Windows Button session copies from publishing older semantic
+  snapshots or closing the current owner's binding, including after session-
+  only changes such as backing-scale updates.
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.6.0 - 2026-10-11
+
+### Added
+
+- Added a copied, bounded macOS `Host::display_snapshot()` for AppKit screen
+  geometry, CoreGraphics pixel modes and refresh rate, backing scale, primary
+  status and the host key-window screen. Display changes during a query return
+  `Busy`; persistent display identifiers and change notifications are not
+  included. See [macOS native support](docs/macos-native.md).
+
+### Changed
+
+### Fixed
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.5.0 - 2026-10-11
+
+### Added
+
+- Added a native macOS command-palette sample that composes the shared palette,
+  TextField, CoreText measurement and AppKit/Metal host. Its synthetic NSWindow
+  E2E checks filtering, navigation, activation, cancellation, reopening, pixels
+  and teardown; palette-specific committed text input, Japanese IME and
+  accessibility remain unqualified. See
+  [the sample guide](examples/macos_command_palette/README.md).
+- Added a window-scoped synthetic key-event hook for opt-in macOS native E2E.
+
+### Changed
+
+### Fixed
+
+- Include the existing macOS Button accessibility adapter in both dylib builds
+  from script/build_and_run.sh and verify that its public bridge symbols are
+  exported.
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.4.0 - 2026-10-11
+
+### Added
+
+- Added a bounded Windows `Host::display_snapshot()` API for copied virtual
+  screen geometry, work areas, current display modes, primary-monitor status,
+  and the monitor containing the host window. Effective DPI is reported only
+  for the current window monitor through the DPI-aware `GetDpiForWindow` API;
+  other monitors report it as unavailable. Physical panel dimensions and
+  stable monitor identifiers are not inferred. See the
+  [Windows native guide](docs/windows-native.md).
+
+### Changed
+
+### Fixed
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.3.0 - 2026-10-10
+
+### Added
+
+- Added a bounded macOS AppKit accessibility adapter for the sample Button,
+  with public snapshot, publish/revoke, and semantic Invoke APIs. See the
+  [macOS Button guide](examples/macos_button/README.md); general widget and
+  VoiceOver support remain unqualified.
+
+### Changed
+
+### Fixed
+
+- Propagate CoreText framework link flags to downstream macOS native builds so
+  package consumers can use `platform/macos_text` outside a Moon workspace.
+- Post focus-change notifications with the newly focused live element, or a
+  current live target after the previous Button element is removed.
+- Bound cleanup of the macOS AX harness's app, client, and watchdog processes,
+  including stopped children that ignore termination.
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+- Provide Python 3 when building GPUI for native or LLVM targets; Moon runs the
+  module pre-build configuration script for those backends.
+
+## 0.2.2 - 2026-10-10
+
+### Fixed
+
+- Windows wheel deltas now update only the event slot accepted by the shared
+  input queue. Queue or sequence exhaustion can no longer overwrite an earlier
+  event's input payload.
+
+## 0.2.1 - 2026-10-10
+
+### Added
+
+- Added a Windows-native fixture that reuses the portable Button model, exposes
+  completed-frame D3D11 pixel evidence, and provides a separately gated
+  SendInput runner. The current interactive desktop blocked input acceptance;
+  physical input, window lifecycle, UI Automation and Japanese IME remain open.
+  See the [Windows Button guide](docs/windows-button.md).
+
+### Changed
+
+## 0.2.0 - 2026-10-10
+
+### Added
+
+- Added CoreText measurement and grayscale Metal rendering for bounded macOS
+  single-line scene text, plus opt-in native frame readback and host-scoped
+  AppKit input hooks for E2E evidence. See [macOS native support](docs/macos-native.md).
+
 - Added bounded immutable undo/redo to the experimental single-line text field,
   with original directional selections, private copy-safe history, independent
   entry/UTF-8 payload caps and current-style admission on restoration. Clipboard
@@ -33,6 +218,12 @@
   a pass. This does not promote a support tier or production gate. See the
   [macOS guide](docs/macos-native.md#experimental-single-line-text-field).
 
+- Added macOS scroll-wheel delivery to the shared input event stream. Precise
+  point deltas and coarse line/row deltas retain their AppKit units; physical
+  device delivery remains unqualified. See [macOS native support](docs/macos-native.md).
+
+- Added a Stage A macOS example that composes the portable reusable Button fixture with the AppKit/Metal host, plus adapter regressions and completed-frame native smoke checks. See the [macOS Button guide](examples/macos_button/README.md).
+
 - Added the headless M1 `core/` API for app and entity lifetimes, scoped contexts, subscriptions, structured errors, and deterministic foreground tasks. See [issue 0001](issues/open/0001-product-charter-and-compatibility.md).
 - Added MoonBit `primitives/` and `diagnostics/` packages and an executable package-boundary check for the runtime graph. See [issue 0002](issues/open/0002-architecture-and-dependency-policy.md).
 - Added the first M2 `layout/` package: deterministic row/column flex-line layout with points/percent/auto child dimensions, gap, padding/border, grow/shrink, one-pass min/max clamping, alignment, overflow reporting, unit tests, and a seeded QuickCheck invariant.
@@ -47,6 +238,9 @@
 ### Fixed
 
 - Fixed macOS app-bundle builds on Bash 3.2 when test hooks are omitted. ([issue 0006](issues/open/0006-macos-native-backend.md), [PR #46](https://github.com/gpui-mbt/gpui.mbt/pull/46))
+- Synchronize the macOS Button sample with the host's current logical size and
+  backing scale before rendering, so queued resize events cannot submit a
+  stale viewport. The adapter and native smoke cover resize bursts.
 - Balance browser pointer and key presses across renderer loss, including a
   press queued before the cancelled frame. The first restored drain receives
   matching releases, and later native releases cannot release the same hold
