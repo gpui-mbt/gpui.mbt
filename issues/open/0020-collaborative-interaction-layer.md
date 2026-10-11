@@ -2,7 +2,7 @@
 
 Status: open
 Related: [0003-testing-pbt-mutation-and-visual-validation.md](0003-testing-pbt-mutation-and-visual-validation.md), [0009-browser-backend.md](0009-browser-backend.md), [0013-generated-api-and-mcp-adapters.md](0013-generated-api-and-mcp-adapters.md)
-Updated: 2026-10-05
+Updated: 2026-10-11
 
 ## Goal
 
@@ -92,6 +92,32 @@ domain handler.
 An agent may be allowed to edit one field directly, propose another change, and
 be denied a destructive command. A human may normally have broad authority but
 still encounter application policy or platform permission constraints.
+
+## Actor issuance and session binding
+
+Actor identity is minted by a trusted issuer, never by the caller's request
+payload.
+
+- Local human and system actors are created by the trusted host (windowing,
+  input, or application runtime) that observes them.
+- Remote actors such as MCP, WebMCP, or other transport adapters are created
+  by the adapter after it has verified an authenticated connection or session.
+- Caller-provided fields such as `actor_id`, `kind`, or display names in a
+  request body are metadata only. They are never the basis for an
+  authorization decision.
+
+An actor is bound to the session or connection that issued it and is revoked
+when that session disconnects or ends. An actor ID minted in one session is
+not valid in another.
+
+Policy is evaluated at execution time against the bound principal and its
+current authority, not against values carried by the request. Direct
+invocation, MCP, and WebMCP ingress all evaluate the same runtime policy
+against the same session-bound actor contract.
+
+Remote self-declaration cannot acquire reserved `human` or `system` authority:
+an adapter must not mint those kinds for a remote caller unless the trusted
+host attests them.
 
 ## Shared semantic targets
 
@@ -356,6 +382,8 @@ Acceptance:
 - no platform, DOM, MCP, or native-window handle leaks into portable types
 - human, agent, system, and automation actors can be represented without
   encoding fixed authority in the actor enum/type
+- actor records carry issuer/session binding sufficient to distinguish a
+  trusted host-minted principal from caller-supplied metadata
 
 ### B. Shared focus/highlight/selection model
 
@@ -385,6 +413,12 @@ Acceptance:
 - a policy can require human confirmation for a specific effect
 - denial is typed and does not silently degrade into a GUI click attempt
 - authority changes are checked at execution time
+- a remote caller cannot acquire `human` or `system` authority by declaring
+  `kind` or an actor ID in a request
+- an actor ID minted in another session cannot be reused to act in the
+  current session
+- once an actor's session or authority is revoked, further actions are denied
+  and produce no side effects
 
 ### D. Revision and conflict semantics
 
@@ -415,6 +449,8 @@ Acceptance:
 - explicit exposure policy controls machine-visible operations
 - adapter schemas include required precondition/revision data where applicable
 - unsupported backend capabilities fail explicitly
+- every adapter derives the authoritative actor from its verified connection
+  or session rather than from request-body actor fields
 
 ### F. Cross-backend and black-box validation
 
@@ -428,6 +464,9 @@ Include:
 - policy/confirmation tests
 - lifecycle/teardown tests
 - browser adapter tests
+- spoofing tests: `kind=system` self-declaration, cross-session actor ID
+  reuse, and execution after authority revocation are each denied without
+  side effects, while normally permitted operations still succeed
 - VLMKit black-box checks for visual focus/highlight state where useful
 
 VLMKit is validation evidence, not the semantic control transport.
@@ -449,6 +488,10 @@ This issue can close when all of the following are demonstrated:
 - browser WebMCP support, if enabled, is an optional projection rather than the
   framework core
 - headless conformance tests cover actor/policy/conflict semantics
+- direct invocation, MCP, and WebMCP ingress all evaluate policy at execution
+  time against a session-bound actor minted by a trusted issuer
+- spoofed actor kind, cross-session actor reuse, and revoked-authority actions
+  are denied without side effects, covered by tests
 - at least one browser or native integration fixture demonstrates shared-screen
   human + agent interaction
 - repository documentation states the fallback boundary: semantic interaction
