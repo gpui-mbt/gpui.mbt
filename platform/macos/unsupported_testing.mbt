@@ -21,6 +21,16 @@ pub fn Host::post_test_click(
 }
 
 ///|
+pub fn Host::post_test_key(
+  _self : Host,
+  _window : @platform.WindowId,
+  _key : @primitives.Key,
+  _modifiers : @primitives.Modifiers,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  Err(test_hook_unavailable("post_test_key"))
+}
+
+///|
 pub fn Host::post_test_escape(
   _self : Host,
   _window : @platform.WindowId,

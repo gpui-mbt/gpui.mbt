@@ -82,6 +82,15 @@ int32_t gpui_macos_test_post_click(int64_t window, double x, double y) {
   int32_t (*post)(int64_t, double, double) = dlsym(library, "gpui_macos_test_post_click_v1");
   return post ? post(window, x, y) : 9;
 }
+int32_t gpui_macos_test_post_key(int64_t window, int32_t key_code,
+                                  int32_t modifiers, const uint8_t *text,
+                                  int32_t text_length) {
+  int status = load();
+  if (status) return status;
+  int32_t (*post)(int64_t, int32_t, int32_t, const uint8_t *, int32_t) =
+      dlsym(library, "gpui_macos_test_post_key_v1");
+  return post ? post(window, key_code, modifiers, text, text_length) : 9;
+}
 int32_t gpui_macos_test_post_escape(int64_t window) {
   int status = load();
   if (status) return status;
@@ -109,5 +118,11 @@ int32_t gpui_macos_ax_take_request(int64_t window, int64_t *output) {
 int32_t gpui_macos_frame_metrics(int64_t window, double *output) { (void)window; (void)output; return 9; }
 int32_t gpui_macos_frame_copy(int64_t window, uint8_t *output, int32_t capacity) { (void)window; (void)output; (void)capacity; return 9; }
 int32_t gpui_macos_test_post_click(int64_t window, double x, double y) { (void)window; (void)x; (void)y; return 9; }
+int32_t gpui_macos_test_post_key(int64_t window, int32_t key_code,
+                                  int32_t modifiers, const uint8_t *text,
+                                  int32_t text_length) {
+  (void)window; (void)key_code; (void)modifiers; (void)text; (void)text_length;
+  return 9;
+}
 int32_t gpui_macos_test_post_escape(int64_t window) { (void)window; return 9; }
 #endif
