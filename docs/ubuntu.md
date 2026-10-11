@@ -325,6 +325,37 @@ conformance gate in `testing/backend/`. Normal `moon test` does not run native
 E2E unless `GPUI_UBUNTU_E2E=1`; its pass count alone is not E2E evidence. Logs are
 written to `_build/ubuntu-e2e/`.
 
+### Headless Weston shell profile
+
+Ordinary E2E and failure diagnostics share
+`scripts/start_ubuntu_test_compositor.sh`: Weston headless GL **desktop-shell**,
+with an explicit `tests/ubuntu/weston.ini` disabling animations, panel and locking.
+The launcher uses `exec` so readiness checks and compositor termination still
+address Weston itself. The scale-1/2 workloads and client lifecycle are unchanged.
+This avoids a Weston kiosk-shell defect; it is not a GPUI client lifetime fix or
+a patch to the installed Weston package.
+
+On Ubuntu 24.04 with Weston `13.0.0-4build3`, the PR #63 MoonBit lifecycle
+reproduced a compositor use-after-free. In a seatless headless session,
+`desktop_surface_removed()` skips its seat/focus-dependent active-tree cleanup,
+then `kiosk_shell_surface_destroy()` frees the root surface. The next surface
+commit traverses the stale `shoutput->active_surface_tree` in
+`kiosk_shell_output_set_active_surface_tree()` and crashes at
+`kiosk-shell.c:549`. GDB breakpoints recorded an empty seat list, the destroyed
+root's list-head address, and that identical address as the next active tree;
+at SIGSEGV both list links contained `0xa5a5a5a5a5a5a5a5` with
+`MALLOC_PERTURB_=165` set on Weston only. Eight unperturbed attempts passed;
+allocator perturbation exposed the stale pointer rather than establishing a
+normal-run failure rate.
+
+The historical paired kiosk-shell comparison in
+`scripts/compare_ubuntu_revisions.py` intentionally retains its fixed original
+profile; its baseline/candidate rates are not desktop-shell evidence. The
+ordinary benchmark workload checksum now includes the test runner, compositor
+launcher and configuration, preventing comparisons against older kiosk reports.
+Historical observations below retain their original shell identities. This
+headless workaround does not qualify desktop input, IME or accessibility.
+
 Set `GPUI_BENCH_UBUNTU=1` when invoking the runner to emit 30
 `GPUI_BENCH_SAMPLE` records per scale. They measure first-frame completion after
 injected EGL renderer recovery, with the current `GL_RENDERER` value included;
@@ -344,7 +375,7 @@ changes the benchmark result or proves desktop input/accessibility acceptance.
 
 | Evidence path | Distro / compositor | Graphics / session | Evidence state |
 | --- | --- | --- | --- |
-| Configured native CI | Ubuntu 24.04 x86-64; Ubuntu Weston 13 package | Weston headless GL kiosk shell; Mesa llvmpipe; integer scales 1/2 | Hosted run 2026-10-04 passed MoonBit E2E (4/4), C lifecycle/render/recovery checks at both scales, and 30 timing samples per scale. Measurement report completed with `no_baseline`; see [run and diagnostic results](performance.md#hosted-ubuntu-observation-2026-10-04). |
+| Historical native CI (kiosk profile) | Ubuntu 24.04 x86-64; Ubuntu Weston 13 package | Weston headless GL kiosk shell; Mesa llvmpipe; integer scales 1/2 | Hosted run 2026-10-04 passed MoonBit E2E (4/4), C lifecycle/render/recovery checks at both scales, and 30 timing samples per scale. Measurement report completed with `no_baseline`; see [run and diagnostic results](performance.md#hosted-ubuntu-observation-2026-10-04). |
 | PR28 grayscale text CI | Ubuntu 24.04 x86-64; Weston 13; PangoFT2 1.52.1; Fontconfig 2.15.0 | Weston headless GL kiosk shell; llvmpipe (LLVM 20.1.2); integer scales 1/2 | [Run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/37346110201) passed headless raster, 5/5 MoonBit E2E per scale and C mixed-scene/preservation assertions; readback PPMs retained. Recovery timing report is `captured_live` + `no_baseline`, not text performance qualification. |
 | PR30/31 field and origin CI | Ubuntu 24.04; Weston 13; declared sans/Pango fixture profile | Headless GL kiosk shell; llvmpipe; scales 1/2 | [PR31 exact-head run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/37392223946) passed actual Host.present and nine injected accepted field frames plus origin/preflight preservation checks. This rendering tier does not inject real keys; see compositor observation below. |
 | PR32 bounded history CI | Ubuntu 24.04; Weston 13; declared sans/Pango fixture profile | Headless GL kiosk shell; llvmpipe; scales 1/2 | [PR run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/37402479619) and [merged-main run](https://github.com/gpui-mbt/gpui.mbt/actions/runs/37403927714) passed 16/16 Host.present field tests per scale and 11 accepted scenes from 13 fixtures; reviewed undo/redo decoded pixels agree. This is injected rendering, not keyboard/IME. |

@@ -8,6 +8,11 @@
 
 ### Fixed
 
+- Avoid Weston's seatless kiosk-shell use-after-free in ordinary Ubuntu E2E
+  and failure diagnostics by using an explicit, animation-free desktop-shell
+  profile. Keep the historical paired kiosk comparison unchanged and include
+  the compositor profile in benchmark workload checksums.
+  ([PR #63](https://github.com/gpui-mbt/gpui.mbt/pull/63))
 - Reject fresh Ubuntu Button accessibility snapshot reads after source closure
   or an unpublished semantic change, while retaining readable detached copies.
   ([PR #61](https://github.com/gpui-mbt/gpui.mbt/pull/61))

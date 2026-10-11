@@ -525,7 +525,12 @@ def build_report(
         "timer": "CLOCK_MONOTONIC; renderer recovery through the next Wayland frame callback",
         "scale_factors": list(EXPECTED_SCALES),
         "samples_per_scale": samples_per_scale,
-        "fixture_sha256": _sha256_files([fixture], ROOT),
+        "fixture_sha256": _sha256_files([
+            fixture,
+            ROOT / "scripts/test_ubuntu.sh",
+            ROOT / "scripts/start_ubuntu_test_compositor.sh",
+            ROOT / "tests/ubuntu/weston.ini",
+        ], ROOT),
     }
     measurements: list[dict[str, Any]] = []
     if error is None:

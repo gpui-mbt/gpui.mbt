@@ -67,9 +67,9 @@ trap cleanup EXIT HUP INT TERM
 export XDG_RUNTIME_DIR="$runtime" XDG_SESSION_TYPE=wayland WAYLAND_DISPLAY=gpui-e2e
 export LIBGL_ALWAYS_SOFTWARE=1
 for scale in 1 2; do
-  weston --backend=headless-backend.so --use-gl --shell=kiosk-shell.so \
+  sh scripts/start_ubuntu_test_compositor.sh \
     --width=1024 --height=768 --scale="$scale" --socket="$WAYLAND_DISPLAY" \
-    --no-config --idle-time=0 --log="$PWD/_build/ubuntu-e2e/weston-scale-$scale.log" &
+    --log="$PWD/_build/ubuntu-e2e/weston-scale-$scale.log" &
   compositor_pid=$!
   # The Wayland socket appears before Weston has necessarily completed shell
   # initialization. In CI, require one successful protocol roundtrip before
