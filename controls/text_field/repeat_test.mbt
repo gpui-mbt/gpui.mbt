@@ -35,7 +35,7 @@ test "repeated printable key inserts nothing and following text inserts once" {
 }
 
 ///|
-test "repeated text and backspace retain separate content history groups" {
+test "repeated text and backspace coalesce within adjacent groups" {
   let original = field_test_focused(
     field_test_create("", field_test_rect(0.0, 0.0, 100.0, 28.0)),
   )
@@ -52,12 +52,9 @@ test "repeated text and backspace retain separate content history groups" {
   }
   assert_eq(repeated.document().text(), "aaa")
   let first_undo = field_test_undo(repeated)
-  assert_eq(first_undo.document().text(), "aa")
-  let second_undo = field_test_undo(first_undo)
-  assert_eq(second_undo.document().text(), "a")
-  let third_undo = field_test_undo(second_undo)
-  assert_eq(third_undo.document().text(), "")
-  assert_false(third_undo.can_undo())
+  assert_eq(first_undo.document().text(), "")
+  assert_false(first_undo.can_undo())
+  assert_eq(field_test_redo(first_undo).document().text(), "aaa")
   let deleted_once = field_test_repeat_key(
       repeated,
       @primitives.Backspace,
@@ -70,8 +67,8 @@ test "repeated text and backspace retain separate content history groups" {
     ).0
   assert_eq(deleted_twice.document().text(), "a")
   let restored_once = field_test_undo(deleted_twice)
-  assert_eq(restored_once.document().text(), "aa")
-  assert_eq(field_test_undo(restored_once).document().text(), "aaa")
+  assert_eq(restored_once.document().text(), "aaa")
+  assert_eq(field_test_undo(restored_once).document().text(), "")
   assert_eq(repeated.document().text(), "aaa")
 }
 
@@ -118,7 +115,12 @@ test "repeated undo and redo shortcuts use the existing per-press semantics" {
     field_test_create("", field_test_rect(0.0, 0.0, 100.0, 28.0)),
   )
   let first = field_test_text(original, "a").0
-  let second = field_test_text(first, "b").0
+  let separated = field_test_key(
+      first,
+      @primitives.ArrowLeft,
+      @primitives.Modifiers::none(),
+    ).0
+  let second = field_test_text(separated, "b").0
   let undone_once = field_test_repeat_key(
       second,
       @primitives.Character("z"),
@@ -143,7 +145,7 @@ test "repeated undo and redo shortcuts use the existing per-press semantics" {
       @primitives.Character("Z"),
       field_test_repeat_control(shift=true),
     ).0
-  assert_eq(redone_twice.document().text(), "ab")
+  assert_eq(redone_twice.document().text(), "ba")
   assert_false(redone_twice.can_redo())
   let no_more_redo = field_test_repeat_key(
       redone_twice,

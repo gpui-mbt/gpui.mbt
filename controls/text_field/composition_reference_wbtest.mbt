@@ -487,7 +487,8 @@ fn composition_reference_history_matches(
 ) -> Bool {
   if actual.undo.length() != undo.length() ||
     actual.redo.length() != redo.length() ||
-    actual.payload_bytes != composition_reference_payload(undo, redo) {
+    actual.payload_bytes != composition_reference_payload(undo, redo) ||
+    actual.open_group is Some(_) {
     return false
   }
   for index in 0..<undo.length() {

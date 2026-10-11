@@ -33,7 +33,7 @@ Distinguish source capability present, partial contract, missing implementation,
 
 | Area | Verified current boundary | Foundation work | Later runtime gate |
 | --- | --- | --- | --- |
-| Text editing semantics | Portable UTF-16 document/selection, composition and strict UTF-8 offset conversion exist. Merged PR30/PR31 add a bounded Linux single-line LTR field with directional selection, cursor-stop navigation, clipboard guards and owner freshness/rollback. The current change adds bounded immutable undo/redo with local model/provider coverage; new hosted history cases are pending. | General editable-control/composition ownership, typing coalescing and broader editor history, then multi-cursor and reusable control integration. | Actual compositor-delivered typing, Japanese IME/candidate placement, new undo/redo GPU qualification, accessibility and production gates. |
+| Text editing semantics | Portable UTF-16 document/selection, composition and strict UTF-8 offset conversion exist. Merged PR30/PR31 add a bounded Linux single-line LTR field with directional selection, cursor-stop navigation, clipboard guards and owner freshness/rollback. The current change adds bounded immutable undo/redo with deterministic typing/deletion coalescing and local model/provider coverage; hosted validation is pending. | General editable-control/composition ownership and broader editor history, then multi-cursor and reusable control integration. | Actual compositor-delivered typing, Japanese IME/candidate placement, undo/redo GPU qualification, accessibility and production gates. |
 | Text measurement/rendering | Copied measurement/caret/hit values and Linux PangoFT2 exist. Merged PR30/PR31 paint field text/caret/selection/scroll with a shared origin-aware logical/ink union; declared Weston/llvmpipe injection checks passed at 1x/2x. Logical-resolution grayscale masks remain bounded; unknown/color glyphs reject. | Broader font/scale and renderer qualification, reusable controls, rich text and supported color-glyph behavior. | Native/browser editor behavior, font/scale workloads, accessibility and production gates; injected drawing is not typing evidence. |
 | Input and focus | ElementTree routes pointer and focused key/text events with private copy-safe validated backing arrays. Ubuntu has an opt-in private direct XKB/locale-Compose committed-text ingress with focus/epoch/stale-record guards; it does not advertise public TextInput/IME. Browser committed-text services are separate from a full editor model. | Public native text-input protocol/IME integration, explicit composition ownership and reusable editable-control sequencing. | Actual compositor-delivered field typing, Japanese IME, input-capable desktop focus transitions/lost pairs and accessibility input behavior. |
 | Lists and reusable controls | Flex layout and element lifecycle exist, plus the experimental bounded Linux field. General reusable editor-facing controls and virtualization are incomplete. | Build picker/list and broader text-field behavior from tested primitives, with bounded visible-range work. | Real large-tree/scroll performance and semantic accessibility. |
@@ -53,8 +53,8 @@ history checks do not yet qualify the new hosted GPU cases.
 This is not a general editor. Actual compositor-delivered typing into the field
 and Japanese IME remain unrun. The direct XKB/locale-Compose path is distinct
 from a public native TextInput/IME protocol. General bidi, rich text, color-glyph
-output, multi-cursor, drag/word selection, typing coalescing and semantic
-accessibility remain missing or unqualified at their respective layers. See the
+output, multi-cursor, drag/word selection and semantic accessibility remain
+missing or unqualified at their respective layers. See the
 [field guide](linux-text-field.md) for the bounded implemented behavior and the
 [Linux text guide](linux-text.md#ubuntu-grayscale-scene-text) for frame limits.
 

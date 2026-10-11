@@ -13,6 +13,12 @@ priv struct FieldReferenceSnapshot {
 }
 
 ///|
+priv enum FieldReferenceGroupKind {
+  FieldReferenceTyping
+  FieldReferenceBackspace
+} derive(Eq)
+
+///|
 fn field_reference_next(state : Int) -> Int {
   (state * 25173 + 13849) % 65536
 }
@@ -58,6 +64,17 @@ fn field_reference_selection(
   document
   .with_selection(@text.TextSelection::new(anchor, head).unwrap())
   .unwrap()
+}
+
+///|
+fn field_reference_last_undo(
+  undo : Array[FieldReferenceEdit],
+) -> FieldReferenceEdit? {
+  if undo.length() == 0 {
+    None
+  } else {
+    Some(undo[undo.length() - 1])
+  }
 }
 
 ///|
@@ -110,6 +127,7 @@ test "fixed-seed ASCII edit histories match an independent reference journal" {
     let mut current = expected_start
     let undo : Array[FieldReferenceEdit] = []
     let mut redo : Array[FieldReferenceEdit] = []
+    let mut open_group : FieldReferenceGroupKind? = None
     let snapshots : Array[FieldReferenceSnapshot] = []
     let mut rng = seed
     let mut saw_replace = false
@@ -150,8 +168,21 @@ test "fixed-seed ASCII edit histories match an independent reference journal" {
                 saw_inserted_b = true
               }
               let cleared_redo = redo.length() > 0
-              undo.push({ before, after, })
+              let can_extend = match (open_group, field_reference_last_undo(undo)) {
+                (Some(FieldReferenceTyping), Some(previous)) if
+                  redo.length() == 0 &&
+                  previous.after == before &&
+                  after.selection().is_collapsed() => true
+                _ => false
+              }
+              if can_extend {
+                let previous = undo.remove(undo.length() - 1)
+                undo.push({ before: previous.before, after, })
+              } else {
+                undo.push({ before, after, })
+              }
               redo = []
+              open_group = Some(FieldReferenceTyping)
               if cleared_redo {
                 assert_eq(redo.length(), 0)
                 saw_insert_after_undo_clearing_redo = true
@@ -159,6 +190,10 @@ test "fixed-seed ASCII edit histories match an independent reference journal" {
               while undo.length() > 64 {
                 let _ = undo.remove(0)
               }
+            } else {
+              // A successful same-content replacement closes a run but keeps
+              // the reference undo/redo stacks unchanged.
+              open_group = None
             }
           } else {
             // Keep the scripted geometry within its small ASCII admission
@@ -177,8 +212,29 @@ test "fixed-seed ASCII edit histories match an independent reference journal" {
             ).0
           current = after
           if before.text() != after.text() {
-            undo.push({ before, after, })
+            let group_kind = if before.selection().is_collapsed() {
+              Some(FieldReferenceBackspace)
+            } else {
+              None
+            }
+            let can_extend = match (
+              group_kind, open_group, field_reference_last_undo(undo),
+            ) {
+              (
+                Some(FieldReferenceBackspace),
+                Some(FieldReferenceBackspace),
+                Some(previous),
+              ) if redo.length() == 0 && previous.after == before => true
+              _ => false
+            }
+            if can_extend {
+              let previous = undo.remove(undo.length() - 1)
+              undo.push({ before: previous.before, after, })
+            } else {
+              undo.push({ before, after, })
+            }
             redo = []
+            open_group = group_kind
             while undo.length() > 64 {
               let _ = undo.remove(0)
             }
@@ -188,6 +244,7 @@ test "fixed-seed ASCII edit histories match an independent reference journal" {
           saw_undo = true
           field = field_test_undo(field)
           if undo.length() > 0 {
+            open_group = None
             let edit = undo.remove(undo.length() - 1)
             current = edit.before
             redo.push(edit)
@@ -198,6 +255,7 @@ test "fixed-seed ASCII edit histories match an independent reference journal" {
           saw_redo = true
           field = field_test_redo(field)
           if redo.length() > 0 {
+            open_group = None
             let edit = redo.remove(redo.length() - 1)
             current = edit.after
             undo.push(edit)
@@ -206,6 +264,7 @@ test "fixed-seed ASCII edit histories match an independent reference journal" {
         }
         4 => {
           saw_home = true
+          open_group = None
           field = field_test_key(
               field,
               @primitives.Home,
@@ -224,6 +283,7 @@ test "fixed-seed ASCII edit histories match an independent reference journal" {
         }
         _ => {
           saw_end = true
+          open_group = None
           field = field_test_key(
               field,
               @primitives.End,

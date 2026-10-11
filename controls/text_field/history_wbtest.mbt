@@ -23,6 +23,19 @@ fn history_test_record(
 }
 
 ///|
+fn history_test_record_group(
+  history : FieldHistory,
+  before : @text.TextDocument,
+  after : @text.TextDocument,
+  kind : FieldHistoryGroupKind,
+) -> FieldHistory raise {
+  match history.record_group(before, after, kind) {
+    Ok(value) => value
+    Err(_) => fail("valid history group should record")
+  }
+}
+
+///|
 fn history_test_symbol(index : Int) -> String {
   String::from_array([(0x21 + index).unsafe_to_char()])
 }
@@ -132,6 +145,219 @@ test "field history branches do not mutate retained undo redo or edit snapshots"
   assert_true(redone.can_undo())
   assert_true(moved.can_redo())
   assert_true(redone.undo_entry().unwrap().after == after)
+}
+
+///|
+test "field history coalesces only the same open kind at the exact prior endpoint" {
+  let empty = history_test_document("", 0, 0)
+  let after_a = history_test_document("a", 1, 1)
+  let after_ab = history_test_document("ab", 2, 2)
+  let first = history_test_record_group(
+    FieldHistory::empty(), empty, after_a, Typing,
+  )
+  let grouped = history_test_record_group(first, after_a, after_ab, Typing)
+  assert_eq(history_test_undo_depth(grouped), 1)
+  assert_eq(grouped.payload_bytes, 2)
+  assert_true(grouped.open_group == Some(Typing))
+  let entry = grouped.undo_entry().unwrap()
+  assert_true(entry.before == empty)
+  assert_true(entry.after == after_ab)
+
+  // The prior immutable value keeps its original one-character endpoint.
+  assert_true(first.undo_entry().unwrap().after == after_a)
+  assert_eq(first.payload_bytes, 1)
+
+  let wrong_caret_before = history_test_document("a", 0, 0)
+  let separated = history_test_record_group(
+    first,
+    wrong_caret_before,
+    after_ab,
+    Typing,
+  )
+  assert_eq(history_test_undo_depth(separated), 2)
+}
+
+///|
+test "field history run barriers and kind changes start complete groups" {
+  let empty = history_test_document("", 0, 0)
+  let after_a = history_test_document("a", 1, 1)
+  let after_ab = history_test_document("ab", 2, 2)
+  let typing = history_test_record_group(
+    FieldHistory::empty(), empty, after_a, Typing,
+  )
+  let closed = typing.close_group()
+  let after_barrier = history_test_record_group(
+    closed, after_a, after_ab, Typing,
+  )
+  assert_eq(history_test_undo_depth(after_barrier), 2)
+
+  let equal_text_selection = history_test_document("a", 0, 1)
+  let equal_replacement = history_test_record(typing, after_a, equal_text_selection)
+  assert_eq(history_test_undo_depth(equal_replacement), 1)
+  assert_eq(equal_replacement.payload_bytes, typing.payload_bytes)
+  assert_true(equal_replacement.open_group is None)
+  assert_true(equal_replacement.undo_entry().unwrap().after == after_a)
+
+  let backspace_after = history_test_document("", 0, 0)
+  let backspace = history_test_record_group(
+    typing,
+    after_a,
+    backspace_after,
+    Backspace,
+  )
+  assert_eq(history_test_undo_depth(backspace), 2)
+  assert_true(backspace.open_group == Some(Backspace))
+
+  let after_delete_one = history_test_document("ac", 1, 1)
+  let after_delete_two = history_test_document("a", 1, 1)
+  let forward_start = history_test_document("abc", 1, 1)
+  let forward_one = history_test_record_group(
+    FieldHistory::empty(), forward_start, after_delete_one, ForwardDelete,
+  )
+  let forward_two = history_test_record_group(
+    forward_one, after_delete_one, after_delete_two, ForwardDelete,
+  )
+  assert_eq(history_test_undo_depth(forward_two), 1)
+  assert_true(forward_two.undo_entry().unwrap().before == forward_start)
+  assert_true(forward_two.undo_entry().unwrap().after == after_delete_two)
+}
+
+///|
+test "field history coalescing stays bounded by document and group payload caps" {
+  let mut grouped = FieldHistory::empty()
+  let mut current = history_test_document("", 0, 0)
+  for index in 0..<64 {
+    let length = (index + 1) * 64
+    let next = history_test_document("a".repeat(length), length, length)
+    grouped = history_test_record_group(grouped, current, next, Typing)
+    current = next
+  }
+  assert_eq(history_test_undo_depth(grouped), 1)
+  assert_eq(grouped.payload_bytes, MAX_FIELD_UTF8_BYTES)
+  assert_true(grouped.undo_entry().unwrap().before.text() == "")
+  assert_eq(grouped.undo_entry().unwrap().after.text().length(), 4096)
+
+  // Two maximum-sized document endpoints charge exactly 8,192 bytes, even
+  // when that entry represents a coalescible run.
+  let maximum = history_test_record_group(
+    FieldHistory::empty(),
+    history_test_document("L".repeat(4096), 4096, 4096),
+    history_test_document("R".repeat(4096), 4096, 4096),
+    Typing,
+  )
+  assert_eq(maximum.payload_bytes, 8192)
+
+  // A new group beyond the full 65,536-byte limit evicts a whole oldest group.
+  let mut full = maximum
+  for index in 0..<7 {
+    full = history_test_record(
+      full,
+      history_test_document(history_test_symbol(index).repeat(4096), 0, 0),
+      history_test_document(history_test_symbol(index + 10).repeat(4096), 0, 0),
+    )
+  }
+  assert_eq(history_test_undo_depth(full), 8)
+  assert_eq(full.payload_bytes, MAX_FIELD_HISTORY_PAYLOAD_BYTES)
+  let first_small = history_test_record_group(
+    full,
+    history_test_document("x", 0, 0),
+    history_test_document("y", 1, 1),
+    Typing,
+  )
+  assert_eq(history_test_undo_depth(first_small), 8)
+  assert_eq(first_small.payload_bytes, 7 * 8192 + 2)
+  let extended = history_test_record_group(
+    first_small,
+    history_test_document("y", 1, 1),
+    history_test_document("yz", 2, 2),
+    Typing,
+  )
+  assert_eq(history_test_undo_depth(extended), 8)
+  assert_eq(extended.payload_bytes, 7 * 8192 + 3)
+  assert_true(extended.undo_entry().unwrap().before.text() == "x")
+  assert_true(extended.undo_entry().unwrap().after.text() == "yz")
+  assert_eq(full.payload_bytes, MAX_FIELD_HISTORY_PAYLOAD_BYTES)
+}
+
+///|
+test "extending a group recomputes its charge and may evict whole older groups" {
+  let mut history = FieldHistory::empty()
+  for index in 0..<7 {
+    history = history_test_record(
+      history,
+      history_test_document(history_test_symbol(index).repeat(4096), 0, 0),
+      history_test_document(history_test_symbol(index + 10).repeat(4096), 0, 0),
+    )
+  }
+  history = history_test_record(
+    history,
+    history_test_document("c".repeat(4096), 0, 0),
+    history_test_document("d".repeat(4080), 0, 0),
+  )
+  assert_eq(history.payload_bytes, 65520)
+
+  let start = history_test_document("", 0, 0)
+  let first_after = history_test_document("x", 1, 1)
+  let open_group = history_test_record_group(
+    history, start, first_after, Typing,
+  )
+  assert_eq(open_group.payload_bytes, 65521)
+  let expanded_after = history_test_document("x".repeat(200), 200, 200)
+  let extended = history_test_record_group(
+    open_group, first_after, expanded_after, Typing,
+  )
+  // Only 16 bytes remain under the cap, while the merged entry costs 200;
+  // the 184-byte excess evicts the oldest whole 8,192-byte entry.
+  assert_eq(history_test_undo_depth(extended), 8)
+  assert_eq(extended.payload_bytes, 57528)
+  assert_true(extended.undo_entry().unwrap().before == start)
+  assert_true(extended.undo_entry().unwrap().after == expanded_after)
+  assert_eq(history.payload_bytes, 65520)
+
+  // A backward-deletion run shrinks the merged endpoint charge as text is
+  // removed; the old intermediate snapshot is no longer charged.
+  let before = history_test_document("abcd", 4, 4)
+  let after_one = history_test_document("abc", 3, 3)
+  let after_two = history_test_document("ab", 2, 2)
+  let deleting = history_test_record_group(
+    FieldHistory::empty(), before, after_one, Backspace,
+  )
+  assert_eq(deleting.payload_bytes, 7)
+  let deleted_twice = history_test_record_group(
+    deleting, after_one, after_two, Backspace,
+  )
+  assert_eq(history_test_undo_depth(deleted_twice), 1)
+  assert_eq(deleted_twice.payload_bytes, 6)
+  assert_true(deleted_twice.undo_entry().unwrap().before == before)
+  assert_true(deleted_twice.undo_entry().unwrap().after == after_two)
+}
+
+///|
+test "extending the newest coalesced group at the entry cap does not add a slot" {
+  let mut history = FieldHistory::empty()
+  for _ in 0..<63 {
+    history = history_test_record(
+      history,
+      history_test_document("a", 0, 0),
+      history_test_document("b", 0, 0),
+    )
+  }
+  let start = history_test_document("", 0, 0)
+  let after_one = history_test_document("x", 1, 1)
+  let open_group = history_test_record_group(
+    history, start, after_one, Typing,
+  )
+  assert_eq(history_test_undo_depth(open_group), 64)
+
+  let after_two = history_test_document("xy", 2, 2)
+  let extended = history_test_record_group(
+    open_group, after_one, after_two, Typing,
+  )
+  assert_eq(history_test_undo_depth(extended), 64)
+  assert_eq(extended.payload_bytes, history.payload_bytes + 2)
+  assert_true(extended.undo_entry().unwrap().before == start)
+  assert_true(extended.undo_entry().unwrap().after == after_two)
+  assert_eq(history_test_undo_depth(history), 63)
 }
 
 ///|

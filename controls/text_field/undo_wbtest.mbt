@@ -64,6 +64,7 @@ fn undo_field_snapshot(field : TextField) -> TextField {
       undo: field.history.undo.copy(),
       redo: field.history.redo.copy(),
       payload_bytes: field.history.payload_bytes,
+      open_group: field.history.open_group,
     },
   }
 }
@@ -112,6 +113,7 @@ fn undo_assert_same_field_snapshot(
   }
 
   assert_eq(actual.history.payload_bytes, expected.history.payload_bytes)
+  assert_true(actual.history.open_group == expected.history.open_group)
   assert_eq(actual.history.undo.length(), expected.history.undo.length())
   assert_eq(actual.history.redo.length(), expected.history.redo.length())
   for index in 0..<expected.history.undo.length() {
