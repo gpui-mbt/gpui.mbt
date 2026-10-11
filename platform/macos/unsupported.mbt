@@ -21,6 +21,15 @@ fn number(_field : Int) -> Double {
 }
 
 ///|
+fn native_display_snapshot(
+  _host : Int64,
+  _records : FixedArray[Double],
+  _capacity : Int,
+) -> Int {
+  9
+}
+
+///|
 fn accessibility_publish(
   _window : Int64,
   _binding : Int64,
