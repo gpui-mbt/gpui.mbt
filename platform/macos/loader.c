@@ -62,6 +62,14 @@ int32_t gpui_macos_ax_take_request(int64_t window, int64_t *output) {
       dlsym(library, "gpui_macos_ax_take_request_v1");
   return take ? take(window, output) : 9;
 }
+int32_t gpui_macos_display_snapshot(int64_t host, double *records,
+                                    int32_t capacity) {
+  int status = load();
+  if (status) return -status;
+  int32_t (*read)(int64_t, double *, int32_t) =
+      dlsym(library, "gpui_macos_display_snapshot_v1");
+  return read ? read(host, records, capacity) : -9;
+}
 int64_t gpui_integer(int32_t field) { return api && pthread_main_np() ? api->integer(field) : 0; }
 double gpui_number(int32_t field) { return api && pthread_main_np() ? api->number(field) : 0; }
 int32_t gpui_macos_frame_metrics(int64_t window, double *output) {
@@ -114,6 +122,10 @@ int32_t gpui_macos_ax_revoke(int64_t window, int64_t binding) {
 }
 int32_t gpui_macos_ax_take_request(int64_t window, int64_t *output) {
   (void)window; (void)output; return 9;
+}
+int32_t gpui_macos_display_snapshot(int64_t host, double *records,
+                                    int32_t capacity) {
+  (void)host; (void)records; (void)capacity; return -9;
 }
 int32_t gpui_macos_frame_metrics(int64_t window, double *output) { (void)window; (void)output; return 9; }
 int32_t gpui_macos_frame_copy(int64_t window, uint8_t *output, int32_t capacity) { (void)window; (void)output; (void)capacity; return 9; }

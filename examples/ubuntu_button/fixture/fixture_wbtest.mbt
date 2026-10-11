@@ -540,7 +540,10 @@ test "fixture resets the model before reusing its button key" {
 ///|
 test "fixture rejects current requests and updates through stale value copies" {
   let old = ButtonDemo::new(640.0, 240.0).unwrap()
+  assert_true(old.is_current())
   let fresh = old.reset_session().unwrap()
+  assert_true(!old.is_current())
+  assert_true(fresh.is_current())
   let fresh_request = ubuntu_button_semantic_request(fresh)
 
   assert_true(
@@ -591,6 +594,8 @@ test "fixture rejects current requests and updates through stale value copies" {
     .activations(),
     1,
   )
+  reenabled.close()
+  assert_true(!reenabled.is_current())
 }
 
 ///|

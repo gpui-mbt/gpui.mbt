@@ -4,9 +4,18 @@
 shared `controls/button` implementation and the app-owned fixture in
 `examples/ubuntu_button/fixture/`. The Windows adapter translates native
 window/input events and owns only Windows session state; it does not duplicate
-Button, accessibility, or activation semantics. This is an experimental
-fixture, not a Windows support-tier claim. Native UI Automation remains
-unsupported.
+Button or activation semantics. The sample session owns a copied semantic
+snapshot and opaque token map from the shared Button fixture. Tokens remain
+stable only while the full source node identity remains continuously present;
+suspension clears the tree, restoration allocates fresh tokens, and a closed
+session cannot be revived. Each Invoke is resolved against the current sample
+fixture and delivered through its app-owned Button dispatcher. Repeated delivery
+is repeatable and can increment the fixture count again; there is no exactly-once
+transport contract. The importable `windows.AccessibilityProjection` provides a
+general transport-free copy for downstream Windows adapters. Neither surface
+provides UI Automation transport or notifications, and this sample does not
+exercise a native UIA client. This is an experimental fixture, not a Windows
+support-tier claim. Native UI Automation remains unsupported.
 
 The visible 640 × 240 logical-pixel window provides a bounded Stage A demo:
 Tab toggles focus, Enter activates on its first key-down, Space activates on
@@ -58,11 +67,12 @@ physical input. `scripts/run_windows_button_e2e.ps1` preserves that status in
 Default input desktop. `-TestCleanupFailure` runs a deterministic child-process
 self-test that exits nonzero and writes stderr; it checks that cleanup records
 the exit code and error text, without launching the Button window or attempting
-input. The six Windows session adapter tests and 16 shared
-Button fixture tests cover model-level repeat suppression, activation counts,
-enabled/loading/reset transitions, semantic snapshot freshness, close/blur,
-resize cancellation and stale releases. They do not qualify physical input or
-all state-specific native pixels.
+input. The Windows session adapter tests cover model-level repeat suppression,
+activation counts, enabled/loading/reset transitions, copied-snapshot freshness,
+owner dispatch, token continuity and revocation, close/blur, resize cancellation
+and stale releases. Shared Button fixture tests cover the underlying semantic
+model contract. They do not qualify physical input or all state-specific native
+pixels.
 
 The D3D11 sample validates a few pixels from the completed frame; it does not
 qualify clipping at arbitrary dimensions, high-DPI transitions, monitor

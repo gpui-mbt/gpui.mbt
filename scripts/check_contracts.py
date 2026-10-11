@@ -697,6 +697,7 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         },
         "windows": {
             "platform", "primitives", "diagnostics", "scene", "text",
+            "accessibility",
             "platform/windows_text", "platform/testing",
         },
         "examples/windows": {"windows", "platform", "primitives", "diagnostics", "scene"},
@@ -712,10 +713,10 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
             "capability",
         },
         # The Windows Button executable is a native adapter above the shared
-        # platform-neutral fixture; its model is not copied into this leaf.
+        # platform-neutral fixture, with a narrow copied semantic binding.
         "examples/windows_button": {
             "windows", "platform", "platform/testing", "primitives", "scene",
-            "diagnostics", "examples/ubuntu_button/fixture",
+            "diagnostics", "accessibility", "examples/ubuntu_button/fixture",
         },
         "element": {"core", "primitives", "layout", "scene"},
         # Semantic capabilities are portable application-facing contracts. The

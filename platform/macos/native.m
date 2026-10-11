@@ -2,6 +2,7 @@
 #import <QuartzCore/CAMetalLayer.h>
 #import <Metal/Metal.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreGraphics/CoreGraphics.h>
 #include <math.h>
 #include "abi.h"
 #include "../macos_text/macos_text.h"
@@ -567,6 +568,100 @@ static int64_t native_integer(int32_t field) {
     case 4:return [current[@"mods"] longLongValue]; case 5:return [current[@"code"] longLongValue];
     case 6:return [current[@"repeat"] longLongValue]; case 7:return 1;
     case 8:return [(current[@"text"] ?: text_result) length]; case 9:return host_epoch; default:return 0;
+  }
+}
+enum { MACOS_DISPLAY_CAPACITY = 16, MACOS_DISPLAY_FIELDS = 14 };
+static BOOL valid_screen_rect(NSRect rect) {
+  return isfinite(NSMinX(rect)) && isfinite(NSMinY(rect)) &&
+      isfinite(NSWidth(rect)) && isfinite(NSHeight(rect)) &&
+      NSWidth(rect) > 0 && NSHeight(rect) > 0;
+}
+static BOOL screen_display_id(NSScreen *screen, CGDirectDisplayID *display) {
+  id value = screen.deviceDescription[@"NSScreenNumber"];
+  if (![value isKindOfClass:NSNumber.class]) return NO;
+  double number = [value doubleValue];
+  if (!isfinite(number) || number < 0 || number > UINT32_MAX ||
+      floor(number) != number) return NO;
+  *display = (CGDirectDisplayID)number;
+  return YES;
+}
+static NSWindow *host_key_window(void) {
+  NSWindow *key = NSApp.keyWindow;
+  if (!key) return nil;
+  for (GPWindow *window in windows.allValues)
+    if (!window.closing && window.window == key) return key;
+  return nil;
+}
+int32_t gpui_macos_display_snapshot_v1(int64_t host, double *records,
+                                      int32_t capacity) {
+  if (![NSThread isMainThread]) return -18;
+  if (!records || capacity != MACOS_DISPLAY_CAPACITY * MACOS_DISPLAY_FIELDS)
+    return -5;
+  if (!state) return -1;
+  if (state == 2) return -19;
+  if (host != host_epoch) return -10;
+  @autoreleasepool {
+    NSArray<NSScreen *> *screens = NSScreen.screens;
+    if (![screens isKindOfClass:NSArray.class]) return -20;
+    NSUInteger count = screens.count;
+    if (count > MACOS_DISPLAY_CAPACITY) return -13;
+    double copied[MACOS_DISPLAY_CAPACITY * MACOS_DISPLAY_FIELDS] = {0};
+    CGDirectDisplayID identifiers[MACOS_DISPLAY_CAPACITY] = {0};
+    NSWindow *key_window = host_key_window();
+    NSScreen *key_screen = key_window.screen;
+    CGDirectDisplayID key_display = 0;
+    if (key_screen && !screen_display_id(key_screen, &key_display))
+      return -17;
+    for (NSUInteger index = 0; index < count; index++) {
+      NSScreen *screen = screens[index];
+      if (![screen isKindOfClass:NSScreen.class]) return -20;
+      CGDirectDisplayID display = 0;
+      if (!screen_display_id(screen, &display)) return -17;
+      if (!CGDisplayIsOnline(display)) return -12;
+      NSRect frame = screen.frame;
+      NSRect visible = screen.visibleFrame;
+      double scale = screen.backingScaleFactor;
+      if (!valid_screen_rect(frame) || !valid_screen_rect(visible) ||
+          !isfinite(scale) || scale <= 0 || scale > 8) return -20;
+      CGDisplayModeRef mode = CGDisplayCopyDisplayMode(display);
+      if (!mode) return CGDisplayIsOnline(display) ? -20 : -12;
+      size_t mode_width = CGDisplayModeGetPixelWidth(mode);
+      size_t mode_height = CGDisplayModeGetPixelHeight(mode);
+      double refresh = CGDisplayModeGetRefreshRate(mode);
+      CGDisplayModeRelease(mode);
+      if (!mode_width || !mode_height || mode_width > INT32_MAX ||
+          mode_height > INT32_MAX || !isfinite(refresh) || refresh < 0 ||
+          refresh > 1000) return -20;
+      int base = (int)index * MACOS_DISPLAY_FIELDS;
+      copied[base] = NSMinX(frame);
+      copied[base + 1] = NSMinY(frame);
+      copied[base + 2] = NSWidth(frame);
+      copied[base + 3] = NSHeight(frame);
+      copied[base + 4] = NSMinX(visible);
+      copied[base + 5] = NSMinY(visible);
+      copied[base + 6] = NSWidth(visible);
+      copied[base + 7] = NSHeight(visible);
+      copied[base + 8] = scale;
+      copied[base + 9] = (double)mode_width;
+      copied[base + 10] = (double)mode_height;
+      copied[base + 11] = refresh;
+      copied[base + 12] = CGDisplayIsMain(display) ? 1 : 0;
+      copied[base + 13] = key_screen && display == key_display ? 1 : 0;
+      identifiers[index] = display;
+      if (!CGDisplayIsOnline(display)) return -12;
+    }
+    NSArray<NSScreen *> *current_screens = NSScreen.screens;
+    if (![current_screens isKindOfClass:NSArray.class] ||
+        current_screens.count != count) return -12;
+    for (NSUInteger index = 0; index < count; index++) {
+      CGDirectDisplayID current_display = 0;
+      if (!screen_display_id(current_screens[index], &current_display))
+        return -12;
+      if (current_display != identifiers[index] ||
+          !CGDisplayIsOnline(current_display)) return -12;
+    }
+    if (count) memcpy(records, copied, count * MACOS_DISPLAY_FIELDS * sizeof(double));
+    return (int32_t)count;
   }
 }
 static double native_number(int32_t field) {

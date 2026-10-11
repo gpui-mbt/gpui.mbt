@@ -1,6 +1,6 @@
 name = "f4ah6o/gpui"
 
-version = "0.5.0"
+version = "0.7.0"
 
 readme = "README.mbt.md"
 

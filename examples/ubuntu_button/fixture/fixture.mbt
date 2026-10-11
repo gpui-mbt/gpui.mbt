@@ -37,6 +37,14 @@ fn demo_is_current(demo : ButtonDemo) -> Bool {
 }
 
 ///|
+/// Whether this immutable fixture value is still the current app-owner value.
+/// This read-only freshness query does not expose the semantic model or mutate
+/// the shared owner fence.
+pub fn ButtonDemo::is_current(self : ButtonDemo) -> Bool {
+  demo_is_current(self)
+}
+
+///|
 fn demo_require_current(demo : ButtonDemo) -> Result[Unit, ButtonDemoError] {
   if demo_is_current(demo) {
     Ok(())

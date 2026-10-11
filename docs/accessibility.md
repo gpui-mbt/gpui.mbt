@@ -1,9 +1,9 @@
 # Shared accessibility tree foundation
 
-This document describes the first portable semantic-tree slice in
-`accessibility/`. It is a headless contract for Linux AT-SPI, macOS AX, and
-Windows UIA projections to share. It does not implement or qualify any native
-accessibility bridge.
+This document describes the portable semantic-tree slice in `accessibility/`
+and its transport-free platform projections. It is a headless contract for
+Linux AT-SPI, macOS AX, and Windows UIA projections to share. These projections
+do not implement or qualify a native accessibility bridge.
 
 ## Ownership and relationship to existing packages
 
@@ -103,3 +103,11 @@ not establish AT-SPI, macOS AX, Windows UIA, screen-reader behavior, OS-level
 event ordering, or visual accessibility. Weekboard's existing DOM projection
 remains a bounded browser-specific adapter and does not consume this general
 tree until a separate integration is designed.
+
+The Windows package exposes `AccessibilityProjection`, which copies a current
+semantic snapshot into registry-scoped opaque export IDs and resolves an
+exported ID against the live source model before returning an `ActionIntent`.
+The intent is a repeatable validation receipt; the application owner still
+dispatches its effect through its existing action path. This projection has no
+UI Automation provider, native event notifications, or screen-reader
+acceptance. Native UIA remains unsupported.
