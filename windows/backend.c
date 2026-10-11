@@ -32,6 +32,8 @@ int32_t gpui_windows_test_clipboard_diagnostics_disabled(void) {
 }
 
 #define GPUI_EVENT_CAPACITY 4096
+#define GPUI_DISPLAY_CAPACITY 16
+#define GPUI_DISPLAY_INFO_FIELDS 18
 #define GPUI_MAX_QUADS 100000
 #define GPUI_MIXED_FRAME_ABI 2
 #define GPUI_MIXED_FRAME_STRIDE 25
@@ -62,6 +64,12 @@ typedef BOOL(WINAPI *fn_are_dpi_awareness_contexts_equal)(
     DPI_AWARENESS_CONTEXT, DPI_AWARENESS_CONTEXT);
 typedef UINT(WINAPI *fn_get_dpi_for_system)(void);
 typedef UINT(WINAPI *fn_get_dpi_for_window)(HWND);
+typedef BOOL(WINAPI *fn_enum_display_monitors)(HDC, LPCRECT, MONITORENUMPROC,
+                                               LPARAM);
+typedef BOOL(WINAPI *fn_get_monitor_info_w)(HMONITOR, LPMONITORINFO);
+typedef BOOL(WINAPI *fn_enum_display_settings_ex_w)(LPCWSTR, DWORD,
+                                                    LPDEVMODEW, DWORD);
+typedef HMONITOR(WINAPI *fn_monitor_from_window)(HWND, DWORD);
 typedef ATOM(WINAPI *fn_register_class_ex_w)(const WNDCLASSEXW *);
 typedef BOOL(WINAPI *fn_unregister_class_w)(LPCWSTR, HINSTANCE);
 typedef HWND(WINAPI *fn_create_window_ex_w)(DWORD, LPCWSTR, LPCWSTR, DWORD,
@@ -128,6 +136,10 @@ typedef struct gpui_windows_api {
   fn_are_dpi_awareness_contexts_equal are_dpi_awareness_contexts_equal;
   fn_get_dpi_for_system get_dpi_for_system;
   fn_get_dpi_for_window get_dpi_for_window;
+  fn_enum_display_monitors enum_display_monitors;
+  fn_get_monitor_info_w get_monitor_info_w;
+  fn_enum_display_settings_ex_w enum_display_settings_ex_w;
+  fn_monitor_from_window monitor_from_window;
   fn_register_class_ex_w register_class_ex_w;
   fn_unregister_class_w unregister_class_w;
   fn_create_window_ex_w create_window_ex_w;
@@ -488,6 +500,14 @@ static int32_t api_init(gpui_windows_host *host) {
             "GetDpiForSystem");
   GPUI_LOAD(user32, get_dpi_for_window, fn_get_dpi_for_window,
             "GetDpiForWindow");
+  GPUI_LOAD(user32, enum_display_monitors, fn_enum_display_monitors,
+            "EnumDisplayMonitors");
+  GPUI_LOAD(user32, get_monitor_info_w, fn_get_monitor_info_w,
+            "GetMonitorInfoW");
+  GPUI_LOAD(user32, enum_display_settings_ex_w,
+            fn_enum_display_settings_ex_w, "EnumDisplaySettingsExW");
+  GPUI_LOAD(user32, monitor_from_window, fn_monitor_from_window,
+            "MonitorFromWindow");
   GPUI_LOAD(user32, register_class_ex_w, fn_register_class_ex_w,
             "RegisterClassExW");
   GPUI_LOAD(user32, unregister_class_w, fn_unregister_class_w,
@@ -2158,6 +2178,149 @@ int32_t gpui_windows_metrics(int32_t token, int32_t window, double *metrics) {
   return GPUI_WINDOWS_OK;
 }
 
+typedef struct gpui_windows_display_snapshot_context {
+  HMONITOR window_monitor;
+  int32_t count;
+  int32_t status;
+  double records[GPUI_DISPLAY_CAPACITY][GPUI_DISPLAY_INFO_FIELDS];
+} gpui_windows_display_snapshot_context;
+
+static BOOL CALLBACK gpui_snapshot_monitor(HMONITOR monitor, HDC dc,
+                                           LPRECT clip, LPARAM data) {
+  (void)dc;
+  (void)clip;
+  gpui_windows_display_snapshot_context *context =
+      (gpui_windows_display_snapshot_context *)data;
+  if (!context || context->status != GPUI_WINDOWS_OK)
+    return FALSE;
+  if (context->count >= GPUI_DISPLAY_CAPACITY) {
+    context->status = GPUI_WINDOWS_RESOURCE;
+    return FALSE;
+  }
+
+  MONITORINFOEXW info;
+  ZeroMemory(&info, sizeof(info));
+  info.cbSize = sizeof(info);
+  if (!g_host.api.get_monitor_info_w(monitor, (LPMONITORINFO)&info)) {
+    context->status = GPUI_WINDOWS_NATIVE;
+    return FALSE;
+  }
+  int64_t bounds_width = (int64_t)info.rcMonitor.right - info.rcMonitor.left;
+  int64_t bounds_height = (int64_t)info.rcMonitor.bottom - info.rcMonitor.top;
+  int64_t work_width = (int64_t)info.rcWork.right - info.rcWork.left;
+  int64_t work_height = (int64_t)info.rcWork.bottom - info.rcWork.top;
+  if (bounds_width <= 0 || bounds_height <= 0 || work_width <= 0 ||
+      work_height <= 0 || bounds_width > INT32_MAX ||
+      bounds_height > INT32_MAX || work_width > INT32_MAX ||
+      work_height > INT32_MAX) {
+    context->status = GPUI_WINDOWS_CONVERSION;
+    return FALSE;
+  }
+
+  double *record = context->records[context->count];
+  record[0] = (double)info.rcMonitor.left;
+  record[1] = (double)info.rcMonitor.top;
+  record[2] = (double)bounds_width;
+  record[3] = (double)bounds_height;
+  record[4] = (double)info.rcWork.left;
+  record[5] = (double)info.rcWork.top;
+  record[6] = (double)work_width;
+  record[7] = (double)work_height;
+  record[8] = (info.dwFlags & MONITORINFOF_PRIMARY) != 0 ? 1.0 : 0.0;
+  record[9] = monitor == context->window_monitor ? 1.0 : 0.0;
+
+  /* GetDpiForMonitor is not DPI-aware and is explicitly unsupported for a
+   * per-monitor-aware calling thread. GetDpiForWindow is awareness-aware, but
+   * only supplies the monitor containing this host's HWND. */
+  UINT dpi = 0;
+  if (monitor == context->window_monitor && g_host.hwnd &&
+      g_host.api.get_dpi_for_window) {
+    dpi = g_host.api.get_dpi_for_window(g_host.hwnd);
+  }
+  if (dpi > 0 && dpi <= INT32_MAX) {
+    record[10] = 1.0;
+    record[11] = (double)dpi;
+    record[12] = (double)dpi;
+  }
+
+  DEVMODEW mode;
+  ZeroMemory(&mode, sizeof(mode));
+  mode.dmSize = sizeof(mode);
+  if (g_host.api.enum_display_settings_ex_w(
+          info.szDevice, ENUM_CURRENT_SETTINGS, &mode, 0)) {
+    if ((mode.dmFields & (DM_PELSWIDTH | DM_PELSHEIGHT)) ==
+            (DM_PELSWIDTH | DM_PELSHEIGHT) &&
+        mode.dmPelsWidth > 0 && mode.dmPelsHeight > 0 &&
+        mode.dmPelsWidth <= INT32_MAX && mode.dmPelsHeight <= INT32_MAX) {
+      record[13] = 1.0;
+      record[14] = (double)mode.dmPelsWidth;
+      record[15] = (double)mode.dmPelsHeight;
+      if ((mode.dmFields & DM_DISPLAYFREQUENCY) != 0 &&
+          mode.dmDisplayFrequency > 1 &&
+          mode.dmDisplayFrequency <= INT32_MAX)
+        record[16] = (double)mode.dmDisplayFrequency;
+    }
+    record[17] = -1.0;
+    if ((mode.dmFields & DM_DISPLAYORIENTATION) != 0) {
+      switch (mode.dmDisplayOrientation) {
+      case DMDO_DEFAULT:
+        record[17] = 0.0;
+        break;
+      case DMDO_90:
+        record[17] = 90.0;
+        break;
+      case DMDO_180:
+        record[17] = 180.0;
+        break;
+      case DMDO_270:
+        record[17] = 270.0;
+        break;
+      default:
+        context->status = GPUI_WINDOWS_CONVERSION;
+        return FALSE;
+      }
+    }
+  } else {
+    record[17] = -1.0;
+  }
+
+  context->count++;
+  return TRUE;
+}
+
+/* Copy a bounded view of current monitor metadata. Coordinates and mode
+ * dimensions are physical pixels; refresh is the integer Hz value reported
+ * by DEVMODE (zero means unavailable or the OS default). Physical panel size
+ * is intentionally omitted because Win32 does not provide reliable values. */
+int32_t gpui_windows_display_snapshot(int32_t token, double *records,
+                                      int32_t capacity) {
+  int32_t status = check_host(token, TRUE);
+  if (status != GPUI_WINDOWS_OK)
+    return -status;
+  if (!records || capacity < 0 ||
+      capacity < GPUI_DISPLAY_CAPACITY * GPUI_DISPLAY_INFO_FIELDS)
+    return -GPUI_WINDOWS_INVALID;
+  if (g_host.state != 0)
+    return -GPUI_WINDOWS_STOPPING;
+
+  gpui_windows_display_snapshot_context context;
+  ZeroMemory(&context, sizeof(context));
+  context.status = GPUI_WINDOWS_OK;
+  context.window_monitor = g_host.hwnd
+                               ? g_host.api.monitor_from_window(
+                                     g_host.hwnd, MONITOR_DEFAULTTONEAREST)
+                               : NULL;
+  BOOL enumerated = g_host.api.enum_display_monitors(
+      NULL, NULL, gpui_snapshot_monitor, (LPARAM)&context);
+  if (context.status != GPUI_WINDOWS_OK)
+    return -context.status;
+  if (!enumerated)
+    return -GPUI_WINDOWS_NATIVE;
+  memcpy(records, context.records,
+         (size_t)context.count * GPUI_DISPLAY_INFO_FIELDS * sizeof(double));
+  return context.count;
+}
+
 /* CI-only deterministic WM_SIZE probe. phase 0 sends SIZE_MINIMIZED, phase 1
  * sends a zero-sized restore message, and phase 2 restores the cached size. */
 int32_t gpui_windows_test_size_message(int32_t token, int32_t window,
@@ -3334,6 +3497,13 @@ int32_t gpui_windows_metrics(int32_t host, int32_t window, double *metrics) {
   (void)window;
   (void)metrics;
   return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_display_snapshot(int32_t host, double *records,
+                                      int32_t capacity) {
+  (void)host;
+  (void)records;
+  (void)capacity;
+  return -GPUI_WINDOWS_UNSUPPORTED;
 }
 int32_t gpui_windows_dispatch(int32_t host, int32_t timeout_ms) {
   (void)host;

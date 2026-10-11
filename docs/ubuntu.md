@@ -333,6 +333,15 @@ log referenced by the JSON report. This keeps compositor diagnostics out of the
 strict sample records. The samples measure a headless llvmpipe recovery path, not
 a desktop frame-rate claim.
 
+GitHub native CI runs that benchmark once under a 480-second process-group
+limit. If it fails, the wrapper preserves that original exit status and starts
+one bounded diagnostic invocation; the diagnostic checks the MoonBit lifecycle
+E2E at scales 1 and 2, records numeric stage lines, separate Weston logs and a
+sanitized lifecycle-only Wayland trace capped at 256 KiB per scale. It does not
+capture protocol arguments or keyboard/data-offer interfaces. Both artifact
+roots are uploaded even when the benchmark fails. Diagnostic success never
+changes the benchmark result or proves desktop input/accessibility acceptance.
+
 | Evidence path | Distro / compositor | Graphics / session | Evidence state |
 | --- | --- | --- | --- |
 | Configured native CI | Ubuntu 24.04 x86-64; Ubuntu Weston 13 package | Weston headless GL kiosk shell; Mesa llvmpipe; integer scales 1/2 | Hosted run 2026-10-04 passed MoonBit E2E (4/4), C lifecycle/render/recovery checks at both scales, and 30 timing samples per scale. Measurement report completed with `no_baseline`; see [run and diagnostic results](performance.md#hosted-ubuntu-observation-2026-10-04). |

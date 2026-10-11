@@ -55,3 +55,13 @@ extern "C" fn test_post_click(window : Int64, x : Double, y : Double) -> Int = "
 
 ///|
 extern "C" fn test_post_escape(window : Int64) -> Int = "gpui_macos_test_post_escape"
+
+///|
+#borrow(text)
+extern "C" fn test_post_key(
+  window : Int64,
+  key_code : Int,
+  modifiers : Int,
+  text : Bytes,
+  text_length : Int,
+) -> Int = "gpui_macos_test_post_key"

@@ -28,4 +28,7 @@ int32_t gpui_macos_test_frame_copy_v1(int64_t window, uint8_t *output,
                                       int32_t capacity);
 int32_t gpui_macos_test_post_click_v1(int64_t window, double x, double y);
 int32_t gpui_macos_test_post_escape_v1(int64_t window);
+int32_t gpui_macos_test_post_key_v1(int64_t window, int32_t key_code,
+                                    int32_t modifiers, const uint8_t *text,
+                                    int32_t text_length);
 #endif
