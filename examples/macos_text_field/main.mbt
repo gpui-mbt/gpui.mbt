@@ -952,7 +952,12 @@ fn run_window() -> Unit {
                     running = false
                   }
                 }
-                if acceptance.step == 11 && !acceptance.finished && running {
+                if running &&
+                  mac_acceptance_finish_ready(
+                    acceptance.step,
+                    acceptance.finished,
+                    dirty,
+                  ) {
                   acceptance = mac_acceptance_finish(
                     host,
                     window,

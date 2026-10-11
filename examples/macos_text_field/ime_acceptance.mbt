@@ -718,6 +718,20 @@ fn mac_acceptance_poll_receipt(
 }
 
 ///|
+// Reaching `step == 11` marks the field dirty so its blurred state is
+// presented. Finishing in the same iteration would read the last batch
+// frame's identity as the final one; wait until the blur frame has been
+// accepted so `final_frame_revision` is newer than the last acknowledged
+// batch frame.
+fn mac_acceptance_finish_ready(
+  step : Int,
+  finished : Bool,
+  dirty : Bool,
+) -> Bool {
+  step == 11 && !finished && !dirty
+}
+
+///|
 fn mac_acceptance_finish(
   host : @macos.Host,
   window : @platform.WindowId,
