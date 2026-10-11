@@ -1,12 +1,14 @@
 ///|
 /// Adapter between Win32 host events and the shared portable Button fixture.
 /// It owns no HWND or GPU resources; the executable owns those lifetimes.
-struct WindowsButtonSession {
+pub struct WindowsButtonSession {
   demo : @fixture.ButtonDemo
+  accessibility : WindowsButtonAccessibilityBinding
   width : Double
   height : Double
   scale : Double
   presentable : Bool
+  closed : Bool
   repeat_keydowns : Int
   unmatched_key_releases : Int
   unmatched_pointer_releases : Int
@@ -16,6 +18,7 @@ struct WindowsButtonSession {
 enum WindowsButtonSessionError {
   InvalidMetrics
   FixtureFailure
+  AccessibilityFailure
   Suspended
 }
 
@@ -50,17 +53,28 @@ fn WindowsButtonSession::new(
     return Err(InvalidMetrics)
   }
   match @fixture.ButtonDemo::new(width, height) {
-    Ok(demo) =>
+    Ok(demo) => {
+      let accessibility = match
+        windows_button_accessibility_new(demo.accessibility_snapshot(), true) {
+        Ok(value) => value
+        Err(_) => {
+          demo.close()
+          return Err(AccessibilityFailure)
+        }
+      }
       Ok({
         demo,
+        accessibility,
         width,
         height,
         scale,
         presentable: true,
+        closed: false,
         repeat_keydowns: 0,
         unmatched_key_releases: 0,
         unmatched_pointer_releases: 0,
       })
+    }
     Err(_) => Err(FixtureFailure)
   }
 }
@@ -78,6 +92,104 @@ fn WindowsButtonSession::is_presentable(self : WindowsButtonSession) -> Bool {
 }
 
 ///|
+/// Return the current copied semantic tree. A suspended or closed window has
+/// an empty unavailable tree; a stale fixture value is reported explicitly.
+pub fn WindowsButtonSession::accessibility_snapshot(
+  self : WindowsButtonSession,
+) -> Result[WindowsButtonAccessibilitySnapshot, WindowsButtonAccessibilityError] {
+  windows_button_accessibility_snapshot(
+    self.accessibility,
+    self.demo.accessibility_snapshot(),
+    self.presentable && !self.closed,
+  )
+}
+
+///|
+/// Resolve a copied sample token against the current fixture, then deliver the
+/// accepted Invoke through the app-owned ButtonDemo dispatcher. Repeated
+/// delivery is intentionally repeatable, like the shared fixture contract.
+pub fn WindowsButtonSession::dispatch_accessibility_action(
+  self : WindowsButtonSession,
+  export_id : WindowsButtonAccessibilityId,
+  action : @accessibility.AccessibilityAction,
+) -> Result[WindowsButtonSession, WindowsButtonAccessibilityError] {
+  let node_id = match
+    windows_button_accessibility_resolve(
+      self.accessibility,
+      self.demo.accessibility_snapshot(),
+      self.presentable && !self.closed,
+      export_id,
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  match
+    self.demo.dispatch_accessibility_request(
+      @accessibility.ActionRequest::new(node_id, action),
+    ) {
+    Err(error) => Err(ActionRejected(error))
+    Ok(demo) => {
+      let next = { ..self, demo, }
+      match
+        windows_button_accessibility_publish(
+          next.accessibility,
+          next.demo.accessibility_snapshot(),
+          next.presentable,
+        ) {
+        Ok(_) => Ok(next)
+        Err(error) => {
+          windows_button_accessibility_close(
+            next.accessibility,
+            next.demo.accessibility_snapshot().revision(),
+          )
+          next.demo.close()
+          Err(error)
+        }
+      }
+    }
+  }
+}
+
+///|
+fn windows_button_session_reconcile_accessibility(
+  session : WindowsButtonSession,
+) -> WindowsButtonSession {
+  if session.closed {
+    return session.close()
+  }
+  match
+    windows_button_accessibility_publish(
+      session.accessibility,
+      session.demo.accessibility_snapshot(),
+      session.presentable,
+    ) {
+    Ok(_) => session
+    Err(_) => {
+      windows_button_accessibility_close(
+        session.accessibility,
+        session.demo.accessibility_snapshot().revision(),
+      )
+      session.demo.close()
+      { ..session, presentable: false, closed: true, }
+    }
+  }
+}
+
+///|
+/// Revoke copied IDs and the app-owned semantic model when the HWND lifetime
+/// ends, including process exit paths without a final Destroyed event.
+fn WindowsButtonSession::close(
+  self : WindowsButtonSession,
+) -> WindowsButtonSession {
+  windows_button_accessibility_close(
+    self.accessibility,
+    self.demo.accessibility_snapshot().revision(),
+  )
+  self.demo.close()
+  { ..self, presentable: false, closed: true, }
+}
+
+///|
 /// Reconcile a pending draw with the HWND's current client metrics. Exact
 /// matches are a no-op so a metrics poll cannot cancel an armed gesture.
 fn WindowsButtonSession::sync_metrics(
@@ -86,6 +198,9 @@ fn WindowsButtonSession::sync_metrics(
   height : Double,
   scale : Double,
 ) -> (WindowsButtonSession, Bool) {
+  if self.closed {
+    return (self, false)
+  }
   if width.is_nan() ||
     width.is_inf() ||
     width <= 0.0 ||
@@ -93,17 +208,15 @@ fn WindowsButtonSession::sync_metrics(
     height.is_inf() ||
     height <= 0.0 ||
     !windows_button_valid_scale(scale) {
-    return (
-      {
-        ..self,
-        demo: self.demo.blur(),
-        width,
-        height,
-        scale,
-        presentable: false,
-      },
-      false,
-    )
+    let next = windows_button_session_reconcile_accessibility({
+      ..self,
+      demo: self.demo.blur(),
+      width,
+      height,
+      scale,
+      presentable: false,
+    })
+    return (next, false)
   }
   if self.presentable &&
     self.width == width &&
@@ -116,17 +229,27 @@ fn WindowsButtonSession::sync_metrics(
   }
   match self.demo.resize(width, height) {
     Ok(demo) =>
-      ({ ..self, demo, width, height, scale, presentable: true, }, true)
+      (
+        windows_button_session_reconcile_accessibility({
+          ..self,
+          demo,
+          width,
+          height,
+          scale,
+          presentable: true,
+        }),
+        true,
+      )
     Err(_) =>
       (
-        {
+        windows_button_session_reconcile_accessibility({
           ..self,
           demo: self.demo.blur(),
           width,
           height,
           scale,
           presentable: false,
-        },
+        }),
         false,
       )
   }
@@ -182,6 +305,9 @@ fn WindowsButtonSession::handle_event(
   self : WindowsButtonSession,
   event : @platform.Event,
 ) -> Result[(WindowsButtonSession, Bool), WindowsButtonSessionError] {
+  if self.closed {
+    return Ok((self, false))
+  }
   let mut next = { ..self, scale: event.scale(), }
   let mut repaint = false
   match event.kind() {
@@ -264,8 +390,13 @@ fn WindowsButtonSession::handle_event(
       }
     }
     @platform.CloseRequested | @platform.Destroyed | @platform.ExitRequested =>
-      next = { ..next, demo: next.demo.blur(), presentable: false, }
+      next = {
+        ..next,
+        demo: next.demo.blur(),
+        presentable: false,
+        closed: true,
+      }
     _ => ()
   }
-  Ok((next, repaint))
+  Ok((windows_button_session_reconcile_accessibility(next), repaint))
 }

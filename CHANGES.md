@@ -16,6 +16,26 @@
 
 ### Migration
 
+## 0.6.0 - 2026-10-11
+
+### Added
+
+- Added a transport-free Windows accessibility projection for copied semantic
+  snapshots, stable opaque export IDs, live action validation, and stale or
+  foreign owner rejection. Application owners remain responsible for effects;
+  native UI Automation remains unsupported. See the [accessibility design](docs/accessibility.md).
+
+### Changed
+
+### Fixed
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
 ## 0.5.0 - 2026-10-11
 
 ### Added

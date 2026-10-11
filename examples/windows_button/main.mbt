@@ -61,6 +61,14 @@ fn windows_button_session_error(
         backend="win32-d3d11",
         message="portable Button fixture rejected the state",
       )
+    AccessibilityFailure =>
+      @diagnostics.FrameworkError::new(
+        @diagnostics.InvalidInput,
+        operation,
+        subsystem="windows-button",
+        backend="win32-d3d11",
+        message="copied Button accessibility binding could not be created",
+      )
     Suspended =>
       @diagnostics.FrameworkError::new(
         @diagnostics.Busy,
@@ -79,6 +87,8 @@ fn windows_button_session_error_name(
   match error {
     InvalidMetrics => "invalid window metrics"
     FixtureFailure => "portable Button fixture rejected the state"
+    AccessibilityFailure =>
+      "copied Button accessibility binding could not be created"
     Suspended => "window is not currently presentable"
   }
 }
@@ -202,14 +212,18 @@ fn windows_button_state_line(
 ) -> String {
   let demo = session.demo()
   let button = demo.button()
-  let nodes = demo.accessibility_snapshot().nodes()
+  let semantics = match session.accessibility_snapshot() {
+    Ok(value) => value
+    Err(_) => abort("Windows Button copied accessibility snapshot is stale")
+  }
+  let nodes = semantics.nodes()
   let semantic_button = if nodes.length() > 1 { Some(nodes[1]) } else { None }
   let semantic = match semantic_button {
     None => "null"
     Some(node) =>
-      "{\"key\":\{node.id().key()},\"name\":\{@json.to_json(node.name()).stringify()},\"enabled\":\{windows_button_json_bool(node.is_enabled())},\"loading\":\{windows_button_json_bool(node.is_loading())},\"focused\":\{windows_button_json_bool(node.is_focused())}}"
+      "{\"key\":\{button.id()},\"name\":\{@json.to_json(node.name()).stringify()},\"enabled\":\{windows_button_json_bool(node.is_enabled())},\"loading\":\{windows_button_json_bool(node.is_loading())},\"focused\":\{windows_button_json_bool(node.is_focused())}}"
   }
-  "GPUI_WINDOWS_BUTTON_STATE {\"presentation\":\{presentation},\"event_sequence\":\{event_sequence},\"width\":\{session.width},\"height\":\{session.height},\"scale\":\{session.scale},\"presentable\":\{windows_button_json_bool(session.is_presentable())},\"visible\":\{windows_button_json_bool(demo.is_button_visible())},\"activations\":\{demo.activations()},\"enabled\":\{windows_button_json_bool(button.is_enabled())},\"loading\":\{windows_button_json_bool(button.is_loading())},\"focused\":\{windows_button_json_bool(button.is_focused())},\"hovered\":\{windows_button_json_bool(button.is_hovered())},\"pressed\":\{windows_button_json_bool(button.is_pressed())},\"repeat_keydowns\":\{session.repeat_keydowns},\"unmatched_key_releases\":\{session.unmatched_key_releases},\"unmatched_pointer_releases\":\{session.unmatched_pointer_releases},\"semantic_revision\":\{demo.accessibility_snapshot().revision()},\"semantic_nodes\":\{nodes.length()},\"semantic_button\":\{semantic}}"
+  "GPUI_WINDOWS_BUTTON_STATE {\"presentation\":\{presentation},\"event_sequence\":\{event_sequence},\"width\":\{session.width},\"height\":\{session.height},\"scale\":\{session.scale},\"presentable\":\{windows_button_json_bool(session.is_presentable())},\"visible\":\{windows_button_json_bool(demo.is_button_visible())},\"activations\":\{demo.activations()},\"enabled\":\{windows_button_json_bool(button.is_enabled())},\"loading\":\{windows_button_json_bool(button.is_loading())},\"focused\":\{windows_button_json_bool(button.is_focused())},\"hovered\":\{windows_button_json_bool(button.is_hovered())},\"pressed\":\{windows_button_json_bool(button.is_pressed())},\"repeat_keydowns\":\{session.repeat_keydowns},\"unmatched_key_releases\":\{session.unmatched_key_releases},\"unmatched_pointer_releases\":\{session.unmatched_pointer_releases},\"semantic_available\":\{windows_button_json_bool(semantics.is_available())},\"semantic_revision\":\{semantics.revision()},\"semantic_nodes\":\{nodes.length()},\"semantic_button\":\{semantic}}"
 }
 
 ///|
@@ -269,7 +283,7 @@ fn windows_button_run() -> Unit {
 
   if smoke || observe {
     windows_button_log(
-      "Windows Button Stage A started; semantics use the shared headless snapshot. UI Automation is unsupported.",
+      "Windows Button Stage A started; semantics use a copied session snapshot. UI Automation is unsupported.",
     )
   }
 
@@ -408,7 +422,7 @@ fn windows_button_run() -> Unit {
     }
   }
 
-  session.demo().close()
+  session = session.close()
   windows_button_required(host.destroy_window(window))
   windows_button_required(host.stop())
   if smoke && (completions == 0 || captured_readbacks == 0 || readback_failed) {

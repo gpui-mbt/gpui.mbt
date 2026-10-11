@@ -423,3 +423,158 @@ test "Windows invalid backing scale suspends and restores without stale input" {
   session = late_release
   assert_eq(session.demo().activations(), 0)
 }
+
+///|
+fn windows_button_accessibility_finite(value : Double) -> Bool {
+  !value.is_nan() && !value.is_inf()
+}
+
+///|
+test "Windows Button copied semantics are bounded and dispatch through the owner" {
+  let mut session = WindowsButtonSession::new(640.0, 240.0, 1.0).unwrap()
+  let copied = session.accessibility_snapshot().unwrap()
+  assert_true(copied.is_available())
+  assert_eq(copied.nodes().length(), 2)
+  let nodes = copied.nodes()
+  let window = nodes[0]
+  let button = nodes[1]
+  assert_true(window.role() == @accessibility.Window)
+  assert_true(button.role() == @accessibility.Button)
+  assert_eq(button.name(), "Run action")
+  assert_eq(button.supported_actions().length(), 1)
+  assert_true(button.supported_actions()[0] == @accessibility.Invoke)
+  let bounds = button.bounds()
+  assert_true(windows_button_accessibility_finite(bounds.left()))
+  assert_true(windows_button_accessibility_finite(bounds.top()))
+  assert_true(windows_button_accessibility_finite(bounds.right()))
+  assert_true(windows_button_accessibility_finite(bounds.bottom()))
+  assert_true(windows_button_accessibility_finite(bounds.size().width()))
+  assert_true(windows_button_accessibility_finite(bounds.size().height()))
+
+  // Mutating arrays returned to a caller cannot change a later copy.
+  let children = window.children()
+  children.push(children[0])
+  let actions = button.supported_actions()
+  actions.push(@accessibility.Invoke)
+  let reread = session.accessibility_snapshot().unwrap().nodes()
+  assert_eq(reread[0].children().length(), 1)
+  assert_eq(reread[1].supported_actions().length(), 1)
+
+  let button_id = button.id()
+  let (focused, _) = session
+    .handle_event(windows_button_test_key_down(1, @primitives.Tab, false))
+    .unwrap()
+  session = focused
+  let focused_nodes = session.accessibility_snapshot().unwrap().nodes()
+  assert_true(focused_nodes[1].is_focused())
+  assert_true(focused_nodes[1].id() == button_id)
+
+  session = session
+    .dispatch_accessibility_action(button_id, @accessibility.Invoke)
+    .unwrap()
+  assert_eq(session.demo().activations(), 1)
+  // The shared action contract is a repeatable request, not an exactly-once
+  // ticket; another delivery reaches the same app-owned count once again.
+  session = session
+    .dispatch_accessibility_action(button_id, @accessibility.Invoke)
+    .unwrap()
+  assert_eq(session.demo().activations(), 2)
+}
+
+///|
+test "Windows Button copied actions reject wrong owners, stale state, and lifecycle gaps" {
+  let mut session = WindowsButtonSession::new(640.0, 240.0, 1.0).unwrap()
+  let mut own_id = session.accessibility_snapshot().unwrap().nodes()[1].id()
+  let other = WindowsButtonSession::new(640.0, 240.0, 1.0).unwrap()
+  let foreign_id = other.accessibility_snapshot().unwrap().nodes()[1].id()
+  assert_true(
+    session.dispatch_accessibility_action(foreign_id, @accessibility.Invoke)
+    is Err(ForeignOwner),
+  )
+
+  // An out-of-band fixture commit makes the saved copied tree stale and is
+  // rejected before it reaches the app owner.
+  let stale = { ..session, demo: session.demo().with_loading(true).unwrap(), }
+  assert_true(stale.accessibility_snapshot() is Err(StaleSnapshot))
+  assert_true(
+    stale.dispatch_accessibility_action(own_id, @accessibility.Invoke)
+    is Err(StaleSnapshot),
+  )
+
+  // The out-of-band commit consumed this fixture's shared freshness fence;
+  // continue lifecycle assertions with a separate live owner.
+  session = WindowsButtonSession::new(640.0, 240.0, 1.0).unwrap()
+  own_id = session.accessibility_snapshot().unwrap().nodes()[1].id()
+
+  let (loading, _) = session
+    .handle_event(windows_button_test_text(1, "l"))
+    .unwrap()
+  session = loading
+  let loading_node = session.accessibility_snapshot().unwrap().nodes()[1]
+  assert_true(loading_node.is_loading())
+  assert_true(loading_node.id() == own_id)
+  assert_true(
+    session.dispatch_accessibility_action(own_id, @accessibility.Invoke)
+    is Err(ActionRejected(@accessibility.Loading)),
+  )
+
+  let (reset, _) = session
+    .handle_event(windows_button_test_text(2, "r"))
+    .unwrap()
+  session = reset
+  let reset_id = session.accessibility_snapshot().unwrap().nodes()[1].id()
+  assert_true(reset_id != own_id)
+  assert_true(
+    session.dispatch_accessibility_action(own_id, @accessibility.Invoke)
+    is Err(StaleTarget),
+  )
+
+  let (suspended, _) = session
+    .handle_event(
+      windows_button_test_event(3, @platform.Resized(width=0.0, height=0.0)),
+    )
+    .unwrap()
+  session = suspended
+  let unavailable = session.accessibility_snapshot().unwrap()
+  assert_true(!unavailable.is_available())
+  assert_eq(unavailable.nodes().length(), 0)
+  assert_true(
+    session.dispatch_accessibility_action(reset_id, @accessibility.Invoke)
+    is Err(Unavailable),
+  )
+
+  let (restored, _) = session
+    .handle_event(
+      windows_button_test_event(4, @platform.Resized(width=640.0, height=240.0)),
+    )
+    .unwrap()
+  session = restored
+  let restored_id = session.accessibility_snapshot().unwrap().nodes()[1].id()
+  assert_true(restored_id != reset_id)
+  assert_true(
+    session.dispatch_accessibility_action(reset_id, @accessibility.Invoke)
+    is Err(StaleTarget),
+  )
+
+  let (closed, _) = session
+    .handle_event(windows_button_test_event(5, @platform.CloseRequested))
+    .unwrap()
+  session = closed
+  assert_true(!session.accessibility_snapshot().unwrap().is_available())
+  assert_true(
+    session.dispatch_accessibility_action(restored_id, @accessibility.Invoke)
+    is Err(SessionClosed),
+  )
+  let reopened = WindowsButtonSession::new(640.0, 240.0, 1.0).unwrap()
+  assert_true(
+    reopened.dispatch_accessibility_action(restored_id, @accessibility.Invoke)
+    is Err(ForeignOwner),
+  )
+  let (late_event, repaint) = session
+    .handle_event(
+      windows_button_test_event(6, @platform.Resized(width=640.0, height=240.0)),
+    )
+    .unwrap()
+  assert_true(!repaint)
+  assert_true(!late_event.is_presentable())
+}
