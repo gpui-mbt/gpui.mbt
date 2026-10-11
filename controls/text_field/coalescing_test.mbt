@@ -156,7 +156,10 @@ test "backspace and forward delete coalesce separately at collapsed carets" {
     ).0
   assert_eq(switched.document().text(), "ad")
   assert_eq(field_test_undo(switched).document().text(), "acd")
-  assert_eq(field_test_undo(field_test_undo(switched)).document().text(), "abcd")
+  assert_eq(
+    field_test_undo(field_test_undo(switched)).document().text(),
+    "abcd",
+  )
 }
 
 ///|
@@ -175,11 +178,14 @@ test "replacement paste and equal-content replacement are history boundaries" {
   let typed_after_paste = field_test_text(replaced, "b").0
   assert_eq(typed_after_paste.document().text(), "axb")
   assert_eq(field_test_undo(typed_after_paste).document().text(), "ax")
-  assert_eq(field_test_undo(field_test_undo(typed_after_paste)).document().text(), "a")
   assert_eq(
-    field_test_undo(
-      field_test_undo(field_test_undo(typed_after_paste)),
-    ).document().text(),
+    field_test_undo(field_test_undo(typed_after_paste)).document().text(),
+    "a",
+  )
+  assert_eq(
+    field_test_undo(field_test_undo(field_test_undo(typed_after_paste)))
+    .document()
+    .text(),
     "",
   )
 
@@ -241,15 +247,26 @@ test "focus composition commit and cancel close prior typing runs" {
   let after_commit = field_test_text(committed, "z").0
   assert_eq(after_commit.document().text(), "ayz")
   assert_eq(field_test_undo(after_commit).document().text(), "ay")
-  assert_eq(field_test_undo(field_test_undo(after_commit)).document().text(), "a")
-  assert_eq(field_test_undo(field_test_undo(field_test_undo(after_commit))).document().text(), "")
+  assert_eq(
+    field_test_undo(field_test_undo(after_commit)).document().text(),
+    "a",
+  )
+  assert_eq(
+    field_test_undo(field_test_undo(field_test_undo(after_commit)))
+    .document()
+    .text(),
+    "",
+  )
 
   let cancelled = field_test_preedit(composition_start, "x", 1, 1)
     .cancel_composition(field_test_measure, field_test_admit)
     .unwrap()
   let after_cancel = field_test_text(cancelled, "b").0
   assert_eq(field_test_undo(after_cancel).document().text(), "a")
-  assert_eq(field_test_undo(field_test_undo(after_cancel)).document().text(), "")
+  assert_eq(
+    field_test_undo(field_test_undo(after_cancel)).document().text(),
+    "",
+  )
 }
 
 ///|

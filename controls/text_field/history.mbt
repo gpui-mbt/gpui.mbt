@@ -202,8 +202,7 @@ fn FieldHistory::record_with_group(
 
   let eligible = field_history_group_eligible(kind, before, after)
   let can_extend = match (self.open_group, kind, self.undo_entry()) {
-    (Some(open), Some(next), Some(previous)) if
-      open == next &&
+    (Some(open), Some(next), Some(previous)) if open == next &&
       eligible &&
       self.redo.length() == 0 &&
       previous.after == before &&
@@ -321,10 +320,6 @@ fn FieldHistory::record_with_group(
     undo.push(self.undo[index])
   }
   undo.push(entry)
-  let open_group = if eligible {
-    kind
-  } else {
-    None
-  }
+  let open_group = if eligible { kind } else { None }
   Ok({ undo, redo: [], payload_bytes: kept_bytes + entry_bytes, open_group, })
 }

@@ -168,9 +168,10 @@ test "fixed-seed ASCII edit histories match an independent reference journal" {
                 saw_inserted_b = true
               }
               let cleared_redo = redo.length() > 0
-              let can_extend = match (open_group, field_reference_last_undo(undo)) {
-                (Some(FieldReferenceTyping), Some(previous)) if
-                  redo.length() == 0 &&
+              let can_extend = match
+                (open_group, field_reference_last_undo(undo)) {
+                (Some(FieldReferenceTyping), Some(previous)) if redo.length() ==
+                  0 &&
                   previous.after == before &&
                   after.selection().is_collapsed() => true
                 _ => false
@@ -217,9 +218,8 @@ test "fixed-seed ASCII edit histories match an independent reference journal" {
             } else {
               None
             }
-            let can_extend = match (
-              group_kind, open_group, field_reference_last_undo(undo),
-            ) {
+            let can_extend = match
+              (group_kind, open_group, field_reference_last_undo(undo)) {
               (
                 Some(FieldReferenceBackspace),
                 Some(FieldReferenceBackspace),

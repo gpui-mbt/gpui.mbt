@@ -86,8 +86,10 @@ test "Busy keeps repeated edits and rejection restores submitted history" {
 
     // Owner rollback reinstalls the complete submitted history run, so a
     // later adjacent commit remains in the same original typing group.
-    let after_rollback_typing =
-      change(restored, @primitives.TextInput(text="B")).unwrap()
+    let after_rollback_typing = change(
+      restored,
+      @primitives.TextInput(text="B"),
+    ).unwrap()
     assert_eq(after_rollback_typing.document().text(), "Hi 日本AB")
     assert_true(
       after_rollback_typing.undo(measure, admit).unwrap().document() ==

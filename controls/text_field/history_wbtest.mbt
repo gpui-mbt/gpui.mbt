@@ -153,7 +153,10 @@ test "field history coalesces only the same open kind at the exact prior endpoin
   let after_a = history_test_document("a", 1, 1)
   let after_ab = history_test_document("ab", 2, 2)
   let first = history_test_record_group(
-    FieldHistory::empty(), empty, after_a, Typing,
+    FieldHistory::empty(),
+    empty,
+    after_a,
+    Typing,
   )
   let grouped = history_test_record_group(first, after_a, after_ab, Typing)
   assert_eq(history_test_undo_depth(grouped), 1)
@@ -183,16 +186,24 @@ test "field history run barriers and kind changes start complete groups" {
   let after_a = history_test_document("a", 1, 1)
   let after_ab = history_test_document("ab", 2, 2)
   let typing = history_test_record_group(
-    FieldHistory::empty(), empty, after_a, Typing,
+    FieldHistory::empty(),
+    empty,
+    after_a,
+    Typing,
   )
   let closed = typing.close_group()
   let after_barrier = history_test_record_group(
-    closed, after_a, after_ab, Typing,
+    closed,
+    after_a,
+    after_ab,
+    Typing,
   )
   assert_eq(history_test_undo_depth(after_barrier), 2)
 
   let equal_text_selection = history_test_document("a", 0, 1)
-  let equal_replacement = history_test_record(typing, after_a, equal_text_selection)
+  let equal_replacement = history_test_record(
+    typing, after_a, equal_text_selection,
+  )
   assert_eq(history_test_undo_depth(equal_replacement), 1)
   assert_eq(equal_replacement.payload_bytes, typing.payload_bytes)
   assert_true(equal_replacement.open_group is None)
@@ -212,10 +223,16 @@ test "field history run barriers and kind changes start complete groups" {
   let after_delete_two = history_test_document("a", 1, 1)
   let forward_start = history_test_document("abc", 1, 1)
   let forward_one = history_test_record_group(
-    FieldHistory::empty(), forward_start, after_delete_one, ForwardDelete,
+    FieldHistory::empty(),
+    forward_start,
+    after_delete_one,
+    ForwardDelete,
   )
   let forward_two = history_test_record_group(
-    forward_one, after_delete_one, after_delete_two, ForwardDelete,
+    forward_one,
+    after_delete_one,
+    after_delete_two,
+    ForwardDelete,
   )
   assert_eq(history_test_undo_depth(forward_two), 1)
   assert_true(forward_two.undo_entry().unwrap().before == forward_start)
@@ -299,12 +316,18 @@ test "extending a group recomputes its charge and may evict whole older groups" 
   let start = history_test_document("", 0, 0)
   let first_after = history_test_document("x", 1, 1)
   let open_group = history_test_record_group(
-    history, start, first_after, Typing,
+    history,
+    start,
+    first_after,
+    Typing,
   )
   assert_eq(open_group.payload_bytes, 65521)
   let expanded_after = history_test_document("x".repeat(200), 200, 200)
   let extended = history_test_record_group(
-    open_group, first_after, expanded_after, Typing,
+    open_group,
+    first_after,
+    expanded_after,
+    Typing,
   )
   // Only 16 bytes remain under the cap, while the merged entry costs 200;
   // the 184-byte excess evicts the oldest whole 8,192-byte entry.
@@ -320,11 +343,17 @@ test "extending a group recomputes its charge and may evict whole older groups" 
   let after_one = history_test_document("abc", 3, 3)
   let after_two = history_test_document("ab", 2, 2)
   let deleting = history_test_record_group(
-    FieldHistory::empty(), before, after_one, Backspace,
+    FieldHistory::empty(),
+    before,
+    after_one,
+    Backspace,
   )
   assert_eq(deleting.payload_bytes, 7)
   let deleted_twice = history_test_record_group(
-    deleting, after_one, after_two, Backspace,
+    deleting,
+    after_one,
+    after_two,
+    Backspace,
   )
   assert_eq(history_test_undo_depth(deleted_twice), 1)
   assert_eq(deleted_twice.payload_bytes, 6)
@@ -344,14 +373,15 @@ test "extending the newest coalesced group at the entry cap does not add a slot"
   }
   let start = history_test_document("", 0, 0)
   let after_one = history_test_document("x", 1, 1)
-  let open_group = history_test_record_group(
-    history, start, after_one, Typing,
-  )
+  let open_group = history_test_record_group(history, start, after_one, Typing)
   assert_eq(history_test_undo_depth(open_group), 64)
 
   let after_two = history_test_document("xy", 2, 2)
   let extended = history_test_record_group(
-    open_group, after_one, after_two, Typing,
+    open_group,
+    after_one,
+    after_two,
+    Typing,
   )
   assert_eq(history_test_undo_depth(extended), 64)
   assert_eq(extended.payload_bytes, history.payload_bytes + 2)

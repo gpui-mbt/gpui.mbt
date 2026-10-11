@@ -479,11 +479,7 @@ fn field_close_history_group(
         Ok(value) => value
         Err(error) => return Err(error)
       }
-      Ok({
-        ..field,
-        revision,
-        history: field.history.close_group(),
-      })
+      Ok({ ..field, revision, history: field.history.close_group(), })
     }
   }
 }
