@@ -22,6 +22,20 @@ fn mac_palette_error(
 }
 
 ///|
+fn mac_palette_unsupported_error(
+  operation : String,
+  message : String,
+) -> @diagnostics.FrameworkError {
+  @diagnostics.FrameworkError::new(
+    @diagnostics.UnsupportedCapability,
+    operation,
+    subsystem="macos-command-palette",
+    backend="appkit-metal",
+    message~,
+  )
+}
+
+///|
 /// The native sample owns only its window, command bindings, and focus tree.
 /// Query/navigation/close semantics remain in the shared portable palette.
 struct MacPaletteSession {
@@ -184,6 +198,21 @@ fn MacPaletteSession::new(
     scale.is_inf() ||
     scale <= 0.0 {
     return Err(mac_palette_error("palette_metrics", "invalid window metrics"))
+  }
+  match @macos_text.require_grayscale_raster() {
+    Ok(_) => ()
+    Err(@macos_text.UnsupportedPlatform) =>
+      return Err(
+        mac_palette_unsupported_error(
+          "palette_text", "CoreText is unsupported on this platform",
+        ),
+      )
+    Err(_) =>
+      return Err(
+        mac_palette_error(
+          "palette_text", "CoreText grayscale raster is unavailable",
+        ),
+      )
   }
   let field_bounds = @primitives.Rect::new(52.0, 88.0, 536.0, 40.0).unwrap()
   let document = match @text.TextDocument::new("") {

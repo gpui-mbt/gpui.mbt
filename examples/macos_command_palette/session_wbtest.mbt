@@ -8,11 +8,23 @@ fn mac_palette_test_key(
 }
 
 ///|
-fn mac_palette_test_session() -> Result[
-  MacPaletteSession,
-  @diagnostics.FrameworkError,
-] {
-  MacPaletteSession::new(MAC_PALETTE_WIDTH, MAC_PALETTE_HEIGHT, 2.0)
+fn mac_palette_test_session() -> MacPaletteSession? raise {
+  match @macos_text.require_grayscale_raster() {
+    Ok(_) =>
+      Some(
+        MacPaletteSession::new(MAC_PALETTE_WIDTH, MAC_PALETTE_HEIGHT, 2.0).unwrap(),
+      )
+    Err(@macos_text.UnsupportedPlatform) =>
+      match MacPaletteSession::new(MAC_PALETTE_WIDTH, MAC_PALETTE_HEIGHT, 2.0) {
+        Err(error) => {
+          assert_eq(error.code().label(), "unsupported_capability")
+          assert_eq(error.operation(), "palette_text")
+          None
+        }
+        Ok(_) => fail("palette session started without CoreText")
+      }
+    Err(_) => abort("CoreText grayscale raster unavailable on this host")
+  }
 }
 
 ///|
@@ -34,7 +46,10 @@ fn mac_palette_test_open(
 
 ///|
 test "macOS palette reuses bounded filtering, navigation, activation, and focus" {
-  let session = mac_palette_test_session().unwrap()
+  let session = match mac_palette_test_session() {
+    Some(value) => value
+    None => return
+  }
   assert_true(mac_palette_test_open(session).unwrap())
   assert_true(session.is_open())
   assert_eq(session.epoch(), 1)
@@ -106,7 +121,10 @@ test "macOS palette reuses bounded filtering, navigation, activation, and focus"
 
 ///|
 test "macOS palette consumes non-ASCII and modified search keys without editing" {
-  let session = mac_palette_test_session().unwrap()
+  let session = match mac_palette_test_session() {
+    Some(value) => value
+    None => return
+  }
   assert_true(mac_palette_test_open(session).unwrap())
   let non_ascii = session
     .handle_input(mac_palette_test_key(@primitives.Character("あ")))
@@ -132,7 +150,10 @@ test "macOS palette consumes non-ASCII and modified search keys without editing"
 
 ///|
 test "closed opener release is consumed before background routing" {
-  let session = mac_palette_test_session().unwrap()
+  let session = match mac_palette_test_session() {
+    Some(value) => value
+    None => return
+  }
   let released = session
     .handle_input(
       @primitives.KeyReleased(
@@ -152,7 +173,10 @@ test "closed opener release is consumed before background routing" {
 
 ///|
 test "shift-command-K remains available to the background app" {
-  let session = mac_palette_test_session().unwrap()
+  let session = match mac_palette_test_session() {
+    Some(value) => value
+    None => return
+  }
   let opened = session
     .handle_input(
       mac_palette_test_key(
