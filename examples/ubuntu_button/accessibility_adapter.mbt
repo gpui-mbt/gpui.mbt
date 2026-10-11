@@ -467,6 +467,8 @@ pub fn UbuntuButtonAccessibilitySession::publish(
 
 ///|
 /// Return a detached callback-facing copy of the current committed tree.
+/// The source must still be live at the exported revision. Closed or stale
+/// projections return their typed error; stale sources can be republished.
 pub fn UbuntuButtonAccessibilitySession::snapshot(
   self : UbuntuButtonAccessibilitySession,
 ) -> Result[UbuntuButtonAccessibilitySnapshot, UbuntuButtonAccessibilityError] {
@@ -477,6 +479,10 @@ pub fn UbuntuButtonAccessibilitySession::snapshot(
   let state = self.state.val
   if state.closed {
     return Err(SessionClosed)
+  }
+  match self.projection.snapshot() {
+    Ok(_) => ()
+    Err(error) => return Err(ProjectionError(error))
   }
   Ok(button_adapter_copy_snapshot(state.current))
 }
