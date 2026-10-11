@@ -1,0 +1,107 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/gpui/windows"
+
+import {
+  "f4ah6o/gpui/diagnostics",
+  "f4ah6o/gpui/platform",
+  "f4ah6o/gpui/platform/testing",
+  "f4ah6o/gpui/primitives",
+  "f4ah6o/gpui/scene",
+  "f4ah6o/gpui/text",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct DisplayInfo {
+  bounds_left_px : Int
+  bounds_top_px : Int
+  bounds_width_px : Int
+  bounds_height_px : Int
+  work_area_left_px : Int
+  work_area_top_px : Int
+  work_area_width_px : Int
+  work_area_height_px : Int
+  is_primary : Bool
+  is_window_monitor : Bool
+  has_effective_dpi : Bool
+  effective_dpi_x : Int
+  effective_dpi_y : Int
+  has_current_mode : Bool
+  mode_width_px : Int
+  mode_height_px : Int
+  refresh_rate_hz : Int
+  orientation_degrees : Int
+} derive(Eq)
+pub fn DisplayInfo::equal(Self, Self) -> Bool
+pub fn DisplayInfo::not_equal(Self, Self) -> Bool
+
+pub(all) enum EditorEvent {
+  Platform(@platform.Event)
+  TextSession(TextSessionTarget, TextSessionEvent)
+}
+
+pub struct Host {
+  // private fields
+}
+pub fn Host::begin_text_session(Self, @platform.WindowId, Int, @text.TextDocument, @primitives.Rect) -> Result[Int, @diagnostics.FrameworkError]
+pub fn Host::cancel_text_session(Self, @platform.WindowId, Int, Int) -> Result[Int, @diagnostics.FrameworkError]
+pub fn Host::copy_frame(Self, @platform.WindowId, FixedArray[Byte]) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::create_window(Self, Int, Int, String) -> Result[@platform.WindowId, @diagnostics.FrameworkError]
+pub fn Host::destroy_window(Self, @platform.WindowId) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::dispatch(Self, Int) -> Result[Array[@platform.Event], @diagnostics.FrameworkError]
+pub fn Host::display_snapshot(Self) -> Result[Array[DisplayInfo], @diagnostics.FrameworkError]
+pub fn Host::end_text_session(Self, @platform.WindowId, Int, Int) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::frame_metrics(Self, @platform.WindowId) -> Result[(Int, Int, Double), @diagnostics.FrameworkError]
+pub fn Host::next_editor_event(Self, timeout_ms? : Int) -> Result[EditorEvent?, @diagnostics.FrameworkError]
+pub fn Host::next_event(Self, timeout_ms? : Int) -> Result[@platform.Event?, @diagnostics.FrameworkError]
+pub fn Host::present(Self, @platform.WindowId, @scene.SceneSnapshot) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::read_clipboard(Self) -> Result[String, @diagnostics.FrameworkError]
+pub fn Host::readback_samples(Self, @platform.WindowId) -> Result[Array[Double], @diagnostics.FrameworkError]
+pub fn Host::recover_renderer(Self, @platform.WindowId) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::request_close(Self, @platform.WindowId) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::request_exit(Self) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::require_capability(Self, @platform.Capability) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::set_cursor(Self, @platform.Cursor) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::set_size(Self, @platform.WindowId, Int, Int) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::set_title(Self, @platform.WindowId, String) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::start() -> Result[Self, @diagnostics.FrameworkError]
+pub fn Host::state(Self) -> HostState
+pub fn Host::stop(Self) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::text_session_is_current(Self, @platform.WindowId, Int, Int) -> Result[Bool, @diagnostics.FrameworkError]
+pub fn Host::update_text_session(Self, @platform.WindowId, Int, Int, @text.TextDocument, @primitives.Rect, external_edit? : Bool) -> Result[Int, @diagnostics.FrameworkError]
+pub fn Host::wake(Self) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::window_has_keyboard_focus(Self, @platform.WindowId) -> Result[Bool, @diagnostics.FrameworkError]
+pub fn Host::window_metrics(Self, @platform.WindowId) -> Result[(Double, Double, Double), @diagnostics.FrameworkError]
+pub fn Host::write_clipboard(Self, String) -> Result[Unit, @diagnostics.FrameworkError]
+pub impl @platform.Backend for Host
+pub impl @testing.FrameReadback for Host
+
+pub(all) enum HostState {
+  Running
+  Quiescing
+  Stopped
+} derive(Eq)
+pub fn HostState::equal(Self, Self) -> Bool
+pub fn HostState::not_equal(Self, Self) -> Bool
+
+pub(all) enum TextSessionEvent {
+  CompositionStarted(replacement_range~ : @text.TextRange)
+  Marked(text~ : String, cursor_utf16~ : Int?, attributes~ : Array[Int], replacement_range~ : @text.TextRange)
+  Inserted(text~ : String, replacement_range~ : @text.TextRange)
+  CompositionEnded
+  Cancelled
+}
+
+pub(all) struct TextSessionTarget {
+  window : @platform.WindowId
+  sequence : Int64
+  epoch : Int
+  owner_generation : Int
+}
+
+// Type aliases
+
+// Traits

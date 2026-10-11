@@ -20,6 +20,55 @@ pub fn Host::post_test_click(
 }
 
 ///|
+fn test_modifier_bits(modifiers : @primitives.Modifiers) -> Int {
+  let mut bits = 0
+  if modifiers.shift() {
+    bits = bits | 1
+  }
+  if modifiers.control() {
+    bits = bits | 2
+  }
+  if modifiers.alt() {
+    bits = bits | 4
+  }
+  if modifiers.meta() {
+    bits = bits | 8
+  }
+  bits
+}
+
+///|
+/// Post one synthetic key-down/key-up pair to the owned NSWindow.
+/// Character keys must be one printable ASCII character and use ANSI positions.
+/// Requires GPUI_NATIVE_E2E=1 and a test-hooks dylib.
+pub fn Host::post_test_key(
+  self : Host,
+  window : @platform.WindowId,
+  key : @primitives.Key,
+  modifiers : @primitives.Modifiers,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  match self.check() {
+    Err(failure) => return Err(failure)
+    Ok(_) => ()
+  }
+  let (key_code, text) = match test_key_code(key) {
+    Ok(value) => value
+    Err(failure) => return Err(failure)
+  }
+  let bytes = @utf8.encode(text)
+  status(
+    test_post_key(
+      window.value(),
+      key_code,
+      test_modifier_bits(modifiers),
+      bytes,
+      bytes.length(),
+    ),
+    "post_test_key",
+  )
+}
+
+///|
 /// Post an Escape key down/up pair to this host-owned window through AppKit's
 /// normal event route. Requires GPUI_NATIVE_E2E=1 and a test-hooks dylib.
 pub fn Host::post_test_escape(

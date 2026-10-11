@@ -200,3 +200,55 @@ test "Ubuntu button adapter revokes a same-owner source after projection failure
     assert_true(host.stop() is Ok(_))
   }
 }
+
+///|
+test "Ubuntu button adapter snapshot rejects a closed source before and after Invoke" {
+  if @env.get_env_var("GPUI_UBUNTU_E2E") == Some("1") {
+    let host = @native.Host::start().unwrap()
+    let demo = @fixture.ButtonDemo::new(640.0, 240.0).unwrap()
+    let session = UbuntuButtonAccessibilitySession::new(host, demo).unwrap()
+    let retained = session.snapshot().unwrap()
+    let token = ubuntu_button_accessibility_token(retained)
+    session.current_demo().unwrap().close()
+    assert_true(
+      session.snapshot() is Err(ProjectionError(@native.ProjectionClosed)),
+    )
+    assert_true(
+      session.invoke(token) is Err(ProjectionError(@native.ProjectionClosed)),
+    )
+    assert_true(
+      session.snapshot() is Err(ProjectionError(@native.ProjectionClosed)),
+    )
+    // Earlier detached snapshots remain readable; fresh reads must fail.
+    assert_eq(retained.nodes().length(), 2)
+    assert_true(session.close() is Ok(_))
+    assert_true(host.stop() is Ok(_))
+  }
+}
+
+///|
+test "Ubuntu button adapter snapshot rejects unpublished source changes and recovers after publish" {
+  if @env.get_env_var("GPUI_UBUNTU_E2E") == Some("1") {
+    let host = @native.Host::start().unwrap()
+    let demo = @fixture.ButtonDemo::new(640.0, 240.0).unwrap()
+    let session = UbuntuButtonAccessibilitySession::new(host, demo).unwrap()
+    let first = session.snapshot().unwrap()
+    let token = ubuntu_button_accessibility_token(first)
+    let latest = session.current_demo().unwrap().with_loading(true).unwrap()
+    assert_true(
+      session.snapshot() is Err(ProjectionError(@native.StaleSnapshot)),
+    )
+    assert_true(
+      session.invoke(token) is Err(ProjectionError(@native.StaleSnapshot)),
+    )
+    let published = session.publish(latest).unwrap()
+    let current = session.snapshot().unwrap()
+    assert_eq(current.revision(), published.revision())
+    assert_true(current.revision() > first.revision())
+    assert_true(current.nodes()[1].is_loading())
+    assert_true(!first.nodes()[1].is_loading())
+    assert_true(ubuntu_button_accessibility_token(current) == token)
+    assert_true(session.close() is Ok(_))
+    assert_true(host.stop() is Ok(_))
+  }
+}

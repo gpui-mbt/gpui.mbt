@@ -8,6 +8,62 @@
 
 ### Fixed
 
+- Reject fresh Ubuntu Button accessibility snapshot reads after source closure
+  or an unpublished semantic change, while retaining readable detached copies.
+  ([PR #61](https://github.com/gpui-mbt/gpui.mbt/pull/61))
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.5.0 - 2026-10-11
+
+### Added
+
+- Added a native macOS command-palette sample that composes the shared palette,
+  TextField, CoreText measurement and AppKit/Metal host. Its synthetic NSWindow
+  E2E checks filtering, navigation, activation, cancellation, reopening, pixels
+  and teardown; palette-specific committed text input, Japanese IME and
+  accessibility remain unqualified. See
+  [the sample guide](examples/macos_command_palette/README.md).
+- Added a window-scoped synthetic key-event hook for opt-in macOS native E2E.
+
+### Changed
+
+### Fixed
+
+- Include the existing macOS Button accessibility adapter in both dylib builds
+  from script/build_and_run.sh and verify that its public bridge symbols are
+  exported.
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.4.0 - 2026-10-11
+
+### Added
+
+- Added a bounded Windows `Host::display_snapshot()` API for copied virtual
+  screen geometry, work areas, current display modes, primary-monitor status,
+  and the monitor containing the host window. Effective DPI is reported only
+  for the current window monitor through the DPI-aware `GetDpiForWindow` API;
+  other monitors report it as unavailable. Physical panel dimensions and
+  stable monitor identifiers are not inferred. See the
+  [Windows native guide](docs/windows-native.md).
+
+### Changed
+
+### Fixed
+
 ### Deprecated
 
 ### Removed

@@ -40,6 +40,11 @@ int32_t gpui_windows_title(int32_t host, int32_t window,
 int32_t gpui_windows_size(int32_t host, int32_t window, int32_t width,
                           int32_t height);
 int32_t gpui_windows_metrics(int32_t host, int32_t window, double *metrics);
+/* Bounded copied monitor snapshot. Each record is 18 integral doubles as
+ * documented by windows/display.mbt. Returns the monitor count or a negative
+ * status; output is unchanged on failure. */
+int32_t gpui_windows_display_snapshot(int32_t host, double *records,
+                                      int32_t capacity);
 int32_t gpui_windows_dispatch(int32_t host, int32_t timeout_ms);
 int32_t gpui_windows_next(int32_t host, double *event_data);
 /* Experimental private Win32 IMM32 editor-session ingress. The typed reader

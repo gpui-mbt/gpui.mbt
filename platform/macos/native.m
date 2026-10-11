@@ -669,6 +669,45 @@ int32_t gpui_macos_test_post_click_v1(int64_t token, double x, double y) {
 #endif
 }
 
+int32_t gpui_macos_test_post_key_v1(int64_t token, int32_t key_code,
+                                    int32_t modifier_bits,
+                                    const uint8_t *bytes, int32_t length) {
+#ifdef GPUI_TESTING
+  if (![NSThread isMainThread]) return 18;
+  const char *enabled = getenv("GPUI_NATIVE_E2E");
+  if (!enabled || strcmp(enabled, "1") != 0) return 9;
+  if (key_code < 0 || key_code > 127 || modifier_bits < 0 ||
+      (modifier_bits & ~15) != 0) return 5;
+  if (length < 0 || (length > 0 && !bytes) || length > 256) return 5;
+  GPWindow *target = windows[@(token)];
+  if (!target || !target.window || target.closing) return 10;
+  NSString *characters = [[NSString alloc] initWithBytes:bytes
+      length:(NSUInteger)length encoding:NSUTF8StringEncoding];
+  if (!characters) return 17;
+  NSUInteger flags = 0;
+  if (modifier_bits & 1) flags |= NSEventModifierFlagShift;
+  if (modifier_bits & 2) flags |= NSEventModifierFlagControl;
+  if (modifier_bits & 4) flags |= NSEventModifierFlagOption;
+  if (modifier_bits & 8) flags |= NSEventModifierFlagCommand;
+  NSTimeInterval timestamp = NSProcessInfo.processInfo.systemUptime;
+  NSEvent *down = [NSEvent keyEventWithType:NSEventTypeKeyDown
+      location:NSZeroPoint modifierFlags:flags timestamp:timestamp
+      windowNumber:target.window.windowNumber context:nil characters:characters
+      charactersIgnoringModifiers:characters isARepeat:NO keyCode:(unsigned short)key_code];
+  NSEvent *up = [NSEvent keyEventWithType:NSEventTypeKeyUp
+      location:NSZeroPoint modifierFlags:flags timestamp:timestamp + 0.001
+      windowNumber:target.window.windowNumber context:nil characters:characters
+      charactersIgnoringModifiers:characters isARepeat:NO keyCode:(unsigned short)key_code];
+  if (!down || !up) return 16;
+  [target.window sendEvent:down];
+  [target.window sendEvent:up];
+  return 0;
+#else
+  (void)token; (void)key_code; (void)modifier_bits; (void)bytes; (void)length;
+  return 9;
+#endif
+}
+
 int32_t gpui_macos_test_post_escape_v1(int64_t token) {
 #ifdef GPUI_TESTING
   if (![NSThread isMainThread]) return 18;

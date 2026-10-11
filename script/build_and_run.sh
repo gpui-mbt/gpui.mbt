@@ -20,16 +20,33 @@ fi
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Frameworks"
 if [[ "$MODE" == --test-hooks ]]; then
   xcrun clang -dynamiclib -DGPUI_TESTING -fobjc-arc -Wall -Wextra -Werror \
-    platform/macos/native.m platform/macos_text/core_text.c \
+    platform/macos/native.m platform/macos/accessibility.m \
+    platform/macos_text/core_text.c \
     -framework AppKit -framework QuartzCore -framework Metal \
     -framework CoreText -framework CoreGraphics -framework CoreFoundation \
     -o "$APP_BUNDLE/Contents/Frameworks/libgpui_macos.dylib"
 else
   xcrun clang -dynamiclib -fobjc-arc -Wall -Wextra -Werror \
-    platform/macos/native.m platform/macos_text/core_text.c \
+    platform/macos/native.m platform/macos/accessibility.m \
+    platform/macos_text/core_text.c \
     -framework AppKit -framework QuartzCore -framework Metal \
     -framework CoreText -framework CoreGraphics -framework CoreFoundation \
     -o "$APP_BUNDLE/Contents/Frameworks/libgpui_macos.dylib"
+fi
+APP_LIBRARY="$APP_BUNDLE/Contents/Frameworks/libgpui_macos.dylib"
+EXPORTED_SYMBOLS="$(/usr/bin/nm -gU "$APP_LIBRARY")"
+require_macos_symbol() {
+  if ! printf '%s\n' "$EXPORTED_SYMBOLS" | /usr/bin/grep -E " _$1$" >/dev/null; then
+    echo "The macOS GPUI library is missing required symbol _$1." >&2
+    exit 1
+  fi
+}
+require_macos_symbol gpui_macos_ax_publish_v1
+require_macos_symbol gpui_macos_ax_revoke_v1
+require_macos_symbol gpui_macos_ax_take_request_v1
+if [[ "$MODE" == --test-hooks ]]; then
+  require_macos_symbol gpui_macos_ax_test_press_v1
+  require_macos_symbol gpui_macos_ax_test_child_count_v1
 fi
 moon build --target native --deny-warn examples/native_macos
 cp _build/native/debug/build/examples/native_macos/native_macos.exe "$APP_BINARY"
