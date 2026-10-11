@@ -110,7 +110,7 @@ pkg-config, PangoFT2 and Fontconfig development files, plus the test fonts:
 ```sh
 sudo apt-get update
 sudo apt-get install -y build-essential pkg-config libpango1.0-dev \
-  libfontconfig1-dev fontconfig fonts-dejavu-core fonts-noto-cjk \
+  libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk \
   fonts-noto-color-emoji
 pkg-config --modversion pangoft2 fontconfig
 pkg-config --cflags --libs pangoft2 fontconfig
@@ -133,9 +133,29 @@ build Ubuntu text drawing, but do not affect macOS/Windows builds. Use the
 repository-pinned MoonBit 0.10.14 toolchain shown in CI to run
 the MoonBit package tests.
 
+The restricted fixture configuration intentionally does not import the system
+`sans` aliases. Its historical neutral `sans` face is **DejaVu Math TeX Gyre**,
+provided by `fonts-dejavu-extra`, not `fonts-dejavu-core`. Both headless and
+Ubuntu E2E runners check this resolution before the geometry tests and log the
+resolved font files and SHA-256 hashes. This is a test-profile requirement, not
+a change to the production application's system font choice.
+
+A minimal Ubuntu 24.04 install without `fonts-dejavu-extra` selected DejaVu Sans
+instead. At 18 px, `Á` had ink origin `(0.140625, 0.017578)`, so the negative
+bearing fixture correctly failed (38/39 field tests). Installing only
+`fonts-dejavu-extra` 2.37-8 selected DejaVu Math TeX Gyre and gave `Á` origin
+`(-0.108398, -2.429688)`; the unchanged tests passed 39/39. Pango 1.52.1,
+Fontconfig 2.15.0, and MoonBit `0.10.14+7d59c7ec9` were unchanged. The resolved
+math font's SHA-256 was
+`75a6cb527b0175f9d13af29c33a6915ae38645016c6fe9881653155cd1f62485`.
+Do not weaken the negative-bearing assertion or repin a golden to compensate
+for a missing fixture font. Hosted CI success alone does not verify a local
+font inventory; use the preflight's file/hash evidence.
+
 On Fedora, the corresponding development packages are `pango-devel`,
 `fontconfig-devel`, and `pkgconf-pkg-config`; test fixtures are provided by
-`dejavu-sans-fonts`, `google-noto-sans-cjk-fonts`, and
+`dejavu-sans-fonts`, a package providing DejaVu Math TeX Gyre,
+`google-noto-sans-cjk-fonts`, and
 `google-noto-color-emoji-fonts`. Fedora installs fonts in different locations,
 so set `GPUI_LINUX_TEXT_FONTCONFIG_FILE` to a Fontconfig XML file that points to
 those installed font directories before invoking the test script.

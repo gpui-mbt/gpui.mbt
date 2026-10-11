@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -134,6 +135,36 @@ class BenchmarkParserTests(unittest.TestCase):
 
 
 class BenchmarkCollectorTests(unittest.TestCase):
+    def test_workload_checksum_includes_compositor_profile(self) -> None:
+        paths = [
+            "tests/ubuntu/backend_test.c",
+            "scripts/test_ubuntu.sh",
+            "scripts/start_ubuntu_test_compositor.sh",
+            "tests/ubuntu/weston.ini",
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in paths:
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(name)
+            with patch.object(benchmark, "ROOT", root), \
+                    patch.object(benchmark, "_git_state", return_value={
+                        "revision": "a" * 40, "dirty": True, "tree_sha256": "b" * 64,
+                    }), \
+                    patch.object(benchmark, "environment_report", return_value={}):
+                def checksum() -> str:
+                    result = benchmark.build_report([], 1, "test", "runner", 30, "failed")
+                    return result["workload"]["fixture_sha256"]
+
+                original = checksum()
+                self.assertNotEqual(original, benchmark._sha256_files([root / paths[0]], root))
+                for name in paths[1:]:
+                    path = root / name
+                    path.write_text("changed")
+                    self.assertNotEqual(original, checksum(), name)
+                    path.write_text(name)
+
     def test_stderr_cannot_splice_diagnostics_into_sample_stdout(self) -> None:
         # Reproduce the hosted failure at the file-descriptor level: stderr is
         # written while stdout holds a partial machine record. The collector

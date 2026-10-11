@@ -46,9 +46,9 @@ for scale in 1 2; do
 
   export XDG_RUNTIME_DIR="$runtime" XDG_SESSION_TYPE=wayland
   export WAYLAND_DISPLAY="gpui-trace-$scale" LIBGL_ALWAYS_SOFTWARE=1
-  timeout --kill-after=5s 360s weston --backend=headless-backend.so --use-gl --shell=kiosk-shell.so \
+  timeout --kill-after=5s 360s sh scripts/start_ubuntu_test_compositor.sh \
     --width=1024 --height=768 --scale="$scale" --socket="$WAYLAND_DISPLAY" \
-    --no-config --idle-time=0 --log="$weston_log" &
+    --log="$weston_log" &
   compositor_pid=$!
   if ! python3 scripts/wait_wayland_ready.py --pid "$compositor_pid" \
       --socket "$runtime/$WAYLAND_DISPLAY" --timeout-seconds 30; then

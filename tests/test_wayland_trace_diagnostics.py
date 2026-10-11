@@ -257,6 +257,12 @@ class UnifiedFailureDiagnosticTests(unittest.TestCase):
         self.assertIn("if: always()", artifact)
         self.assertIn("_build/ubuntu-e2e/", artifact)
         self.assertIn("_build/ubuntu-bench/", artifact)
+        comparison = workflow.split("  paired-weston-comparison:", maxsplit=1)[1]
+        self.assertEqual(comparison.count("scripts/compare_ubuntu_revisions.py"), 1)
+        self.assertNotIn("scripts/run_ubuntu_benchmark_with_trace.py", comparison)
+        self.assertNotIn("scripts/capture_ubuntu_wayland_trace.sh", comparison)
+        self.assertIn("ubuntu-weston-paired-comparison", comparison)
+        self.assertIn("if: always()", comparison)
 
     def test_one_diagnostic_script_traces_both_scales_with_finite_limits_and_filtered_records(self) -> None:
         root = Path(__file__).resolve().parents[1]
