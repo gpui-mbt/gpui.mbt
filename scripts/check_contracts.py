@@ -677,6 +677,14 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
             "accessibility", "diagnostics", "examples/ubuntu_button/fixture", "platform",
             "platform/macos", "platform/testing", "primitives", "scene",
         },
+        # The macOS command palette is an executable leaf over the shared
+        # palette/TextField model and native measurement/rendering adapters.
+        "examples/macos_command_palette": {
+            "capability", "controls/command_palette", "controls/text_field",
+            "diagnostics", "element", "platform", "platform/macos",
+            "platform/macos_text", "platform/testing", "primitives", "scene",
+            "text", "text_layout",
+        },
         "examples/linux_text_field": {
             "ubuntu", "platform", "platform/linux_text", "controls/text_field",
             "text", "text_layout", "element", "primitives", "scene", "diagnostics", "controls/command_palette", "capability",

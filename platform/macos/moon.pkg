@@ -12,7 +12,9 @@ options(
   "native-stub": [ "loader.c" ],
   targets: {
     "ffi.mbt": [ "native" ],
+    "key_testing.mbt": [ "native" ],
     "testing.mbt": [ "native" ],
+    "testing_wbtest.mbt": [ "native" ],
     "unsupported.mbt": [ "not", "native" ],
     "unsupported_testing.mbt": [ "not", "native" ],
   },

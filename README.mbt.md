@@ -39,6 +39,12 @@ On macOS 13+ with Xcode command-line tools:
 
 The demo opens an AppKit window and renders with Metal. Click the quad or press Space to change it. See [the macOS guide](docs/macos-native.md) for build, smoke, and native-test commands.
 
+The [macOS command-palette sample](examples/macos_command_palette/README.md)
+uses the shared picker and TextField with a bounded lower-ASCII keyDown adapter.
+Run `./script/build_macos_command_palette.sh --e2e` for its synthetic native
+event, frame-pixel, and lifecycle checks. This sample does not qualify general
+text input, Japanese IME, physical keyboard input, or palette accessibility.
+
 ### Ubuntu / Wayland
 
 After installing the system packages listed in [the Ubuntu guide](docs/ubuntu.md), including PangoFT2 and Fontconfig development packages for the native text renderer:
