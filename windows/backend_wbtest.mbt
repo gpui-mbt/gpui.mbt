@@ -498,6 +498,24 @@ test "Windows D3D11 HWND renders and reads back first frame" {
     }
     let initial_title = "gpui.mbt Windows 日本語"
     let window = required(host.create_window(128, 96, initial_title))
+    let displays = required(host.display_snapshot())
+    assert_true(displays.length() > 0)
+    let mut primary_displays = 0
+    let mut window_displays = 0
+    for display in displays {
+      assert_true(display.bounds_width_px > 0)
+      assert_true(display.bounds_height_px > 0)
+      assert_true(display.work_area_width_px > 0)
+      assert_true(display.work_area_height_px > 0)
+      if display.is_primary {
+        primary_displays += 1
+      }
+      if display.is_window_monitor {
+        window_displays += 1
+      }
+    }
+    assert_eq(primary_displays, 1)
+    assert_eq(window_displays, 1)
     let initial_title_bytes = @utf8.encode(initial_title)
     required(
       outcome(
