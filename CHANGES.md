@@ -16,6 +16,31 @@
 
 ### Migration
 
+## 0.7.0 - 2026-10-11
+
+### Added
+
+- Added a transport-free Windows accessibility projection for copied semantic
+  snapshots, stable opaque export IDs, live action validation, and stale or
+  foreign owner rejection. Application owners remain responsible for effects;
+  native UI Automation remains unsupported. See the [accessibility design](docs/accessibility.md).
+
+### Changed
+
+### Fixed
+
+- Prevent stale Windows Button session copies from publishing older semantic
+  snapshots or closing the current owner's binding, including after session-
+  only changes such as backing-scale updates.
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
 ## 0.6.0 - 2026-10-11
 
 ### Added
