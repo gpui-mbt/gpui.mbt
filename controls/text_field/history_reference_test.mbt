@@ -16,7 +16,7 @@ priv struct FieldReferenceSnapshot {
 priv enum FieldReferenceGroupKind {
   FieldReferenceTyping
   FieldReferenceBackspace
-} derive(Eq)
+}
 
 ///|
 fn field_reference_next(state : Int) -> Int {
