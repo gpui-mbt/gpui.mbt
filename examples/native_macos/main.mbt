@@ -40,6 +40,7 @@ fn scene(
 fn run(
   host : &@platform.Backend,
   smoke : Bool,
+  display_count : Int,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let window = match
     host.create_window(
@@ -152,7 +153,7 @@ fn run(
       abort("native smoke incomplete")
     }
     println(
-      "GPUI_MACOS_SMOKE {\"frames\":\{frames},\"resized\":true,\"close_requested\":true,\"destroyed\":true}",
+      "GPUI_MACOS_SMOKE {\"frames\":\{frames},\"display_count\":\{display_count},\"resized\":true,\"close_requested\":true,\"destroyed\":true}",
     )
   }
   Ok(())
@@ -164,7 +165,20 @@ fn main {
   match @macos.Host::start() {
     Err(e) => abort("macOS startup: " + e.code().label())
     Ok(host) => {
-      let result = run(host, smoke)
+      let display_count = if smoke {
+        match host.display_snapshot() {
+          Err(e) => abort("macOS display snapshot: " + e.code().label())
+          Ok(displays) => {
+            if displays.length() == 0 {
+              abort("macOS display snapshot is empty")
+            }
+            displays.length()
+          }
+        }
+      } else {
+        0
+      }
+      let result = run(host, smoke, display_count)
       let stopped = host.stop()
       match result {
         Err(e) => abort(e.operation() + ": " + e.code().label())

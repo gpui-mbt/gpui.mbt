@@ -16,7 +16,7 @@
 
 ### Migration
 
-## 0.6.0 - 2026-10-11
+## 0.7.0 - 2026-10-11
 
 ### Added
 
@@ -29,6 +29,10 @@
 
 ### Fixed
 
+- Prevent stale Windows Button session copies from publishing older semantic
+  snapshots or closing the current owner's binding, including after session-
+  only changes such as backing-scale updates.
+
 ### Deprecated
 
 ### Removed
@@ -36,6 +40,29 @@
 ### Security
 
 ### Migration
+
+## 0.6.0 - 2026-10-11
+
+### Added
+
+- Added a copied, bounded macOS `Host::display_snapshot()` for AppKit screen
+  geometry, CoreGraphics pixel modes and refresh rate, backing scale, primary
+  status and the host key-window screen. Display changes during a query return
+  `Busy`; persistent display identifiers and change notifications are not
+  included. See [macOS native support](docs/macos-native.md).
+
+### Changed
+
+### Fixed
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
 ## 0.5.0 - 2026-10-11
 
 ### Added

@@ -57,6 +57,7 @@ scene, and application event values contain no OS or GPU pointers.
 | present | SceneSnapshot v1 quads plus bounded single-line `text` and `text_run` items, affine transforms, opacity, ordered rectangle clip chains, paint order and alpha blending. Text uses CoreText system sans and CoreGraphics grayscale coverage at the drawable scale; font sizes are limited to 32 points, multiline, bidirectional, unsupported/color glyphs and unknown item kinds return typed errors. |
 | text measurement | `platform/macos_text.measure` copies CoreText logical/ink bounds, ascent and scalar caret geometry into `TextMeasurement`. Use the system sans family (`"sans"`) at the same logical size used for rendering. |
 | metrics | Current logical size and backing scale; sampled before presenting to avoid using old queued resize metadata for a current drawable. |
+| display snapshot | `Host::display_snapshot()` returns a copied list capped at 16 screens. Full and visible frames use AppKit global screen points; mode dimensions are CoreGraphics pixels, scale is backing pixels per point, and refresh is optional when CoreGraphics reports no rate. Entries mark the primary screen and, when present, the screen containing a GPUI key window. Ordering is temporary and display IDs are not exposed. The call returns `Busy` if the screen set changes during sampling, `ResourceExhausted` above the cap, and `NativeFailure` when a CoreGraphics mode query fails. This is an on-demand, non-atomic snapshot with no display-change event. |
 | clipboard / cursor | UTF-8 string clipboard and arrow/pointing-hand/text cursors. Clipboard busy/conversion failures are typed. Native E2E uses a unique private pasteboard for roundtrip checks and dispatches each supported cursor kind; it does not read or replace the user's General Pasteboard. |
 | renderer recovery | Explicitly rebuilds the shared Metal device, queue and pipeline and rebinds every live `CAMetalLayer`, preserving logical window identities. Automatic recovery remains unimplemented. |
 
@@ -114,7 +115,10 @@ transform/clip/alpha/paint order and backing-pixel dimensions. Fault injection v
 The test source also removes device/queue/pipeline state, invokes explicit
 recovery and checks the following frame through pixel readback. Hosted execution
 of this path remains pending, so capability negotiation stays disabled. The
-scroll smoke invokes `GPView.scrollWheel:` with a responder probe whose deltas,
+display smoke enumerates the active AppKit screens through CoreGraphics without
+changing display configuration, checks copied frame/mode/scale data, and
+rejects stale-host, wrong-thread, and invalid-buffer calls. It does not simulate
+display hot-plug or mode changes. The scroll smoke invokes `GPView.scrollWheel:` with a responder probe whose deltas,
 modifiers, and precision flag come from an AppKit `NSEvent` created from Core
 Graphics line- and pixel-unit scroll events. This verifies native delta
 extraction, event encoding, and portable decoding, but does not verify

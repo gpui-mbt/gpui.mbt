@@ -24,12 +24,32 @@ pub struct ButtonAccessibilitySnapshot {
 }
 pub fn ButtonAccessibilitySnapshot::new(String, @primitives.Rect, Bool, Bool, Bool, Int) -> Self
 
+pub(all) struct DisplayInfo {
+  frame_x_points : Double
+  frame_y_points : Double
+  frame_width_points : Double
+  frame_height_points : Double
+  visible_x_points : Double
+  visible_y_points : Double
+  visible_width_points : Double
+  visible_height_points : Double
+  backing_scale_factor : Double
+  mode_width_px : Int
+  mode_height_px : Int
+  refresh_rate_hz : Double?
+  is_primary : Bool
+  is_window_monitor : Bool
+} derive(Eq)
+pub fn DisplayInfo::equal(Self, Self) -> Bool
+pub fn DisplayInfo::not_equal(Self, Self) -> Bool
+
 pub struct Host {
   // private fields
 }
 pub fn Host::copy_frame(Self, @platform.WindowId, FixedArray[Byte]) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::create_window(Self, String, Double, Double) -> Result[@platform.WindowId, @diagnostics.FrameworkError]
 pub fn Host::destroy_window(Self, @platform.WindowId) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::display_snapshot(Self) -> Result[Array[DisplayInfo], @diagnostics.FrameworkError]
 pub fn Host::frame_metrics(Self, @platform.WindowId) -> Result[(Int, Int, Double), @diagnostics.FrameworkError]
 pub fn Host::next_event(Self, timeout_ms? : Int) -> Result[@platform.Event?, @diagnostics.FrameworkError]
 pub fn Host::post_test_click(Self, @platform.WindowId, @primitives.Point) -> Result[Unit, @diagnostics.FrameworkError]
