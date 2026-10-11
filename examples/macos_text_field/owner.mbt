@@ -621,6 +621,44 @@ fn mac_sync_owner(
 }
 
 ///|
+enum MacOwnerSyncPlan {
+  Idle
+  Deferred
+  AckOnly
+  AckThenSync
+} derive(Eq)
+
+///|
+// A mirror update carrying no batch acknowledgement must never reach the
+// native session while a text batch can still be outstanding. An
+// undelivered FIFO batch or one awaiting its ACK makes `update_text_session`
+// without a matching sequence fail Busy. The sync may run in the stable
+// window right after a successful batch ACK, or once a drained-empty event
+// queue proves no batch is waiting; otherwise it stays deferred.
+fn mac_owner_sync_plan(
+  owner : MacTextOwner?,
+  has_pending_ack : Bool,
+  pending_owner_sync : Bool,
+  queue_quiet : Bool,
+) -> MacOwnerSyncPlan {
+  match owner {
+    None => Idle
+    Some(_) =>
+      if has_pending_ack {
+        if pending_owner_sync {
+          AckThenSync
+        } else {
+          AckOnly
+        }
+      } else if pending_owner_sync && queue_quiet {
+        Deferred
+      } else {
+        Idle
+      }
+  }
+}
+
+///|
 // Fence stale native callbacks before rollback or an external edit. The
 // replacement session receives its mirror only after that state is presented.
 fn mac_fence_owner(

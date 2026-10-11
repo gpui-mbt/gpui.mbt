@@ -633,3 +633,41 @@ test "Mac direct commit input rearms immediately only for a visible accepted rol
     assert_false(mac_direct_rearm_is_safe(false, true, moved, shown))
   }
 }
+
+///|
+test "geometry-only owner sync waits behind an undelivered or unacknowledged batch" {
+  let window = @platform.WindowId::new(9)
+  let owner = mac_text_owner(window, 31L, 7, 12)
+  // ScaleChanged answered while its TextSession batch is still queued: a
+  // no-ACK update would hit the native Busy rejection, so the sync defers.
+  assert_true(
+    mac_owner_sync_plan(Some(owner), false, true, false)
+    is MacOwnerSyncPlan::Idle,
+  )
+  // The deferred sync survives the batch: it applies right after the
+  // batch's presented ACK, inside the same stable queue window.
+  assert_true(
+    mac_owner_sync_plan(Some(owner), true, true, false)
+    is MacOwnerSyncPlan::AckThenSync,
+  )
+  // An empty editor-queue drain proves no batch is outstanding, so the
+  // deferred sync may also run there.
+  assert_true(
+    mac_owner_sync_plan(Some(owner), false, true, true)
+    is MacOwnerSyncPlan::Deferred,
+  )
+  assert_true(
+    mac_owner_sync_plan(Some(owner), true, false, false)
+    is MacOwnerSyncPlan::AckOnly,
+  )
+  assert_true(
+    mac_owner_sync_plan(Some(owner), false, false, true)
+    is MacOwnerSyncPlan::Idle,
+  )
+  assert_true(
+    mac_owner_sync_plan(None, false, true, true) is MacOwnerSyncPlan::Idle,
+  )
+  assert_true(
+    mac_owner_sync_plan(None, false, true, false) is MacOwnerSyncPlan::Idle,
+  )
+}

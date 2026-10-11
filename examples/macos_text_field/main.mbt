@@ -287,7 +287,7 @@ fn run_window() -> Unit {
           report(error)
           running = false
         }
-        Ok(None) =>
+        Ok(None) => {
           if ime_acceptance &&
             pending_ime_begin &&
             field.is_focused() &&
@@ -298,6 +298,32 @@ fn run_window() -> Unit {
             // events are being processed quickly.
             acceptance_focus_wait_ticks += 1
           }
+          if running && pending_owner_sync {
+            match owner {
+              Some(active) =>
+                if mac_owner_sync_plan(
+                    owner,
+                    pending_ack is Some(_),
+                    pending_owner_sync,
+                    true,
+                  )
+                  is Deferred {
+                  match
+                    sync_macos_field_session(host, field, active, false, None) {
+                    Ok(value) => {
+                      owner = Some(value)
+                      pending_owner_sync = false
+                    }
+                    Err(error) => {
+                      report(error)
+                      running = false
+                    }
+                  }
+                }
+              None => pending_owner_sync = false
+            }
+          }
+        }
         Ok(Some(@macos.Platform(event))) =>
           if mac_global_exit_requested(event) {
             running = false
@@ -790,7 +816,31 @@ fn run_window() -> Unit {
                           false,
                           Some(target.sequence()),
                         ) {
-                        Ok(value) => owner = Some(value)
+                        Ok(value) => {
+                          owner = Some(value)
+                          if mac_owner_sync_plan(
+                              owner, true, pending_owner_sync, false,
+                            )
+                            is AckThenSync {
+                            match
+                              sync_macos_field_session(
+                                host,
+                                field,
+                                value,
+                                false,
+                                None,
+                              ) {
+                              Ok(deferred) => {
+                                owner = Some(deferred)
+                                pending_owner_sync = false
+                              }
+                              Err(error) => {
+                                report(error)
+                                running = false
+                              }
+                            }
+                          }
+                        }
                         Err(error) => {
                           report(error)
                           running = false
@@ -798,30 +848,13 @@ fn run_window() -> Unit {
                       }
                     None => running = false
                   }
-                None =>
-                  if pending_owner_sync {
-                    match owner {
-                      Some(active) =>
-                        match
-                          sync_macos_field_session(
-                            host,
-                            field,
-                            active,
-                            false,
-                            None,
-                          ) {
-                          Ok(value) => owner = Some(value)
-                          Err(error) => {
-                            report(error)
-                            running = false
-                          }
-                        }
-                      None => ()
-                    }
-                  }
+                // A no-ACK sync here would race a text batch still queued
+                // behind the platform event this frame answered; the sync
+                // stays deferred until the batch's ACK above or a
+                // drained-empty queue below.
+                None => ()
               }
               pending_ack = None
-              pending_owner_sync = false
               commit_ledger = mac_accept_commits(commit_ledger)
               if pending_ime_begin &&
                 field.is_focused() &&
