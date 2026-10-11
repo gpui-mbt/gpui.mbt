@@ -38,7 +38,7 @@ fn begin_field_composition(
     transaction,
     original: field.document,
     measurement: field.measurement,
-    history: field.history,
+    history: field.history.close_group(),
     scroll_offset: field.scroll_offset,
     preview_visible: false,
   })
@@ -341,7 +341,7 @@ fn blur_field_composition(
     ..field,
     document: state.original,
     measurement: state.measurement,
-    history: state.history,
+    history: state.history.close_group(),
     scroll_offset: state.scroll_offset,
     composition: None,
     focused: false,

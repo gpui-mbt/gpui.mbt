@@ -57,7 +57,7 @@ test "text input creates one directional undo entry and redo keeps original sele
 }
 
 ///|
-test "successive input deletions and explicit replacements remain separate groups" {
+test "successive text input coalesces while deletion and explicit replacement stay distinct" {
   let start = field_test_focused(
     field_test_selection(
       field_test_create("a", field_test_rect(0.0, 0.0, 100.0, 28.0)),
@@ -68,27 +68,34 @@ test "successive input deletions and explicit replacements remain separate group
   let (ab, _) = field_test_text(start, "b")
   let (abc, _) = field_test_text(ab, "c")
   assert_eq(abc.document().text(), "abc")
-  let back_to_ab = field_test_undo(abc)
-  assert_eq(back_to_ab.document().text(), "ab")
-  let back_to_a = field_test_undo(back_to_ab)
+  let back_to_a = field_test_undo(abc)
   assert_eq(back_to_a.document().text(), "a")
   assert_false(back_to_a.can_undo())
   assert_true(back_to_a.can_redo())
-  let redone_ab = field_test_redo(back_to_a)
-  assert_eq(redone_ab.document().text(), "ab")
-  let redone_abc = field_test_redo(redone_ab)
+  let redone_abc = field_test_redo(back_to_a)
   assert_eq(redone_abc.document().text(), "abc")
 
-  let at_end = field_test_selection(start, 1, 1)
-  let (deleted, _) = field_test_key(
-    at_end,
-    @primitives.Backspace,
-    @primitives.Modifiers::none(),
+  let at_end = field_test_focused(
+    field_test_selection(
+      field_test_create("abc", field_test_rect(0.0, 0.0, 100.0, 28.0)),
+      3,
+      3,
+    ),
   )
-  assert_eq(deleted.document().text(), "")
-  let restored = field_test_undo(deleted)
-  assert_eq(restored.document().text(), "a")
-  assert_true(restored.selection() == @text.TextSelection::new(1, 1).unwrap())
+  let after_first_delete = field_test_key(
+      at_end,
+      @primitives.Backspace,
+      @primitives.Modifiers::none(),
+    ).0
+  let at_start = field_test_key(
+      after_first_delete,
+      @primitives.Backspace,
+      @primitives.Modifiers::none(),
+    ).0
+  assert_eq(at_start.document().text(), "a")
+  let restored = field_test_undo(at_start)
+  assert_eq(restored.document().text(), "abc")
+  assert_true(restored.selection() == @text.TextSelection::new(3, 3).unwrap())
 
   let replacement_start = field_test_focused(
     field_test_selection(

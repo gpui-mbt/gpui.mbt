@@ -203,7 +203,7 @@ test "Windows TextInput edits committed characters and bounded undo redo" {
     repeat=false,
   )
   let (undone, _) = windows_field_test_handle(second, undo_event)
-  assert_true(undone.document().text() == "a")
+  assert_true(undone.document().text() == "")
   let redo_event = @primitives.KeyPressed(
     key=@primitives.Character("y"),
     modifiers=windows_field_test_shortcut_modifiers(),
@@ -456,13 +456,25 @@ test "Windows field Busy retains pending value and rejection restores the shown 
     typed,
     @primitives.TextInput(text="y"),
   )
-  let (pending, _) = windows_field_test_handle(
+  let (after_cursor_move, _) = windows_field_test_handle(
     shown,
+    @primitives.KeyPressed(
+      key=@primitives.ArrowLeft,
+      modifiers=@primitives.Modifiers::none(),
+      repeat=false,
+    ),
+  )
+  let (pending, _) = windows_field_test_handle(
+    after_cursor_move,
     @primitives.TextInput(text="z"),
   )
   let busy = Err(@diagnostics.FrameworkError::new(@diagnostics.Busy, "present"))
   assert_true(classify_field_frame(busy) == BusyPending)
-  assert_true(pending.document().text() == "xyz")
+  assert_true(pending.document().text() == "xzy")
+  let pending_undo = pending
+    .undo(windows_field_test_measure, windows_field_test_admit)
+    .unwrap()
+  assert_true(pending_undo.document().text() == "xy")
   assert_true(pending.can_undo())
   let rejected = restore_submitted_field(shown, pending).unwrap()
   assert_true(rejected.document() == shown.document())
@@ -473,7 +485,7 @@ test "Windows field Busy retains pending value and rejection restores the shown 
   let undo = rejected
     .undo(windows_field_test_measure, windows_field_test_admit)
     .unwrap()
-  assert_true(undo.document().text() == "x")
+  assert_true(undo.document() == initial.document())
   let original = undo
     .undo(windows_field_test_measure, windows_field_test_admit)
     .unwrap()
@@ -482,7 +494,7 @@ test "Windows field Busy retains pending value and rejection restores the shown 
   let redo = original
     .redo(windows_field_test_measure, windows_field_test_admit)
     .unwrap()
-  assert_true(redo.document().text() == "x")
+  assert_true(redo.document().text() == "xy")
   let shown_again = redo
     .redo(windows_field_test_measure, windows_field_test_admit)
     .unwrap()

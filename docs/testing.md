@@ -384,9 +384,10 @@ MoonBit ABI2 tests separately check physical/synthetic press flags and typed
 including repeat flags on release/text. Pointer slot 7 remains a y coordinate.
 Portable field tests and native real-font controller tests inject repeated
 `KeyPressed` and committed `TextInput` records. They check insertion exactly
-once, separate content history groups, navigation without history, current
-repeated undo/redo and clipboard/submit semantics, stale paste rejection after
-repeated editing, and pending/rollback history consistency.
+once, adjacent typing/deletion coalescing and explicit boundaries, navigation
+without history, current repeated undo/redo and clipboard/submit semantics,
+stale paste rejection after repeated editing, and pending/rollback history
+consistency.
 
 The existing Weston/llvmpipe rendering tier and replayed `Host.present` scenes
 do not exercise `wl_keyboard` delivery or qualify repeat timing. Separately,
@@ -411,9 +412,9 @@ commit/binary.
 
 Those passes are exact-source/profile evidence, not general desktop timing
 accuracy or a pass for every catalog case. GPUI IME remains unimplemented;
-GTK Japanese conversion is environment-baseline evidence only. This bounded
-opt-in route adds no public `TextInput`/IME capability, typing coalescing, or
-one-shot shortcut filtering. See the
+GTK Japanese conversion is environment-baseline evidence only. That earlier
+repeat-only opt-in route added no public `TextInput`/IME capability, typing
+coalescing, or one-shot shortcut filtering. See the
 [field contract and remaining gates](linux-text-field.md#evidence-and-remaining-gates).
 
 The earlier repeat-only Linux verification on 2026-10-06 passed native

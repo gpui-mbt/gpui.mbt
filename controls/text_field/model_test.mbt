@@ -37,6 +37,7 @@ fn field_test_cursor_stop(text : String, offset : Int) -> Bool {
   match text {
     "a\u{301}b" => offset != 1
     "a\u{301}" => offset == 0 || offset == 2
+    "\u{301}a" => offset == 0 || offset == 2
     "👩\u{200D}👩" => offset == 0 || offset == 5
     "✈\u{FE0F}" => offset == 0 || offset == 2
     "a👩\u{200D}👩" => offset == 0 || offset == 1 || offset == 6

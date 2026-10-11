@@ -148,7 +148,12 @@ test "select all preserves both undo redo stacks and their original endpoints" {
     ),
   )
   let ab = field_test_text(original, "b").0
-  let abc = field_test_text(ab, "c").0
+  let ab_boundary = field_test_key(
+      ab,
+      @primitives.ArrowRight,
+      @primitives.Modifiers::none(),
+    ).0
+  let abc = field_test_text(ab_boundary, "c").0
   let undone = field_test_undo(abc)
   assert_true(undone.can_undo())
   assert_true(undone.can_redo())
@@ -169,7 +174,7 @@ test "select all preserves both undo redo stacks and their original endpoints" {
 }
 
 ///|
-test "select all replacement keeps each successful input as one history group" {
+test "select all replacement and cursor boundaries preserve separate history entries" {
   let original = field_test_focused(
     field_test_selection(
       field_test_create("Hello 日本", field_test_rect(0.0, 0.0, 120.0, 28.0)),
@@ -183,12 +188,22 @@ test "select all replacement keeps each successful input as one history group" {
       field_test_select_all_modifiers(false),
     ).0
   let a = field_test_text(selected, "a").0
-  let ab = field_test_text(a, "b").0
-  let abc = field_test_text(ab, "c").0
+  let a_boundary = field_test_key(
+      a,
+      @primitives.ArrowRight,
+      @primitives.Modifiers::none(),
+    ).0
+  let ab = field_test_text(a_boundary, "b").0
+  let ab_boundary = field_test_key(
+      ab,
+      @primitives.ArrowRight,
+      @primitives.Modifiers::none(),
+    ).0
+  let abc = field_test_text(ab_boundary, "c").0
   assert_eq(abc.document().text(), "abc")
   assert_true(abc.selection() == @text.TextSelection::new(3, 3).unwrap())
   assert_true(field_test_undo(abc).document() == ab.document())
-  assert_true(field_test_undo(ab).document() == a.document())
+  assert_true(field_test_undo(ab_boundary).document() == a.document())
   let restored = field_test_undo(a)
   assert_true(restored.document() == selected.document())
   assert_false(restored.can_undo())
