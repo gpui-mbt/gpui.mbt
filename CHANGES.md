@@ -1,5 +1,42 @@
 # Changes
 
+## Unreleased
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.7.2 - 2026-10-13
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Reject stale macOS Button session copies before routing input, applying
+  metrics or close events, or publishing/revoking AppKit accessibility
+  bindings; read native accessibility snapshots from the current fixture
+  source. (`issues/open/0024-apple-silicon-macos-button-integration.md`)
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
 ## 0.7.1 - 2026-10-13
 
 ### Added
