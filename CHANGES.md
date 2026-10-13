@@ -1,10 +1,17 @@
 # Changes
 
-## Unreleased
+## 0.7.1 - 2026-10-13
 
 ### Added
 
+- Added Windows text-field controller coverage for grouped committed typing,
+  Backspace, forward Delete, and edit-group boundaries.
+
 ### Changed
+
+- Ship the shared TextField adjacent typing and same-direction deletion
+  coalescing from [PR #66](https://github.com/gpui-mbt/gpui.mbt/pull/66) in the
+  Mooncakes package so Windows registry consumers receive that behavior.
 
 ### Fixed
 

@@ -19,7 +19,9 @@ Click to focus and place the caret. The host sends committed characters through
 `TextInput`; physical key labels never supply inserted text. Left/Right, Home,
 End, Backspace, Delete, Ctrl+A/C/X/V/Z/Y, Ctrl+Shift+Z, Enter, and Escape use
 the shared `TextField` command path. Undo history uses the control's
-64-entry and 64 KiB bounds. Clipboard paste snapshots field revision and the
+64-entry and 64 KiB bounds. Consecutive committed text, Backspace, or Delete
+commands of the same kind form one undo step; navigation and selection changes
+close the current group. Clipboard paste snapshots field revision and the
 active native text-session epoch, reads the clipboard, and applies only if both
 are still current. Cut changes the field only after the clipboard write
 succeeds.
