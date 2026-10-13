@@ -79,6 +79,6 @@ This can fill the proof stage in a mutation/property/proof workflow, but is not 
 
 Sources:
 - [MoonBit stable formal verification](https://docs.moonbitlang.com/en/stable/language/verification.html)
-- [Pinned Moon proof report schema](https://github.com/moonbitlang/moon/blob/914d7da/crates/moon/src/cli/prove.rs#L559-L577)
+- [Pinned Moon proof report schema](https://github.com/moonbitlang/moon/blob/748b63c/crates/moon/src/cli/prove.rs#L559-L577)
 - [Kani verification results](https://model-checking.github.io/kani/verification-results.html)
 - [Why3 task export](https://why3.org/doc/manpages.html#the-prove-command)

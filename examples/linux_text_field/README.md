@@ -46,7 +46,7 @@ Focused format, escaping, UTF-16 selection and read-only checks:
 moon test examples/linux_text_field/state_observer_wbtest.mbt --target native
 ```
 
-Build with the repository-pinned MoonBit 0.10.14 compiler and the Linux
+Build with the repository-pinned MoonBit 0.10.15 compiler and the Linux
 development libraries described in `docs/linux-text.md`. Before executing
 cases, record the source commit/tree, executable and fixture-font hashes.
 

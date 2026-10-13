@@ -5,7 +5,7 @@
   "turtles_version": "0.3.0",
   "target": "moon-default",
   "test_scope": "module",
-  "moon_version": "moon 0.1.20260920 (914d7da 2026-09-20)",
+  "moon_version": "moon 0.1.20261012 (748b63c 2026-10-12)",
   "source": {
     "head_sha": "ac89b8e24a71209a21223a445b125c5a420fceac",
     "merge_sha": "6d18b844167259c258f5ec9fef8e443b4c3a134a",

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "moonc_version": "0.10.14+7d59c7ec9",
-  "moon_version": "0.1.20260920",
+  "moonc_version": "0.10.15+943464bfa",
+  "moon_version": "0.1.20261012",
   "why3_version": "1.7.2",
   "solver": {
     "name": "z3",
@@ -14,13 +14,13 @@
   "integer_model": "mathematical integers; range-length precondition and postcondition explicitly keep subtraction within signed Int bounds",
   "prelude": "Bundled lib/prelude_proof/moonbit_builtin_prelude.mlw; no override",
   "artifact_sha256": {
-    "bin/moonc": "d163b2c4c878ca584870764b75e633d73e8b9c178dcc6b00c692f6b2a6b1b2dc",
+    "bin/moonc": "fb950cbc125168c49523ef554d2649effd66499c596dafcb15c80b561d45fd8c",
     "lib/why3/why3server": "da4d66108537e3039deb93d0fd797c06715d69e1057931cc845ab6a6fab8aabe",
     "lib/prelude_proof/moonbit_builtin_prelude.mlw": "2c17e3da5a0cb51e94246d646c610a5ae92ec2ccf8eaa16f3930c5c718dd7620",
-    "bin/moon": "6da4919f45f4abf7c6d7f3cf8d9a457de77dca430d6fb811d21b27ae1ac8e11d",
-    "lib/core/_build/wasm/release/bundle/prelude/prelude.mi": "e72d19774700d3e12dfb53731430453e08de9b8f8fefa35bb4f6999f0fcd2217"
+    "bin/moon": "a31026b83410607909ebae469fa19e46c32201cfe403be6099e1da961a5ebf0f",
+    "lib/core/_build/wasm/release/bundle/prelude/prelude.mi": "61c1e794416cf5d8fe89d6377688ba66cfec86bb193d97787b763927f25f746d"
   },
-  "proof_report_schema_source": "https://github.com/moonbitlang/moon/blob/914d7da/crates/moon/src/cli/prove.rs#L559-L577",
+  "proof_report_schema_source": "https://github.com/moonbitlang/moon/blob/748b63c/crates/moon/src/cli/prove.rs#L559-L577",
   "export_backend": {
     "why3_version": "1.7.2",
     "source_archive_url": "https://why3.gitlabpages.inria.fr/releases/why3-1.7.2.tar.gz",
