@@ -381,3 +381,16 @@ existing experimental macOS support claim.
   `app windows attribute missing`; the harness reaped its owned app/client.
   Patched-source external AX acceptance therefore remains UNRUN, and Stage B
   stays open and unqualified.
+- 2026-10-13: Integrated merged Windows release base
+  `38df1bffaf4b832d819e49a843b54e6ea2f598b4` (PR #70) in merge commit
+  `4120ace270ede77759e264f8015ba61eb9f48c9c`. The Windows/Linux package
+  release remains 0.7.1; the Mac freshness fix is now recorded as 0.7.2 in
+  `moon.mod` and `CHANGES.md`. The Mac implementation files remain
+  content-identical to commit `cda2d8ee32f07fd75e20b7ac28c0dfb0fd73ed2d`.
+  On the integrated tree, `moon fmt --check`,
+  `moon check --target all --deny-warn`,
+  `moon test --target native --deny-warn examples/macos_button` (13/13),
+  `moon test --target native --deny-warn examples/windows_text_field` (13/13),
+  and the changelog structure/duplicate/date guards passed. These checks do
+  not exercise a real AX client or physical input. Patched-source AX remains
+  UNRUN, so this issue remains open.
