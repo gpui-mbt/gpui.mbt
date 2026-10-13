@@ -242,17 +242,16 @@ fn ime_observer_line(
   let selection = field.selection()
   let original = committed.selection()
   let marked : Json = match field.marked_range() {
-    Some(value) =>
-      { "start": value.start().to_json(), "end": value.end().to_json() }
+    Some(value) => { "start": value.start(), "end": value.end() }
     None => Json::null()
   }
   let rect : Json = match ime_caret_rect(field) {
     Ok(value) =>
       {
-        "x": value.left().to_int().to_json(),
-        "y": value.top().to_int().to_json(),
-        "width": value.size().width().to_int().to_json(),
-        "height": value.size().height().to_int().to_json(),
+        "x": value.left().to_int(),
+        "y": value.top().to_int(),
+        "width": value.size().width().to_int(),
+        "height": value.size().height().to_int(),
       }
     Err(_) => Json::null()
   }
@@ -266,26 +265,23 @@ fn ime_observer_line(
   }
   let value : Json = {
     "version": 1,
-    "presentation": presentation.to_json(),
-    "committed": committed.text().to_json(),
-    "preview": document.text().to_json(),
-    "selection": {
-      "anchor": selection.anchor().to_json(),
-      "head": selection.head().to_json(),
-    },
+    "presentation": presentation,
+    "committed": committed.text(),
+    "preview": document.text(),
+    "selection": { "anchor": selection.anchor(), "head": selection.head() },
     "committed_selection": {
-      "anchor": original.anchor().to_json(),
-      "head": original.head().to_json(),
+      "anchor": original.anchor(),
+      "head": original.head(),
     },
     "marked": marked,
-    "composing": field.is_composing().to_json(),
-    "focused": field.is_focused().to_json(),
-    "revision": field.revision().to_json(),
-    "epoch": epoch.to_json(),
-    "entered": entered.to_json(),
-    "commits": commits.to_json(),
-    "can_undo": field.can_undo().to_json(),
-    "can_redo": field.can_redo().to_json(),
+    "composing": field.is_composing(),
+    "focused": field.is_focused(),
+    "revision": field.revision(),
+    "epoch": epoch,
+    "entered": entered,
+    "commits": commits,
+    "can_undo": field.can_undo(),
+    "can_redo": field.can_redo(),
     "caret": rect,
   }
   "GPUI_FIELD_IME_STATE \{value.stringify()}"

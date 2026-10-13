@@ -209,51 +209,51 @@ fn palette_state_line(
   let palette = fixture.palette
   let semantics = palette.semantics()
   let options = semantics.options.map(option => {
-    "id": option.id.to_json(),
-    "name": option.name.to_json(),
-    "role": option.role.to_json(),
-    "selected": option.selected.to_json(),
-    "disabled": option.disabled.to_json(),
-    "index": option.index.to_json(),
+    "id": option.id,
+    "name": option.name,
+    "role": option.role,
+    "selected": option.selected,
+    "disabled": option.disabled,
+    "index": option.index,
   })
   let active_id : Json = match semantics.active_id {
-    Some(value) => value.to_json()
+    Some(value) => value
     None => Json::null()
   }
   let active_index : Json = match palette.picker().active_index() {
-    Some(value) => value.to_json()
+    Some(value) => value
     None => Json::null()
   }
   let focus_owner : Json = match fixture.tree.val.focused() {
-    Some(value) => value.to_int().to_json()
+    Some(value) => value.to_int()
     None => Json::null()
   }
   let value : Json = {
     "version": 1,
-    "presentation": presentation.to_json(),
-    "open": palette.is_open().to_json(),
-    "open_epoch": palette.open_epoch().to_json(),
-    "query": palette.picker().query().to_json(),
-    "matches": palette.picker().match_count().to_json(),
+    "presentation": presentation,
+    "open": palette.is_open(),
+    "open_epoch": palette.open_epoch(),
+    "query": palette.picker().query(),
+    "matches": palette.picker().match_count(),
     "active_id": active_id,
     "active_index": active_index,
-    "visible_start": palette.picker().visible_start().to_json(),
-    "visible_count": semantics.options.length().to_json(),
-    "actions": fixture.actions.val.to_json(),
-    "last_action": fixture.last_action.val.to_json(),
-    "background_actions": fixture.background_actions.val.to_json(),
-    "background_releases": fixture.background_releases.val.to_json(),
+    "visible_start": palette.picker().visible_start(),
+    "visible_count": semantics.options.length(),
+    "actions": fixture.actions.val,
+    "last_action": fixture.last_action.val,
+    "background_actions": fixture.background_actions.val,
+    "background_releases": fixture.background_releases.val,
     "focus_owner": focus_owner,
-    "direct_ready": fixture.direct_ready.val.to_json(),
+    "direct_ready": fixture.direct_ready.val,
     "semantic": {
-      "role": semantics.role.to_json(),
-      "name": semantics.name.to_json(),
-      "search_role": semantics.search_role.to_json(),
-      "search_name": semantics.search_name.to_json(),
-      "search_value": semantics.search_value.to_json(),
-      "search_focused": semantics.search_focused.to_json(),
-      "collection_role": semantics.collection_role.to_json(),
-      "options": options.to_json(),
+      "role": semantics.role,
+      "name": semantics.name,
+      "search_role": semantics.search_role,
+      "search_name": semantics.search_name,
+      "search_value": semantics.search_value,
+      "search_focused": semantics.search_focused,
+      "collection_role": semantics.collection_role,
+      "options": options,
     },
   }
   // Keep the existing strict accepted field/frame stream unchanged. Palette

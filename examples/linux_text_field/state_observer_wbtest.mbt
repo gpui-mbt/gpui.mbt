@@ -34,9 +34,9 @@ test "state observer escapes JSON punctuation controls and preserves Unicode" {
   match parsed {
     Object(object) => {
       assert_eq(object.length(), 6)
-      assert_true(object.get("text") == Some(text.to_json()))
-      assert_true(object.get("focused") == Some(false.to_json()))
-      let selection : Json = { "anchor": 0, "head": text.length().to_json() }
+      assert_true(object.get("text") == Some(text))
+      assert_true(object.get("focused") == Some(false))
+      let selection : Json = { "anchor": 0, "head": text.length() }
       assert_true(object.get("selection") == Some(selection))
     }
     _ => fail("observer emitted a non-object JSON record")

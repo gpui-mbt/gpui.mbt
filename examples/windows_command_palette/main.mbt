@@ -355,11 +355,11 @@ fn palette_owner_json(owner : PaletteNativeOwner?) -> Json {
     None => Json::null()
     Some(value) =>
       {
-        "owner_generation": value.owner_generation.to_json(),
-        "palette_open_epoch": value.open_epoch.to_json(),
-        "native_epoch": value.epoch.to_json(),
-        "sequence": value.sequence.to_json(),
-        "composing": (value.composition is Some(_)).to_json(),
+        "owner_generation": value.owner_generation,
+        "palette_open_epoch": value.open_epoch,
+        "native_epoch": value.epoch,
+        "sequence": value.sequence,
+        "composing": value.composition is Some(_),
       }
   }
 }
@@ -377,88 +377,85 @@ fn palette_state_line(
   let palette = fixture.palette
   let semantics = palette.semantics()
   let options = semantics.options.map(option => {
-    "id": option.id.to_json(),
-    "name": option.name.to_json(),
-    "selected": option.selected.to_json(),
-    "disabled": option.disabled.to_json(),
-    "index": option.index.to_json(),
+    "id": option.id,
+    "name": option.name,
+    "selected": option.selected,
+    "disabled": option.disabled,
+    "index": option.index,
   })
   let active_id : Json = match semantics.active_id {
-    Some(value) => value.to_json()
+    Some(value) => value
     None => Json::null()
   }
   let field = palette.field()
   let selection = field.selection()
   let focus_owner : Json = match fixture.tree.val.focused() {
-    Some(value) => value.to_int().to_json()
+    Some(value) => value.to_int()
     None => Json::null()
   }
   let caret : Json = match windows_palette_caret_rect(palette.field()) {
     Ok(value) =>
       {
-        "x": value.left().to_json(),
-        "y": value.top().to_json(),
-        "width": value.size().width().to_json(),
-        "height": value.size().height().to_json(),
-      }.to_json()
+        "x": value.left(),
+        "y": value.top(),
+        "width": value.size().width(),
+        "height": value.size().height(),
+      }
     Err(_) => Json::null()
   }
   let value : Json = {
-    "version": (1).to_json(),
-    "presentation": presentation.to_json(),
-    "open": palette.is_open().to_json(),
-    "open_epoch": palette.open_epoch().to_json(),
-    "query": palette.picker().query().to_json(),
-    "field_text": field.document().text().to_json(),
-    "committed_text": field.committed_document().text().to_json(),
-    "composing": field.is_composing().to_json(),
-    "selection": {
-      "anchor": selection.anchor().to_json(),
-      "head": selection.head().to_json(),
-    }.to_json(),
-    "matches": palette.picker().match_count().to_json(),
+    "version": 1,
+    "presentation": presentation,
+    "open": palette.is_open(),
+    "open_epoch": palette.open_epoch(),
+    "query": palette.picker().query(),
+    "field_text": field.document().text(),
+    "committed_text": field.committed_document().text(),
+    "composing": field.is_composing(),
+    "selection": { "anchor": selection.anchor(), "head": selection.head() },
+    "matches": palette.picker().match_count(),
     "active_id": active_id,
-    "active_index": palette.picker().active_index().to_json(),
-    "visible_start": palette.picker().visible_start().to_json(),
-    "visible_count": semantics.options.length().to_json(),
-    "actions": fixture.actions.val.to_json(),
-    "last_action": fixture.last_action.val.to_json(),
-    "background_presses": fixture.background_presses.val.to_json(),
-    "background_releases": fixture.background_releases.val.to_json(),
-    "guarded_presses": fixture.guarded_presses.val.to_json(),
-    "guarded_releases": fixture.guarded_releases.val.to_json(),
+    "active_index": palette.picker().active_index(),
+    "visible_start": palette.picker().visible_start(),
+    "visible_count": semantics.options.length(),
+    "actions": fixture.actions.val,
+    "last_action": fixture.last_action.val,
+    "background_presses": fixture.background_presses.val,
+    "background_releases": fixture.background_releases.val,
+    "guarded_presses": fixture.guarded_presses.val,
+    "guarded_releases": fixture.guarded_releases.val,
     "focus_owner": focus_owner,
-    "field_focused": palette.field().is_focused().to_json(),
+    "field_focused": palette.field().is_focused(),
     "caret": caret,
-    "experimental_imm32": experimental_ime.to_json(),
+    "experimental_imm32": experimental_ime,
     "native_owner": palette_owner_json(owner),
     "native_counters": {
-      "begin": fixture.native_begins.val.to_json(),
-      "update": fixture.native_updates.val.to_json(),
-      "cancel": fixture.native_cancels.val.to_json(),
-      "end": fixture.native_ends.val.to_json(),
-      "records": fixture.native_records.val.to_json(),
-      "stale_records": fixture.stale_records.val.to_json(),
-      "rejected_records": fixture.rejected_records.val.to_json(),
-    }.to_json(),
+      "begin": fixture.native_begins.val,
+      "update": fixture.native_updates.val,
+      "cancel": fixture.native_cancels.val,
+      "end": fixture.native_ends.val,
+      "records": fixture.native_records.val,
+      "stale_records": fixture.stale_records.val,
+      "rejected_records": fixture.rejected_records.val,
+    },
     "viewport": {
-      "logical_width": width.to_json(),
-      "logical_height": height.to_json(),
-      "scale": scale.to_json(),
-      "font_family": FIELD_FONT_FAMILY.to_json(),
-      "font_size": FIELD_FONT_SIZE.to_json(),
-    }.to_json(),
+      "logical_width": width,
+      "logical_height": height,
+      "scale": scale,
+      "font_family": FIELD_FONT_FAMILY,
+      "font_size": FIELD_FONT_SIZE,
+    },
     "semantic": {
-      "role": semantics.role.to_json(),
-      "name": semantics.name.to_json(),
-      "search_role": semantics.search_role.to_json(),
-      "search_name": semantics.search_name.to_json(),
-      "search_value": semantics.search_value.to_json(),
-      "search_focused": semantics.search_focused.to_json(),
-      "collection_role": semantics.collection_role.to_json(),
-      "options": options.to_json(),
-    }.to_json(),
-  }.to_json()
+      "role": semantics.role,
+      "name": semantics.name,
+      "search_role": semantics.search_role,
+      "search_name": semantics.search_name,
+      "search_value": semantics.search_value,
+      "search_focused": semantics.search_focused,
+      "collection_role": semantics.collection_role,
+      "options": options,
+    },
+  }
   "GPUI_WINDOWS_COMMAND_PALETTE_STATE \{value.stringify()}"
 }
 
@@ -1401,11 +1398,11 @@ fn run_palette_window() -> Unit {
                   )
                 Some(frame) => {
                   let active_id = match frame.active_id {
-                    Some(id) => id.to_json().stringify()
+                    Some(id) => id.stringify()
                     None => "null"
                   }
                   palette_log(
-                    "GPUI_WINDOWS_COMMAND_PALETTE_COMPLETE {\"presentation\":\{frame.presentation},\"event_sequence\":\{event.sequence()},\"open_epoch\":\{frame.open_epoch},\"query\":\{frame.query.to_json().stringify()},\"visible_count\":\{frame.visible_count},\"active_id\":\{active_id}}",
+                    "GPUI_WINDOWS_COMMAND_PALETTE_COMPLETE {\"presentation\":\{frame.presentation},\"event_sequence\":\{event.sequence()},\"open_epoch\":\{frame.open_epoch},\"query\":\{frame.query.stringify()},\"visible_count\":\{frame.visible_count},\"active_id\":\{active_id}}",
                   )
                   match host.readback_samples(window) {
                     Ok(samples) =>
@@ -1673,7 +1670,7 @@ fn run_palette_window() -> Unit {
                 pending = next_pending
                 retry_prepared.val = None
                 palette_log(
-                  "GPUI_WINDOWS_COMMAND_PALETTE_ACCEPTED {\"presentation\":\{presentation},\"open_epoch\":\{prepared.frame.open_epoch},\"open\":\{palette.is_open()},\"query\":\{prepared.frame.query.to_json().stringify()},\"matches\":\{palette.picker().match_count()},\"visible_count\":\{prepared.frame.visible_count}}",
+                  "GPUI_WINDOWS_COMMAND_PALETTE_ACCEPTED {\"presentation\":\{presentation},\"open_epoch\":\{prepared.frame.open_epoch},\"open\":\{palette.is_open()},\"query\":\{prepared.frame.query.stringify()},\"matches\":\{palette.picker().match_count()},\"visible_count\":\{prepared.frame.visible_count}}",
                 )
                 palette_log(
                   palette_state_line(
