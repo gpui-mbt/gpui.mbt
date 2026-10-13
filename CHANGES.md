@@ -16,7 +16,7 @@
 
 ### Migration
 
-## 0.7.1 - 2026-10-13
+## 0.7.2 - 2026-10-13
 
 ### Added
 
@@ -28,6 +28,30 @@
   metrics or close events, or publishing/revoking AppKit accessibility
   bindings; read native accessibility snapshots from the current fixture
   source. (`issues/open/0024-apple-silicon-macos-button-integration.md`)
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.7.1 - 2026-10-13
+
+### Added
+
+- Added Windows text-field controller coverage for grouped committed typing,
+  Backspace, forward Delete, and edit-group boundaries.
+
+### Changed
+
+- Ship the shared TextField adjacent typing and same-direction deletion
+  coalescing from [PR #66](https://github.com/gpui-mbt/gpui.mbt/pull/66) in the
+  Mooncakes package so Windows registry consumers receive that behavior.
+
+### Fixed
+
 - Declare the missing `fonts-dejavu-extra` geometry-test dependency and check
   neutral `sans` resolution before Linux text/Ubuntu E2E tests, preserving the
   negative-bearing assertions and logging the actual font file hashes.

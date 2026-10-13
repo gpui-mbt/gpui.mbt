@@ -223,6 +223,74 @@ test "Windows TextInput edits committed characters and bounded undo redo" {
 }
 
 ///|
+test "Windows field groups adjacent backspace and forward-delete commands" {
+  let initial = windows_field_test_field("abc")
+  let end = windows_field_test_press(initial, @primitives.End)
+  let (typed_once, _) = windows_field_test_handle(
+    end,
+    @primitives.TextInput(text="d"),
+  )
+  let (typed_twice, _) = windows_field_test_handle(
+    typed_once,
+    @primitives.TextInput(text="e"),
+  )
+  let (backspaced_once, _) = windows_field_test_handle(
+    typed_twice,
+    @primitives.KeyPressed(
+      key=@primitives.Backspace,
+      modifiers=@primitives.Modifiers::none(),
+      repeat=false,
+    ),
+  )
+  let (backspaced_twice, _) = windows_field_test_handle(
+    backspaced_once,
+    @primitives.KeyPressed(
+      key=@primitives.Backspace,
+      modifiers=@primitives.Modifiers::none(),
+      repeat=false,
+    ),
+  )
+  assert_true(backspaced_twice.document().text() == "abc")
+
+  // The two backspaces undo together; the preceding typing run remains a
+  // separate operation because the key kind changed.
+  let undo_backspaces = backspaced_twice
+    .undo(windows_field_test_measure, windows_field_test_admit)
+    .unwrap()
+  assert_true(undo_backspaces.document().text() == "abcde")
+  let undo_typing = undo_backspaces
+    .undo(windows_field_test_measure, windows_field_test_admit)
+    .unwrap()
+  assert_true(undo_typing.document().text() == "abc")
+
+  let at_start = windows_field_test_press(
+    windows_field_test_field("abcde"),
+    @primitives.Home,
+  )
+  let (deleted_once, _) = windows_field_test_handle(
+    at_start,
+    @primitives.KeyPressed(
+      key=@primitives.Delete,
+      modifiers=@primitives.Modifiers::none(),
+      repeat=false,
+    ),
+  )
+  let (deleted_twice, _) = windows_field_test_handle(
+    deleted_once,
+    @primitives.KeyPressed(
+      key=@primitives.Delete,
+      modifiers=@primitives.Modifiers::none(),
+      repeat=false,
+    ),
+  )
+  assert_true(deleted_twice.document().text() == "cde")
+  let undo_deletes = deleted_twice
+    .undo(windows_field_test_measure, windows_field_test_admit)
+    .unwrap()
+  assert_true(undo_deletes.document().text() == "abcde")
+}
+
+///|
 test "Windows field IME preview empty preedit cancellation and result are atomic" {
   let initial = windows_field_test_press(
     windows_field_test_field("abc"),
