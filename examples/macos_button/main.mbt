@@ -61,6 +61,14 @@ fn mac_button_session_failure(
         backend="appkit-metal",
         message="window is not currently presentable",
       )
+    StaleSession =>
+      @diagnostics.FrameworkError::new(
+        @diagnostics.InvalidInput,
+        operation,
+        subsystem="macos-button",
+        backend="appkit-metal",
+        message="stale Button session cannot update the current owner",
+      )
   }
 }
 

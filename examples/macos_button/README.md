@@ -74,6 +74,13 @@ pointer event is synthesized. Node-generation changes, removal, reset, changed
 bounds or availability, window close, and host teardown revoke the binding and
 its pending work.
 
+Fresh AX reads use the fixture's current semantic source. Detached snapshots
+remain readable as values, while a stale fixture copy cannot publish them.
+The Mac session also carries its own generation because host-only changes such
+as backing-scale updates do not advance the fixture revision. Stale session
+copies cannot process key or pointer events, apply session metrics or close
+events, or publish/revoke an AX binding.
+
 `test_macos_button_ax.sh --adapter-only` covers the AppKit projection, bounded
 queue, stale token rejection, and lifecycle. `--all` builds the regular app
 without `GPUI_TESTING`, gives only the test bundle a unique bundle identifier,

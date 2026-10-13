@@ -8,6 +8,26 @@
 
 ### Fixed
 
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.7.1 - 2026-10-13
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Reject stale macOS Button session copies before routing input, applying
+  metrics or close events, or publishing/revoking AppKit accessibility
+  bindings; read native accessibility snapshots from the current fixture
+  source. (`issues/open/0024-apple-silicon-macos-button-integration.md`)
 - Declare the missing `fonts-dejavu-extra` geometry-test dependency and check
   neutral `sans` resolution before Linux text/Ubuntu E2E tests, preserving the
   negative-bearing assertions and logging the actual font file hashes.
