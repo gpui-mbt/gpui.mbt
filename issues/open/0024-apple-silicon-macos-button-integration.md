@@ -3,8 +3,8 @@
 Status: open
 Model: gpt-6-luna
 Created: 2026-10-08
-Updated: 2026-10-10
-Branch: feat/20261010-macos-button-ax
+Updated: 2026-10-13
+Branch: feat/20261013-macos-catchup
 Parent: [Apple Silicon macOS backend](0006-macos-native-backend.md)\
 Related: [palette and shared dependency handoff](0022-apple-silicon-macos-command-palette-parity.md)
 
@@ -128,15 +128,18 @@ Stage B for the existing Apple Silicon macOS Button example.
 ## 背景
 
 The merged fixture already owns a shared accessibility snapshot and a live
-`ActionRequest` validation/dispatch path. The Mac session currently uses its
-input and painting APIs only. No native AX control is exposed by the example.
+`ActionRequest` validation/dispatch path. The Mac example now projects that
+model to an AppKit accessibility element and routes semantic requests through
+the fixture owner. Native AX acceptance remains unqualified until a real client
+verifies the adapter on the final candidate source.
 
 ## 問題
 
-A native accessibility client cannot independently identify or invoke the
-rendered Button. A native adapter must not infer authority from key `42`,
-retain MoonBit addresses in the dylib, replay an `ActionIntent`, or bypass
-the application owner's live validation and effect path.
+Before the 2026-10-13 catch-up, stale immutable fixture or host-session copies
+could expose an old semantic tree or attempt to update current AppKit bindings.
+The adapter must not infer authority from key `42`, retain MoonBit addresses
+in the dylib, replay an `ActionIntent`, or bypass the application owner's live
+validation and effect path.
 
 ## 目標
 
@@ -359,3 +362,22 @@ existing experimental macOS support claim.
   target directory, reaping the owned children within four and three seconds
   while leaving its unrelated sentinel alive. These checks do not replace the
   failed external AX lane or qualify a visible desktop run.
+- 2026-10-13: Catch-up source is based on `origin/main`
+  `50dfcc53adba5e034e44d8300b84577ca7300c2e`. Commit
+  `cda2d8ee32f07fd75e20b7ac28c0dfb0fd73ed2d` changes the Mac projection to
+  read through `ButtonDemo.accessibility_source()` while preserving detached
+  snapshots as readable values, and adds a separate host-session generation
+  so a stale scale-only copy cannot route key/pointer/close events, apply
+  metrics, or publish/revoke the active AppKit binding. This exact source
+  passed `moon fmt --check` and
+  `moon test --target native --deny-warn examples/macos_button` (13/13). The
+  current implementation also passed the scoped fixture, accessibility,
+  native adapter, Mac host E2E/build and contract checks listed in the
+  implementation report; the additional final unit assertion was rerun on
+  this commit.
+  No live input or real-client AX run was performed on this candidate. The
+  pre-patch `--all` attempt on baseline `50dfcc5` identified its test app after
+  eight observations, then failed because `AXWindows` was unavailable with
+  `app windows attribute missing`; the harness reaped its owned app/client.
+  Patched-source external AX acceptance therefore remains UNRUN, and Stage B
+  stays open and unqualified.
