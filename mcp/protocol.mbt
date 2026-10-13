@@ -316,7 +316,7 @@ fn ProtocolServer::result(
 fn ProtocolServer::error(
   _self : ProtocolServer,
   id_json : String,
-  code : Int,
+  code : Int32,
   message : String,
 ) -> String {
   "{\"jsonrpc\":\"2.0\",\"id\":\{id_json},\"error\":{\"code\":\{code},\"message\":\"\{@capability.json_escape(message)}\"}}"
@@ -326,7 +326,7 @@ fn ProtocolServer::error(
 fn ProtocolServer::error_with_data(
   _self : ProtocolServer,
   id_json : String,
-  code : Int,
+  code : Int32,
   message : String,
   data_json : String,
 ) -> String {
@@ -414,8 +414,8 @@ fn tool_arguments_to_value(
 fn json_to_schema_value(
   value : Json,
   schema : Json,
-  depth : Int,
-  nodes : Ref[Int],
+  depth : Int32,
+  nodes : Ref[Int32],
 ) -> Result[@capability.Value, String] {
   nodes.val += 1
   if depth > 32 || nodes.val > 10_000 {
@@ -574,8 +574,8 @@ fn tagged_choice_matches(value : Json, choice : Json) -> Bool {
 ///|
 fn json_within_transport_limits(
   value : Json,
-  depth : Int,
-  nodes : Ref[Int],
+  depth : Int32,
+  nodes : Ref[Int32],
 ) -> Bool {
   nodes.val += 1
   if depth > 32 || nodes.val > 10_000 {
@@ -625,7 +625,7 @@ fn is_valid_request_id(value : Json) -> Bool {
 }
 
 ///|
-fn validate_request_metadata(params : Json) -> (Int, String, String)? {
+fn validate_request_metadata(params : Json) -> (Int32, String, String)? {
   let meta = match json_member(params, "_meta") {
     Some(value) if value is Json::Object(_) => value
     _ => return Some((-32602, "Missing protocol request metadata", "{}"))

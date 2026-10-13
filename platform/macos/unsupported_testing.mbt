@@ -42,7 +42,7 @@ pub fn Host::post_test_escape(
 pub impl @testing.FrameReadback for Host with fn frame_metrics(
   _self,
   _window : @platform.WindowId,
-) -> Result[(Int, Int, Double), @diagnostics.FrameworkError] {
+) -> Result[(Int32, Int32, Double), @diagnostics.FrameworkError] {
   Err(test_hook_unavailable("frame_metrics"))
 }
 

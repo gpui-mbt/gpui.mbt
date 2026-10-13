@@ -11,7 +11,7 @@ fn start_app() -> @core.App raise {
 }
 
 ///|
-fn new_int_entity(app : @core.App, value : Int) -> @core.Entity[Int] raise {
+fn new_int_entity(app : @core.App, value : Int32) -> @core.Entity[Int32] raise {
   match app.create_entity(value) {
     Ok(entity) => entity
     Err(_) => fail("running app should allocate an entity")
@@ -59,7 +59,7 @@ fn subscription_matches(
 }
 
 ///|
-fn model_agrees_with_sequences(commands : Array[Int]) -> Bool {
+fn model_agrees_with_sequences(commands : Array[Int32]) -> Bool {
   let app = match @core.App::new() {
     Ok(value) => value
     Err(_) => return false
@@ -87,8 +87,8 @@ fn model_agrees_with_sequences(commands : Array[Int]) -> Bool {
   let mut observer : @core.Subscription? = None
   let mut observed_updates = 0
   let mut expected_observed_updates = 0
-  let event_history : Array[(UInt64, Int, UInt64)] = []
-  let expected_history : Array[(UInt64, Int, UInt64)] = []
+  let event_history : Array[(UInt64, Int32, UInt64)] = []
+  let expected_history : Array[(UInt64, Int32, UInt64)] = []
   let entity_ids : Array[UInt64] = [source.id().value(), owner.id().value()]
   for command in commands {
     let reduced = command % 10
@@ -335,7 +335,7 @@ fn model_agrees_with_sequences(commands : Array[Int]) -> Bool {
 // Stable suite ID: core-model
 test "quickcheck: entity state and revisions agree with a lifecycle model" {
   @quickcheck.check(
-    (commands : Array[Int]) => model_agrees_with_sequences(commands),
+    (commands : Array[Int32]) => model_agrees_with_sequences(commands),
     count=256,
     max_size=32,
     max_shrinks=500,
@@ -359,7 +359,7 @@ test "quickcheck: entity state and revisions agree with a lifecycle model" {
 test "contexts expire and read callbacks cannot reenter an update" {
   let app = start_app()
   let entity = new_int_entity(app, 3)
-  let mut saved_context : @core.Context[Int]? = None
+  let mut saved_context : @core.Context[Int32]? = None
   let mut update_drain_error : @diagnostics.FrameworkError? = None
   assert_true(
     app.update(entity, context => {
@@ -654,7 +654,7 @@ test "updates requested by event callbacks are deferred and reads remain valid" 
   let source = new_int_entity(app, 0)
   let owner = new_int_entity(app, 0)
   let target = new_int_entity(app, 4)
-  let mut event_read : Int? = None
+  let mut event_read : Int32? = None
   let mut update_accepted = false
   assert_true(
     app.update(owner, context => {

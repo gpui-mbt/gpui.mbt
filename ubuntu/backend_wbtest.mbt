@@ -421,10 +421,10 @@ fn[T] require_ok(result : Result[T, @diagnostics.FrameworkError]) -> T raise {
 ///|
 fn trace_ubuntu_e2e_stage(
   enabled : Bool,
-  stage : Int,
-  iteration : Int,
+  stage : Int32,
+  iteration : Int32,
   scale : Double,
-  window_generation : Int,
+  window_generation : Int32,
 ) -> Unit {
   // 1/2 bracket first present; 3/4 bracket dispatch polls; 5 means frame complete.
   if enabled {

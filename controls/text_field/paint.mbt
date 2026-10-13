@@ -39,7 +39,7 @@ fn field_quad(
   id : UInt64,
   bounds : @primitives.Rect,
   color : @primitives.Color,
-  clip : Int?,
+  clip : Int32?,
 ) -> Result[@scene.SceneItem, TextFieldPaintError] {
   match
     @scene.SceneItem::quad(
@@ -110,7 +110,7 @@ pub fn scene_text_run_geometry(
 pub fn TextField::paint_items(
   self : TextField,
   item_id_base : UInt64,
-  clip_chain_id : Int,
+  clip_chain_id : Int32,
 ) -> Result[(@scene.ClipChain, Array[@scene.SceneItem]), TextFieldPaintError] {
   let maximum_base : UInt64 = 18446744073709551608
   if item_id_base > maximum_base {

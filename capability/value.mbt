@@ -4,7 +4,7 @@
 pub(all) enum Value {
   UnitValue
   BoolValue(Bool)
-  IntValue(Int)
+  IntValue(Int32)
   NumberValue(Double)
   StringValue(String)
   ArrayValue(Array[Value])
@@ -22,7 +22,7 @@ pub fn Value::bool(value : Bool) -> Value {
 }
 
 ///|
-pub fn Value::int(value : Int) -> Value {
+pub fn Value::int(value : Int32) -> Value {
   IntValue(value)
 }
 
@@ -57,7 +57,9 @@ pub fn Value::as_string(
 }
 
 ///|
-pub fn Value::as_int(self : Value) -> Result[Int, @diagnostics.FrameworkError] {
+pub fn Value::as_int(
+  self : Value,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   match self {
     IntValue(value) => Ok(value)
     _ => Err(value_conversion_error("integer"))
@@ -258,8 +260,8 @@ fn Value::canonical_json_unchecked(self : Value) -> String {
 ///|
 fn transport_stats(
   value : Value,
-  depth : Int,
-) -> Result[(Int, Int), @diagnostics.FrameworkError] {
+  depth : Int32,
+) -> Result[(Int32, Int32), @diagnostics.FrameworkError] {
   if depth > 32 {
     return Err(transport_error("value exceeds the depth limit of 32"))
   }
@@ -366,7 +368,7 @@ fn transport_stats(
 }
 
 ///|
-fn escaped_json_string_length(text : String) -> Int {
+fn escaped_json_string_length(text : String) -> Int32 {
   // String.length() counts UTF-16 code units, matching canonical JSON's
   // observable length. It also lets oversized input stop before scanning.
   if text.length() > 1_048_576 {
@@ -430,7 +432,7 @@ pub fn json_escape(text : String) -> String {
 }
 
 ///|
-fn hex_digit(value : Int) -> Char {
+fn hex_digit(value : Int32) -> Char {
   match value {
     0 => '0'
     1 => '1'

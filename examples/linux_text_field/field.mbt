@@ -155,7 +155,7 @@ fn field_tree(
 ///|
 fn key_event(
   key : @primitives.Key,
-  shift? : Bool = false,
+  shift~ : Bool = false,
 ) -> @primitives.InputEvent {
   @primitives.KeyPressed(
     key~,

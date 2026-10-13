@@ -1,5 +1,5 @@
 ///|
-fn text_composition_pbt_index(value : Int, limit : Int) -> Int {
+fn text_composition_pbt_index(value : Int32, limit : Int32) -> Int32 {
   let remainder = value % limit
   if remainder < 0 {
     remainder + limit
@@ -9,7 +9,7 @@ fn text_composition_pbt_index(value : Int, limit : Int) -> Int {
 }
 
 ///|
-fn text_composition_pbt_source(values : Array[Int]) -> (String, Array[Int]) {
+fn text_composition_pbt_source(values : Array[Int32]) -> (String, Array[Int32]) {
   let builder = StringBuilder()
   let boundaries = [0]
   let mut offset = 0
@@ -24,9 +24,9 @@ fn text_composition_pbt_source(values : Array[Int]) -> (String, Array[Int]) {
 
 ///|
 fn text_composition_pbt_reference_slice(
-  values : Array[Int],
-  start : Int,
-  end : Int,
+  values : Array[Int32],
+  start : Int32,
+  end : Int32,
 ) -> String {
   let builder = StringBuilder()
   for index, value in values {
@@ -38,15 +38,18 @@ fn text_composition_pbt_reference_slice(
 }
 
 ///|
-fn text_composition_pbt_boundary(boundaries : Array[Int], choice : Int) -> Int {
+fn text_composition_pbt_boundary(
+  boundaries : Array[Int32],
+  choice : Int32,
+) -> Int32 {
   boundaries[text_composition_pbt_index(choice, boundaries.length())]
 }
 
 ///|
 fn text_composition_pbt_selection(
-  values : Array[Int],
-  anchor_choice : Int,
-  head_choice : Int,
+  values : Array[Int32],
+  anchor_choice : Int32,
+  head_choice : Int32,
 ) -> @text.TextSelection {
   let (_, boundaries) = text_composition_pbt_source(values)
   @text.TextSelection::new(
@@ -59,10 +62,10 @@ fn text_composition_pbt_selection(
 fn text_composition_pbt_matches_preview(
   composition : @text.TextComposition,
   expected_text : String,
-  expected_anchor : Int,
-  expected_head : Int,
-  mark_start : Int,
-  mark_end : Int,
+  expected_anchor : Int32,
+  expected_head : Int32,
+  mark_start : Int32,
+  mark_end : Int32,
 ) -> Bool {
   composition.status() is @text.Active &&
   composition.document().text() == expected_text &&
@@ -78,13 +81,13 @@ test "property composition previews replace the original and terminate exactly" 
   @quickcheck.check(
     (
       values : (
-        Array[Int],
-        Int,
-        Int,
-        Array[Int],
-        Array[Int],
-        Array[Int],
-        Array[Int],
+        Array[Int32],
+        Int32,
+        Int32,
+        Array[Int32],
+        Array[Int32],
+        Array[Int32],
+        Array[Int32],
         Bool,
       ),
     ) => {

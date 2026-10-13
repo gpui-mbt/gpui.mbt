@@ -2,10 +2,10 @@
 struct PaletteFixture {
   palette : @palette.CommandPalette
   tree : Ref[@element.ElementTree]
-  actions : Ref[Int]
+  actions : Ref[Int32]
   last_action : Ref[String]
-  background_actions : Ref[Int]
-  background_releases : Ref[Int]
+  background_actions : Ref[Int32]
+  background_releases : Ref[Int32]
   direct_ready : Ref[Bool]
 }
 
@@ -80,7 +80,7 @@ fn palette_label(
   x : Double,
   y : Double,
   color : @primitives.Color,
-  clip : Int?,
+  clip : Int32?,
 ) -> @scene.SceneItem {
   let document = @text.TextDocument::new(label).unwrap()
   let measurement = measure(document).unwrap()
@@ -202,9 +202,9 @@ fn palette_scene(
 ///|
 fn palette_state_line(
   fixture : PaletteFixture,
-  presentation : Int,
+  presentation : Int32,
   owner : ImeOwner?,
-  commits : Int,
+  commits : Int32,
 ) -> String {
   let palette = fixture.palette
   let semantics = palette.semantics()

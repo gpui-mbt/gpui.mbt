@@ -15,7 +15,7 @@ const WINDOWS_BUTTON_SAMPLE_Y : Double = 60.0
 
 ///|
 struct WindowsButtonInkStats {
-  count : Int
+  count : Int32
 }
 
 ///|
@@ -117,9 +117,9 @@ fn windows_button_pixel_matches(
   frame : @testing.FrameCapture,
   logical_x : Double,
   logical_y : Double,
-  red : Int,
-  green : Int,
-  blue : Int,
+  red : Int32,
+  green : Int32,
+  blue : Int32,
 ) -> Bool {
   let x = (logical_x * frame.scale()).to_int()
   let y = (logical_y * frame.scale()).to_int()
@@ -215,7 +215,7 @@ fn windows_button_json_bool(value : Bool) -> String {
 
 ///|
 fn windows_button_state_line(
-  presentation : Int,
+  presentation : Int32,
   event_sequence : Int64,
   session : WindowsButtonSession,
 ) -> String {
@@ -251,7 +251,7 @@ fn windows_button_rgba(
 
 ///|
 fn windows_button_frame_line(
-  presentation : Int,
+  presentation : Int32,
   event_sequence : Int64,
   session : WindowsButtonSession,
   frame : @testing.FrameCapture,

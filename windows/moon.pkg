@@ -18,7 +18,8 @@ import {
   "f4ah6o/gpui/testing/backend" @conformance,
 } for "wbtest"
 
+max_concurrent_tests = 1
+
 options(
   "native-stub": [ "backend.c" ],
-  "max-concurrent-tests": 1,
 )

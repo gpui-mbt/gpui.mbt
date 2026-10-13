@@ -219,19 +219,19 @@ priv struct InFlightRequest {
 }
 
 ///|
-const MAX_REQUEST_ID_LENGTH : Int = 256
+const MAX_REQUEST_ID_LENGTH : Int32 = 256
 
 ///|
-const MAX_REQUEST_JSON_CHARS : Int = 1_048_576
+const MAX_REQUEST_JSON_CHARS : Int32 = 1_048_576
 
 ///|
-const MAX_RETAINED_REQUESTS : Int = 128
+const MAX_RETAINED_REQUESTS : Int32 = 128
 
 ///|
-const MAX_RETAINED_OUTCOME_CHARS : Int = 262_144
+const MAX_RETAINED_OUTCOME_CHARS : Int32 = 262_144
 
 ///|
-const MAX_IN_FLIGHT_REQUESTS : Int = 128
+const MAX_IN_FLIGHT_REQUESTS : Int32 = 128
 
 ///|
 /// Optional protocol adapter. It owns no application state and no domain

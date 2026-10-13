@@ -261,7 +261,7 @@ test "fixture scene includes label and status as copied snapshot text" {
 ///|
 fn ubuntu_button_fixture_quad_color(
   items : Array[@scene.SceneItem],
-  index : Int,
+  index : Int32,
 ) -> @primitives.Color {
   match items[index] {
     @scene.QuadItem(color~, ..) => color
@@ -272,9 +272,9 @@ fn ubuntu_button_fixture_quad_color(
 ///|
 fn ubuntu_button_fixture_has_rgb(
   color : @primitives.Color,
-  red : Int,
-  green : Int,
-  blue : Int,
+  red : Int32,
+  green : Int32,
+  blue : Int32,
 ) -> Bool {
   color.red() == red &&
   color.green() == green &&

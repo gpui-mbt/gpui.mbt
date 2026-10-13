@@ -2,7 +2,7 @@
 /// Replace an entity with its incremented value and explicitly notify listeners.
 pub fn increment(
   app : @core.App,
-  entity : @core.Entity[Int],
+  entity : @core.Entity[Int32],
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   app.update(entity, context => {
     match context.get() {

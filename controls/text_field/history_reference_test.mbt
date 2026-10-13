@@ -19,7 +19,7 @@ priv enum FieldReferenceGroupKind {
 }
 
 ///|
-fn field_reference_next(state : Int) -> Int {
+fn field_reference_next(state : Int32) -> Int32 {
   (state * 25173 + 13849) % 65536
 }
 
@@ -58,8 +58,8 @@ fn field_reference_backspace(
 ///|
 fn field_reference_selection(
   document : @text.TextDocument,
-  anchor : Int,
-  head : Int,
+  anchor : Int32,
+  head : Int32,
 ) -> @text.TextDocument {
   document
   .with_selection(@text.TextSelection::new(anchor, head).unwrap())
@@ -81,8 +81,8 @@ fn field_reference_last_undo(
 fn field_reference_assert_state(
   field : @text_field.TextField,
   expected : @text.TextDocument,
-  undo_count : Int,
-  redo_count : Int,
+  undo_count : Int32,
+  redo_count : Int32,
 ) -> Unit raise {
   assert_true(field.document() == expected)
   assert_eq(field.selection().anchor(), expected.selection().anchor())

@@ -38,7 +38,7 @@ fn tree_pbt_sized_item(
 // Stable suite ID: layout.flex-tree.invariants
 test "property recursive layout is deterministic and descendants stay ordered" {
   @quickcheck.check(
-    (values : (Int, Int, Int, Int)) => {
+    (values : (Int32, Int32, Int32, Int32)) => {
       let (root_width0, branch_width0, leaf_height0, gap0) = values
       let root_width = (root_width0 % 300).abs().to_double() + 100.0
       let branch_width = (branch_width0 % 60).abs().to_double() + 20.0
@@ -138,7 +138,7 @@ test "property recursive layout is deterministic and descendants stay ordered" {
 /// Stable suite ID: layout.flex-tree.auto-sizing
 test "property auto container dimensions sum flow sizes and maximize cross sizes" {
   @quickcheck.check(
-    (values : (Int, Int, Int, Int, Int, Int)) => {
+    (values : (Int32, Int32, Int32, Int32, Int32, Int32)) => {
       let (direction0, width_a0, height_a0, width_b0, height_b0, gap0) = values
       let direction = if (direction0 % 2).abs() == 0 {
         @layout.FlowDirection::row()

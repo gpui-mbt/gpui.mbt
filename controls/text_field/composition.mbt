@@ -185,8 +185,8 @@ pub fn TextField::update_composition(
 pub fn TextField::update_composition_utf8(
   self : TextField,
   preedit : String,
-  anchor_bytes : Int,
-  head_bytes : Int,
+  anchor_bytes : Int32,
+  head_bytes : Int32,
   measure : (@text.TextDocument) -> Result[
     @text_layout.TextMeasurement,
     TextFieldError,

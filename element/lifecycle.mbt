@@ -185,13 +185,13 @@ pub struct RequestedLayout {
 /// Lifecycle traversal is iterative, while the current recursive layout
 /// engine descends through nested containers. Keep the accepted depth bounded
 /// so malformed or generated trees cannot exhaust the host stack.
-pub const MAX_ELEMENT_DEPTH : Int = @layout.MAX_FLEX_TREE_DEPTH
+pub const MAX_ELEMENT_DEPTH : Int32 = @layout.MAX_FLEX_TREE_DEPTH
 
 ///|
 priv struct ElementPlacement {
   element : Element
   parent : UInt64?
-  depth : Int
+  depth : Int32
 }
 
 ///|
@@ -393,7 +393,7 @@ fn flatten_layout_tree(
 ///|
 fn push_children_reverse(
   parent : Element,
-  parent_depth : Int,
+  parent_depth : Int32,
   pending : Array[ElementPlacement],
 ) -> Unit {
   let mut index = parent.children.length()

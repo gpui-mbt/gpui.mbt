@@ -182,13 +182,13 @@ pub fn ServiceRequest::canonical_json(self : ServiceRequest) -> String {
 }
 
 ///|
-const MAX_LIVE_SCOPES : Int = 1024
+const MAX_LIVE_SCOPES : Int32 = 1024
 
 ///|
-const MAX_QUEUED_RESULTS : Int = 1024
+const MAX_QUEUED_RESULTS : Int32 = 1024
 
 ///|
-const MAX_REQUEST_JSON_BYTES : Int = 1_048_576
+const MAX_REQUEST_JSON_BYTES : Int32 = 1_048_576
 
 ///|
 pub struct ServiceCompletion {
@@ -492,12 +492,12 @@ pub fn ServiceBridge::is_closed(self : ServiceBridge) -> Bool {
 }
 
 ///|
-pub fn ServiceBridge::pending_count(self : ServiceBridge) -> Int {
+pub fn ServiceBridge::pending_count(self : ServiceBridge) -> Int32 {
   self.pending.length()
 }
 
 ///|
-pub fn ServiceBridge::completion_count(self : ServiceBridge) -> Int {
+pub fn ServiceBridge::completion_count(self : ServiceBridge) -> Int32 {
   self.completions.length()
 }
 
@@ -580,7 +580,7 @@ fn clone_value(value : @capability.Value) -> @capability.Value {
 }
 
 ///|
-fn utf8_byte_length(text : String) -> Int {
+fn utf8_byte_length(text : String) -> Int32 {
   let mut bytes = 0
   for character in text {
     let codepoint = character.to_int()
@@ -598,7 +598,7 @@ fn utf8_byte_length(text : String) -> Int {
 }
 
 ///|
-fn remove_request(requests : Array[ServiceRequest], index : Int) -> Unit {
+fn remove_request(requests : Array[ServiceRequest], index : Int32) -> Unit {
   let mut cursor = index
   while cursor + 1 < requests.length() {
     requests[cursor] = requests[cursor + 1]
@@ -608,7 +608,7 @@ fn remove_request(requests : Array[ServiceRequest], index : Int) -> Unit {
 }
 
 ///|
-fn remove_scope(scopes : Array[ScopeId], index : Int) -> Unit {
+fn remove_scope(scopes : Array[ScopeId], index : Int32) -> Unit {
   let mut cursor = index
   while cursor + 1 < scopes.length() {
     scopes[cursor] = scopes[cursor + 1]

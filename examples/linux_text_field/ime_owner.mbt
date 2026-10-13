@@ -2,10 +2,10 @@
 // Bounded example owner. Native ingress validates issued serials; the owner
 // adds the focused field's epoch, seat/proxy and strictly ordered FIFO target.
 struct ImeOwner {
-  epoch : Int
+  epoch : Int32
   entered : Bool
   seat : Int64
-  proxy_generation : Int
+  proxy_generation : Int32
   sequence : Int64
 }
 
@@ -19,7 +19,7 @@ enum ImeOwnerError {
 } derive(Eq)
 
 ///|
-fn ime_owner(epoch : Int) -> ImeOwner {
+fn ime_owner(epoch : Int32) -> ImeOwner {
   { epoch, entered: false, seat: 0L, proxy_generation: 0, sequence: 0L, }
 }
 
@@ -28,7 +28,7 @@ fn ime_target_current(
   owner : ImeOwner,
   window : @platform.WindowId,
   target : @native.TextSessionTarget,
-  lifecycle? : Bool = false,
+  lifecycle~ : Bool = false,
 ) -> Bool {
   target.window == window &&
   target.epoch == owner.epoch &&
@@ -48,7 +48,7 @@ fn ime_target_current(
 fn ime_preedit(
   field : @text_field.TextField,
   text : String,
-  cursor : Int?,
+  cursor : Int32?,
   styles : Array[@native.TextSessionStyle],
 ) -> Result[@text_field.TextField, ImeOwnerError] {
   // The bounded Mozc profile uses a full-span underline. Other shapes are
@@ -129,7 +129,7 @@ fn ime_commit(
 // This function maps only named commands and an explicit shortcut allowlist.
 // It never derives direct text from a keysym. Actual releases remain releases.
 fn ime_command_key(
-  keysym : Int,
+  keysym : Int32,
   key : @primitives.Key?,
   modifiers : @primitives.Modifiers,
 ) -> @primitives.Key? {
@@ -232,10 +232,10 @@ fn ime_sync(
 
 ///|
 fn ime_observer_line(
-  presentation : Int,
+  presentation : Int32,
   field : @text_field.TextField,
   owner : ImeOwner?,
-  commits : Int,
+  commits : Int32,
 ) -> String {
   let document = field.document()
   let committed = field.committed_document()
@@ -305,7 +305,7 @@ fn ImeOwnerError::label(self : ImeOwnerError) -> String {
 ///|
 // A replacement native epoch starts unentered with no old proxy/seat/sequence.
 // The native successful update contract guarantees a positive returned epoch.
-fn ime_owner_after_update(owner : ImeOwner, epoch : Int) -> ImeOwner {
+fn ime_owner_after_update(owner : ImeOwner, epoch : Int32) -> ImeOwner {
   if epoch == owner.epoch {
     owner
   } else {

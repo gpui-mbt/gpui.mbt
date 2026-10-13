@@ -212,7 +212,7 @@ fn button_adapter_empty_snapshot(
 fn button_adapter_find_export(
   entries : Array[UbuntuButtonAdapterEntry],
   export_id : @native.AccessibilityExportId,
-) -> Int {
+) -> Int32 {
   let mut index = 0
   while index < entries.length() {
     if entries[index].export_id == export_id {
@@ -227,7 +227,7 @@ fn button_adapter_find_export(
 fn button_adapter_find_token(
   entries : Array[UbuntuButtonAdapterEntry],
   token : UbuntuButtonAdapterToken,
-) -> Int {
+) -> Int32 {
   let mut index = 0
   while index < entries.length() {
     if entries[index].token == token {

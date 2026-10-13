@@ -480,7 +480,7 @@ test "callback tree selection cannot retarget the started input event" {
 // Stable suite ID: element.input.fixed-route-reference
 test "property focused input routes match fixed-tree references" {
   @quickcheck.check(
-    (selector : Int) => {
+    (selector : Int32) => {
       let tree = input_dispatch_test_tree()
       let target : UInt64 = if selector % 2 == 0 { 3 } else { 5 }
       match tree.with_focus(target) {

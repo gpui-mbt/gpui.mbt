@@ -45,7 +45,7 @@ fn protocol_spec_reply(
 ///|
 fn protocol_spec_register_int_to_string(
   registry : @capability.Registry,
-  executions : Ref[Int],
+  executions : Ref[Int32],
 ) -> Unit raise {
   let descriptor = match
     @capability.Descriptor::new(

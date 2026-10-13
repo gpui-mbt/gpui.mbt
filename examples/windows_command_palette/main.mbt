@@ -36,19 +36,19 @@ struct PaletteFixture {
     @text_layout.TextHit,
     @text_field.TextFieldError,
   ]
-  actions : Ref[Int]
+  actions : Ref[Int32]
   last_action : Ref[String]
-  background_presses : Ref[Int]
-  background_releases : Ref[Int]
-  native_begins : Ref[Int]
-  native_updates : Ref[Int]
-  native_cancels : Ref[Int]
-  native_ends : Ref[Int]
-  native_records : Ref[Int]
-  stale_records : Ref[Int]
-  rejected_records : Ref[Int]
-  guarded_presses : Ref[Int]
-  guarded_releases : Ref[Int]
+  background_presses : Ref[Int32]
+  background_releases : Ref[Int32]
+  native_begins : Ref[Int32]
+  native_updates : Ref[Int32]
+  native_cancels : Ref[Int32]
+  native_ends : Ref[Int32]
+  native_records : Ref[Int32]
+  stale_records : Ref[Int32]
+  rejected_records : Ref[Int32]
+  guarded_presses : Ref[Int32]
+  guarded_releases : Ref[Int32]
 }
 
 ///|
@@ -158,7 +158,7 @@ fn palette_label(
   x : Double,
   y : Double,
   color : @primitives.Color,
-  clip : Int?,
+  clip : Int32?,
 ) -> Result[@scene.SceneItem, @palette.PaletteError] {
   let document = match @text.TextDocument::new(label) {
     Ok(value) => value
@@ -367,7 +367,7 @@ fn palette_owner_json(owner : PaletteNativeOwner?) -> Json {
 ///|
 fn palette_state_line(
   fixture : PaletteFixture,
-  presentation : Int,
+  presentation : Int32,
   width : Double,
   height : Double,
   scale : Double,
@@ -475,10 +475,10 @@ fn readback_line(
 
 ///|
 struct PendingFrame {
-  presentation : Int
-  open_epoch : Int
+  presentation : Int32
+  open_epoch : Int32
   query : String
-  visible_count : Int
+  visible_count : Int32
   active_id : String?
   width : Double
   height : Double
@@ -494,11 +494,11 @@ struct PreparedPaletteFrame {
   field_text : String
   committed_text : String
   composing : Bool
-  selection_anchor : Int
-  selection_head : Int
+  selection_anchor : Int32
+  selection_head : Int32
   owner : PaletteNativeOwner?
   focus_owner : @element.FocusOwner?
-  actions : Int
+  actions : Int32
   dirty : Bool
   previous_pending : PendingFrame?
   width : Double
@@ -515,7 +515,7 @@ struct WindowPaletteInput {
 ///|
 fn pending_frame(
   fixture : PaletteFixture,
-  presentation : Int,
+  presentation : Int32,
   width : Double,
   height : Double,
   scale : Double,
@@ -581,7 +581,7 @@ fn palette_readback_line(
 fn prepare_palette_frame(
   fixture : PaletteFixture,
   scene : @scene.SceneSnapshot,
-  presentation : Int,
+  presentation : Int32,
   owner : PaletteNativeOwner?,
   dirty : Bool,
   previous_pending : PendingFrame?,

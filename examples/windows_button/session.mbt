@@ -11,9 +11,9 @@ pub struct WindowsButtonSession {
   closed : Bool
   session_generation : UInt64
   session_generation_source : Ref[UInt64?]
-  repeat_keydowns : Int
-  unmatched_key_releases : Int
-  unmatched_pointer_releases : Int
+  repeat_keydowns : Int32
+  unmatched_key_releases : Int32
+  unmatched_pointer_releases : Int32
 }
 
 ///|

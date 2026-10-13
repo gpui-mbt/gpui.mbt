@@ -227,7 +227,7 @@ pub fn AccessibilityProjection::new() -> Result[
 fn find_export_entry_by_node_id(
   entries : Array[AccessibilityExportEntry],
   node_id : @accessibility.NodeId,
-) -> Int {
+) -> Int32 {
   let mut index = 0
   while index < entries.length() {
     if entries[index].node_id == node_id {
@@ -242,7 +242,7 @@ fn find_export_entry_by_node_id(
 fn find_export_entry_by_export_id(
   entries : Array[AccessibilityExportEntry],
   export_id : AccessibilityExportId,
-) -> Int {
+) -> Int32 {
   let mut index = 0
   while index < entries.length() {
     if entries[index].export_id == export_id {

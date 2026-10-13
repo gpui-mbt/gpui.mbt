@@ -27,7 +27,7 @@ fn undo_revision_measure(
 // boundary as a non-cursor position so a saved selection can become invalid.
 fn undo_measure_without_cursor_stop(
   document : @text.TextDocument,
-  omitted_offset : Int,
+  omitted_offset : Int32,
 ) -> Result[@text_layout.TextMeasurement, TextFieldError] {
   let carets = []
   let length = document.utf16_length()

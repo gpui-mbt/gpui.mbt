@@ -21,7 +21,7 @@ pub struct ButtonDemo {
   priv button : @button.Button
   priv tree : @element.ElementTree
   priv viewport : @primitives.Rect
-  priv activations : Int
+  priv activations : Int32
   priv button_visible : Bool
   priv accessibility_model : @accessibility.AccessibilityModel
   priv accessibility_snapshot : @accessibility.AccessibilitySnapshot
@@ -313,7 +313,7 @@ pub fn ButtonDemo::tree(self : ButtonDemo) -> @element.ElementTree {
 }
 
 ///|
-pub fn ButtonDemo::activations(self : ButtonDemo) -> Int {
+pub fn ButtonDemo::activations(self : ButtonDemo) -> Int32 {
   self.activations
 }
 
@@ -579,7 +579,10 @@ pub fn ButtonDemo::reset_session(
 }
 
 ///|
-fn demo_effect_count(activations : Int, effect : @button.ButtonEffect) -> Int {
+fn demo_effect_count(
+  activations : Int32,
+  effect : @button.ButtonEffect,
+) -> Int32 {
   match effect {
     @button.Activated if activations < 2147483647 => activations + 1
     _ => activations

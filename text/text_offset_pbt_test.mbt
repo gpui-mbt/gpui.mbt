@@ -1,5 +1,5 @@
 ///|
-fn text_offset_pbt_index(value : Int, limit : Int) -> Int {
+fn text_offset_pbt_index(value : Int32, limit : Int32) -> Int32 {
   let remainder = value % limit
   if remainder < 0 {
     remainder + limit
@@ -9,7 +9,7 @@ fn text_offset_pbt_index(value : Int, limit : Int) -> Int {
 }
 
 ///|
-fn text_offset_pbt_fragment(index : Int) -> String {
+fn text_offset_pbt_fragment(index : Int32) -> String {
   match index {
     0 => "a"
     1 => "\u0000"
@@ -30,7 +30,7 @@ fn text_offset_pbt_fragment(index : Int) -> String {
 }
 
 ///|
-fn text_offset_pbt_utf16_width(index : Int) -> Int {
+fn text_offset_pbt_utf16_width(index : Int32) -> Int32 {
   if index == 10 || index == 11 || index == 12 {
     2
   } else {
@@ -39,7 +39,7 @@ fn text_offset_pbt_utf16_width(index : Int) -> Int {
 }
 
 ///|
-fn text_offset_pbt_utf8_width(index : Int) -> Int {
+fn text_offset_pbt_utf8_width(index : Int32) -> Int32 {
   match index {
     0 | 1 | 2 | 3 => 1
     4 | 5 | 13 => 2
@@ -50,8 +50,8 @@ fn text_offset_pbt_utf8_width(index : Int) -> Int {
 
 ///|
 fn text_offset_pbt_reference(
-  values : Array[Int],
-) -> (String, Array[Int], Array[Int]) {
+  values : Array[Int32],
+) -> (String, Array[Int32], Array[Int32]) {
   let builder = StringBuilder()
   let utf16_boundaries = [0]
   let utf8_boundaries = [0]
@@ -72,7 +72,7 @@ fn text_offset_pbt_reference(
 // Stable suite ID: text.utf16-utf8-bridge.invariants
 test "property UTF-16 and UTF-8 offsets match independent scalar tables" {
   @quickcheck.check(
-    (values : Array[Int]) => {
+    (values : Array[Int32]) => {
       let (source, utf16_boundaries, utf8_boundaries) = text_offset_pbt_reference(
         values,
       )

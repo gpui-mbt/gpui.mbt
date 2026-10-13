@@ -1,5 +1,5 @@
 ///|
-fn ime_test_record(tag : Int, source : String) -> FixedArray[Double] {
+fn ime_test_record(tag : Int32, source : String) -> FixedArray[Double] {
   let data = FixedArray::make(EDITOR_EVENT_FIELDS, 0.0)
   data[0] = tag.to_double()
   data[1] = 7.0

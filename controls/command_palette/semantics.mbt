@@ -5,7 +5,7 @@ pub struct SemanticOption {
   role : String
   selected : Bool
   disabled : Bool
-  index : Int
+  index : Int32
 }
 
 ///|
@@ -21,7 +21,7 @@ pub struct PaletteSemantics {
   search_focused : Bool
   composing : Bool
   collection_role : String
-  total : Int
+  total : Int32
   active_id : String?
   options : Array[SemanticOption]
 }

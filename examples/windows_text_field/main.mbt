@@ -71,7 +71,7 @@ fn windows_caret_rect(
 fn sync_windows_text_session(
   host : @native.Host,
   window : @platform.WindowId,
-  owner_generation : Int,
+  owner_generation : Int32,
   field : @text_field.TextField,
   owner : WindowsTextOwner?,
   experimental_ime : Bool,
@@ -206,7 +206,7 @@ fn windows_reject_session_edit(
 
 ///|
 fn windows_state_line(
-  frame : Int,
+  frame : Int32,
   field : @text_field.TextField,
   owner : WindowsTextOwner?,
 ) -> String {

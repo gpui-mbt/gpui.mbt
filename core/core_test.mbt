@@ -11,7 +11,7 @@ fn running_app() -> @core.App raise {
 }
 
 ///|
-fn int_entity(app : @core.App, value : Int) -> @core.Entity[Int] raise {
+fn int_entity(app : @core.App, value : Int32) -> @core.Entity[Int32] raise {
   match app.create_entity(value) {
     Ok(entity) => entity
     Err(_) => fail("running app should create an entity")
@@ -95,7 +95,7 @@ test "dispatch and entity notifications use submission FIFO and read updated sta
 ///|
 test "timers preserve tied order, respect budgets, and reject deadline overflow" {
   let app = running_app()
-  let order : Ref[Array[Int]] = Ref([])
+  let order : Ref[Array[Int32]] = Ref([])
   assert_true(
     app.schedule_after(10, _context => {
       order.val.push(1)

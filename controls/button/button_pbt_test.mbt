@@ -53,7 +53,7 @@ fn button_pbt_key_up(key : @primitives.Key) -> @primitives.InputEvent {
 // Stable suite ID: controls.button.accepted-gesture.once
 test "property accepted activation gestures fire once across repeated input" {
   @quickcheck.check(
-    (selector : Int) => {
+    (selector : Int32) => {
       let repeats = if selector % 17 < 0 {
         selector % 17 + 17
       } else {

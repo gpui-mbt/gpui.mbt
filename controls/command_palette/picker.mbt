@@ -1,17 +1,17 @@
 ///|
-pub const MAX_COMMANDS : Int = 128
+pub const MAX_COMMANDS : Int32 = 128
 
 ///|
-pub const MAX_COMMAND_ID_BYTES : Int = 64
+pub const MAX_COMMAND_ID_BYTES : Int32 = 64
 
 ///|
-pub const MAX_COMMAND_LABEL_BYTES : Int = 128
+pub const MAX_COMMAND_LABEL_BYTES : Int32 = 128
 
 ///|
-pub const MAX_QUERY_BYTES : Int = 256
+pub const MAX_QUERY_BYTES : Int32 = 256
 
 ///|
-pub const VISIBLE_ROWS : Int = 8
+pub const VISIBLE_ROWS : Int32 = 8
 
 ///|
 pub(all) enum PaletteError {
@@ -35,7 +35,7 @@ pub struct CommandMetadata {
 }
 
 ///|
-fn bounded_text(text : String, maximum : Int, nonempty : Bool) -> Bool {
+fn bounded_text(text : String, maximum : Int32, nonempty : Bool) -> Bool {
   if nonempty && text.length() == 0 {
     return false
   }
@@ -93,14 +93,14 @@ pub fn CommandMetadata::is_enabled(self : CommandMetadata) -> Bool {
 /// All loops are bounded by 128 commands and 128-byte labels; no fuzzy work.
 pub struct Picker {
   priv commands : Array[CommandMetadata]
-  priv matches : Array[Int]
+  priv matches : Array[Int32]
   priv query : String
-  priv active : Int?
+  priv active : Int32?
   priv scroll : @element.ScrollState
 }
 
 ///|
-fn picker_scroll(count : Int) -> @element.ScrollState {
+fn picker_scroll(count : Int32) -> @element.ScrollState {
   @element.ScrollState::new(
     @primitives.Size::new(1.0, VISIBLE_ROWS.to_double()).unwrap(),
     @primitives.Size::new(1.0, count.to_double()).unwrap(),
@@ -115,8 +115,8 @@ pub fn Picker::new(
     return Err(TooManyCommands)
   }
   let owned : Array[CommandMetadata] = []
-  let indices : Array[Int] = []
-  let mut active : Int? = None
+  let indices : Array[Int32] = []
+  let mut active : Int32? = None
   for command in commands {
     for prior in owned {
       if prior.id == command.id {
@@ -146,12 +146,12 @@ pub fn Picker::query(self : Picker) -> String {
 }
 
 ///|
-pub fn Picker::match_count(self : Picker) -> Int {
+pub fn Picker::match_count(self : Picker) -> Int32 {
   self.matches.length()
 }
 
 ///|
-pub fn Picker::active_index(self : Picker) -> Int? {
+pub fn Picker::active_index(self : Picker) -> Int32? {
   self.active
 }
 
@@ -166,7 +166,7 @@ pub fn Picker::active_command(self : Picker) -> CommandMetadata? {
 ///|
 pub fn Picker::command_at(
   self : Picker,
-  filtered_index : Int,
+  filtered_index : Int32,
 ) -> CommandMetadata? {
   if filtered_index < 0 || filtered_index >= self.matches.length() {
     None
@@ -189,10 +189,10 @@ pub fn Picker::filter(
   if query == self.query {
     return Ok(self)
   }
-  let matches : Array[Int] = []
+  let matches : Array[Int32] = []
   let previous = self.active_command()
-  let mut active : Int? = None
-  let mut retained : Int? = None
+  let mut active : Int32? = None
+  let mut retained : Int32? = None
   for index = 0; index < self.commands.length(); index = index + 1 {
     let command = self.commands[index]
     if command.label.contains(query) {
@@ -235,7 +235,7 @@ fn Picker::ensure_active_visible(self : Picker) -> Picker {
 
 ///|
 /// Clamp at the first/last enabled row; disabled rows remain visible.
-pub fn Picker::navigate(self : Picker, direction : Int) -> Picker {
+pub fn Picker::navigate(self : Picker, direction : Int32) -> Picker {
   if direction == 0 {
     return self
   }
@@ -254,7 +254,7 @@ pub fn Picker::navigate(self : Picker, direction : Int) -> Picker {
 }
 
 ///|
-pub fn Picker::visible_start(self : Picker) -> Int {
+pub fn Picker::visible_start(self : Picker) -> Int32 {
   self.scroll.offset().y().to_int()
 }
 

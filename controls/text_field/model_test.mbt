@@ -20,7 +20,7 @@ fn field_test_rect(
 }
 
 ///|
-fn field_test_offsets(document : @text.TextDocument) -> Array[Int] {
+fn field_test_offsets(document : @text.TextDocument) -> Array[Int32] {
   let offsets = [0]
   let mut current = 0
   for scalar in document.text().iter() {
@@ -33,7 +33,7 @@ fn field_test_offsets(document : @text.TextDocument) -> Array[Int] {
 ///|
 /// A small scripted layout fixture. These cursor flags are observations for
 /// the named sample strings only, not a Unicode segmentation implementation.
-fn field_test_cursor_stop(text : String, offset : Int) -> Bool {
+fn field_test_cursor_stop(text : String, offset : Int32) -> Bool {
   match text {
     "a\u{301}b" => offset != 1
     "a\u{301}" => offset == 0 || offset == 2
@@ -214,8 +214,8 @@ fn field_test_focused(
 ///|
 fn field_test_selection(
   field : @text_field.TextField,
-  anchor : Int,
-  head : Int,
+  anchor : Int32,
+  head : Int32,
 ) -> @text_field.TextField {
   let document = field
     .document()

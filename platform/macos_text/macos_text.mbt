@@ -23,50 +23,50 @@ pub enum MacosTextError {
 pub extend MacosTextError with Eq::{not_equal, equal}
 
 ///|
-pub let max_text_bytes : Int = 16384
+pub let max_text_bytes : Int32 = 16384
 
 ///|
-pub let max_font_family_bytes : Int = 256
+pub let max_font_family_bytes : Int32 = 256
 
 ///|
 pub let max_font_size_px : Double = 512.0
 
 ///|
-const ABI_VERSION : Int = 1
+const ABI_VERSION : Int32 = 1
 
 ///|
-const HEADER_DOUBLES : Int = 12
+const HEADER_DOUBLES : Int32 = 12
 
 ///|
-const CARET_DOUBLES : Int = 10
+const CARET_DOUBLES : Int32 = 10
 
 ///|
 const CANARY : Double = 123456789.125
 
 ///|
-extern "C" fn native_require_raster(abi : Int) -> Int = "gpui_macos_text_require_raster_v1"
+extern "C" fn native_require_raster(abi : Int32) -> Int32 = "gpui_macos_text_require_raster_v1"
 
 ///|
 #borrow(text, family, output)
 extern "C" fn native_measure(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   family : Bytes,
-  family_length : Int,
+  family_length : Int32,
   font_size_px : Double,
   output : FixedArray[Double],
-  output_capacity : Int,
-) -> Int = "gpui_macos_text_measure_v1"
+  output_capacity : Int32,
+) -> Int32 = "gpui_macos_text_measure_v1"
 
 ///|
 priv struct TextBoundary {
-  byte_offset : Int
-  utf16_offset : Int
+  byte_offset : Int32
+  utf16_offset : Int32
 }
 
 ///|
-fn scalar_utf8_width(scalar : Char) -> Int {
+fn scalar_utf8_width(scalar : Char) -> Int32 {
   let value = scalar.to_int()
   if value <= 0x7F {
     1
@@ -80,7 +80,7 @@ fn scalar_utf8_width(scalar : Char) -> Int {
 }
 
 ///|
-fn scalar_utf16_width(scalar : Char) -> Int {
+fn scalar_utf16_width(scalar : Char) -> Int32 {
   if scalar.to_int() > 0xFFFF {
     2
   } else {
@@ -152,7 +152,7 @@ fn prepare_family(family : String) -> Result[Bytes, MacosTextError] {
 }
 
 ///|
-fn status_error(status : Int) -> MacosTextError {
+fn status_error(status : Int32) -> MacosTextError {
   match status {
     2 => UnsupportedInput
     3 => InputTooLarge
@@ -183,7 +183,7 @@ pub fn require_grayscale_raster() -> Result[Unit, MacosTextError] {
 }
 
 ///|
-fn exact_nonnegative_int(value : Double, maximum : Int) -> Int? {
+fn exact_nonnegative_int(value : Double, maximum : Int32) -> Int32? {
   if value.is_nan() ||
     value.is_inf() ||
     value < 0.0 ||
@@ -201,7 +201,7 @@ fn exact_nonnegative_int(value : Double, maximum : Int) -> Int? {
 ///|
 fn native_rect(
   output : FixedArray[Double],
-  start : Int,
+  start : Int32,
 ) -> Result[@primitives.Rect, MacosTextError] {
   match
     @primitives.Rect::new(

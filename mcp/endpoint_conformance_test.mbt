@@ -39,7 +39,7 @@ fn endpoint_schema_record(
 fn endpoint_register_echo(
   registry : @capability.Registry,
   case : EndpointSchemaCase,
-  executions : Ref[Int],
+  executions : Ref[Int32],
 ) -> EndpointSchemaRegistration raise {
   let descriptor = match
     @capability.Descriptor::new(
@@ -181,8 +181,8 @@ fn endpoint_schema_arguments(
 fn endpoint_assert_case_parity(
   server : @mcp.ProtocolServer,
   registered : EndpointSchemaRegistration,
-  index : Int,
-  executions : Ref[Int],
+  index : Int32,
+  executions : Ref[Int32],
 ) -> Unit raise {
   let case = registered.case
   let expected = @json.parse(case.wire_json) catch {
@@ -233,7 +233,7 @@ fn endpoint_assert_case_parity(
 }
 
 ///|
-fn endpoint_generated_array_parity(values : Array[Int]) -> Bool {
+fn endpoint_generated_array_parity(values : Array[Int32]) -> Bool {
   let item_values : Array[@capability.Value] = []
   let item_json = StringBuilder()
   item_json.write_char('[')
@@ -670,7 +670,7 @@ test "int32 limits and closed-record and tagged rejection do not execute the han
 ///|
 test "quickcheck: generated bounded integer arrays preserve three lane results" {
   @quickcheck.check(
-    (values : Array[Int]) => endpoint_generated_array_parity(values),
+    (values : Array[Int32]) => endpoint_generated_array_parity(values),
     count=64,
     max_size=24,
     max_shrinks=500,
