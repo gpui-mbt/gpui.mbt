@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include <X11/Xlib.h>
+#include <EGL/egl.h>
 #include <X11/XKBlib.h>
 #include <assert.h>
 #include <limits.h>
@@ -16,6 +17,13 @@ static Display *forbidden_open_display(const char *name) {
   (void)name;
   fputs("headless contract test attempted to open an X display\n", stderr);
   abort();
+}
+static int mock_swaps;
+static EGLBoolean mock_swap_buffers(EGLDisplay display, EGLSurface surface) {
+  (void)display;
+  (void)surface;
+  ++mock_swaps;
+  return EGL_TRUE;
 }
 static KeySym mock_symbol;
 static Window mock_selection_owner;
@@ -114,6 +122,7 @@ static Bool mock_check_if_event(Display *display, XEvent *out,
   }
   return False;
 }
+#define eglSwapBuffers mock_swap_buffers
 #define XOpenDisplay forbidden_open_display
 #define XkbLookupKeySym mock_lookup_key_sym
 #define XSetSelectionOwner mock_set_selection_owner
@@ -126,6 +135,7 @@ static Bool mock_check_if_event(Display *display, XEvent *out,
 #define XPeekEvent mock_peek_event
 #define XCheckIfEvent mock_check_if_event
 #include "../../x11/backend.c"
+#undef eglSwapBuffers
 #undef XOpenDisplay
 #undef XkbLookupKeySym
 #undef XSetSelectionOwner
@@ -154,6 +164,7 @@ static void fixture_init(struct host *h) {
   h->direct_enabled = 1;
   h->direct_ever_enabled = 1;
   h->keyboard_focus_current = 1;
+  mock_swaps = 0;
   mock_symbol = NoSymbol;
   mock_selection_owner = None;
   mock_selection_writes = mock_selection_reads = mock_flushes = 0;
@@ -765,6 +776,126 @@ static void test_pump_focus_delivery_barrier(void) {
   fixture_drop(&h);
 }
 
+/* A continuously refreshed app consumes one event then submits another frame.
+ * Before the readiness gate, a completion backlog grew/renewed indefinitely:
+ * pump fenced Xlib input behind it, so copy/paste shortcut keys never arrived. */
+static void test_forced_frames_do_not_starve_native_input(void) {
+  struct host h;
+  fixture_init(&h);
+  fixture_keyboard(&h);
+  h.configured = h.detectable_repeat = 1;
+  memset(mock_events, 0, sizeof(mock_events));
+  mock_events[0].xkey.type = KeyPress;
+  mock_events[0].xkey.window = h.xwindow;
+  mock_events[0].xkey.keycode = 38;
+  mock_events[1] = mock_events[0];
+  mock_events[1].xkey.type = KeyRelease;
+  mock_events[2].xbutton.type = ButtonPress;
+  mock_events[2].xbutton.window = h.xwindow;
+  mock_events[2].xbutton.button = Button1;
+  mock_event_count = 3;
+  mock_symbol = XKB_KEY_a;
+  assert(pump(&h, 0) == GPUI_OK && h.count == 2 && mock_event_count == 2);
+  assert(submit_frame(&h) == GPUI_OK);
+  int completions = 0, text_events = 0, releases = 0, clicks = 0, busy = 0;
+  double out[EVENT_CAPACITY];
+  uint8_t text[8];
+  for (int i = 0; i < 12; ++i) {
+    assert(next_v2(out, text, sizeof(text)) == 1);
+    completions += out[0] == 5;
+    text_events += out[0] == 13;
+    releases += out[0] == 12;
+    clicks += out[0] == 8;
+    assert(pump(&h, 0) == GPUI_OK);
+    int status = submit_frame(&h);
+    assert(status == GPUI_OK || status == GPUI_BUSY);
+    busy += status == GPUI_BUSY;
+    assert(h.count <= 3);
+  }
+  assert(mock_event_count == 0 && text_events == 1 && releases == 1 && clicks == 1);
+  assert(busy > 0);
+  while (next_v2(out, text, sizeof(text)) == 1) completions += out[0] == 5;
+  assert(h.count == 0 && !h.frame && completions == mock_swaps);
+  fixture_drop(&h);
+}
+
+static void test_forced_shortcut_frames_reach_clipboard_copy(void) {
+  struct host h;
+  fixture_init(&h);
+  fixture_keyboard(&h);
+  h.configured = h.detectable_repeat = 1;
+  h.clipboard = 3001;
+  memset(mock_events, 0, sizeof(mock_events));
+  for (int i = 0; i < 4; ++i) {
+    mock_events[i].xkey.type = i % 2 ? KeyRelease : KeyPress;
+    mock_events[i].xkey.window = h.xwindow;
+    mock_events[i].xkey.keycode = i < 2 ? 38 : 54;
+    mock_events[i].xkey.state = ControlMask;
+  }
+  mock_event_count = 4;
+  mock_symbol = XKB_KEY_a;
+  assert(pump(&h, 0) == GPUI_OK && h.count == 1 && mock_event_count == 3);
+  assert(submit_frame(&h) == GPUI_OK);
+  double out[EVENT_CAPACITY];
+  uint8_t text[8];
+  const uint8_t draft[] = "clipboard test";
+  int select_all = 0;
+  for (int i = 0; i < 12 && !mock_selection_writes; ++i) {
+    assert(next_v2(out, text, sizeof(text)) == 1);
+    assert(out[0] != 13); /* Ctrl shortcuts never commit direct text. */
+    if (out[0] == 11) {
+      assert(((int)out[9] & 2) != 0);
+      if (out[8] == XKB_KEY_a) select_all = 1;
+      if (out[8] == XKB_KEY_c && select_all)
+        assert(gpui_x11_write_clipboard(TEST_HOST, draft, sizeof(draft) - 1) == GPUI_OK);
+    }
+    if (mock_event_count)
+      mock_symbol = mock_events[0].xkey.keycode == 54 ? XKB_KEY_c : XKB_KEY_a;
+    assert(pump(&h, 0) == GPUI_OK);
+    int status = submit_frame(&h);
+    assert(status == GPUI_OK || status == GPUI_BUSY);
+    assert(h.count <= 2);
+  }
+  assert(mock_selection_writes == 1 && mock_selection_owner == h.xwindow);
+  assert(h.clipboard_owned_length == sizeof(draft) - 1 &&
+      !memcmp(h.clipboard_owned, draft, sizeof(draft) - 1));
+  fixture_drop(&h);
+}
+
+static void test_pending_frame_preflight_and_lifetime(void) {
+  struct host h;
+  fixture_init(&h);
+  h.configured = 1;
+  const double empty_frame[] = {0, 0, 640, 480, 1};
+  assert(submit_frame(&h) == GPUI_OK && h.frame);
+  assert(submit_frame(&h) == GPUI_BUSY && mock_swaps == 1 && h.count == 1);
+  /* Context recovery must not release credit while this window's completed
+   * frame notification remains queued. No EGL resources exist in this fixture. */
+  release_renderer(&h, 0);
+  assert(h.frame && submit_frame(&h) == GPUI_BUSY && mock_swaps == 1);
+  /* Busy is returned by the shared production renderer before touching EGL. */
+  assert(gpui_x11_present_v3(GPUI_ORIGIN_FRAME_ABI, TEST_HOST, TEST_WINDOW,
+      empty_frame, 5, NULL, 0) == GPUI_BUSY);
+  double out[EVENT_CAPACITY];
+  uint8_t text[8];
+  assert(next_v2(out, text, sizeof(text)) == 1 && out[0] == 5 && !h.frame);
+  assert(submit_frame(&h) == GPUI_OK && mock_swaps == 2 && h.frame);
+  /* A terminal/recreated window cannot inherit a pending-frame flag. */
+  release_window(&h);
+  assert(!h.frame && h.window == 0);
+  h.window = TEST_WINDOW + 1;
+  h.configured = 1;
+  assert(submit_frame(&h) == GPUI_OK && h.frame);
+  /* Old-window completion still queued by this synthetic fixture cannot clear
+   * the current window's readiness gate; explicit destroy normally drops it. */
+  assert(next_v2(out, text, sizeof(text)) == 1 && out[1] == TEST_WINDOW && h.frame);
+  assert(next_v2(out, text, sizeof(text)) == 1 && out[1] == TEST_WINDOW + 1 && !h.frame);
+  h.direct_enabled = 0;
+  assert(submit_frame(&h) == GPUI_OK && h.frame);
+  assert(gpui_x11_next(TEST_HOST, out) == 1 && out[0] == 5 && !h.frame);
+  fixture_drop(&h);
+}
+
 static void test_clipboard_pump_preserves_input(void) {
   struct host h;
   fixture_init(&h);
@@ -839,6 +970,9 @@ int main(void) {
   test_selection_reacquisition();
   test_xerror_scope_restoration();
   test_pump_focus_delivery_barrier();
+  test_forced_frames_do_not_starve_native_input();
+  test_forced_shortcut_frames_reach_clipboard_copy();
+  test_pending_frame_preflight_and_lifetime();
   test_clipboard_pump_preserves_input();
   test_destroy_notify_invalidates_window();
   puts("GPUI_X11_CONTRACT status=passed display=none");

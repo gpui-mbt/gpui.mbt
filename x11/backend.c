@@ -567,6 +567,7 @@ static void release_window(struct host *h) {
     end_xerror_scope(h);
   }
   h->xwindow = 0; h->colormap = 0; h->window = 0; h->configured = 0;
+  h->frame = 0;
   h->keyboard_focus_current = 0; h->owns_clipboard = 0;
   free(h->frame_pixels); h->frame_pixels = NULL;
   h->frame_width = h->frame_height = h->frame_scale = 0;
@@ -753,6 +754,11 @@ static int stale_direct_record(const struct host *h, int slot) {
   return m->direct_origin && (!h->direct_enabled || !h->keyboard_focus_current);
 }
 static void consume_event(struct host *h) {
+  /* Release renderer readiness only after its own window's completion has
+   * reached the application. Stale old-window records cannot unlock a new
+   * window's pending frame. Recovery keeps this gate until the record drains. */
+  if (h->queue[h->read][0] == 5 && h->queue[h->read][1] == h->window)
+    h->frame = 0;
   memset(&h->direct_queue[h->read], 0, sizeof(h->direct_queue[h->read]));
   h->read = (h->read + 1) % QUEUE_CAPACITY; --h->count;
 }
@@ -814,10 +820,15 @@ int32_t gpui_x11_direct_keyboard_text_active(int32_t token) {
   struct host *h; int s = check(token, &h); return s ? -s : !h->state && h->direct_enabled;
 }
 static int submit_frame(struct host *h) {
+  if (h->frame) return GPUI_BUSY;
   if (h->count == QUEUE_CAPACITY || h->seq == INT_MAX) return GPUI_RESOURCE;
   if (!eglSwapBuffers(h->egl, h->egl_surface))
     return eglGetError() == EGL_CONTEXT_LOST ? GPUI_DEVICE_LOST : GPUI_SURFACE_LOST;
   event(h, 5, 0, 0, 0);
+  /* The shared renderer rejects another present while this completion is
+   * outstanding. Otherwise a redraw-after-every-event client can perpetually
+   * renew a completion backlog and starve native input behind the queue fence. */
+  h->frame = 1;
   if (native_e2e_enabled()) {
     fprintf(stderr, "GPUI_X11_FRAME {\"window\":%lu,\"width\":%d,\"height\":%d}\n", h->xwindow, h->width, h->height);
     fflush(stderr);
