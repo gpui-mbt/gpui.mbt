@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "turtles-mutation-ratchet",
   "scope": "capability/",
-  "turtles_version": "0.3.0",
+  "turtles_version": "0.4.7",
   "target": "moon-default",
   "test_scope": "module",
   "moon_version": "moon 0.1.20261012 (748b63c 2026-10-12)",

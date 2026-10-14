@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the structure and counts of a turtles schema-2 baseline report.
+"""Audit the structure and counts of a turtles schema-3 baseline report.
 
 This validates that an observation is complete and internally consistent. It
 does not approve its survivors or turn a baseline observation into a release
@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 
-EXPECTED_TURTLES_VERSION = "0.3.0"
+EXPECTED_TURTLES_VERSION = "0.4.7"
 EXPECTED_OUTCOMES = {"KILLED", "SURVIVED", "TIMEOUT", "UNVIABLE"}
 EXPECTED_COUNTERS = ("killed", "survived", "timeout", "unviable")
 EXPECTED_OPERATORS = {"comparison", "boolean", "arithmetic", "literal", "condition"}
@@ -40,11 +40,11 @@ def audit_report(
     scope: str = "primitives/",
 ) -> dict[str, Any]:
     _validate_scope(scope)
-    if report.get("schema") != 2:
-        raise ValueError("expected turtles JSON schema 2")
+    if report.get("schema") != 3:
+        raise ValueError("expected turtles JSON schema 3")
     if report.get("turtles_version") != EXPECTED_TURTLES_VERSION:
         raise ValueError(f"expected turtles {EXPECTED_TURTLES_VERSION}")
-    if not isinstance(report.get("module"), str) or not report["module"].strip():
+    if not isinstance(report.get("module_path"), str) or not report["module_path"].strip():
         raise ValueError("report must identify the tested MoonBit module")
     if not isinstance(report.get("moon_version"), str) or not report["moon_version"].strip():
         raise ValueError("report must identify the MoonBit toolchain")
@@ -141,7 +141,7 @@ def audit_report(
     ):
         raise ValueError("summary.score does not match killed / viable mutants")
     if report.get("test_scope") != "module":
-        raise ValueError("pinned turtles 0.3.0 baseline must use Moon's complete module test scope")
+        raise ValueError("pinned turtles 0.4.7 baseline must use Moon's complete module test scope")
 
     source_manifest = hashlib.sha256()
     for path, fingerprint in sorted(files.items()):
@@ -179,7 +179,7 @@ def audit_report(
         "revision": revision,
         "scope": scope,
         "source_manifest_sha256": source_manifest.hexdigest(),
-        "module": report.get("module"),
+        "module": report.get("module_path"),
         "moon_version": report["moon_version"],
         "mutation_counts": counts,
         "viable": viable,
