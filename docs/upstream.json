@@ -50,5 +50,25 @@
       "independent_from_behavior"
     ]
   },
-  "records": []
+  "records": [
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": ["crates/gpui/src/geometry.rs", "crates/gpui/src/app/test_context.rs"],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares license = Apache-2.0; its LICENSE-APACHE resolves to the root Apache License 2.0 text."
+        }
+      ],
+      "destination_paths": ["element/element.mbt", "element/hit_boundary_test.mbt", "docs/conformance-pointer.md"],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Only element pointer hit coverage changes; public Rect::contains remains closed-edge.",
+        "Measured through headless framework dispatch; no native window, physical input or GPU parity claim."
+      ]
+    }
+  ]
 }
