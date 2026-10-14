@@ -49,27 +49,27 @@ pub fn BoardError::message(self : BoardError) -> String {
 
 ///|
 priv struct Task {
-  id : Int
+  id : Int32
   title : String
-  lane : Int
+  lane : Int32
   priority : String
   detail : String
 }
 
 ///|
 priv enum UndoAction {
-  Added(Int, Int?)
-  Moved(Int, Int, Int?)
+  Added(Int32, Int32?)
+  Moved(Int32, Int32, Int32?)
 }
 
 ///|
 priv enum BoardCommand {
-  Select(Int)
-  Move(Int, Int)
+  Select(Int32)
+  Move(Int32, Int32)
   Add(String)
   Query(String)
   Undo
-  Lane(Int)
+  Lane(Int32)
   Cancel
 }
 
@@ -84,21 +84,21 @@ struct BoardModel {
   tasks : Array[Task]
   history : Array[UndoAction]
   scrolls : Array[@element.ScrollState]
-  mut next_id : Int
-  mut selected : Int?
+  mut next_id : Int32
+  mut selected : Int32?
   mut query : String
-  mut active_lane : Int
+  mut active_lane : Int32
   mut width : Double
   mut height : Double
   mut scale : Double
   mut focused : Bool
   mut visible : Bool
   mut pointer : @primitives.Point?
-  mut hover : Int?
+  mut hover : Int32?
   mut drag : @element.DragGesture
-  mut drop_lane : Int?
+  mut drop_lane : Int32?
   mut message : String
-  mut events : Int
+  mut events : Int32
   mut last_sequence : Int64
 }
 
@@ -251,7 +251,7 @@ fn BoardDemo::current_board(self : BoardDemo) -> Result[BoardModel, BoardError] 
 }
 
 ///|
-fn task_index(model : BoardModel, id : Int) -> Int? {
+fn task_index(model : BoardModel, id : Int32) -> Int32? {
   for index, task in model.tasks {
     if task.id == id {
       return Some(index)
@@ -261,7 +261,7 @@ fn task_index(model : BoardModel, id : Int) -> Int? {
 }
 
 ///|
-fn find_task(model : BoardModel, id : Int) -> Task? {
+fn find_task(model : BoardModel, id : Int32) -> Task? {
   match task_index(model, id) {
     Some(index) => Some(model.tasks[index])
     None => None
@@ -276,7 +276,7 @@ fn matches_query(task : Task, query : String) -> Bool {
 }
 
 ///|
-fn lane_tasks(model : BoardModel, lane : Int) -> Array[Task] {
+fn lane_tasks(model : BoardModel, lane : Int32) -> Array[Task] {
   let values : Array[Task] = []
   for task in model.tasks {
     if task.lane == lane && matches_query(task, model.query) {
@@ -331,7 +331,7 @@ fn remember(model : BoardModel, action : UndoAction) -> Unit {
 }
 
 ///|
-fn select_task(model : BoardModel, id : Int) -> Unit {
+fn select_task(model : BoardModel, id : Int32) -> Unit {
   match find_task(model, id) {
     Some(task) =>
       if matches_query(task, model.query) {
@@ -344,7 +344,7 @@ fn select_task(model : BoardModel, id : Int) -> Unit {
 }
 
 ///|
-fn move_task(model : BoardModel, id : Int, lane : Int) -> Unit {
+fn move_task(model : BoardModel, id : Int32, lane : Int32) -> Unit {
   match task_index(model, id) {
     None => model.message = "That task is no longer available"
     Some(index) => {
@@ -943,7 +943,7 @@ fn trim_title(value : String) -> String {
 pub fn BoardDemo::command(
   self : BoardDemo,
   kind : String,
-  id : Int,
+  id : Int32,
   value : String,
 ) -> Result[Unit, BoardError] {
   if self.stopped {

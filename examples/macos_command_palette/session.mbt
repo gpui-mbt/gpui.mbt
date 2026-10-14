@@ -41,9 +41,9 @@ fn mac_palette_unsupported_error(
 struct MacPaletteSession {
   palette : @command_palette.CommandPalette
   tree : Ref[@element.ElementTree]
-  actions : Ref[Int]
+  actions : Ref[Int32]
   last_action : Ref[String]
-  background_keys : Ref[Int]
+  background_keys : Ref[Int32]
   mut width : Double
   mut height : Double
   mut scale : Double
@@ -119,7 +119,7 @@ fn mac_palette_hit(
 fn mac_palette_binding(
   id : String,
   label : String,
-  actions : Ref[Int],
+  actions : Ref[Int32],
   last_action : Ref[String],
 ) -> @capability.GuiBinding[Unit, Unit] {
   let descriptor = @capability.Descriptor::new(
@@ -151,7 +151,7 @@ fn mac_palette_binding(
 
 ///|
 fn mac_palette_commands(
-  actions : Ref[Int],
+  actions : Ref[Int32],
   last_action : Ref[String],
 ) -> Array[@command_palette.PaletteCommand] {
   let values = [
@@ -283,7 +283,7 @@ fn MacPaletteSession::is_open(self : MacPaletteSession) -> Bool {
 }
 
 ///|
-fn MacPaletteSession::epoch(self : MacPaletteSession) -> Int {
+fn MacPaletteSession::epoch(self : MacPaletteSession) -> Int32 {
   self.palette.open_epoch()
 }
 

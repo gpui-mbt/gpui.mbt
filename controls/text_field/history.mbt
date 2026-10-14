@@ -20,15 +20,15 @@ priv enum FieldHistoryGroupKind {
 priv struct FieldHistory {
   undo : Array[FieldHistoryEntry]
   redo : Array[FieldHistoryEntry]
-  payload_bytes : Int
+  payload_bytes : Int32
   open_group : FieldHistoryGroupKind?
 }
 
 ///|
-const MAX_FIELD_HISTORY_ENTRIES : Int = 64
+const MAX_FIELD_HISTORY_ENTRIES : Int32 = 64
 
 ///|
-const MAX_FIELD_HISTORY_PAYLOAD_BYTES : Int = 65536
+const MAX_FIELD_HISTORY_PAYLOAD_BYTES : Int32 = 65536
 
 ///|
 fn FieldHistory::empty() -> FieldHistory {
@@ -72,7 +72,7 @@ fn FieldHistory::redo_entry(self : FieldHistory) -> FieldHistoryEntry? {
 ///|
 fn field_history_entry_payload_bytes(
   entry : FieldHistoryEntry,
-) -> Result[Int, TextFieldError] {
+) -> Result[Int32, TextFieldError] {
   let before_bytes = match entry.before.utf8_length() {
     Ok(value) if value <= MAX_FIELD_UTF8_BYTES => value
     _ => return Err(TextTooLarge)
@@ -92,7 +92,7 @@ fn field_history_entry_payload_bytes(
 ///|
 fn field_history_undo_payload_bytes(
   entries : Array[FieldHistoryEntry],
-) -> Result[Int, TextFieldError] {
+) -> Result[Int32, TextFieldError] {
   let mut total = 0
   for entry in entries {
     let entry_bytes = match field_history_entry_payload_bytes(entry) {

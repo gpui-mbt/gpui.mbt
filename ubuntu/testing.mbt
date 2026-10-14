@@ -5,7 +5,7 @@ pub extend Host with @testing.FrameReadback::{copy_frame, frame_metrics}
 pub impl @testing.FrameReadback for Host with fn frame_metrics(
   self,
   window : @platform.WindowId,
-) -> Result[(Int, Int, Double), @diagnostics.FrameworkError] {
+) -> Result[(Int32, Int32, Double), @diagnostics.FrameworkError] {
   let metrics : FixedArray[Double] = FixedArray::make(3, 0.0)
   match
     outcome(

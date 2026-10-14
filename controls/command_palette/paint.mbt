@@ -5,10 +5,10 @@
 pub fn Picker::paint_items(
   self : Picker,
   base_id : UInt64,
-  clip_id : Int,
+  clip_id : Int32,
   bounds : @primitives.Rect,
   row_height : Double,
-  label : (UInt64, CommandMetadata, @primitives.Point, Int) -> Result[
+  label : (UInt64, CommandMetadata, @primitives.Point, Int32) -> Result[
     @scene.SceneItem,
     PaletteError,
   ],

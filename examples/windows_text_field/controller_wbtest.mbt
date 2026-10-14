@@ -106,7 +106,7 @@ fn windows_field_test_handle(
 fn windows_field_test_press(
   field : @text_field.TextField,
   key : @primitives.Key,
-  modifiers? : @primitives.Modifiers = @primitives.Modifiers::none(),
+  modifiers~ : @primitives.Modifiers = @primitives.Modifiers::none(),
 ) -> @text_field.TextField {
   let (value, _) = windows_field_test_handle(
     field,
@@ -117,7 +117,7 @@ fn windows_field_test_press(
 
 ///|
 fn windows_field_test_shortcut_modifiers(
-  shift? : Bool = false,
+  shift~ : Bool = false,
 ) -> @primitives.Modifiers {
   @primitives.Modifiers::new(shift~, control=true, alt=false, meta=false)
 }

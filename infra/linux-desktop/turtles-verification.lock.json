@@ -7,7 +7,7 @@
   "profile_sha256": "95d03cf9c56140a5c7bdb5c67b5f7b3dfc8864cf91dd074184cc89e49fd88716",
   "pilot_revision": "packaging-39b1275",
   "producer_sha256": "41ca263e8dd0c99ec8fd120c19ed0043c2068feb8ade9928a7311dd209f90122",
-  "proof_lock_sha256": "493e83579177583ef993a098afcb102ee529dc01afd807719ce88c3b138041f2",
+  "proof_lock_sha256": "9c2dc21eee6a6ccae9a9d63a486fdea4eb4bdeb1e31404c42533b5616bbb607c",
   "fixture": "testing/composition_proof",
   "maximum_mutants": 64,
   "maximum_stage_seconds": 840,
@@ -22,7 +22,7 @@
   "repository": "https://github.com/gpui-mbt/turtles.mbt",
   "source_mapping": "Published commit metadata differs; all104treeblobs/modes and adapterbytes equal independently reviewed localfd397e6.",
   "native_environment_provider_sha256": "cd343f989f89896f20646a3e2cc27d4198b41b08a16fb70529d2ff86c68fd3ef",
-  "native_profile_lock_sha256": "81b05b4f473617d03c8b11980b7e884863fdd181f040f96482a1a6f915abf503",
+  "native_profile_lock_sha256": "34f37db7f532e5f010319de851de40f9696876cfe69c1dbf7c700d19b5c8f3e0",
   "portable_environment_policy": "verified-profile-ffi-flags-v1",
   "native_environment_dependency_sha256": "21dcc2b2e7ce74f00623bef63e55dfd43baacae8c67f50f80f8d1ff6b9ae6cbf"
 }

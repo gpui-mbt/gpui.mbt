@@ -9,7 +9,7 @@ loop or the three historical primitives/capability/MCP ratchets.
 
 ## Prepare once, then run locally
 
-Use the already prepared pinned MoonBit/core **0.10.14+7d59c7ec9** profile and
+Use the already prepared pinned MoonBit/core **0.10.15+943464bfa** profile and
 official registry turtles **0.3.0**, producing report **schema 2**. The entrypoint
 does not install a tool or contact the registry during acceptance.
 

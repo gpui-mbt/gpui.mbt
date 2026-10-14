@@ -1,14 +1,14 @@
 ///|
 struct PaletteNativeSnapshot {
   document : String
-  anchor : Int
-  head : Int
+  anchor : Int32
+  head : Int32
   caret : @primitives.Rect
-  epoch : Int
+  epoch : Int32
 }
 
 ///|
-fn palette_test_offsets(document : @text.TextDocument) -> Array[Int] {
+fn palette_test_offsets(document : @text.TextDocument) -> Array[Int32] {
   let offsets = [0]
   let mut current = 0
   for scalar in document.text().iter() {
@@ -1014,7 +1014,7 @@ test "rejected native marks and results restore the transaction before next reco
     fixture.measure,
     fixture.admit,
   ).unwrap()
-  let marked_restored_snapshot : Ref[(String, Int, Int)] = Ref(("", -1, -1))
+  let marked_restored_snapshot : Ref[(String, Int32, Int32)] = Ref(("", -1, -1))
   assert_true(
     palette.install_field_at(palette.open_epoch(), oversized_mark)
     is Err(@palette.QueryTooLarge),

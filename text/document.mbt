@@ -36,12 +36,12 @@ fn validate_utf16_units(units : ArrayView[UInt16]) -> Result[Unit, TextError] {
 }
 
 ///|
-fn is_high_surrogate(value : Int) -> Bool {
+fn is_high_surrogate(value : Int32) -> Bool {
   value >= 0xD800 && value <= 0xDBFF
 }
 
 ///|
-fn is_low_surrogate(value : Int) -> Bool {
+fn is_low_surrogate(value : Int32) -> Bool {
   value >= 0xDC00 && value <= 0xDFFF
 }
 
@@ -51,7 +51,7 @@ fn validate_well_formed_string(text : String) -> Result[Unit, TextError] {
 }
 
 ///|
-fn splits_surrogate_pair(units : ArrayView[UInt16], offset : Int) -> Bool {
+fn splits_surrogate_pair(units : ArrayView[UInt16], offset : Int32) -> Bool {
   if offset <= 0 || offset >= units.length() {
     return false
   }
@@ -109,10 +109,10 @@ fn validate_document_selection(
 
 ///|
 fn checked_resulting_length(
-  old_length : Int,
-  removed_length : Int,
-  inserted_length : Int,
-) -> Result[Int, TextError] {
+  old_length : Int32,
+  removed_length : Int32,
+  inserted_length : Int32,
+) -> Result[Int32, TextError] {
   if old_length < 0 || removed_length < 0 || inserted_length < 0 {
     return Err(LengthOverflow)
   }
@@ -129,7 +129,10 @@ fn checked_resulting_length(
 
 ///|
 /// Add one scalar's UTF-8 width without overflowing an Int byte count.
-fn checked_utf8_length_add(total : Int, width : Int) -> Result[Int, TextError] {
+fn checked_utf8_length_add(
+  total : Int32,
+  width : Int32,
+) -> Result[Int32, TextError] {
   if total < 0 || width < 1 || width > 4 {
     return Err(LengthOverflow)
   }
@@ -141,7 +144,7 @@ fn checked_utf8_length_add(total : Int, width : Int) -> Result[Int, TextError] {
 }
 
 ///|
-fn utf8_scalar_width(scalar : Int) -> Int {
+fn utf8_scalar_width(scalar : Int32) -> Int32 {
   if scalar <= 0x7F {
     1
   } else if scalar <= 0x7FF {
@@ -154,7 +157,7 @@ fn utf8_scalar_width(scalar : Int) -> Int {
 }
 
 ///|
-fn utf16_scalar_width(scalar : Int) -> Int {
+fn utf16_scalar_width(scalar : Int32) -> Int32 {
   if scalar <= 0xFFFF {
     1
   } else {
@@ -163,7 +166,11 @@ fn utf16_scalar_width(scalar : Int) -> Int {
 }
 
 ///|
-fn validated_view_to_string(text : String, start : Int, end : Int) -> String {
+fn validated_view_to_string(
+  text : String,
+  start : Int32,
+  end : Int32,
+) -> String {
   match text.get_view(start~, end~) {
     Some(view) => view.to_owned()
     None => abort("validated text range lost its UTF-16 boundary")
@@ -191,14 +198,16 @@ pub fn TextDocument::text(self : TextDocument) -> String {
 }
 
 ///|
-pub fn TextDocument::utf16_length(self : TextDocument) -> Int {
+pub fn TextDocument::utf16_length(self : TextDocument) -> Int32 {
   self.text.length()
 }
 
 ///|
 /// Return the UTF-8 byte length, or LengthOverflow when it cannot fit in Int.
 /// This scans Unicode scalars in O(n) time and does not allocate a UTF-8 copy.
-pub fn TextDocument::utf8_length(self : TextDocument) -> Result[Int, TextError] {
+pub fn TextDocument::utf8_length(
+  self : TextDocument,
+) -> Result[Int32, TextError] {
   let mut length = 0
   // Documents contain well-formed UTF-16, so safe string iteration yields
   // Unicode scalar values and these widths are defined for every item.
@@ -220,8 +229,8 @@ pub fn TextDocument::utf8_length(self : TextDocument) -> Result[Int, TextError] 
 /// first. Each call scans the document in O(n) time; no offset table is cached.
 pub fn TextDocument::utf8_offset(
   self : TextDocument,
-  utf16_offset : Int,
-) -> Result[Int, TextError] {
+  utf16_offset : Int32,
+) -> Result[Int32, TextError] {
   if utf16_offset < 0 {
     return Err(NegativeOffset)
   }
@@ -231,7 +240,7 @@ pub fn TextDocument::utf8_offset(
 
   let mut current_utf16 = 0
   let mut current_utf8 = 0
-  let mut mapped : Int? = None
+  let mut mapped : Int32? = None
   let mut splits_surrogate = false
   // Scalar iteration consumes exactly the document's UTF-16 units, so this
   // counter never exceeds the already-representable String::length().
@@ -270,15 +279,15 @@ pub fn TextDocument::utf8_offset(
 /// is cached.
 pub fn TextDocument::utf16_offset(
   self : TextDocument,
-  utf8_offset : Int,
-) -> Result[Int, TextError] {
+  utf8_offset : Int32,
+) -> Result[Int32, TextError] {
   if utf8_offset < 0 {
     return Err(NegativeOffset)
   }
 
   let mut current_utf16 = 0
   let mut current_utf8 = 0
-  let mut mapped : Int? = None
+  let mut mapped : Int32? = None
   let mut splits_scalar = false
   // Scalar iteration consumes exactly the document's UTF-16 units, so this
   // counter never exceeds the already-representable String::length().

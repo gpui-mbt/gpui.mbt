@@ -2,21 +2,21 @@
 #borrow(output)
 extern "C" fn native_text_test_raster(
   output : FixedArray[Double],
-  capacity : Int,
-) -> Int = "gpui_windows_text_test_raster_v1"
+  capacity : Int32,
+) -> Int32 = "gpui_windows_text_test_raster_v1"
 
 ///|
-extern "C" fn native_text_test_supported() -> Int = "gpui_windows_text_test_supported_v1"
+extern "C" fn native_text_test_supported() -> Int32 = "gpui_windows_text_test_supported_v1"
 
 ///|
-extern "C" fn native_text_test_color_policy() -> Int = "gpui_windows_text_test_color_policy_v1"
+extern "C" fn native_text_test_color_policy() -> Int32 = "gpui_windows_text_test_color_policy_v1"
 
 ///|
 #borrow(output)
 extern "C" fn native_text_test_density(
   output : FixedArray[Double],
-  capacity : Int,
-) -> Int = "gpui_windows_text_test_density_v2"
+  capacity : Int32,
+) -> Int32 = "gpui_windows_text_test_density_v2"
 
 ///|
 fn windows_text_test_document(value : String) -> @text.TextDocument {

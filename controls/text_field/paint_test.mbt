@@ -5,7 +5,7 @@
 fn field_test_paint(
   field : @text_field.TextField,
   base : UInt64,
-  clip_id : Int,
+  clip_id : Int32,
 ) -> (@scene.ClipChain, Array[@scene.SceneItem]) raise {
   match field.paint_items(base, clip_id) {
     Ok(value) => value
@@ -49,14 +49,14 @@ fn field_test_create_with_measurement(
 ///|
 fn field_test_quad(
   items : Array[@scene.SceneItem],
-  index : Int,
+  index : Int32,
 ) -> (
   UInt64,
   @primitives.Rect,
   @primitives.Color,
   @scene.AffineTransform,
   Double,
-  Int?,
+  Int32?,
 ) raise {
   match items[index] {
     @scene.QuadItem(id~, bounds~, color~, transform~, opacity~, clip_chain_id~) =>
@@ -68,10 +68,10 @@ fn field_test_quad(
 ///|
 fn field_test_color_is(
   color : @primitives.Color,
-  red : Int,
-  green : Int,
-  blue : Int,
-  alpha : Int,
+  red : Int32,
+  green : Int32,
+  blue : Int32,
+  alpha : Int32,
 ) -> Bool {
   color.red() == red &&
   color.green() == green &&

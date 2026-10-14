@@ -2,7 +2,7 @@
 /// Explicitly stopped, UI-owner-thread Ubuntu/Wayland backend. One host and
 /// one live window are supported. Native tokens remain private.
 pub struct Host {
-  priv token : Int
+  priv token : Int32
   priv mut stopped : Bool
 }
 
@@ -15,14 +15,14 @@ pub(all) struct OutputInfo {
   is_ready : Bool
   has_geometry : Bool
   has_current_mode : Bool
-  scale : Int
-  physical_width_mm : Int
-  physical_height_mm : Int
-  subpixel : Int
-  transform : Int
-  mode_width_px : Int
-  mode_height_px : Int
-  refresh_millihz : Int
+  scale : Int32
+  physical_width_mm : Int32
+  physical_height_mm : Int32
+  subpixel : Int32
+  transform : Int32
+  mode_width_px : Int32
+  mode_height_px : Int32
+  refresh_millihz : Int32
   is_entered : Bool
 } derive(Eq)
 
@@ -40,187 +40,187 @@ pub(all) enum HostState {
 pub extend HostState with Eq::{not_equal, equal}
 
 ///|
-extern "C" fn native_start(version : Int) -> Int = "gpui_start"
+extern "C" fn native_start(version : Int32) -> Int32 = "gpui_start"
 
 ///|
-extern "C" fn native_stop(host : Int) -> Int = "gpui_stop"
+extern "C" fn native_stop(host : Int32) -> Int32 = "gpui_stop"
 
 ///|
-extern "C" fn native_state(host : Int) -> Int = "gpui_state"
+extern "C" fn native_state(host : Int32) -> Int32 = "gpui_state"
 
 ///|
-extern "C" fn native_owner_thread_check(host : Int) -> Int = "gpui_owner_thread_check"
+extern "C" fn native_owner_thread_check(host : Int32) -> Int32 = "gpui_owner_thread_check"
 
 ///|
-extern "C" fn native_wake(host : Int) -> Int = "gpui_wake"
+extern "C" fn native_wake(host : Int32) -> Int32 = "gpui_wake"
 
 ///|
-extern "C" fn native_exit(host : Int) -> Int = "gpui_exit"
+extern "C" fn native_exit(host : Int32) -> Int32 = "gpui_exit"
 
 ///|
 #borrow(title)
 extern "C" fn native_create(
-  host : Int,
-  width : Int,
-  height : Int,
+  host : Int32,
+  width : Int32,
+  height : Int32,
   title : Bytes,
-  length : Int,
-) -> Int = "gpui_create"
+  length : Int32,
+) -> Int32 = "gpui_create"
 
 ///|
-extern "C" fn native_close(host : Int, window : Int) -> Int = "gpui_close"
+extern "C" fn native_close(host : Int32, window : Int32) -> Int32 = "gpui_close"
 
 ///|
-extern "C" fn native_destroy(host : Int, window : Int) -> Int = "gpui_destroy"
+extern "C" fn native_destroy(host : Int32, window : Int32) -> Int32 = "gpui_destroy"
 
 ///|
 #borrow(title)
 extern "C" fn native_title(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   title : Bytes,
-  length : Int,
-) -> Int = "gpui_title"
+  length : Int32,
+) -> Int32 = "gpui_title"
 
 ///|
 extern "C" fn native_size(
-  host : Int,
-  window : Int,
-  width : Int,
-  height : Int,
-) -> Int = "gpui_size"
+  host : Int32,
+  window : Int32,
+  width : Int32,
+  height : Int32,
+) -> Int32 = "gpui_size"
 
 ///|
 #borrow(metrics)
 extern "C" fn native_metrics(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   metrics : FixedArray[Double],
-) -> Int = "gpui_metrics"
+) -> Int32 = "gpui_metrics"
 
 ///|
 #borrow(records)
 extern "C" fn native_output_snapshot(
-  abi : Int,
-  host : Int,
+  abi : Int32,
+  host : Int32,
   records : FixedArray[Double],
-  capacity : Int,
-) -> Int = "gpui_output_snapshot_v1"
+  capacity : Int32,
+) -> Int32 = "gpui_output_snapshot_v1"
 
 ///|
 #borrow(metrics)
 extern "C" fn native_frame_metrics(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   metrics : FixedArray[Double],
-) -> Int = "gpui_test_frame_metrics_v1"
+) -> Int32 = "gpui_test_frame_metrics_v1"
 
 ///|
 #borrow(output)
 extern "C" fn native_frame_copy(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   output : FixedArray[Byte],
-  capacity : Int,
-) -> Int = "gpui_test_frame_copy_v1"
+  capacity : Int32,
+) -> Int32 = "gpui_test_frame_copy_v1"
 
 ///|
-extern "C" fn native_dispatch(host : Int, timeout : Int) -> Int = "gpui_dispatch"
+extern "C" fn native_dispatch(host : Int32, timeout : Int32) -> Int32 = "gpui_dispatch"
 
 ///|
 #borrow(event, text)
 extern "C" fn native_next_v2(
-  abi : Int,
-  host : Int,
+  abi : Int32,
+  host : Int32,
   event : FixedArray[Double],
-  event_capacity : Int,
+  event_capacity : Int32,
   text : Bytes,
-  text_capacity : Int,
-) -> Int = "gpui_next_v2"
+  text_capacity : Int32,
+) -> Int32 = "gpui_next_v2"
 
 ///|
 extern "C" fn native_direct_keyboard_text_mode(
-  host : Int,
-  window : Int,
-  enabled : Int,
-) -> Int = "gpui_direct_keyboard_text_mode"
+  host : Int32,
+  window : Int32,
+  enabled : Int32,
+) -> Int32 = "gpui_direct_keyboard_text_mode"
 
 ///|
 extern "C" fn native_direct_keyboard_text_epoch(
-  host : Int,
-  window : Int,
-) -> Int = "gpui_direct_keyboard_text_epoch"
+  host : Int32,
+  window : Int32,
+) -> Int32 = "gpui_direct_keyboard_text_epoch"
 
 ///|
-extern "C" fn native_direct_keyboard_text_active(host : Int) -> Int = "gpui_direct_keyboard_text_active"
+extern "C" fn native_direct_keyboard_text_active(host : Int32) -> Int32 = "gpui_direct_keyboard_text_active"
 
 ///|
 #borrow(data)
 extern "C" fn native_present(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   data : FixedArray[Double],
-  length : Int,
-) -> Int = "gpui_present"
+  length : Int32,
+) -> Int32 = "gpui_present"
 
 ///|
 #borrow(data, text)
 extern "C" fn native_present_mixed(
-  abi : Int,
-  host : Int,
-  window : Int,
+  abi : Int32,
+  host : Int32,
+  window : Int32,
   data : FixedArray[Double],
-  length : Int,
+  length : Int32,
   text : Bytes,
-  text_length : Int,
-) -> Int = "gpui_present_v2"
+  text_length : Int32,
+) -> Int32 = "gpui_present_v2"
 
 ///|
 #borrow(data, text)
 extern "C" fn native_present_origin(
-  abi : Int,
-  host : Int,
-  window : Int,
+  abi : Int32,
+  host : Int32,
+  window : Int32,
   data : FixedArray[Double],
-  length : Int,
+  length : Int32,
   text : Bytes,
-  text_length : Int,
-) -> Int = "gpui_present_v3"
+  text_length : Int32,
+) -> Int32 = "gpui_present_v3"
 
 ///|
-extern "C" fn native_recover(host : Int, window : Int) -> Int = "gpui_recover"
+extern "C" fn native_recover(host : Int32, window : Int32) -> Int32 = "gpui_recover"
 
 ///|
 #borrow(text)
 extern "C" fn native_write_clipboard(
-  host : Int,
+  host : Int32,
   text : Bytes,
-  length : Int,
-) -> Int = "gpui_write_clipboard"
+  length : Int32,
+) -> Int32 = "gpui_write_clipboard"
 
 ///|
-extern "C" fn native_read_clipboard(host : Int) -> Int = "gpui_read_clipboard"
+extern "C" fn native_read_clipboard(host : Int32) -> Int32 = "gpui_read_clipboard"
 
 ///|
-extern "C" fn native_clipboard_length(host : Int) -> Int = "gpui_clipboard_length"
+extern "C" fn native_clipboard_length(host : Int32) -> Int32 = "gpui_clipboard_length"
 
 ///|
 #borrow(bytes)
 extern "C" fn native_clipboard_copy(
-  host : Int,
+  host : Int32,
   bytes : Bytes,
-  capacity : Int,
-) -> Int = "gpui_clipboard_copy"
+  capacity : Int32,
+) -> Int32 = "gpui_clipboard_copy"
 
 ///|
-extern "C" fn native_set_cursor(host : Int, cursor : Int) -> Int = "gpui_set_cursor"
+extern "C" fn native_set_cursor(host : Int32, cursor : Int32) -> Int32 = "gpui_set_cursor"
 
 ///|
-extern "C" fn native_capability(host : Int, capability : Int) -> Int = "gpui_capability"
+extern "C" fn native_capability(host : Int32, capability : Int32) -> Int32 = "gpui_capability"
 
 ///|
 fn backend_error(
-  status : Int,
+  status : Int32,
   operation : String,
 ) -> @diagnostics.FrameworkError {
   let code = match status {
@@ -245,7 +245,7 @@ fn backend_error(
 
 ///|
 fn outcome(
-  status : Int,
+  status : Int32,
   operation : String,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   if status == 0 {
@@ -319,8 +319,8 @@ pub fn Host::stop(self : Host) -> Result[Unit, @diagnostics.FrameworkError] {
 ///|
 pub fn Host::create_window(
   self : Host,
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   title : String,
 ) -> Result[@platform.WindowId, @diagnostics.FrameworkError] {
   let bytes = @utf8.encode(title)
@@ -357,8 +357,8 @@ pub fn Host::set_title(
 pub fn Host::set_size(
   self : Host,
   window : @platform.WindowId,
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   outcome(
     native_size(self.token, window.value().to_int(), width, height),
@@ -395,7 +395,7 @@ pub fn Host::recover_renderer(
 }
 
 ///|
-fn modifiers(bits : Int) -> @primitives.Modifiers {
+fn modifiers(bits : Int32) -> @primitives.Modifiers {
   @primitives.Modifiers::new(
     shift=(bits & 1) != 0,
     control=(bits & 2) != 0,
@@ -405,7 +405,7 @@ fn modifiers(bits : Int) -> @primitives.Modifiers {
 }
 
 ///|
-fn key(symbol : Int, scalar : Int) -> @primitives.Key? {
+fn key(symbol : Int32, scalar : Int32) -> @primitives.Key? {
   match symbol {
     0xff0d => Some(@primitives.Enter)
     0xff1b => Some(@primitives.Escape)
@@ -511,10 +511,10 @@ fn decode_event(data : FixedArray[Double]) -> @platform.EventKind? {
 }
 
 ///|
-const DIRECT_TEXT_ABI : Int = 2
+const DIRECT_TEXT_ABI : Int32 = 2
 
 ///|
-const DIRECT_TEXT_MAX_BYTES : Int = 128
+const DIRECT_TEXT_MAX_BYTES : Int32 = 128
 
 ///|
 fn native_text_decode_error(
@@ -541,13 +541,13 @@ fn exact_i32(value : Double) -> Bool {
 }
 
 ///|
-const OUTPUT_SNAPSHOT_ABI : Int = 1
+const OUTPUT_SNAPSHOT_ABI : Int32 = 1
 
 ///|
-const OUTPUT_CAPACITY : Int = 16
+const OUTPUT_CAPACITY : Int32 = 16
 
 ///|
-const OUTPUT_INFO_FIELDS : Int = 12
+const OUTPUT_INFO_FIELDS : Int32 = 12
 
 ///|
 fn output_snapshot_decode_error(
@@ -565,7 +565,7 @@ fn output_snapshot_decode_error(
 /// fail closed instead of exposing partial metadata.
 fn decode_output_snapshot(
   records : FixedArray[Double],
-  count : Int,
+  count : Int32,
 ) -> Result[Array[OutputInfo], @diagnostics.FrameworkError] {
   if count < 0 ||
     count > OUTPUT_CAPACITY ||
@@ -830,7 +830,7 @@ fn make_event(
 
 ///|
 fn active_direct_text_dispatch_gate(
-  active : Int,
+  active : Int32,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   if active < 0 {
     Err(backend_error(-active, "dispatch"))
@@ -845,16 +845,16 @@ fn active_direct_text_dispatch_gate(
 
 ///|
 fn direct_text_capability_outcome(
-  status : Int,
+  status : Int32,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   outcome(status, "require_capability")
 }
 
 ///|
 fn next_event_from_native(
-  read : (FixedArray[Double], FixedArray[Byte]) -> Int,
-  dispatch : (Int) -> Int,
-  timeout_ms : Int,
+  read : (FixedArray[Double], FixedArray[Byte]) -> Int32,
+  dispatch : (Int32) -> Int32,
+  timeout_ms : Int32,
 ) -> Result[@platform.Event?, @diagnostics.FrameworkError] {
   let buffer = FixedArray::make(10, 0.0)
   let text_buffer = FixedArray::make(DIRECT_TEXT_MAX_BYTES, (0).to_byte())
@@ -891,7 +891,7 @@ fn next_event_from_native(
 ///|
 pub fn Host::next_event(
   self : Host,
-  timeout_ms? : Int = 16,
+  timeout_ms~ : Int32 = 16,
 ) -> Result[@platform.Event?, @diagnostics.FrameworkError] {
   next_event_from_native(
     (buffer, text) => {
@@ -912,7 +912,7 @@ pub fn Host::next_event(
 ///|
 pub fn Host::dispatch(
   self : Host,
-  timeout_ms : Int,
+  timeout_ms : Int32,
 ) -> Result[Array[@platform.Event], @diagnostics.FrameworkError] {
   match
     active_direct_text_dispatch_gate(
@@ -1030,7 +1030,7 @@ fn frame_data(
 
 ///|
 priv struct MixedFrame {
-  abi : Int
+  abi : Int32
   data : FixedArray[Double]
   text : Bytes
 }
@@ -1327,7 +1327,7 @@ pub fn Host::set_cursor(
 fn direct_window_token(
   window : @platform.WindowId,
   operation : String,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let value = window.value()
   if value < 1L || value > 2147483647L {
     Err(backend_error(3, operation))
@@ -1368,7 +1368,7 @@ pub fn Host::set_direct_keyboard_text(
 pub fn Host::direct_keyboard_text_epoch(
   self : Host,
   window : @platform.WindowId,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let native_window = match
     direct_window_token(window, "direct_keyboard_text_epoch") {
     Ok(value) => value
@@ -1397,7 +1397,7 @@ pub fn Host::set_candidate_rect(
 fn logical_dimension(
   value : Double,
   operation : String,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   if value != value || value < 1.0 || value > 16384.0 {
     return Err(backend_error(3, operation))
   }
@@ -1481,7 +1481,7 @@ pub impl @platform.Backend for Host with fn window_metrics(
 ///|
 pub impl @platform.Backend for Host with fn next_event(
   self,
-  timeout_ms? : Int = 16,
+  timeout_ms~ : Int32 = 16,
 ) -> Result[@platform.Event?, @diagnostics.FrameworkError] {
   self.next_event(timeout_ms~)
 }

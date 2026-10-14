@@ -17,8 +17,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: hustcer/setup-moonbit@1522f9aef02a8ca0187dfc00a41f5dd6b16750f7
         with:
-          version: 0.10.14+7d59c7ec9
-          core-version: 0.10.14+7d59c7ec9
+          version: 0.10.15+943464bfa
+          core-version: 0.10.15+943464bfa
       - name: Install Linux text measurement APIs and font fixtures
         run: |
           sudo apt-get update
@@ -39,8 +39,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: hustcer/setup-moonbit@1522f9aef02a8ca0187dfc00a41f5dd6b16750f7
         with:
-          version: 0.10.14+7d59c7ec9
-          core-version: 0.10.14+7d59c7ec9
+          version: 0.10.15+943464bfa
+          core-version: 0.10.15+943464bfa
       - name: Install native system APIs and CI compositor
         run: |
           sudo apt-get update
@@ -78,8 +78,8 @@ jobs:
           persist-credentials: false
       - uses: hustcer/setup-moonbit@1522f9aef02a8ca0187dfc00a41f5dd6b16750f7
         with:
-          version: 0.10.14+7d59c7ec9
-          core-version: 0.10.14+7d59c7ec9
+          version: 0.10.15+943464bfa
+          core-version: 0.10.15+943464bfa
       - name: Install the same native test dependencies as Ubuntu E2E
         run: |
           sudo apt-get update

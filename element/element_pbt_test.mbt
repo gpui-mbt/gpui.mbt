@@ -23,7 +23,7 @@ fn element_pbt_point(x : Double, y : Double) -> @primitives.Point {
 // Stable suite ID: element.dispatch.focus.invariants
 test "property dispatch route is reversible and stop propagation is global" {
   @quickcheck.check(
-    (selector : Int) => {
+    (selector : Int32) => {
       let root = @element.ElementNode::new(
         1,
         None,

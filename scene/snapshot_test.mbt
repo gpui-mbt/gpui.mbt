@@ -12,7 +12,11 @@ fn snapshot_rect(
 }
 
 ///|
-fn snapshot_color(red : Int, green : Int, blue : Int) -> @primitives.Color {
+fn snapshot_color(
+  red : Int32,
+  green : Int32,
+  blue : Int32,
+) -> @primitives.Color {
   match @primitives.Color::rgba(red, green, blue, 255) {
     Ok(value) => value
     Err(_) => abort("valid snapshot color rejected")

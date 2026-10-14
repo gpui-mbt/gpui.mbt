@@ -10,7 +10,7 @@ fn scene_pbt_rect() -> @primitives.Rect {
 // Stable suite ID: scene.clip-stack.invariants
 test "property balanced clip stacks validate and unclosed stacks are rejected" {
   @quickcheck.check(
-    (value : Int) => {
+    (value : Int32) => {
       let depth = (value % 4).abs()
       let ids : Array[UInt64] = [11, 22, 33, 44]
       let bounds = scene_pbt_rect()

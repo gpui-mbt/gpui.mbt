@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "turtles-mutation-ratchet",
   "scope": "primitives/",
-  "turtles_version": "0.3.0",
+  "turtles_version": "0.4.7",
   "target": "moon-default",
   "test_scope": "module",
   "source": {

@@ -177,7 +177,7 @@ startup. A fully empty-cache/bootstrap comparison was not measured.
 
 The local machine was Debian 13 amd64 with PangoFT2 1.56.3; the hosted machine
 was Ubuntu 24.04 with PangoFT2 1.52.1. Both used Fontconfig 2.15.0 and the
-same pinned MoonBit/core 0.10.14+7d59c7ec9. The same source/tests are compared,
+same pinned MoonBit/core 0.10.15+943464bfa. The same source/tests are compared,
 but the distribution/native library stack differs. The original benchmark
 timings include the actrun process but exclude this new entrypoint's doctor;
 each current invocation records the additional preflight and total time.

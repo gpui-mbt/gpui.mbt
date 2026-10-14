@@ -21,7 +21,7 @@ fn test_rect(
 
 ///|
 fn test_caret(
-  offset : Int,
+  offset : Int32,
   cursor : Bool,
   x : Double,
   y : Double,

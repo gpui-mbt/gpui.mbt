@@ -155,7 +155,7 @@ fn error(
 
 ///|
 fn status(
-  value : Int,
+  value : Int32,
   operation : String,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   if value == 0 {

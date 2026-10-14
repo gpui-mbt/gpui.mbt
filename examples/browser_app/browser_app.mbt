@@ -26,40 +26,40 @@ struct DemoModel {
   mut last_target : UInt64?
   mut focused : Bool
   mut visible : Bool
-  mut clicks : Int
-  mut capability_value : Int
+  mut clicks : Int32
+  mut capability_value : Int32
   mut scroll_x : Double
   mut scroll_y : Double
-  mut processed_events : Int
+  mut processed_events : Int32
   mut last_sequence : Int64
   mut last_event : String
   mut last_key : String
   mut last_committed_text : String
-  mut text_commit_count : Int
+  mut text_commit_count : Int32
   pressed_buttons : Array[@primitives.MouseButton]
   pressed_keys : Array[@primitives.Key]
-  mut pointer_downs : Int
-  mut pointer_ups : Int
-  mut key_downs : Int
-  mut key_ups : Int
-  mut key_repeats : Int
-  mut unmatched_pointer_ups : Int
-  mut unmatched_key_ups : Int
+  mut pointer_downs : Int32
+  mut pointer_ups : Int32
+  mut key_downs : Int32
+  mut key_ups : Int32
+  mut key_repeats : Int32
+  mut unmatched_pointer_ups : Int32
+  mut unmatched_key_ups : Int32
   mut last_modifiers : @primitives.Modifiers
 }
 
 ///|
 priv struct CounterState {
-  value : Int
+  value : Int32
 }
 
 ///|
 pub struct BrowserDemo {
   app : @core.App
   model : @core.Entity[DemoModel]
-  counter_command : @capability.TypedCapability[Int, Int]
-  counter_query : @capability.TypedCapability[Unit, Int]
-  counter_gui_binding : @capability.GuiBinding[Int, Int]
+  counter_command : @capability.TypedCapability[Int32, Int32]
+  counter_query : @capability.TypedCapability[Unit, Int32]
+  counter_gui_binding : @capability.GuiBinding[Int32, Int32]
   mcp_adapter : @mcp.Adapter
   ingress : @platform.EventIngress
   mut host_width : Double
@@ -176,8 +176,11 @@ fn counter_descriptor(
 fn make_counter_command(
   app : @core.App,
   state : @core.Entity[CounterState],
-  projection : Ref[Int],
-) -> Result[@capability.TypedCapability[Int, Int], @diagnostics.FrameworkError] {
+  projection : Ref[Int32],
+) -> Result[
+  @capability.TypedCapability[Int32, Int32],
+  @diagnostics.FrameworkError,
+] {
   match
     counter_descriptor(
       "demo.counter.increment",
@@ -252,7 +255,10 @@ fn make_counter_command(
 fn make_counter_query(
   app : @core.App,
   state : @core.Entity[CounterState],
-) -> Result[@capability.TypedCapability[Unit, Int], @diagnostics.FrameworkError] {
+) -> Result[
+  @capability.TypedCapability[Unit, Int32],
+  @diagnostics.FrameworkError,
+] {
   match
     counter_descriptor(
       "demo.counter.read",
@@ -288,7 +294,7 @@ fn install_counter_observer(
   app : @core.App,
   model : @core.Entity[DemoModel],
   source : @core.Entity[CounterState],
-  projection : Ref[Int],
+  projection : Ref[Int32],
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let observed_projection = projection
   app.update(model, context => {
@@ -664,7 +670,7 @@ fn fixed_item(id : UInt64, width : Double, height : Double) -> @layout.FlexItem 
 }
 
 ///|
-fn color(red : Int, green : Int, blue : Int) -> @primitives.Color {
+fn color(red : Int32, green : Int32, blue : Int32) -> @primitives.Color {
   match @primitives.Color::rgba(red, green, blue, 255) {
     Ok(value) => value
     Err(_) => abort("valid browser demo color rejected")
@@ -1269,8 +1275,8 @@ pub fn BrowserDemo::is_stopped(self : BrowserDemo) -> Bool {
 /// The observer notification updates the render model before the next frame.
 pub fn BrowserDemo::invoke_counter_direct(
   self : BrowserDemo,
-  delta : Int,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  delta : Int32,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   match self.counter_command.invoke(@capability.Direct, delta) {
     Err(error) => Err(error)
     Ok(value) =>
@@ -1287,8 +1293,8 @@ pub fn BrowserDemo::invoke_counter_direct(
 /// capability semantics; it does not create a network transport.
 pub fn BrowserDemo::invoke_counter_mcp(
   self : BrowserDemo,
-  delta : Int,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  delta : Int32,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let output = match
     self.mcp_adapter.call_tool(
       "demo_counter_increment",
@@ -1331,7 +1337,7 @@ pub fn BrowserDemo::invoke_counter_mcp(
 /// Query the command's source entity through its Local semantic query.
 pub fn BrowserDemo::query_counter(
   self : BrowserDemo,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   self.counter_query.invoke(@capability.Direct, ())
 }
 
@@ -1340,7 +1346,7 @@ pub fn BrowserDemo::query_counter(
 /// order. The resulting key events enter the same deterministic event queue.
 pub fn BrowserDemo::focus_semantic_node(
   self : BrowserDemo,
-  id : Int,
+  id : Int32,
   backwards : Bool,
 ) -> Result[Unit, BrowserDemoError] {
   if self.stopped {
@@ -1411,7 +1417,7 @@ pub fn BrowserDemo::focus_semantic_node(
 ///|
 pub fn BrowserDemo::activate_semantic_node(
   self : BrowserDemo,
-  id : Int,
+  id : Int32,
 ) -> Result[Unit, BrowserDemoError] {
   match self.focus_semantic_node(id, false) {
     Err(error) => Err(error)

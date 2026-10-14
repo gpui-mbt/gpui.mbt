@@ -230,7 +230,7 @@ fn windows_button_accessibility_owner() -> Result[
 fn windows_button_accessibility_find_source(
   entries : Array[WindowsButtonAccessibilityEntry],
   node_id : @accessibility.NodeId,
-) -> Int {
+) -> Int32 {
   let mut index = 0
   while index < entries.length() {
     if entries[index].node_id == node_id {
@@ -245,7 +245,7 @@ fn windows_button_accessibility_find_source(
 fn windows_button_accessibility_find_export(
   entries : Array[WindowsButtonAccessibilityEntry],
   export_id : WindowsButtonAccessibilityId,
-) -> Int {
+) -> Int32 {
   let mut index = 0
   while index < entries.length() {
     if entries[index].export_id == export_id {

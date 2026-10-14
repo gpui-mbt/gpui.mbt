@@ -3,8 +3,8 @@
 /// Pixels and coordinates use a top-left origin and logical content is scaled
 /// into the physical dimensions reported here.
 pub struct FrameCapture {
-  priv width : Int
-  priv height : Int
+  priv width : Int32
+  priv height : Int32
   priv scale : Double
   priv rgba8_top_left : Bytes
 }
@@ -13,7 +13,7 @@ pub struct FrameCapture {
 /// Native hosts implement this seam only for opt-in E2E image evidence.
 pub(open) trait FrameReadback {
   fn frame_metrics(Self, @platform.WindowId) -> Result[
-    (Int, Int, Double),
+    (Int32, Int32, Double),
     @diagnostics.FrameworkError,
   ]
   fn copy_frame(Self, @platform.WindowId, FixedArray[Byte]) -> Result[
@@ -37,10 +37,10 @@ fn error(
 
 ///|
 fn checked_byte_length(
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   scale : Double,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   if width <= 0 ||
     height <= 0 ||
     width > 16384 ||
@@ -86,12 +86,12 @@ pub fn[H : FrameReadback] capture_frame(
 }
 
 ///|
-pub fn FrameCapture::width(self : FrameCapture) -> Int {
+pub fn FrameCapture::width(self : FrameCapture) -> Int32 {
   self.width
 }
 
 ///|
-pub fn FrameCapture::height(self : FrameCapture) -> Int {
+pub fn FrameCapture::height(self : FrameCapture) -> Int32 {
   self.height
 }
 
@@ -108,9 +108,9 @@ pub fn FrameCapture::rgba8_top_left(self : FrameCapture) -> Bytes {
 ///|
 pub fn FrameCapture::pixel_rgba8(
   self : FrameCapture,
-  x : Int,
-  y : Int,
-) -> Result[(Int, Int, Int, Int), @diagnostics.FrameworkError] {
+  x : Int32,
+  y : Int32,
+) -> Result[(Int32, Int32, Int32, Int32), @diagnostics.FrameworkError] {
   if x < 0 || x >= self.width || y < 0 || y >= self.height {
     return Err(error(@diagnostics.InvalidInput, "pixel_rgba8"))
   }

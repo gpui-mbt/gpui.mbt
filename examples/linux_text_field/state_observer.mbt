@@ -6,12 +6,12 @@ fn field_state_enabled(value : String?) -> Bool {
 
 ///|
 fn field_state_json(
-  presentation : Int,
+  presentation : Int32,
   text : String,
-  anchor : Int,
-  head : Int,
+  anchor : Int32,
+  head : Int32,
   focused : Bool,
-  revision : Int,
+  revision : Int32,
 ) -> String {
   let escaped = @json.to_json(text).stringify()
   "{\"version\":1,\"presentation\":\{presentation},\"text\":\{escaped},\"selection\":{\"anchor\":\{anchor},\"head\":\{head}},\"focused\":\{focused},\"revision\":\{revision}}"
@@ -19,7 +19,7 @@ fn field_state_json(
 
 ///|
 fn field_state_line(
-  presentation : Int,
+  presentation : Int32,
   field : @text_field.TextField,
 ) -> String {
   let selection = field.selection()

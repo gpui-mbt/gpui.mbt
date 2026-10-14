@@ -1,5 +1,5 @@
 ///|
-fn repeated_text(character : Char, count : Int) -> String {
+fn repeated_text(character : Char, count : Int32) -> String {
   let builder = StringBuilder()
   for _ in 0..<count {
     builder.write_char(character)
@@ -8,7 +8,7 @@ fn repeated_text(character : Char, count : Int) -> String {
 }
 
 ///|
-fn scalar_count(text : String) -> Int {
+fn scalar_count(text : String) -> Int32 {
   let mut count = 0
   for _ in text {
     count += 1

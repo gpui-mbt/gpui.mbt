@@ -203,12 +203,12 @@ test "IME observer reads exact committed preview marked caret and history withou
   match parsed {
     Object(value) => {
       assert_true(
-        value.get("committed") == Some(original.document().text().to_json()),
+        value.get("committed") == Some(Json(original.document().text())),
       )
-      assert_true(value.get("preview") == Some("にほん".to_json()))
-      assert_true(value.get("commits") == Some((0).to_json()))
+      assert_true(value.get("preview") == Some("にほん"))
+      assert_true(value.get("commits") == Some(0))
       assert_true(value.get("marked") == Some({ "start": 0, "end": 3 }))
-      assert_true(value.get("epoch") == Some((8).to_json()))
+      assert_true(value.get("epoch") == Some(8))
     }
     _ => fail("IME observer schema")
   }

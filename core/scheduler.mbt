@@ -213,8 +213,8 @@ pub fn App::now_ms(self : App) -> UInt64 {
 /// Work is FIFO. Due timers are promoted by deadline, then registration order.
 pub fn App::run_ready(
   self : App,
-  budget : Int,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  budget : Int32,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let lifecycle = self.inner.val.lifecycle
   if !(lifecycle is Running) && !(lifecycle is Stopping) {
     Err(
@@ -276,7 +276,7 @@ pub fn App::run_ready(
 
 ///|
 /// Return the number of active ready and timed callbacks.
-pub fn App::pending_work(self : App) -> Int {
+pub fn App::pending_work(self : App) -> Int32 {
   let mut count = 0
   for item in self.inner.val.work_queue {
     match item {
@@ -318,8 +318,8 @@ fn App::promote_due_tasks(self : App) -> Unit {
 }
 
 ///|
-fn App::find_earliest_due_task(self : App) -> Int? {
-  let mut earliest : Int? = None
+fn App::find_earliest_due_task(self : App) -> Int32? {
+  let mut earliest : Int32? = None
   for index in 0..<self.inner.val.timers.length() {
     let candidate = self.inner.val.timers[index]
     if candidate.task.cell.val.status is Queued &&

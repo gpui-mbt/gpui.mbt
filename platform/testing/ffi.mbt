@@ -2,12 +2,12 @@
 #borrow(path, pixels)
 extern "C" fn native_write_ppm(
   path : Bytes,
-  path_length : Int,
+  path_length : Int32,
   pixels : Bytes,
-  pixel_length : Int,
-  width : Int,
-  height : Int,
-) -> Int = "gpui_test_write_ppm_v1"
+  pixel_length : Int32,
+  width : Int32,
+  height : Int32,
+) -> Int32 = "gpui_test_write_ppm_v1"
 
 ///|
 /// Write an RGB P6 PPM evidence file without depending on an application-side

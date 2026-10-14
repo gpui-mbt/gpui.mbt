@@ -4,10 +4,10 @@
 pub(all) struct TextSessionTarget {
   window : @platform.WindowId
   sequence : Int64
-  epoch : Int
+  epoch : Int32
   seat : Int64
-  proxy_generation : Int
-  serial : Int
+  proxy_generation : Int32
+  serial : Int32
 }
 
 ///|
@@ -15,7 +15,7 @@ pub(all) struct TextSessionTarget {
 /// Style is the text-input-v1 enum value, in the inclusive range 0..7.
 pub(all) struct TextSessionStyle {
   range : @text.TextRange
-  style : Int
+  style : Int32
 }
 
 ///|
@@ -23,16 +23,16 @@ pub(all) struct TextSessionStyle {
 /// Interpretation and boundary checks against that document belong to the
 /// editor applying the atomic commit.
 pub(all) struct TextSessionDeletion {
-  index_bytes : Int
-  length_bytes : Int
+  index_bytes : Int32
+  length_bytes : Int32
 }
 
 ///|
 /// Signed postinsert UTF-8 cursor/anchor indices from text-input-v1. These are
 /// preserved exactly rather than interpreted against the inserted string.
 pub(all) struct TextSessionPosition {
-  cursor_index_bytes : Int
-  anchor_index_bytes : Int
+  cursor_index_bytes : Int32
+  anchor_index_bytes : Int32
 }
 
 ///|
@@ -43,7 +43,7 @@ pub(all) enum TextSessionEvent {
   Preedit(
     text~ : String,
     fallback~ : String,
-    cursor_utf16~ : Int?,
+    cursor_utf16~ : Int32?,
     styles~ : Array[TextSessionStyle]
   )
   Commit(
@@ -54,12 +54,12 @@ pub(all) enum TextSessionEvent {
   Entered
   Left
   ForwardedPressed(
-    keysym~ : Int,
+    keysym~ : Int32,
     key~ : @primitives.Key?,
     modifiers~ : @primitives.Modifiers
   )
   ForwardedReleased(
-    keysym~ : Int,
+    keysym~ : Int32,
     key~ : @primitives.Key?,
     modifiers~ : @primitives.Modifiers
   )
@@ -74,90 +74,90 @@ pub(all) enum EditorEvent {
 }
 
 ///|
-const EDITOR_ABI : Int = 3
+const EDITOR_ABI : Int32 = 3
 
 ///|
-const IME_MAX_BYTES : Int = 4096
+const IME_MAX_BYTES : Int32 = 4096
 
 ///|
-const IME_MAX_STYLES : Int = 64
+const IME_MAX_STYLES : Int32 = 64
 
 ///|
-const EDITOR_EVENT_FIELDS : Int = 217
+const EDITOR_EVENT_FIELDS : Int32 = 217
 
 ///|
-const EDITOR_MAX_PAYLOAD : Int = 8192
+const EDITOR_MAX_PAYLOAD : Int32 = 8192
 
 ///|
 #borrow(text)
 extern "C" fn native_text_session_begin(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   text : Bytes,
-  length : Int,
-  cursor : Int,
-  anchor : Int,
-  x : Int,
-  y : Int,
-  width : Int,
-  height : Int,
-) -> Int = "gpui_text_session_begin"
+  length : Int32,
+  cursor : Int32,
+  anchor : Int32,
+  x : Int32,
+  y : Int32,
+  width : Int32,
+  height : Int32,
+) -> Int32 = "gpui_text_session_begin"
 
 ///|
 #borrow(text)
 extern "C" fn native_text_session_update(
-  host : Int,
-  window : Int,
-  epoch : Int,
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
   text : Bytes,
-  length : Int,
-  cursor : Int,
-  anchor : Int,
-  x : Int,
-  y : Int,
-  width : Int,
-  height : Int,
-  external_edit : Int,
-) -> Int = "gpui_text_session_update"
+  length : Int32,
+  cursor : Int32,
+  anchor : Int32,
+  x : Int32,
+  y : Int32,
+  width : Int32,
+  height : Int32,
+  external_edit : Int32,
+) -> Int32 = "gpui_text_session_update"
 
 ///|
 extern "C" fn native_text_session_cancel(
-  host : Int,
-  window : Int,
-  epoch : Int,
-) -> Int = "gpui_text_session_cancel"
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+) -> Int32 = "gpui_text_session_cancel"
 
 ///|
 extern "C" fn native_text_session_end(
-  host : Int,
-  window : Int,
-  epoch : Int,
-) -> Int = "gpui_text_session_end"
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+) -> Int32 = "gpui_text_session_end"
 
 ///|
 extern "C" fn native_text_session_panel(
-  host : Int,
-  window : Int,
-  epoch : Int,
-  visible : Int,
-) -> Int = "gpui_text_session_panel"
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+  visible : Int32,
+) -> Int32 = "gpui_text_session_panel"
 
 ///|
 #borrow(event, text)
 extern "C" fn native_next_editor(
-  abi : Int,
-  host : Int,
+  abi : Int32,
+  host : Int32,
   event : FixedArray[Double],
-  event_capacity : Int,
+  event_capacity : Int32,
   text : Bytes,
-  text_capacity : Int,
-) -> Int = "gpui_next_editor"
+  text_capacity : Int32,
+) -> Int32 = "gpui_next_editor"
 
 ///|
 fn text_session_epoch_outcome(
-  epoch : Int,
+  epoch : Int32,
   operation : String,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   if epoch > 0 {
     Ok(epoch)
   } else if epoch < 0 {
@@ -172,7 +172,7 @@ fn text_session_epoch_outcome(
 fn text_session_rect(
   rect : @primitives.Rect,
   operation : String,
-) -> Result[(Int, Int, Int, Int), @diagnostics.FrameworkError] {
+) -> Result[(Int32, Int32, Int32, Int32), @diagnostics.FrameworkError] {
   let x = rect.left()
   let y = rect.top()
   let width = rect.size().width()
@@ -193,7 +193,7 @@ fn text_session_rect(
 fn text_session_surrounding(
   document : @text.TextDocument,
   operation : String,
-) -> Result[(Bytes, Int, Int), @diagnostics.FrameworkError] {
+) -> Result[(Bytes, Int32, Int32), @diagnostics.FrameworkError] {
   let length = match document.utf8_length() {
     Ok(value) => value
     Err(_) => return Err(backend_error(3, operation))
@@ -230,7 +230,7 @@ pub fn Host::begin_text_session(
   window : @platform.WindowId,
   document : @text.TextDocument,
   rect : @primitives.Rect,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let operation = "begin_text_session"
   let native_window = match direct_window_token(window, operation) {
     Ok(value) => value
@@ -270,11 +270,11 @@ pub fn Host::begin_text_session(
 pub fn Host::update_text_session(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
+  epoch : Int32,
   document : @text.TextDocument,
   rect : @primitives.Rect,
-  external_edit? : Bool = true,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  external_edit~ : Bool = true,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let operation = "update_text_session"
   if epoch <= 0 {
     return Err(backend_error(3, operation))
@@ -321,8 +321,8 @@ pub fn Host::update_text_session(
 pub fn Host::cancel_text_session(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  epoch : Int32,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let operation = "cancel_text_session"
   if epoch <= 0 {
     return Err(backend_error(3, operation))
@@ -343,7 +343,7 @@ pub fn Host::cancel_text_session(
 pub fn Host::set_text_session_panel(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
+  epoch : Int32,
   visible : Bool,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let operation = "set_text_session_panel"
@@ -373,7 +373,7 @@ pub fn Host::set_text_session_panel(
 pub fn Host::end_text_session(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
+  epoch : Int32,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let operation = "end_text_session"
   if epoch <= 0 {
@@ -397,8 +397,8 @@ fn editor_decode_error(
 ///|
 fn editor_zero_fields(
   data : FixedArray[Double],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Bool {
   for index = start; index < end; index = index + 1 {
     if data[index] != 0.0 {
@@ -416,8 +416,8 @@ fn editor_flag(value : Double) -> Bool {
 ///|
 fn editor_decode_string(
   bytes : Bytes,
-  start : Int,
-  length : Int,
+  start : Int32,
+  length : Int32,
   operation : String,
 ) -> Result[String, @diagnostics.FrameworkError] {
   let exact = Bytes::makei(length, index => bytes[start + index])
@@ -675,9 +675,9 @@ fn decode_editor_event(
 
 ///|
 fn next_editor_event_from_native(
-  read : (FixedArray[Double], FixedArray[Byte]) -> Int,
-  dispatch : (Int) -> Int,
-  timeout_ms : Int,
+  read : (FixedArray[Double], FixedArray[Byte]) -> Int32,
+  dispatch : (Int32) -> Int32,
+  timeout_ms : Int32,
 ) -> Result[EditorEvent?, @diagnostics.FrameworkError] {
   let buffer = FixedArray::make(EDITOR_EVENT_FIELDS, 0.0)
   let payload_buffer = FixedArray::make(EDITOR_MAX_PAYLOAD, (0).to_byte())
@@ -715,7 +715,7 @@ fn next_editor_event_from_native(
 /// budget is spent per call, including when an unmapped ordinary key is ignored.
 pub fn Host::next_editor_event(
   self : Host,
-  timeout_ms? : Int = 16,
+  timeout_ms~ : Int32 = 16,
 ) -> Result[EditorEvent?, @diagnostics.FrameworkError] {
   next_editor_event_from_native(
     (buffer, payload) => {

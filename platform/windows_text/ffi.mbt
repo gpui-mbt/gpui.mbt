@@ -1,39 +1,39 @@
 ///|
 #borrow(text, family, output)
 extern "C" fn native_text_measure(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   family : Bytes,
-  family_length : Int,
+  family_length : Int32,
   font_size_px : Double,
   output : FixedArray[Double],
-  output_capacity : Int,
-) -> Int = "gpui_windows_text_measure_v1"
+  output_capacity : Int32,
+) -> Int32 = "gpui_windows_text_measure_v1"
 
 ///|
 #borrow(text, family, output)
 extern "C" fn native_text_hit_test(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   family : Bytes,
-  family_length : Int,
+  family_length : Int32,
   font_size_px : Double,
   x_px : Double,
   y_px : Double,
   output : FixedArray[Double],
-  output_capacity : Int,
-) -> Int = "gpui_windows_text_hit_test_v1"
+  output_capacity : Int32,
+) -> Int32 = "gpui_windows_text_hit_test_v1"
 
 ///|
 #borrow(text, family)
 extern "C" fn native_text_admit_scene_run(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   family : Bytes,
-  family_length : Int,
+  family_length : Int32,
   pixels_per_dip : Double,
   font_size_px : Double,
   origin_x : Double,
@@ -42,7 +42,7 @@ extern "C" fn native_text_admit_scene_run(
   clip_y : Double,
   clip_width : Double,
   clip_height : Double,
-) -> Int = "gpui_windows_text_admit_scene_run_v2"
+) -> Int32 = "gpui_windows_text_admit_scene_run_v2"
 
 ///|
 /// Measure one bounded, single-line DirectWrite layout and copy all scalar

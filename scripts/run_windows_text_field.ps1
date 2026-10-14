@@ -43,8 +43,8 @@ function Invoke-CheckedCommand {
 
 Invoke-CheckedCommand -Program "git" -Arguments @("rev-parse", "HEAD") -LogName "revision.txt"
 Invoke-CheckedCommand -Program "moon" -Arguments @("version", "--all") -LogName "moon-version.txt"
-if (-not (Select-String -Path (Join-Path $evidence "moon-version.txt") -Pattern "moonc v0\.10\.14\+7d59c7ec9" -Quiet)) {
-  throw "Use the repository-pinned MoonBit compiler 0.10.14+7d59c7ec9 from PATH; see docs/windows-native.md."
+if (-not (Select-String -Path (Join-Path $evidence "moon-version.txt") -Pattern "moonc v0\.10\.15\+943464bfa" -Quiet)) {
+  throw "Use the repository-pinned MoonBit compiler 0.10.15+943464bfa from PATH; see docs/windows-native.md."
 }
 if ($IsWindows -and $Mode -ne "Portable") {
   $compiler = Get-Command "cl.exe" -ErrorAction Stop

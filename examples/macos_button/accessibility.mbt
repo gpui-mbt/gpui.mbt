@@ -15,7 +15,7 @@ struct MacButtonAXNode {
 struct MacButtonAXBinding {
   node : MacButtonAXNode
   transport_token : Int64
-  activations : Int
+  activations : Int32
 }
 
 ///|
@@ -68,9 +68,9 @@ fn mac_button_ax_requires_new_binding(
 ///|
 fn mac_button_ax_matches(
   previous : MacButtonAXNode,
-  previous_activations : Int,
+  previous_activations : Int32,
   current : MacButtonAXNode,
-  current_activations : Int,
+  current_activations : Int32,
 ) -> Bool {
   previous.node_id == current.node_id &&
   previous.role == current.role &&
@@ -85,7 +85,7 @@ fn mac_button_ax_matches(
 ///|
 fn mac_button_ax_snapshot(
   node : MacButtonAXNode,
-  activations : Int,
+  activations : Int32,
 ) -> @macos.ButtonAccessibilitySnapshot {
   @macos.ButtonAccessibilitySnapshot::new(
     node.name,

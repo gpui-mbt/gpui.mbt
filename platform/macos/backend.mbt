@@ -46,7 +46,7 @@ pub impl @platform.Backend for Host with fn window_metrics(
 ///|
 pub impl @platform.Backend for Host with fn next_event(
   self,
-  timeout_ms? : Int = 16,
+  timeout_ms~ : Int32 = 16,
 ) -> Result[@platform.Event?, @diagnostics.FrameworkError] {
   self.next_event(timeout_ms~)
 }

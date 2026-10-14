@@ -61,7 +61,7 @@ struct WindowsButtonSmallReadback {}
 pub impl @testing.FrameReadback for WindowsButtonSmallReadback with fn frame_metrics(
   _self,
   _window : @platform.WindowId,
-) -> Result[(Int, Int, Double), @diagnostics.FrameworkError] {
+) -> Result[(Int32, Int32, Double), @diagnostics.FrameworkError] {
   Ok((4, 3, 1.0))
 }
 

@@ -2,8 +2,8 @@
 fn field_test_preedit(
   field : @text_field.TextField,
   text : String,
-  anchor : Int,
-  head : Int,
+  anchor : Int32,
+  head : Int32,
 ) -> @text_field.TextField {
   field
   .update_composition(

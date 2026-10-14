@@ -21,8 +21,8 @@ fn[T] assert_stale(
 
 ///|
 fn lifecycle_capability(
-  executions : Ref[Int],
-) -> @capability.TypedCapability[Int, Int] raise {
+  executions : Ref[Int32],
+) -> @capability.TypedCapability[Int32, Int32] raise {
   @capability.TypedCapability::new(
     external_int_descriptor("owner.increment", @capability.Command),
     value => value.as_int(),

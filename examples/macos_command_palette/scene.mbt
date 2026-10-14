@@ -1,5 +1,9 @@
 ///|
-fn mac_palette_color(red : Int, green : Int, blue : Int) -> @primitives.Color {
+fn mac_palette_color(
+  red : Int32,
+  green : Int32,
+  blue : Int32,
+) -> @primitives.Color {
   @primitives.Color::rgba(red, green, blue, 255).unwrap()
 }
 
@@ -11,7 +15,7 @@ fn mac_palette_label(
   y : Double,
   size : Double,
   color : @primitives.Color,
-  clip : Int?,
+  clip : Int32?,
 ) -> Result[@scene.SceneItem, @diagnostics.FrameworkError] {
   let document = match @text.TextDocument::new(label) {
     Ok(value) => value

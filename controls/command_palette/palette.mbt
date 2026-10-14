@@ -18,7 +18,7 @@ pub(all) enum PaletteEffect {
   None
   FieldAction(@text_field.TextFieldAction)
   CompositionCancelled
-  Closed(epoch~ : Int, command_id~ : String?)
+  Closed(epoch~ : Int32, command_id~ : String?)
 }
 
 ///|
@@ -29,7 +29,7 @@ pub struct PaletteInput {
 
 ///|
 priv struct Terminal {
-  epoch : Int
+  epoch : Int32
   command : String?
   previous : @element.FocusOwner?
   modal : @element.FocusOwner
@@ -45,7 +45,7 @@ pub struct CommandPalette {
   priv mut field : @text_field.TextField
   priv mut picker : Picker
   priv mut opened : Bool
-  priv mut epoch : Int
+  priv mut epoch : Int32
   priv mut previous : @element.FocusOwner?
   priv mut modal : @element.FocusOwner?
   priv mut terminal : Terminal?
@@ -99,7 +99,7 @@ pub fn CommandPalette::is_open(self : CommandPalette) -> Bool {
 }
 
 ///|
-pub fn CommandPalette::open_epoch(self : CommandPalette) -> Int {
+pub fn CommandPalette::open_epoch(self : CommandPalette) -> Int32 {
   self.epoch
 }
 
@@ -205,7 +205,7 @@ fn CommandPalette::close(
 /// preserved, and a removed/rebuilt prior owner is never restored by bare ID.
 pub fn CommandPalette::finish_close(
   self : CommandPalette,
-  epoch : Int,
+  epoch : Int32,
   tree : Ref[@element.ElementTree],
 ) -> Result[Unit, PaletteError] {
   let terminal = match self.terminal {
@@ -360,7 +360,7 @@ pub fn CommandPalette::handle_input(
 /// A prior-open candidate is rejected even when its numeric field ID matches.
 pub fn CommandPalette::install_field_at(
   self : CommandPalette,
-  epoch : Int,
+  epoch : Int32,
   candidate : @text_field.TextField,
 ) -> Result[Unit, PaletteError] {
   if !self.opened || epoch != self.epoch {
@@ -376,7 +376,7 @@ pub fn CommandPalette::install_field_at(
 /// deliver the actual release instead; a stale epoch cannot retire a new guard.
 pub fn CommandPalette::retire_key_guard(
   self : CommandPalette,
-  epoch : Int,
+  epoch : Int32,
 ) -> Unit {
   if !self.opened && self.epoch == epoch && self.terminal is None {
     self.closing_key = None

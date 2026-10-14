@@ -22,7 +22,7 @@ pub extend TextLayoutError with Eq::{not_equal, equal}
 /// A scalar boundary may be inside a grapheme and then `is_cursor_position`
 /// is false. Bidi text may give strong/weak rectangles at different x values.
 pub struct CaretGeometry {
-  priv utf16_offset : Int
+  priv utf16_offset : Int32
   priv is_cursor_position : Bool
   priv strong : @primitives.Rect
   priv weak : @primitives.Rect
@@ -30,7 +30,7 @@ pub struct CaretGeometry {
 
 ///|
 pub fn CaretGeometry::new(
-  utf16_offset : Int,
+  utf16_offset : Int32,
   is_cursor_position : Bool,
   strong : @primitives.Rect,
   weak : @primitives.Rect,
@@ -43,7 +43,7 @@ pub fn CaretGeometry::new(
 }
 
 ///|
-pub fn CaretGeometry::utf16_offset(self : CaretGeometry) -> Int {
+pub fn CaretGeometry::utf16_offset(self : CaretGeometry) -> Int32 {
   self.utf16_offset
 }
 
@@ -71,8 +71,8 @@ pub struct TextMeasurement {
   priv logical_rect : @primitives.Rect
   priv ink_rect : @primitives.Rect
   priv first_line_baseline : Double
-  priv line_count : Int
-  priv unknown_glyph_count : Int
+  priv line_count : Int32
+  priv unknown_glyph_count : Int32
   priv carets : Array[CaretGeometry]
 }
 
@@ -82,7 +82,7 @@ fn finite_metric(value : Double) -> Bool {
 }
 
 ///|
-fn scalar_utf16_width(scalar : Char) -> Int {
+fn scalar_utf16_width(scalar : Char) -> Int32 {
   if scalar.to_int() > 0xFFFF {
     2
   } else {
@@ -91,7 +91,7 @@ fn scalar_utf16_width(scalar : Char) -> Int {
 }
 
 ///|
-fn expected_scalar_boundaries(document : @text.TextDocument) -> Array[Int] {
+fn expected_scalar_boundaries(document : @text.TextDocument) -> Array[Int32] {
   let boundaries = [0]
   let mut offset = 0
   for scalar in document.text().iter() {
@@ -102,7 +102,7 @@ fn expected_scalar_boundaries(document : @text.TextDocument) -> Array[Int] {
 }
 
 ///|
-fn boundary_index(boundaries : Array[Int], target : Int) -> Int? {
+fn boundary_index(boundaries : Array[Int32], target : Int32) -> Int32? {
   if target < 0 {
     return None
   }
@@ -132,8 +132,8 @@ pub fn TextMeasurement::new(
   logical_rect : @primitives.Rect,
   ink_rect : @primitives.Rect,
   first_line_baseline : Double,
-  line_count : Int,
-  unknown_glyph_count : Int,
+  line_count : Int32,
+  unknown_glyph_count : Int32,
   carets : Array[CaretGeometry],
 ) -> Result[TextMeasurement, TextLayoutError] {
   if !finite_metric(first_line_baseline) {
@@ -204,12 +204,12 @@ pub fn TextMeasurement::first_line_baseline(self : TextMeasurement) -> Double {
 }
 
 ///|
-pub fn TextMeasurement::line_count(self : TextMeasurement) -> Int {
+pub fn TextMeasurement::line_count(self : TextMeasurement) -> Int32 {
   self.line_count
 }
 
 ///|
-pub fn TextMeasurement::unknown_glyph_count(self : TextMeasurement) -> Int {
+pub fn TextMeasurement::unknown_glyph_count(self : TextMeasurement) -> Int32 {
   self.unknown_glyph_count
 }
 
@@ -224,7 +224,7 @@ pub fn TextMeasurement::carets(self : TextMeasurement) -> Array[CaretGeometry] {
 /// out-of-range UTF-16 offsets are both reported as InvalidHitOffset.
 pub fn TextMeasurement::caret_at(
   self : TextMeasurement,
-  utf16_offset : Int,
+  utf16_offset : Int32,
 ) -> Result[CaretGeometry, TextLayoutError] {
   if utf16_offset < 0 {
     return Err(InvalidHitOffset)
@@ -252,9 +252,9 @@ pub fn TextMeasurement::caret_at(
 /// code units. Outside hits retain the backend's nearest valid position.
 pub struct TextHit {
   priv document : @text.TextDocument
-  priv cluster_start_utf16 : Int
-  priv trailing_scalars : Int
-  priv resolved_utf16_offset : Int
+  priv cluster_start_utf16 : Int32
+  priv trailing_scalars : Int32
+  priv resolved_utf16_offset : Int32
   priv inside : Bool
   priv resolved_is_cursor_position : Bool
 }
@@ -264,9 +264,9 @@ pub struct TextHit {
 /// boundary table is generated in one scalar pass; index lookup is logarithmic.
 pub fn TextHit::new(
   document : @text.TextDocument,
-  cluster_start_utf16 : Int,
-  trailing_scalars : Int,
-  resolved_utf16_offset : Int,
+  cluster_start_utf16 : Int32,
+  trailing_scalars : Int32,
+  resolved_utf16_offset : Int32,
   inside : Bool,
   resolved_is_cursor_position : Bool,
 ) -> Result[TextHit, TextLayoutError] {
@@ -304,17 +304,17 @@ pub fn TextHit::document(self : TextHit) -> @text.TextDocument {
 }
 
 ///|
-pub fn TextHit::cluster_start_utf16(self : TextHit) -> Int {
+pub fn TextHit::cluster_start_utf16(self : TextHit) -> Int32 {
   self.cluster_start_utf16
 }
 
 ///|
-pub fn TextHit::trailing_scalars(self : TextHit) -> Int {
+pub fn TextHit::trailing_scalars(self : TextHit) -> Int32 {
   self.trailing_scalars
 }
 
 ///|
-pub fn TextHit::resolved_utf16_offset(self : TextHit) -> Int {
+pub fn TextHit::resolved_utf16_offset(self : TextHit) -> Int32 {
   self.resolved_utf16_offset
 }
 

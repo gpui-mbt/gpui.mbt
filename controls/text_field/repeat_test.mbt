@@ -8,7 +8,7 @@ fn field_test_repeat_key(
 }
 
 ///|
-fn field_test_repeat_control(shift? : Bool = false) -> @primitives.Modifiers {
+fn field_test_repeat_control(shift~ : Bool = false) -> @primitives.Modifiers {
   @primitives.Modifiers::new(shift~, control=true, alt=false, meta=false)
 }
 

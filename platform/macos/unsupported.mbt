@@ -1,22 +1,22 @@
 ///|
 fn call(
-  _op : Int,
+  _op : Int32,
   _token : Int64,
   _x : Double,
   _y : Double,
   _bytes : Bytes,
-  _length : Int,
-) -> Int {
+  _length : Int32,
+) -> Int32 {
   9
 }
 
 ///|
-fn integer(_field : Int) -> Int64 {
+fn integer(_field : Int32) -> Int64 {
   0
 }
 
 ///|
-fn number(_field : Int) -> Double {
+fn number(_field : Int32) -> Double {
   0.0
 }
 
@@ -24,8 +24,8 @@ fn number(_field : Int) -> Double {
 fn native_display_snapshot(
   _host : Int64,
   _records : FixedArray[Double],
-  _capacity : Int,
-) -> Int {
+  _capacity : Int32,
+) -> Int32 {
   9
 }
 
@@ -34,14 +34,14 @@ fn accessibility_publish(
   _window : Int64,
   _binding : Int64,
   _payload : Bytes,
-  _length : Int,
+  _length : Int32,
   _output : FixedArray[Int64],
-) -> Int {
+) -> Int32 {
   9
 }
 
 ///|
-fn accessibility_revoke(_window : Int64, _binding : Int64) -> Int {
+fn accessibility_revoke(_window : Int64, _binding : Int64) -> Int32 {
   9
 }
 
@@ -49,6 +49,6 @@ fn accessibility_revoke(_window : Int64, _binding : Int64) -> Int {
 fn accessibility_take_request(
   _window : Int64,
   _output : FixedArray[Int64],
-) -> Int {
+) -> Int32 {
   9
 }

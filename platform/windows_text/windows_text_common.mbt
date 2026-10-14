@@ -21,40 +21,40 @@ pub(all) enum WindowsTextError {
 pub extend WindowsTextError with Eq::{not_equal, equal}
 
 ///|
-pub let max_text_bytes : Int = 16384
+pub let max_text_bytes : Int32 = 16384
 
 ///|
 pub let max_font_size_px : Double = 512.0
 
 ///|
-pub let max_scene_text_bytes : Int = 4096
+pub let max_scene_text_bytes : Int32 = 4096
 
 ///|
 pub let max_scene_font_size_px : Double = 32.0
 
 ///|
-pub let max_scene_text_runs : Int = 64
+pub let max_scene_text_runs : Int32 = 64
 
 ///|
-pub let max_frame_text_bytes : Int = 262144
+pub let max_frame_text_bytes : Int32 = 262144
 
 ///|
-const HEADER_DOUBLES : Int = 12
+const HEADER_DOUBLES : Int32 = 12
 
 ///|
-const CARET_DOUBLES : Int = 10
+const CARET_DOUBLES : Int32 = 10
 
 ///|
 const CANARY : Double = 123456789.125
 
 ///|
 priv struct WindowsTextBoundary {
-  byte_offset : Int
-  utf16_offset : Int
+  byte_offset : Int32
+  utf16_offset : Int32
 }
 
 ///|
-fn windows_text_status_error(status : Int) -> WindowsTextError {
+fn windows_text_status_error(status : Int32) -> WindowsTextError {
   match status {
     1 => UnsupportedInput
     2 => InvalidFontSize
@@ -75,7 +75,10 @@ fn windows_text_status_error(status : Int) -> WindowsTextError {
 }
 
 ///|
-fn windows_text_exact_nonnegative_int(value : Double, maximum : Int) -> Int? {
+fn windows_text_exact_nonnegative_int(
+  value : Double,
+  maximum : Int32,
+) -> Int32? {
   if value.is_nan() ||
     value.is_inf() ||
     value < 0.0 ||
@@ -181,7 +184,7 @@ fn windows_text_family(family : String) -> Result[Bytes, WindowsTextError] {
 ///|
 fn windows_text_rect(
   output : FixedArray[Double],
-  start : Int,
+  start : Int32,
 ) -> Result[@primitives.Rect, WindowsTextError] {
   match
     @primitives.Rect::new(

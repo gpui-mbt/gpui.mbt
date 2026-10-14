@@ -1,108 +1,112 @@
 ///|
 #borrow(rgba)
 extern "C" fn native_readback(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   rgba : FixedArray[Double],
-) -> Int = "gpui_windows_readback"
+) -> Int32 = "gpui_windows_readback"
 
 ///|
 #borrow(expected_rgba, output)
 extern "C" fn native_test_readback_region(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   x : Double,
   y : Double,
   width : Double,
   height : Double,
   expected_rgba : FixedArray[Double],
   output : FixedArray[Double],
-) -> Int = "gpui_windows_test_readback_region"
+) -> Int32 = "gpui_windows_test_readback_region"
 
 ///|
 #borrow(counts)
 extern "C" fn native_test_renderer_counts(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   counts : FixedArray[Int64],
-) -> Int = "gpui_windows_test_renderer_counts"
+) -> Int32 = "gpui_windows_test_renderer_counts"
 
 ///|
 #borrow(output)
 extern "C" fn native_test_text_density2(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   output : FixedArray[Double],
-) -> Int = "gpui_windows_test_text_density2"
+) -> Int32 = "gpui_windows_test_text_density2"
 
 ///|
-extern "C" fn native_wrong_thread(host : Int, window : Int) -> Int = "gpui_windows_test_wrong_thread"
+extern "C" fn native_wrong_thread(host : Int32, window : Int32) -> Int32 = "gpui_windows_test_wrong_thread"
 
 ///|
 #borrow(title)
 extern "C" fn native_window_title_matches(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   title : Bytes,
-  length : Int,
-) -> Int = "gpui_windows_test_window_title"
+  length : Int32,
+) -> Int32 = "gpui_windows_test_window_title"
 
 ///|
-extern "C" fn native_clipboard_validation() -> Int = "gpui_windows_test_clipboard_validation"
+extern "C" fn native_clipboard_validation() -> Int32 = "gpui_windows_test_clipboard_validation"
 
 ///|
-extern "C" fn native_clipboard_diagnostics() -> Int = "gpui_windows_test_clipboard_diagnostics"
+extern "C" fn native_clipboard_diagnostics() -> Int32 = "gpui_windows_test_clipboard_diagnostics"
 
 ///|
-extern "C" fn native_clipboard_diagnostics_disabled() -> Int = "gpui_windows_test_clipboard_diagnostics_disabled"
+extern "C" fn native_clipboard_diagnostics_disabled() -> Int32 = "gpui_windows_test_clipboard_diagnostics_disabled"
 
 ///|
-extern "C" fn native_clipboard_fixture_read(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_read"
+extern "C" fn native_clipboard_fixture_read(host : Int32) -> Int32 = "gpui_windows_test_clipboard_fixture_read"
 
 ///|
-extern "C" fn native_clipboard_fixture_write(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_write"
+extern "C" fn native_clipboard_fixture_write(host : Int32) -> Int32 = "gpui_windows_test_clipboard_fixture_write"
 
 ///|
-extern "C" fn native_clipboard_fixture_read_line(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_read_line"
+extern "C" fn native_clipboard_fixture_read_line(host : Int32) -> Int32 = "gpui_windows_test_clipboard_fixture_read_line"
 
 ///|
-extern "C" fn native_clipboard_fixture_lock_start(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_lock_start"
+extern "C" fn native_clipboard_fixture_lock_start(host : Int32) -> Int32 = "gpui_windows_test_clipboard_fixture_lock_start"
 
 ///|
-extern "C" fn native_clipboard_fixture_lock_stop(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_lock_stop"
+extern "C" fn native_clipboard_fixture_lock_stop(host : Int32) -> Int32 = "gpui_windows_test_clipboard_fixture_lock_stop"
 
 ///|
-extern "C" fn native_clipboard_fixture_expiry(host : Int) -> Int = "gpui_windows_test_clipboard_fixture_expiry"
+extern "C" fn native_clipboard_fixture_expiry(host : Int32) -> Int32 = "gpui_windows_test_clipboard_fixture_expiry"
 
 ///|
-extern "C" fn native_wake_stop_race(host : Int) -> Int = "gpui_windows_test_wake_stop_race"
+extern "C" fn native_wake_stop_race(host : Int32) -> Int32 = "gpui_windows_test_wake_stop_race"
 
 ///|
-extern "C" fn native_size_message(host : Int, window : Int, phase : Int) -> Int = "gpui_windows_test_size_message"
+extern "C" fn native_size_message(
+  host : Int32,
+  window : Int32,
+  phase : Int32,
+) -> Int32 = "gpui_windows_test_size_message"
 
 ///|
 #borrow(mouse_diagnostic)
 extern "C" fn native_mouse_capture(
-  host : Int,
-  window : Int,
-  mouse_diagnostic : FixedArray[Int],
-) -> Int = "gpui_windows_test_mouse_capture"
+  host : Int32,
+  window : Int32,
+  mouse_diagnostic : FixedArray[Int32],
+) -> Int32 = "gpui_windows_test_mouse_capture"
 
 ///|
-extern "C" fn native_mouse_arm_destroy(host : Int, window : Int) -> Int = "gpui_windows_test_mouse_arm_destroy"
+extern "C" fn native_mouse_arm_destroy(host : Int32, window : Int32) -> Int32 = "gpui_windows_test_mouse_arm_destroy"
 
 ///|
-extern "C" fn native_mouse_destroy_reset(host : Int, window : Int) -> Int = "gpui_windows_test_mouse_destroy_reset"
+extern "C" fn native_mouse_destroy_reset(host : Int32, window : Int32) -> Int32 = "gpui_windows_test_mouse_destroy_reset"
 
 ///|
 #borrow(failed_stage, repeat_event)
 extern "C" fn native_text_session_staging(
-  failed_stage : FixedArray[Int],
+  failed_stage : FixedArray[Int32],
   repeat_event : FixedArray[Double],
-) -> Int = "gpui_windows_test_text_session_staging"
+) -> Int32 = "gpui_windows_test_text_session_staging"
 
 ///|
-extern "C" fn native_wheel_enqueue() -> Int = "gpui_windows_test_wheel_enqueue"
+extern "C" fn native_wheel_enqueue() -> Int32 = "gpui_windows_test_wheel_enqueue"
 
 ///|
 fn rect(w : Double, h : Double) -> @primitives.Rect {

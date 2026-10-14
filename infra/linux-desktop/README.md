@@ -5,7 +5,7 @@ Linux text-field/undo source (`bf8a332595aad7fb69928719cc4b25464269a4d5`). It is
 infrastructure only: it does not implement GPUI IME integration or key repeat.
 
 The profile uses official Debian archives extracted into a private user prefix,
-plus MoonBit **0.10.14+7d59c7ec9** and its matching core. Exact versions, source
+plus MoonBit **0.10.15+943464bfa** and its matching core. Exact versions, source
 URLs and SHA-256 values are committed in `profile.lock.json`. All archives must
 match before extraction. No `curl | sh`, floating `latest`, personal paths,
 credentials, repository changes, system-service changes, or sandbox changes

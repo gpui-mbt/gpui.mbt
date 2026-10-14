@@ -1,8 +1,8 @@
 ///|
 fn text_offset_assert_tables(
   document : @text.TextDocument,
-  utf16_boundaries : Array[Int],
-  utf8_boundaries : Array[Int],
+  utf16_boundaries : Array[Int32],
+  utf8_boundaries : Array[Int32],
 ) -> Bool {
   if utf16_boundaries.length() != utf8_boundaries.length() {
     return false

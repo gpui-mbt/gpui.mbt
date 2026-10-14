@@ -43,7 +43,7 @@ fn button_paint_quad(
 }
 
 ///|
-fn button_paint_color(r : Int, g : Int, b : Int) -> @primitives.Color {
+fn button_paint_color(r : Int32, g : Int32, b : Int32) -> @primitives.Color {
   @primitives.Color::rgba(r, g, b, 255).unwrap()
 }
 

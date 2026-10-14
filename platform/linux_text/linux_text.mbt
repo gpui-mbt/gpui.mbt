@@ -18,16 +18,16 @@ pub enum LinuxTextError {
 pub extend LinuxTextError with Eq::{not_equal, equal}
 
 ///|
-pub let max_text_bytes : Int = 16384
+pub let max_text_bytes : Int32 = 16384
 
 ///|
-pub let max_font_family_bytes : Int = 256
+pub let max_font_family_bytes : Int32 = 256
 
 ///|
 pub let max_font_size_px : Double = 512.0
 
 ///|
-const MAX_SCENE_TEXT_BYTES : Int = 4096
+const MAX_SCENE_TEXT_BYTES : Int32 = 4096
 
 ///|
 const MAX_SCENE_FONT_SIZE_PX : Double = 32.0
@@ -39,28 +39,28 @@ const MAX_SCENE_BOUNDS_WIDTH : Double = 2048.0
 const MAX_SCENE_BOUNDS_HEIGHT : Double = 128.0
 
 ///|
-const ABI_VERSION : Int = 1
+const ABI_VERSION : Int32 = 1
 
 ///|
-extern "C" fn native_require_raster(abi : Int) -> Int = "gpui_linux_text_require_raster_v1"
+extern "C" fn native_require_raster(abi : Int32) -> Int32 = "gpui_linux_text_require_raster_v1"
 
 ///|
 #borrow(text)
 extern "C" fn native_admit_scene_text_run(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   font_size_px : Double,
   bounds_width : Double,
   bounds_height : Double,
-) -> Int = "gpui_linux_text_admit_scene_text_run_v1"
+) -> Int32 = "gpui_linux_text_admit_scene_text_run_v1"
 
 ///|
 #borrow(text)
 extern "C" fn native_admit_scene_text_run_at(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   font_size_px : Double,
   origin_x : Double,
   origin_y : Double,
@@ -68,7 +68,7 @@ extern "C" fn native_admit_scene_text_run_at(
   clip_y : Double,
   clip_width : Double,
   clip_height : Double,
-) -> Int = "gpui_linux_text_admit_scene_text_run_v2"
+) -> Int32 = "gpui_linux_text_admit_scene_text_run_v2"
 
 ///|
 /// Admit the linked grayscale raster adapter only with its expected private
@@ -83,10 +83,10 @@ pub fn require_grayscale_raster() -> Result[Unit, LinuxTextError] {
 }
 
 ///|
-const HEADER_DOUBLES : Int = 12
+const HEADER_DOUBLES : Int32 = 12
 
 ///|
-const CARET_DOUBLES : Int = 10
+const CARET_DOUBLES : Int32 = 10
 
 ///|
 const CANARY : Double = 123456789.125
@@ -94,39 +94,39 @@ const CANARY : Double = 123456789.125
 ///|
 #borrow(text, family, output)
 extern "C" fn native_measure(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   family : Bytes,
-  family_length : Int,
+  family_length : Int32,
   font_size_px : Double,
   output : FixedArray[Double],
-  output_capacity : Int,
-) -> Int = "gpui_linux_text_measure_v1"
+  output_capacity : Int32,
+) -> Int32 = "gpui_linux_text_measure_v1"
 
 ///|
 #borrow(text, family, output)
 extern "C" fn native_hit_test(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   family : Bytes,
-  family_length : Int,
+  family_length : Int32,
   font_size_px : Double,
   x_px : Double,
   y_px : Double,
   output : FixedArray[Double],
-  output_capacity : Int,
-) -> Int = "gpui_linux_text_hit_test_v1"
+  output_capacity : Int32,
+) -> Int32 = "gpui_linux_text_hit_test_v1"
 
 ///|
 priv struct TextBoundary {
-  byte_offset : Int
-  utf16_offset : Int
+  byte_offset : Int32
+  utf16_offset : Int32
 }
 
 ///|
-fn scalar_utf8_width(scalar : Char) -> Int {
+fn scalar_utf8_width(scalar : Char) -> Int32 {
   let value = scalar.to_int()
   if value <= 0x7F {
     1
@@ -140,7 +140,7 @@ fn scalar_utf8_width(scalar : Char) -> Int {
 }
 
 ///|
-fn scalar_utf16_width(scalar : Char) -> Int {
+fn scalar_utf16_width(scalar : Char) -> Int32 {
   if scalar.to_int() > 0xFFFF {
     2
   } else {
@@ -221,7 +221,7 @@ fn valid_font_size(font_size_px : Double) -> Bool {
 }
 
 ///|
-fn status_error(status : Int) -> LinuxTextError {
+fn status_error(status : Int32) -> LinuxTextError {
   match status {
     2 => UnsupportedInput
     3 => InputTooLarge
@@ -344,7 +344,7 @@ pub fn admit_scene_text_run_at(
 }
 
 ///|
-fn exact_nonnegative_int(value : Double, maximum : Int) -> Int? {
+fn exact_nonnegative_int(value : Double, maximum : Int32) -> Int32? {
   if value.is_nan() ||
     value.is_inf() ||
     value < 0.0 ||
@@ -362,7 +362,7 @@ fn exact_nonnegative_int(value : Double, maximum : Int) -> Int? {
 ///|
 fn pango_rect(
   output : FixedArray[Double],
-  start : Int,
+  start : Int32,
 ) -> Result[@primitives.Rect, LinuxTextError] {
   match
     @primitives.Rect::new(
@@ -380,7 +380,7 @@ fn pango_rect(
 fn caret_record(
   output : FixedArray[Double],
   boundaries : Array[TextBoundary],
-  index : Int,
+  index : Int32,
 ) -> Result[@text_layout.CaretGeometry, LinuxTextError] {
   let start = HEADER_DOUBLES + index * CARET_DOUBLES
   let boundary = boundaries[index]

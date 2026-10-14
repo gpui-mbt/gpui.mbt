@@ -1,23 +1,23 @@
 ///|
 #borrow(text, family, output)
 extern "C" fn native_test_shape(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   family : Bytes,
-  family_length : Int,
+  family_length : Int32,
   font_size_px : Double,
   output : FixedArray[Double],
-  output_capacity : Int,
-) -> Int = "gpui_linux_text_test_shape_v1"
+  output_capacity : Int32,
+) -> Int32 = "gpui_linux_text_test_shape_v1"
 
 ///|
 #borrow(output)
 extern "C" fn native_test_lifecycle(
-  cycles : Int,
-  output : FixedArray[Int],
-  output_capacity : Int,
-) -> Int = "gpui_linux_text_test_lifecycle_v1"
+  cycles : Int32,
+  output : FixedArray[Int32],
+  output_capacity : Int32,
+) -> Int32 = "gpui_linux_text_test_lifecycle_v1"
 
 ///|
 fn linux_text_document(value : String) -> @text.TextDocument {

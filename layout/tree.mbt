@@ -14,7 +14,7 @@ pub(all) enum TreeLayoutError {
 ///|
 /// Bounded recursion keeps measurement and recursive box placement independent
 /// of untrusted host stack depth.
-pub const MAX_FLEX_TREE_DEPTH : Int = 64
+pub const MAX_FLEX_TREE_DEPTH : Int32 = 64
 
 ///|
 pub extend TreeLayoutError with Eq::{not_equal, equal}
@@ -245,7 +245,7 @@ fn layout_tree_children(
   nodes : Array[FlexTreeNode],
   output : Array[TreeLayoutBox],
   overflow : Ref[Bool],
-  depth : Int,
+  depth : Int32,
 ) -> Result[Unit, TreeLayoutError] {
   let direct_nodes : Array[FlexTreeNode] = []
   for node in nodes {
@@ -343,7 +343,7 @@ fn measure_direct_items(
   nodes_for_parent : Array[FlexTreeNode],
   direction : FlowDirection,
   all_nodes : Array[FlexTreeNode],
-  parent_depth : Int,
+  parent_depth : Int32,
 ) -> Result[Array[FlexItem], TreeLayoutError] {
   let items : Array[FlexItem] = []
   let mut failure : TreeLayoutError? = None
@@ -367,7 +367,7 @@ fn measure_item_intrinsic(
   node : FlexTreeNode,
   parent_direction : FlowDirection,
   all_nodes : Array[FlexTreeNode],
-  depth : Int,
+  depth : Int32,
 ) -> Result[FlexItem, TreeLayoutError] {
   let item = node.item
   let mut width = item.intrinsic.width()
@@ -424,7 +424,7 @@ fn measure_container_axis(
   style : FlexTreeStyle,
   axis : MeasureAxis,
   nodes : Array[FlexTreeNode],
-  depth : Int,
+  depth : Int32,
 ) -> Result[Double, TreeLayoutError] {
   if depth > MAX_FLEX_TREE_DEPTH {
     Err(TreeTooDeep)
@@ -518,7 +518,7 @@ fn measure_child_intrinsic_axis(
   node : FlexTreeNode,
   axis : MeasureAxis,
   nodes : Array[FlexTreeNode],
-  depth : Int,
+  depth : Int32,
 ) -> Result[Double, TreeLayoutError] {
   match node.children_style {
     Some(style) => measure_container_axis(node.id(), style, axis, nodes, depth)

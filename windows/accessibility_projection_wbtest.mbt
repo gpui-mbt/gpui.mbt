@@ -17,8 +17,8 @@ fn projection_wb_root() -> @accessibility.NodeSpec {
 ///|
 fn projection_wb_button(
   key : UInt64,
-  enabled? : Bool = true,
-  loading? : Bool = false,
+  enabled~ : Bool = true,
+  loading~ : Bool = false,
 ) -> @accessibility.NodeSpec {
   let spec = @accessibility.NodeSpec::new(
       key,

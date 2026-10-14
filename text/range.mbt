@@ -18,8 +18,8 @@ pub extend TextError with Eq::{not_equal, equal}
 ///|
 /// A half-open range measured in UTF-16 code units.
 pub struct TextRange {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
 } derive(Eq)
 
 ///|
@@ -27,7 +27,10 @@ pub extend TextRange with Eq::{not_equal, equal}
 
 ///|
 /// Construct a non-negative, ordered UTF-16 range.
-pub fn TextRange::new(start : Int, end : Int) -> Result[TextRange, TextError] {
+pub fn TextRange::new(
+  start : Int32,
+  end : Int32,
+) -> Result[TextRange, TextError] {
   if start < 0 || end < 0 {
     Err(NegativeOffset)
   } else if start > end {
@@ -38,17 +41,17 @@ pub fn TextRange::new(start : Int, end : Int) -> Result[TextRange, TextError] {
 }
 
 ///|
-pub fn TextRange::start(self : TextRange) -> Int {
+pub fn TextRange::start(self : TextRange) -> Int32 {
   self.start
 }
 
 ///|
-pub fn TextRange::end(self : TextRange) -> Int {
+pub fn TextRange::end(self : TextRange) -> Int32 {
   self.end
 }
 
 ///|
-pub fn TextRange::length(self : TextRange) -> Int {
+pub fn TextRange::length(self : TextRange) -> Int32 {
   self.end - self.start
 }
 
@@ -57,8 +60,8 @@ pub fn TextRange::length(self : TextRange) -> Int {
 /// The endpoints retain their direction; `normalized_range` is for operations
 /// that work with the selected extent.
 pub struct TextSelection {
-  anchor : Int
-  head : Int
+  anchor : Int32
+  head : Int32
 } derive(Eq)
 
 ///|
@@ -67,8 +70,8 @@ pub extend TextSelection with Eq::{not_equal, equal}
 ///|
 /// Construct a directional selection with non-negative endpoints.
 pub fn TextSelection::new(
-  anchor : Int,
-  head : Int,
+  anchor : Int32,
+  head : Int32,
 ) -> Result[TextSelection, TextError] {
   if anchor < 0 || head < 0 {
     Err(NegativeOffset)
@@ -78,12 +81,12 @@ pub fn TextSelection::new(
 }
 
 ///|
-pub fn TextSelection::anchor(self : TextSelection) -> Int {
+pub fn TextSelection::anchor(self : TextSelection) -> Int32 {
   self.anchor
 }
 
 ///|
-pub fn TextSelection::head(self : TextSelection) -> Int {
+pub fn TextSelection::head(self : TextSelection) -> Int32 {
   self.head
 }
 
