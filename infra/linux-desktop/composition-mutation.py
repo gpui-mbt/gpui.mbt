@@ -78,7 +78,7 @@ def candidate_tuple(row):
 def audit(report, snapshot, review, survivor_dir=None, discovery=None):
     if report.get("schema") != 3 or report.get("turtles_version") != "0.4.7":
         raise ValueError("requires turtles 0.4.7 / report schema 3")
-    if report.get("module_path") != str(snapshot) or report.get("test_scope") != "module":
+    if report.get("module") != str(snapshot) or report.get("test_scope") != "module":
         raise ValueError("requires the exact snapshot and full portable module test scope")
     if not report.get("moon_version") or not all(str(report.get(key, "")).isdigit() for key in
             ("baseline_duration_ms", "baseline_check_ms", "baseline_test_ms")):

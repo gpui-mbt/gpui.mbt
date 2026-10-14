@@ -32,7 +32,7 @@ def valid_report() -> dict:
     ]
     return {
         "schema": 3,
-        "module_path": "/tmp/turtles/module",
+        "module": "/tmp/turtles/module",
         "turtles_version": "0.4.7",
         "moon_version": "moon 0.10.14",
         "baseline_duration_ms": "200",

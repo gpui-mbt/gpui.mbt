@@ -44,7 +44,7 @@ def audit_report(
         raise ValueError("expected turtles JSON schema 3")
     if report.get("turtles_version") != EXPECTED_TURTLES_VERSION:
         raise ValueError(f"expected turtles {EXPECTED_TURTLES_VERSION}")
-    if not isinstance(report.get("module_path"), str) or not report["module_path"].strip():
+    if not isinstance(report.get("module"), str) or not report["module"].strip():
         raise ValueError("report must identify the tested MoonBit module")
     if not isinstance(report.get("moon_version"), str) or not report["moon_version"].strip():
         raise ValueError("report must identify the MoonBit toolchain")
@@ -179,7 +179,7 @@ def audit_report(
         "revision": revision,
         "scope": scope,
         "source_manifest_sha256": source_manifest.hexdigest(),
-        "module": report.get("module_path"),
+        "module": report.get("module"),
         "moon_version": report["moon_version"],
         "mutation_counts": counts,
         "viable": viable,
