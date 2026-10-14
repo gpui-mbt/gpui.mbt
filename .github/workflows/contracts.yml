@@ -32,7 +32,7 @@ jobs:
       - name: Prepare Ubuntu native system boundary
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libpango1.0-dev libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
+          sudo apt-get install -y build-essential pkg-config libx11-dev libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libpango1.0-dev libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
           dpkg-query -W libpango1.0-dev libpango-1.0-0 libpangoft2-1.0-0 libfontconfig1-dev libfontconfig1 fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
           pkg-config --modversion pangoft2 fontconfig
           sh scripts/prepare_ubuntu.sh
@@ -50,6 +50,13 @@ jobs:
           if-no-files-found: error
       - name: Verify generated Ubuntu public interface is committed
         run: git diff --exit-code -- ubuntu/pkg.generated.mbti
+      - name: Verify generated X11 public interface is committed
+        run: |
+          moon info --target native --package f4ah6o/gpui/x11
+          cp _build/native/debug/check/x11/x11.mbti x11/pkg.generated.mbti
+          git diff --exit-code -- x11/pkg.generated.mbti
+      - name: Test native X11 contracts without a display
+        run: sh tests/x11/run_contract.sh
       - name: Check formatting
         run: moon fmt --check
       - name: Check all targets with warnings denied

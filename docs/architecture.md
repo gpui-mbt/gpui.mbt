@@ -77,6 +77,7 @@ The facade is a re-export surface; it must not contain a second implementation o
 | `platform API` | window, input, display, text, clipboard, timer, accessibility contracts | `core/`, `diagnostics/`, `primitives/`, renderer API | platform-specific types in core/facade signatures |
 | `platform/` (first slice) | shared Backend trait, logical window IDs, copied ordered events | `scene/`, `diagnostics/`, `primitives/` | native pointers or OS types |
 | `ubuntu/` | Wayland host/window, integer scale, basic input, EGL/GLES quad and bounded grayscale text renderer; headless semantic-model projection without an OS bridge | `platform/`, `scene/`, `diagnostics/`, `primitives/`, `text/` for UTF-16 validation, `accessibility/` for semantic projection, private `platform/linux_text` raster ABI, system native APIs | native handles in public application signatures; Pango objects; an OS accessibility bridge |
+| `x11/` | experimental one-window Xlib/EGL host, direct keyboard/Compose and bounded UTF8 clipboard; logical scale 1 | `platform/`, `platform/testing/`, `scene/`, `diagnostics/`, `primitives/`, `text/`, private Linux text/renderer C ABI, system X11 APIs | native handles in portable APIs; Wayland backend dependency; IME or OS accessibility claims |
 | `examples/ubuntu/` | native executable consuming the shared scene/window contracts | `ubuntu/`, `platform/`, `scene/`, `diagnostics/`, `primitives/`, standard env | private backend tokens |
 | `examples/ubuntu_button/` | native Button executable plus in-process semantic adapter | `ubuntu/`, `accessibility/`, `examples/ubuntu_button/fixture`, `platform/`, `scene/`, `diagnostics/`, `primitives/`, standard env | D-Bus/AT-SPI transport or OS-accessibility claims |
 | `windows/` | Win32 window/event loop, scale events, basic input, D3D11 hardware-or-WARP quad presentation, and transport-free copied accessibility snapshots | `platform/`, `scene/`, `diagnostics/`, `primitives/`, `accessibility/`, Windows system APIs | native handles in public application signatures; UI Automation transport or screen-reader qualification |
@@ -184,6 +185,19 @@ package imports the concrete backend. The executable package audit now permits
 above. It audits aliased imports and whitebox test imports as well as blackbox
 test imports. All other runtime dependencies continue to require a written
 exception.
+
+The experimental `x11/` leaf has the same portable scene/event contracts and
+private Linux text raster dependency, plus system libX11 for native windows,
+keyboard/pointer events and selection ownership. It shares bounded GLES2 frame
+preflight/drawing with `ubuntu/` through private C includes under
+`platform/linux_renderer/`; neither backend imports the other. X11 symbols are
+namespaced separately so both leaves can be linked in one application. The
+runtime checker permits only `platform`, `platform/testing`, `platform/linux_text`,
+`text`, `primitives`, `diagnostics` and `scene` edges from `x11`. Portable core and
+other lower layers cannot import it. [X11 scope and checks](../x11/README.md) record
+one owner thread/window, scale 1, direct Compose versus unsupported IME, bounded
+clipboard transfers and headless checks. Real X-server acceptance remains a
+separate gate; adding this leaf does not promote a supported platform tier.
 
 The Linux text adapter has a Linux-only PangoFT2/Fontconfig system-library
 exception. `text_layout/` remains portable, while `platform/linux_text/` owns

@@ -664,6 +664,12 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
             "accessibility", "platform", "platform/linux_text", "platform/testing",
             "text", "primitives", "diagnostics", "scene",
         },
+        # Xlib/EGL is a separate native leaf. Shared rendering stays private;
+        # neither backend imports the other, and portable packages cannot import it.
+        "x11": {
+            "platform", "platform/linux_text", "platform/testing",
+            "text", "primitives", "diagnostics", "scene",
+        },
         "examples/ubuntu": {
             "ubuntu", "platform", "platform/linux_text", "text", "primitives", "diagnostics", "scene",
         },
@@ -821,6 +827,10 @@ def _validate_workflow(path: Path) -> list[str]:
         "moon info --target native --package f4ah6o/gpui/ubuntu",
         "cp _build/native/debug/check/ubuntu/ubuntu.mbti ubuntu/pkg.generated.mbti",
         "git diff --exit-code -- ubuntu/pkg.generated.mbti",
+        "moon info --target native --package f4ah6o/gpui/x11",
+        "cp _build/native/debug/check/x11/x11.mbti x11/pkg.generated.mbti",
+        "git diff --exit-code -- x11/pkg.generated.mbti",
+        "sh tests/x11/run_contract.sh",
         "moon fmt --check",
         "moon check --target all --deny-warn",
         "moon test --target all --deny-warn",

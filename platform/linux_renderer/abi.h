@@ -1,0 +1,30 @@
+#ifndef GPUI_LINUX_RENDER_ABI_H
+#define GPUI_LINUX_RENDER_ABI_H
+/* Shared bounded Wayland/X11 event, direct-text and frame wire contract.
+ * Window/event ownership stays in each platform adapter. */
+#define GPUI_QUAD_STRIDE 19
+#define GPUI_MIXED_FRAME_ABI 2
+#define GPUI_MIXED_STRIDE 23
+#define GPUI_ORIGIN_FRAME_ABI 3
+#define GPUI_ORIGIN_STRIDE 25
+#define GPUI_MAX_ITEMS 100000
+#define GPUI_MAX_TEXT_ITEMS 256
+#define GPUI_MAX_FRAME_TEXT_BYTES (1024 * 1024)
+#define GPUI_MAX_FRAME_MASK_BYTES (16 * 1024 * 1024)
+enum gpui_status {
+  GPUI_OK,
+  GPUI_UNSUPPORTED,
+  GPUI_NATIVE,
+  GPUI_INVALID,
+  GPUI_STALE,
+  GPUI_BUSY,
+  GPUI_STOPPING,
+  GPUI_WRONG_THREAD,
+  GPUI_RESOURCE,
+  GPUI_SURFACE_LOST,
+  GPUI_DEVICE_LOST
+};
+#define GPUI_DIRECT_TEXT_ABI 2
+#define GPUI_DIRECT_TEXT_MAX_BYTES 128
+#define GPUI_DIRECT_KEY_CAPACITY 1024
+#endif
