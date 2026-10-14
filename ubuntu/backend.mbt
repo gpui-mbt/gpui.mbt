@@ -256,8 +256,9 @@ fn outcome(
 }
 
 ///|
-/// Requires WAYLAND_DISPLAY and a Wayland session (XDG_SESSION_TYPE, when set,
-/// must be wayland). Missing protocols/session return UnsupportedCapability.
+/// Requires a nonempty WAYLAND_DISPLAY or WAYLAND_SOCKET connection hint.
+/// Explicit nested connections do not depend on XDG_SESSION_TYPE. Missing
+/// connection hints or protocols return UnsupportedCapability.
 pub fn Host::start() -> Result[Host, @diagnostics.FrameworkError] {
   let token = native_start(1)
   if token > 0 {

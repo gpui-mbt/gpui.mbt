@@ -11,31 +11,10 @@
  * bounds(4), RGBA(4), affine(6), opacity, intersected clip(4).
  */
 #define GPUI_UBUNTU_ABI 1
-#define GPUI_QUAD_STRIDE 19
-#define GPUI_MIXED_FRAME_ABI 2
-#define GPUI_MIXED_STRIDE 23
-#define GPUI_ORIGIN_FRAME_ABI 3
-#define GPUI_ORIGIN_STRIDE 25
+#include "../platform/linux_renderer/abi.h"
 #define GPUI_OUTPUT_SNAPSHOT_ABI 1
 #define GPUI_OUTPUT_CAPACITY 16
 #define GPUI_OUTPUT_INFO_FIELDS 12
-#define GPUI_MAX_ITEMS 100000
-#define GPUI_MAX_TEXT_ITEMS 256
-#define GPUI_MAX_FRAME_TEXT_BYTES (1024 * 1024)
-#define GPUI_MAX_FRAME_MASK_BYTES (16 * 1024 * 1024)
-enum gpui_status {
-  GPUI_OK,
-  GPUI_UNSUPPORTED,
-  GPUI_NATIVE,
-  GPUI_INVALID,
-  GPUI_STALE,
-  GPUI_BUSY,
-  GPUI_STOPPING,
-  GPUI_WRONG_THREAD,
-  GPUI_RESOURCE,
-  GPUI_SURFACE_LOST,
-  GPUI_DEVICE_LOST
-};
 int32_t gpui_start(int32_t abi);
 int32_t gpui_stop(int32_t host);
 int32_t gpui_wake(int32_t host);
@@ -71,9 +50,6 @@ int32_t gpui_next(int32_t host, double *event);
  * Invalid/insufficient buffers leave both outputs and the head untouched.
  * v1 next rejects active direct mode or any queued direct key/text record,
  * even after disarm, without consuming any record. */
-#define GPUI_DIRECT_TEXT_ABI 2
-#define GPUI_DIRECT_TEXT_MAX_BYTES 128
-#define GPUI_DIRECT_KEY_CAPACITY 1024
 int32_t gpui_next_v2(int32_t abi, int32_t host, double *event,
                      int32_t event_capacity, uint8_t *text,
                      int32_t text_capacity);
