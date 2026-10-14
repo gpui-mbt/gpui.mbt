@@ -387,7 +387,9 @@ pub fn ElementTree::node(self : ElementTree, id : UInt64) -> ElementNode? {
 
 ///|
 /// Hit test in reverse paint/pre-order. This is deterministic and intentionally
-/// independent of platform pointer-event types.
+/// independent of platform pointer-event types. Pointer coverage includes the
+/// left/top edges and excludes the right/bottom edges; zero-extent nodes do
+/// not receive hits. Geometric Rect::contains remains a closed-edge operation.
 pub fn ElementTree::hit_test(
   self : ElementTree,
   position : @primitives.Point,
@@ -397,7 +399,11 @@ pub fn ElementTree::hit_test(
   while index > 0 && hit is None {
     index -= 1
     let node = self.nodes[index]
-    if node.pointer_events && node.bounds.contains(position) {
+    if node.pointer_events &&
+      position.x() >= node.bounds.left() &&
+      position.x() < node.bounds.right() &&
+      position.y() >= node.bounds.top() &&
+      position.y() < node.bounds.bottom() {
       hit = Some(node.id)
     }
   }
