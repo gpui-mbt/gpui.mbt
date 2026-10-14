@@ -56,9 +56,9 @@
   },
   "survivor_reviews": [
     {
-      "id": "m-154e60261d5984e5",
+      "id": "m-95be3d997e1e13f9",
       "path": "capability/value.mbt",
-      "line": 274,
+      "line": 276,
       "operator": "condition",
       "original": "number == 0.0",
       "replacement": "false",
@@ -71,7 +71,7 @@
       "observability_caveat": "Reassess if the pinned core or Double formatter changes."
     },
     {
-      "id": "m-4b34506227efd43b",
+      "id": "m-9383012136ba1b88",
       "path": "capability/registry.mbt",
       "line": 730,
       "operator": "condition",
@@ -85,9 +85,9 @@
       "remaining_resource_bound": "No added traversal of retained descriptors for a dead owner; external_descriptors exits its enumeration path on its own liveness guard."
     },
     {
-      "id": "m-4e4f6304e7ca90f4",
+      "id": "m-b28a887dd7ae749c",
       "path": "capability/value.mbt",
-      "line": 217,
+      "line": 219,
       "operator": "condition",
       "original": "value > 1.7976931348623157e+308",
       "replacement": "false",
@@ -99,9 +99,9 @@
       "remaining_resource_bound": "Unchanged transport validation bounds and positive-infinity rejection."
     },
     {
-      "id": "m-530877c0299e1ab1",
+      "id": "m-4e5d576fa4532ccb",
       "path": "capability/value.mbt",
-      "line": 215,
+      "line": 217,
       "operator": "condition",
       "original": "value != value",
       "replacement": "false",
@@ -113,9 +113,9 @@
       "remaining_resource_bound": "Unchanged transport validation bounds and non-finite rejection. No invalid-input white-box serialization test is needed."
     },
     {
-      "id": "m-6214b2c0dcfd12c6",
+      "id": "m-0c4f8d9f36bf26d0",
       "path": "capability/value.mbt",
-      "line": 222,
+      "line": 224,
       "operator": "condition",
       "original": "value == 0.0",
       "replacement": "false",
@@ -128,7 +128,7 @@
       "observability_caveat": "Reassess if the pinned core or Double formatter changes; this is a toolchain-specific equivalence."
     },
     {
-      "id": "m-6dd08a2af53097a9",
+      "id": "m-64582e14df45a3d4",
       "path": "capability/registry.mbt",
       "line": 780,
       "operator": "condition",
@@ -142,7 +142,7 @@
       "remaining_resource_bound": "At most two redundant array assignments per already-positioned element; same bounded sorting loops and result."
     },
     {
-      "id": "m-77c842cc7a6ed911",
+      "id": "m-34ad2e8b1c07b501",
       "path": "capability/value.mbt",
       "line": 173,
       "operator": "condition",
@@ -156,9 +156,9 @@
       "remaining_resource_bound": "Unchanged: recursive depth <=32, successful aggregate nodes <=10000, object fields <=1024, successful JSON characters <=1048576. The new white-box exact/+1 node tests preserve the guarding postcondition."
     },
     {
-      "id": "m-88ed5fc8e417cb2b",
+      "id": "m-ce726948ab4b7fa7",
       "path": "capability/value.mbt",
-      "line": 288,
+      "line": 290,
       "operator": "condition",
       "original": "values.length() > 9_999",
       "replacement": "false",
@@ -171,9 +171,9 @@
       "observability_caveat": "Not strictly equivalent across all diagnostics or runtime cost: an oversized all-scalar array changes from \"array exceeds the 10000 node limit\" to \"value exceeds the 10000 node limit\"; earlier malformed children may report another InvalidInput detail. Independent review must explicitly accept these non-contractual diagnostic/fast-path differences before baselining. No diagnostic-string-only test was added."
     },
     {
-      "id": "m-b4ba90c8f17e7f33",
+      "id": "m-11e915bcfecc1818",
       "path": "capability/value.mbt",
-      "line": 390,
+      "line": 392,
       "operator": "condition",
       "original": "length > 1_048_576",
       "replacement": "false",
@@ -186,9 +186,9 @@
       "observability_caveat": "On escaped oversized text, the private helper may return an exact oversized count instead of 1048577, and may scan more characters. Its callers only test against the bound, so externally visible JSON/error outcomes and safety bounds remain unchanged."
     },
     {
-      "id": "m-e52a6c9bacca8db7",
+      "id": "m-3d8da5baf761651f",
       "path": "capability/value.mbt",
-      "line": 175,
+      "line": 177,
       "operator": "condition",
       "original": "json_chars > 1_048_576",
       "replacement": "false",
@@ -200,9 +200,9 @@
       "remaining_resource_bound": "Unchanged recursive node, depth and JSON budgets. New white-box scalar/array/object exact/+1 JSON tests preserve the guarding postcondition."
     },
     {
-      "id": "m-e7a7fdbd6fa6c2ee",
+      "id": "m-88f2680bf1ff5a4d",
       "path": "capability/value.mbt",
-      "line": 219,
+      "line": 221,
       "operator": "condition",
       "original": "value < -1.7976931348623157e+308",
       "replacement": "false",
@@ -214,9 +214,9 @@
       "remaining_resource_bound": "Unchanged transport validation bounds and negative-infinity rejection."
     },
     {
-      "id": "m-e80beadd239d51c8",
+      "id": "m-d2c87d2b932e4fa7",
       "path": "capability/value.mbt",
-      "line": 372,
+      "line": 374,
       "operator": "condition",
       "original": "text.length() > 1_048_576",
       "replacement": "false",

@@ -56,7 +56,7 @@
   },
   "survivor_reviews": [
     {
-      "id": "m-0ba1e7876aefedb9",
+      "id": "m-425bfb6cdc984f2b",
       "path": "mcp/json_unique_keys.mbt",
       "line": 162,
       "operator": "literal",
@@ -68,7 +68,7 @@
       "column": 12
     },
     {
-      "id": "m-26661035b3652a90",
+      "id": "m-4d21a6093457c69f",
       "path": "mcp/protocol.mbt",
       "line": 558,
       "operator": "literal",
@@ -80,7 +80,7 @@
       "column": 17
     },
     {
-      "id": "m-2fc4711bb7a1af77",
+      "id": "m-d3fed291d2d1242f",
       "path": "mcp/adapter.mbt",
       "line": 377,
       "operator": "condition",
@@ -128,14 +128,14 @@
       "column": 14
     },
     {
-      "id": "m-7402f57daa3a6598",
+      "id": "m-17305f05f659f6bf",
       "path": "mcp/json_unique_keys.mbt",
       "line": 141,
       "operator": "condition",
       "original": "json_scan_code(input, index.val) != 34",
       "replacement": "false",
       "classification": "redundant",
-      "rationale": "If the cursor is not on a quote, removing scan_json_key’s guard at json_unique_keys.mbt:141 still calls scan_json_string, whose first guard at :161 rejects the same unchanged cursor without consuming input. scan_json_key then returns None. Neither immutable input nor cursor changes and no callback runs between those guards. Both continue using the bounds-checked json_scan_code. This changes only a repeated predicate, not parsing, allocation, or safety.",
+      "rationale": "If the cursor is not on a quote, removing scan_json_key\u2019s guard at json_unique_keys.mbt:141 still calls scan_json_string, whose first guard at :161 rejects the same unchanged cursor without consuming input. scan_json_key then returns None. Neither immutable input nor cursor changes and no callback runs between those guards. Both continue using the bounds-checked json_scan_code. This changes only a repeated predicate, not parsing, allocation, or safety.",
       "review_detail": "redundant",
       "column": 6
     },
@@ -152,14 +152,14 @@
       "column": 27
     },
     {
-      "id": "m-e3dbbec4c1dc10f3",
+      "id": "m-b67d37cd47e9666b",
       "path": "mcp/json_unique_keys.mbt",
       "line": 161,
       "operator": "condition",
       "original": "json_scan_code(input, index.val) != 34",
       "replacement": "false",
       "classification": "equivalent",
-      "rationale": "scan_json_string has only two production callers: scan_json_value’s code=34 match arm and scan_json_key immediately after its code=34 guard. With immutable string input and unchanged cursor between check and call, the opening-quote rejection predicate at json_unique_keys.mbt:161 is false on every production entry. Removing this guard changes no scanner work or allocation and does not remove the separate bounds-checked json_scan_code.",
+      "rationale": "scan_json_string has only two production callers: scan_json_value\u2019s code=34 match arm and scan_json_key immediately after its code=34 guard. With immutable string input and unchanged cursor between check and call, the opening-quote rejection predicate at json_unique_keys.mbt:161 is false on every production entry. Removing this guard changes no scanner work or allocation and does not remove the separate bounds-checked json_scan_code.",
       "review_detail": "unreachable",
       "column": 6
     }
