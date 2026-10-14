@@ -202,7 +202,9 @@ test "IME observer reads exact committed preview marked caret and history withou
   let parsed = @json.parse(line.strip_prefix("GPUI_FIELD_IME_STATE ").unwrap())
   match parsed {
     Object(value) => {
-      assert_true(value.get("committed") == Some(original.document().text()))
+      assert_true(
+        value.get("committed") == Some(Json(original.document().text())),
+      )
       assert_true(value.get("preview") == Some("にほん"))
       assert_true(value.get("commits") == Some(0))
       assert_true(value.get("marked") == Some({ "start": 0, "end": 3 }))

@@ -377,20 +377,20 @@ fn palette_state_line(
   let palette = fixture.palette
   let semantics = palette.semantics()
   let options = semantics.options.map(option => {
-    "id": option.id,
-    "name": option.name,
-    "selected": option.selected,
-    "disabled": option.disabled,
-    "index": option.index,
+    "id": Json(option.id),
+    "name": Json(option.name),
+    "selected": Json(option.selected),
+    "disabled": Json(option.disabled),
+    "index": Json(option.index),
   })
   let active_id : Json = match semantics.active_id {
-    Some(value) => value
+    Some(value) => Json(value)
     None => Json::null()
   }
   let field = palette.field()
   let selection = field.selection()
   let focus_owner : Json = match fixture.tree.val.focused() {
-    Some(value) => value.to_int()
+    Some(value) => Json(value.to_int())
     None => Json::null()
   }
   let caret : Json = match windows_palette_caret_rect(palette.field()) {
@@ -1398,11 +1398,11 @@ fn run_palette_window() -> Unit {
                   )
                 Some(frame) => {
                   let active_id = match frame.active_id {
-                    Some(id) => id.stringify()
+                    Some(id) => Json(id).stringify()
                     None => "null"
                   }
                   palette_log(
-                    "GPUI_WINDOWS_COMMAND_PALETTE_COMPLETE {\"presentation\":\{frame.presentation},\"event_sequence\":\{event.sequence()},\"open_epoch\":\{frame.open_epoch},\"query\":\{frame.query.stringify()},\"visible_count\":\{frame.visible_count},\"active_id\":\{active_id}}",
+                    "GPUI_WINDOWS_COMMAND_PALETTE_COMPLETE {\"presentation\":\{frame.presentation},\"event_sequence\":\{event.sequence()},\"open_epoch\":\{frame.open_epoch},\"query\":\{Json(frame.query).stringify()},\"visible_count\":\{frame.visible_count},\"active_id\":\{active_id}}",
                   )
                   match host.readback_samples(window) {
                     Ok(samples) =>
@@ -1670,7 +1670,7 @@ fn run_palette_window() -> Unit {
                 pending = next_pending
                 retry_prepared.val = None
                 palette_log(
-                  "GPUI_WINDOWS_COMMAND_PALETTE_ACCEPTED {\"presentation\":\{presentation},\"open_epoch\":\{prepared.frame.open_epoch},\"open\":\{palette.is_open()},\"query\":\{prepared.frame.query.stringify()},\"matches\":\{palette.picker().match_count()},\"visible_count\":\{prepared.frame.visible_count}}",
+                  "GPUI_WINDOWS_COMMAND_PALETTE_ACCEPTED {\"presentation\":\{presentation},\"open_epoch\":\{prepared.frame.open_epoch},\"open\":\{palette.is_open()},\"query\":\{Json(prepared.frame.query).stringify()},\"matches\":\{palette.picker().match_count()},\"visible_count\":\{prepared.frame.visible_count}}",
                 )
                 palette_log(
                   palette_state_line(

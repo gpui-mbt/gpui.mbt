@@ -209,23 +209,23 @@ fn palette_state_line(
   let palette = fixture.palette
   let semantics = palette.semantics()
   let options = semantics.options.map(option => {
-    "id": option.id,
-    "name": option.name,
-    "role": option.role,
-    "selected": option.selected,
-    "disabled": option.disabled,
-    "index": option.index,
+    "id": Json(option.id),
+    "name": Json(option.name),
+    "role": Json(option.role),
+    "selected": Json(option.selected),
+    "disabled": Json(option.disabled),
+    "index": Json(option.index),
   })
   let active_id : Json = match semantics.active_id {
-    Some(value) => value
+    Some(value) => Json(value)
     None => Json::null()
   }
   let active_index : Json = match palette.picker().active_index() {
-    Some(value) => value
+    Some(value) => Json(value)
     None => Json::null()
   }
   let focus_owner : Json = match fixture.tree.val.focused() {
-    Some(value) => value.to_int()
+    Some(value) => Json(value.to_int())
     None => Json::null()
   }
   let value : Json = {

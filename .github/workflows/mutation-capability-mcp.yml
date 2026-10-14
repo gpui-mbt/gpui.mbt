@@ -32,7 +32,7 @@ jobs:
       - name: Install pinned turtles 0.3.0
         run: |
           mkdir -p _build/tools _build/mutation
-          moon install f4ah6o/turtles/cmd/turtles@0.3.0 --bin _build/tools
+          moon install https://github.com/gpui-mbt/turtles.mbt.git cmd/turtles --rev a3a414868151a7bcf753bb34ad60be3233766a46 --bin _build/tools
           _build/tools/turtles --version
       - name: Select independent package scope
         run: cp mutation-scopes/${{ matrix.scope }}.toml turtles.toml
