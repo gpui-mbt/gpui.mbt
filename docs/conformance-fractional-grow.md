@@ -20,27 +20,26 @@ and bases, a zero factor, totals of 0.5, 0.75 and 0.875, center/end alignment,
 gaps, zero bases, and small factors. Controls cover zero grow, grow totals of
 one or more, exact fits, and negative free space with shrink enabled.
 
-The independently implemented adjustment uses a grow denominator of at least
-one. A total below one therefore retains unallocated positive space for the
-existing justification step. A total of one or more keeps proportional
+The initial independently implemented adjustment used a grow denominator of
+at least one. With no gap, a total below one therefore retains unallocated
+positive space for the existing justification step. The gap-budget follow-up
+refines allocation on lines with gaps as described below. A total of one or more keeps proportional
 allocation of all positive space. Shrink allocation, the single-pass min/max
 clamp, signed overflow alignment, finite-value validation, and overflow
 tolerance retain their existing behavior. This does not add freeze passes
 or redistribute space left by min/max constraints.
 
-The partial-grow-with-gap case remains a known difference. With a 108-point
-row, an 8-point gap, two 20-point bases, and factors of 0.25 each, pinned GPUI
-resolves widths of 31 points each. The independent MoonBit contract subtracts
-the gap once from the available budget and allocates each factor's share of
-the remaining 60 points, resolving widths of 35 points each. This adjustment
-preserves that gap budget rather than reproducing the pinned gap behavior.
-The formal `grow-partial-with-gap` scenario retains the comparison evidence;
-candidate suite results must continue to report any difference.
+The initial fractional-grow correction retained a partial-grow-with-gap difference:
+a 108-point row with an 8-point gap, two 20-point bases and factors of 0.25
+resolved to 35 points each in MoonBit versus 31 in pinned GPUI. The follow-up
+[gap-budget correction](conformance-gap-budget.md) now matches that observed
+behavior. The formal `grow-partial-with-gap` scenario and original baseline
+evidence remain unchanged; the gap regression now checks the measured 31-point
+result and center/end placement.
 
 `layout/fractional_grow_test.mbt` covers the observed partial-grow behavior
-and controls, including row/column placement and center/end leftovers. Its
-single-gap-budget test explicitly checks the independent MoonBit contract,
-not agreement with pinned GPUI. Additional numerical and bounded-subset tests
+and controls, including row/column placement and center/end leftovers.
+Additional numerical and bounded-subset tests
 cover large finite and subnormal factors, a tiny factor with a large finite
 extent, and one-pass max clamping. Six of its nine tests fail against the
 baseline before the adjustment. The provenance record is in `upstream.json`;

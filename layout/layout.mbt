@@ -681,13 +681,19 @@ fn place_items(
       !finite(free) {
       Err(NonFiniteValue)
     } else {
-      let grow_divisor = if grow_total < 1.0 { 1.0 } else { grow_total }
+      // The pinned GPUI partial-grow budget scales the initial free space,
+      // then subtracts the line's gaps. It can be negative despite growing.
+      let grow_space = if free > 0.0 && grow_total > 0.0 && grow_total < 1.0 {
+        free * grow_total - gaps
+      } else {
+        free
+      }
       let resolved : Array[Double] = []
       let mut used = gaps
       let mut numeric_error = false
       for entry in prepared {
         let proposed = if free > 0.0 && grow_total > 0.0 {
-          entry.basis + free * (entry.item.grow / grow_divisor)
+          entry.basis + grow_space * (entry.item.grow / grow_total)
         } else if free < 0.0 && shrink_total > 0.0 {
           entry.basis + free * (entry.weight / shrink_total)
         } else {

@@ -8,6 +8,9 @@
 
 ### Fixed
 
+- Match pinned GPUI partial flex-grow allocation when a line has gaps, including
+  zero or negative distribution budgets and center/end placement.
+  (`docs/conformance-gap-budget.md`)
 - Keep unallocated free space when flex-grow factors total less than one,
   preserving each child's fractional share and the selected justification.
   (`docs/conformance-fractional-grow.md`)
