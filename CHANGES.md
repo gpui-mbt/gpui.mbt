@@ -8,6 +8,9 @@
 
 ### Fixed
 
+- Keep unallocated free space when flex-grow factors total less than one,
+  preserving each child's fractional share and the selected justification.
+  (`docs/conformance-fractional-grow.md`)
 - Preserve center/end flex alignment when children exceed the available main
   or cross size, including negative origins and leading overflow reporting.
   (`docs/conformance-layout.md`)
