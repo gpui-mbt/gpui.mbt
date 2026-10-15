@@ -525,7 +525,8 @@ priv struct PreparedItem {
 /// free space times that total minus line gaps, matching pinned GPUI.
 /// Negative initial free space is distributed by shrink*basis; shrink totals
 /// below one limit that budget while retaining any resulting overflow.
-/// Each result is clamped once to min/max, matching the documented first subset.
+/// Main-axis limits freeze constrained children and redistribute the remaining
+/// budget, retaining partial-factor shares of the initial free space.
 pub fn layout_flex(
   container : FlexContainer,
   items : Array[FlexItem],
@@ -668,74 +669,9 @@ fn place_items(
   if !finite(gaps) {
     Err(NonFiniteValue)
   } else {
-    let mut basis_total = 0.0
-    let mut grow_total = 0.0
-    let mut shrink_total = 0.0
-    let mut shrink_factor_total = 0.0
-    for entry in prepared {
-      basis_total += entry.basis
-      grow_total += entry.item.grow
-      shrink_total += entry.weight
-      // Only totals below one reduce the shrink budget. Saturate the raw
-      // factor sum so finite huge factors with zero bases stay valid.
-      shrink_factor_total = if entry.item.shrink >= 1.0 - shrink_factor_total {
-        1.0
-      } else {
-        shrink_factor_total + entry.item.shrink
-      }
-    }
-    let free = main_extent - gaps - basis_total
-    if !finite(basis_total) ||
-      !finite(grow_total) ||
-      !finite(shrink_total) ||
-      !finite(free) {
-      Err(NonFiniteValue)
-    } else {
-      // The pinned GPUI partial-grow budget scales the initial free space,
-      // then subtracts the line's gaps. It can be negative despite growing.
-      let grow_space = if free > 0.0 && grow_total > 0.0 && grow_total < 1.0 {
-        free * grow_total - gaps
-      } else {
-        free
-      }
-      let shrink_space = if free < 0.0 && shrink_factor_total < 1.0 {
-        let partial = free * shrink_factor_total - gaps
-        if partial > free {
-          partial
-        } else {
-          free
-        }
-      } else {
-        free
-      }
-      let resolved : Array[Double] = []
-      let mut used = gaps
-      let mut numeric_error = false
-      for entry in prepared {
-        let proposed = if free > 0.0 && grow_total > 0.0 {
-          entry.basis + grow_space * (entry.item.grow / grow_total)
-        } else if free < 0.0 && shrink_total > 0.0 {
-          entry.basis + shrink_space * (entry.weight / shrink_total)
-        } else {
-          entry.basis
-        }
-        if !finite(proposed) {
-          numeric_error = true
-        } else {
-          let final_main = clamp_once(
-            non_negative(proposed),
-            entry.item.min_main,
-            entry.item.max_main,
-          )
-          resolved.push(final_main)
-          used += final_main
-        }
-      }
-      if numeric_error ||
-        !finite(used) ||
-        resolved.length() != prepared.length() {
-        Err(NonFiniteValue)
-      } else {
+    match resolve_main_sizes(prepared, main_extent, gaps) {
+      Err(error) => Err(error)
+      Ok((resolved, used)) => {
         let leftover = main_extent - used
         let mut cursor = match container.justify {
           JustifyContent::Start => 0.0

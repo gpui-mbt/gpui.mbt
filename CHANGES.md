@@ -8,6 +8,10 @@
 
 ### Fixed
 
+- Redistribute flex space after main-axis min/max limits freeze children,
+  using clamped sizes to select growth or shrink and retaining partial-factor
+  budgets and unavoidable overflow. (`docs/conformance-flex-limits.md`)
+
 - Limit flex-shrink allocation when shrink factors total less than one,
   preserving measured overflow, weighted shares and signed alignment.
   (`docs/conformance-fractional-shrink.md`)

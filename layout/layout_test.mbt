@@ -87,7 +87,7 @@ test "fractional exact-fit distribution ignores floating-point residue" {
 }
 
 ///|
-test "shrink clamps once and reports minimum-driven overflow" {
+test "shrink preserves unavoidable minimum-driven overflow" {
   let size = unwrap_size(50.0, 20.0)
   let intrinsic = unwrap_size(40.0, 10.0)
   let first = unwrap_main_limits(

@@ -205,7 +205,7 @@ test "tiny positive grow remains a tiny share at finite large scales" {
 }
 
 ///|
-test "fractional grow keeps one-pass clamping without redistribution" {
+test "fractional grow retains the initial share after a maximum freezes" {
   for
     direction in [@layout.FlowDirection::row(), @layout.FlowDirection::column()] {
     let first = unwrap_main_limits(grow_item(1, 20.0, 0.25), 0.0, Some(30.0))

@@ -54,7 +54,10 @@
     {
       "upstream_repository": "https://github.com/zed-industries/zed",
       "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
-      "upstream_paths": ["crates/gpui/src/geometry.rs", "crates/gpui/src/app/test_context.rs"],
+      "upstream_paths": [
+        "crates/gpui/src/geometry.rs",
+        "crates/gpui/src/app/test_context.rs"
+      ],
       "license_expression": "Apache-2.0",
       "license_evidence": [
         {
@@ -63,7 +66,11 @@
           "evidence": "The owning GPUI package declares license = Apache-2.0; its LICENSE-APACHE resolves to the root Apache License 2.0 text."
         }
       ],
-      "destination_paths": ["element/element.mbt", "element/hit_boundary_test.mbt", "docs/conformance-pointer.md"],
+      "destination_paths": [
+        "element/element.mbt",
+        "element/hit_boundary_test.mbt",
+        "docs/conformance-pointer.md"
+      ],
       "method": "independent_from_behavior",
       "material_deviations": [
         "Only element pointer hit coverage changes; public Rect::contains remains closed-edge.",
@@ -73,7 +80,10 @@
     {
       "upstream_repository": "https://github.com/zed-industries/zed",
       "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
-      "upstream_paths": ["crates/gpui/src/style.rs", "crates/gpui/src/app/test_context.rs"],
+      "upstream_paths": [
+        "crates/gpui/src/style.rs",
+        "crates/gpui/src/app/test_context.rs"
+      ],
       "license_expression": "Apache-2.0",
       "license_evidence": [
         {
@@ -82,7 +92,11 @@
           "evidence": "The owning GPUI package declares license = Apache-2.0; its LICENSE-APACHE resolves to the root Apache License 2.0 text."
         }
       ],
-      "destination_paths": ["layout/layout.mbt", "layout/overflow_alignment_test.mbt", "docs/conformance-layout.md"],
+      "destination_paths": [
+        "layout/layout.mbt",
+        "layout/overflow_alignment_test.mbt",
+        "docs/conformance-layout.md"
+      ],
       "method": "independent_from_behavior",
       "material_deviations": [
         "Only signed center/end placement and leading overflow reporting change; flex allocation and one-pass min/max clamping remain the bounded MoonBit subset.",
@@ -93,7 +107,10 @@
     {
       "upstream_repository": "https://github.com/zed-industries/zed",
       "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
-      "upstream_paths": ["crates/gpui/src/style.rs", "crates/gpui/src/app/test_context.rs"],
+      "upstream_paths": [
+        "crates/gpui/src/style.rs",
+        "crates/gpui/src/app/test_context.rs"
+      ],
       "license_expression": "Apache-2.0",
       "license_evidence": [
         {
@@ -102,7 +119,11 @@
           "evidence": "The owning GPUI package declares license = Apache-2.0; its LICENSE-APACHE resolves to the root Apache License 2.0 text."
         }
       ],
-      "destination_paths": ["layout/layout.mbt", "layout/fractional_grow_test.mbt", "docs/conformance-fractional-grow.md"],
+      "destination_paths": [
+        "layout/layout.mbt",
+        "layout/fractional_grow_test.mbt",
+        "docs/conformance-fractional-grow.md"
+      ],
       "method": "independent_from_behavior",
       "material_deviations": [
         "Only positive free-space allocation for grow totals below one changes; shrink and single-pass min/max clamping retain the bounded MoonBit subset.",
@@ -169,6 +190,38 @@
         "Actual pinned GPUI headless execution of17 independently authored cases records7passing controls and10baseline differences; zero/unit/above-unit factors, unequal/zero bases, overflow alignment and gap-budget bounds are covered.",
         "Positive grow allocation and one-pass min/max clamping retain the existing bounded subset; no general freeze/redistribution loop is added.",
         "MoonBit retains binary64 geometry; full CSS/floating-point parity, native rendering, physical input and IME are not established by headless observations."
+      ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": [
+        "crates/gpui/src/style.rs",
+        "crates/gpui/src/app/test_context.rs",
+        "Cargo.lock"
+      ],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares Apache-2.0."
+        }
+      ],
+      "destination_paths": [
+        "layout/flex_resolution.mbt",
+        "layout/layout.mbt",
+        "layout/flex_limits_test.mbt",
+        "docs/conformance-flex-limits.md"
+      ],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Measured 29 independently authored headless scenarios against unchanged pinned GPUI; baseline nine controls agree and twenty cases differ.",
+        "Definite single-line main-axis limits choose factor mode using hypothetical clamped sizes and iteratively freeze violations; partial factor budgets retain initial free space and the measured gap correction.",
+        "Source was inspected to explain behavior; the resolver and regressions were independently written without copying upstream implementation or tests.",
+        "Public API, cross-axis clamp and finite-value contracts are retained; worst-case main-axis work is quadratic in the line child count.",
+        "No wrapping, margins, intrinsic minimum, full CSS/binary32 parity, native pixel, physical input or IME claim.",
+        "Inspected dependency: taffy 0.13.0, MIT (Cargo.toml and LICENSE); src/compute/flexbox.rs; locked crate SHA-256 c034e05f6ee85a12daa63863c2245797715075c70649947aa0da54f3f2ab1d0f."
       ]
     }
   ]
