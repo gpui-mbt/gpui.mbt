@@ -140,22 +140,20 @@ test "center and end place the unallocated fractional grow space" {
 }
 
 ///|
-// Independent bounded-layout contract: gaps consume the main budget once.
-// Pinned GPUI partial-grow-with-gap behavior remains a measured difference;
-// see docs/conformance-fractional-grow.md.
-test "fractional grow retains the independent single gap budget" {
+// Pinned GPUI's partial-grow budget scales free space, then subtracts gaps.
+test "fractional grow matches the measured gap budget and justification" {
   for
     direction in [@layout.FlowDirection::row(), @layout.FlowDirection::column()] {
     for
       (justify, first_origin) in [
         (@layout.JustifyContent::start(), 0.0),
-        (@layout.JustifyContent::center(), 12.5),
-        (@layout.JustifyContent::end(), 25.0),
+        (@layout.JustifyContent::center(), 19.0),
+        (@layout.JustifyContent::end(), 38.0),
       ] {
-      let result = grow_pair(direction, 100.0, 0.25, 0.25, gap=10.0, justify~)
+      let result = grow_pair(direction, 108.0, 0.25, 0.25, gap=8.0, justify~)
       assert_eq(grow_main_bounds(result, direction), [
-        (first_origin, 32.5),
-        (first_origin + 42.5, 32.5),
+        (first_origin, 31.0),
+        (first_origin + 39.0, 31.0),
       ])
       assert_true(!result.overflow())
     }

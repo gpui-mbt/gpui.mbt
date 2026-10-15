@@ -106,10 +106,40 @@
       "method": "independent_from_behavior",
       "material_deviations": [
         "Only positive free-space allocation for grow totals below one changes; shrink and single-pass min/max clamping retain the bounded MoonBit subset.",
-        "The independent gap budget subtracts gaps once; the formal partial-grow-with-gap case remains different from pinned GPUI (35-point MoonBit widths versus 31-point GPUI widths for a 108-point row, 8-point gap and two 20-point bases with factors 0.25 each).",
+        "The original correction retained the partial-grow gap difference; the subsequent gap-budget record below documents its independently measured correction.",
         "Observed through headless logical layout with independently authored scenarios; no upstream implementation or test fixtures were copied.",
         "MoonBit uses binary64 for factors and geometry; very small-factor regressions test finite geometry rather than GPUI floating-point identity.",
         "No full CSS flex, native rendering, pixel, physical input or IME compatibility claim."
+      ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": [
+        "crates/gpui/src/style.rs",
+        "crates/gpui/src/app/test_context.rs"
+      ],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares license = Apache-2.0; its LICENSE-APACHE resolves to the root Apache License 2.0 text."
+        }
+      ],
+      "destination_paths": [
+        "layout/layout.mbt",
+        "layout/gap_budget_test.mbt",
+        "layout/fractional_grow_test.mbt",
+        "docs/conformance-gap-budget.md"
+      ],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Independent behavior-based correction for positive initial free space with grow totals below one: scale that space by the total, subtract line gaps, then distribute the signed budget by grow ratios.",
+        "Shrink allocation and the one-pass min/max clamp remain unchanged; full freeze/redistribution behavior is outside this bounded slice.",
+        "Measured against actual pinned GPUI headless execution using 17 independently authored gap scenarios; six controls agree before correction and eleven cases differ.",
+        "The pinned reference uses locked Taffy0.13.0; this compatibility behavior is not claimed as a general CSS specification rule.",
+        "MoonBit retains binary64 geometry and finite-value checks; native windows, pixels, physical input and IME are not established by these headless comparisons."
       ]
     }
   ]
