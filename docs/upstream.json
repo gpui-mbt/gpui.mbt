@@ -69,6 +69,26 @@
         "Only element pointer hit coverage changes; public Rect::contains remains closed-edge.",
         "Measured through headless framework dispatch; no native window, physical input or GPU parity claim."
       ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": ["crates/gpui/src/style.rs", "crates/gpui/src/app/test_context.rs"],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares license = Apache-2.0; its LICENSE-APACHE resolves to the root Apache License 2.0 text."
+        }
+      ],
+      "destination_paths": ["layout/layout.mbt", "layout/overflow_alignment_test.mbt", "docs/conformance-layout.md"],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Only signed center/end placement and leading overflow reporting change; flex allocation and one-pass min/max clamping remain the bounded MoonBit subset.",
+        "Observed through headless logical layout with independently authored scenarios; no upstream implementation or test fixtures were copied.",
+        "No full CSS flex, native window, pixel, physical input or IME compatibility claim."
+      ]
     }
   ]
 }

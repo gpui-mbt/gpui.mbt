@@ -33,7 +33,7 @@ pub fn FlowDirection::column() -> FlowDirection {
 }
 
 ///|
-/// Main-axis placement of unused positive space.
+/// Main-axis placement of remaining space, including negative overflow space.
 pub enum JustifyContent {
   Start
   Center
@@ -708,15 +708,11 @@ fn place_items(
         resolved.length() != prepared.length() {
         Err(NonFiniteValue)
       } else {
-        let positive_leftover = if main_extent > used {
-          main_extent - used
-        } else {
-          0.0
-        }
+        let leftover = main_extent - used
         let mut cursor = match container.justify {
           JustifyContent::Start => 0.0
-          Center => positive_leftover / 2.0
-          End => positive_leftover
+          Center => leftover / 2.0
+          End => leftover
         }
         let output : Array[LayoutBox] = []
         let mut any_overflow = exceeds_with_tolerance(used, main_extent)
@@ -726,14 +722,10 @@ fn place_items(
           let entry = prepared[index]
           let main_size = resolved[index]
           let cross_size = entry.cross
-          let cross_offset = if cross_size >= cross_extent {
-            0.0
-          } else {
-            match container.align {
-              AlignItems::Start | Stretch => 0.0
-              AlignItems::Center => (cross_extent - cross_size) / 2.0
-              AlignItems::End => cross_extent - cross_size
-            }
+          let cross_offset = match container.align {
+            AlignItems::Start | Stretch => 0.0
+            AlignItems::Center => (cross_extent - cross_size) / 2.0
+            AlignItems::End => cross_extent - cross_size
           }
           let x = if container.direction is Row {
             content_bounds.left() + cursor
@@ -758,10 +750,13 @@ fn place_items(
           match @primitives.Rect::new(x, y, width, height) {
             Err(_) => error = Some(GeometryFailure)
             Ok(bounds) => {
+              // Measure leading overflow on the container's scale, so a
+              // fractional exact-fit residue keeps the same tolerance.
               let overflow = exceeds_with_tolerance(
-                  cursor + main_size,
+                  main_extent - cursor,
                   main_extent,
                 ) ||
+                exceeds_with_tolerance(cursor + main_size, main_extent) ||
                 exceeds_with_tolerance(cross_size, cross_extent)
               if overflow {
                 any_overflow = true
