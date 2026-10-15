@@ -66,6 +66,7 @@ pub enum JustifyContent {
   Start
   Center
   End
+  SpaceBetween
 } derive(Eq)
 
 ///|
@@ -84,6 +85,11 @@ pub fn JustifyContent::center() -> JustifyContent {
 ///|
 pub fn JustifyContent::end() -> JustifyContent {
   End
+}
+
+///|
+pub fn JustifyContent::space_between() -> JustifyContent {
+  SpaceBetween
 }
 
 ///|
@@ -839,8 +845,17 @@ fn place_items(
       Err(error) => Err(error)
       Ok((resolved, used)) => {
         let leftover = main_extent - used
+        // GPUI/Taffy falls back to start placement when there is no positive
+        // free space. With zero or one item there is no inter-item gap to share.
+        let between_extra = if container.justify is JustifyContent::SpaceBetween &&
+          count > 1 &&
+          leftover > 0.0 {
+          leftover / (count - 1).to_double()
+        } else {
+          0.0
+        }
         let mut cursor = match container.justify {
-          JustifyContent::Start => 0.0
+          JustifyContent::Start | SpaceBetween => 0.0
           Center => leftover / 2.0
           End => leftover
         }
@@ -894,7 +909,7 @@ fn place_items(
               output.push({ id: entry.item.id, bounds, overflow, })
             }
           }
-          cursor += main_size + container.gap
+          cursor += main_size + container.gap + between_extra
           index += 1
         }
         match error {
@@ -1073,8 +1088,17 @@ fn place_wrapped_lines(
     let line_cross = line_cross_sizes[line_index]
     let cross_line_start = line_offsets[line_index]
     let leftover = main_extent - line_used
+    // Distribute independently within this line. Overflow follows Taffy's
+    // start fallback, and a singleton line has no between-item gap.
+    let between_extra = if container.justify is JustifyContent::SpaceBetween &&
+      line.length() > 1 &&
+      leftover > 0.0 {
+      leftover / (line.length() - 1).to_double()
+    } else {
+      0.0
+    }
     let mut main_cursor = match container.justify {
-      JustifyContent::Start => 0.0
+      JustifyContent::Start | SpaceBetween => 0.0
       Center => leftover / 2.0
       End => leftover
     }
@@ -1150,7 +1174,7 @@ fn place_wrapped_lines(
           output.push({ id: entry.item.id, bounds, overflow, })
         }
       }
-      main_cursor += main_size + container.gap
+      main_cursor += main_size + container.gap + between_extra
     }
   }
   match error {
