@@ -13,6 +13,32 @@ pub fn Host::start() -> Result[Host, @diagnostics.FrameworkError] {
 }
 
 ///|
+/// Start an accessory host whose windows remain hidden until explicitly ordered
+/// behind other windows. This path never activates the app or makes a key window.
+/// An older native library rejects the distinct operation rather than falling
+/// back to foreground startup.
+pub fn Host::start_background() -> Result[Host, @diagnostics.FrameworkError] {
+  match status(call(17, 0, 0.0, 0.0, b"", 0), "start_background") {
+    Ok(_) => Ok({ marker: integer(9), })
+    Err(error) => Err(error)
+  }
+}
+
+///|
+/// Order one background-host window behind other windows without activation.
+/// Unsupported for a host started with the regular foreground constructor.
+pub fn Host::show_window_unfocused(
+  self : Host,
+  window : @platform.WindowId,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  match self.check() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  status(call(18, window.value(), 0.0, 0.0, b"", 0), "show_window_unfocused")
+}
+
+///|
 pub fn Host::stop(self : Host) -> Result[Unit, @diagnostics.FrameworkError] {
   match self.check() {
     Err(error) => return Err(error)

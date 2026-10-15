@@ -4,6 +4,9 @@
 
 ### Added
 
+- Add macOS background-host startup with hidden windows and explicit
+  nonactivating window ordering for owned observation fixtures.
+
 ### Changed
 
 ### Fixed

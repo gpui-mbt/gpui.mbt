@@ -27,7 +27,7 @@ static id<MTLTexture> white_mask_texture;
 static int64_t next_token, result_token, host_epoch;
 static NSData *text_result;
 static int state; // 0 uninitialized/stopped, 1 running, 2 quiescing
-static BOOL overflow;
+static BOOL overflow, background_host;
 #ifdef GPUI_TESTING
 static NSData *frame_pixels;
 static NSUInteger frame_width, frame_height, frame_stride;
@@ -447,12 +447,13 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
   if (![NSThread isMainThread]) return 18;
   if (len < 0 || len > 16*1024*1024 || (len && !bytes)) return 5;
   @autoreleasepool {
-    if (op == 1) {
+    if (op == 1 || op == 17) {
       if (state) return state == 2 ? 19 : 12;
       int status = setup_gpu();
       if (status) { pipeline=nil; queue=nil; device=nil; return status; }
       [NSApplication sharedApplication];
-      [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+      background_host = op == 17;
+      [NSApp setActivationPolicy:background_host ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular];
       app_delegate = [GPApplicationDelegate new]; NSApp.delegate = app_delegate;
       windows = [NSMutableDictionary new]; events = [NSMutableArray new]; current=nil; overflow=NO;
       [NSApp finishLaunching]; state = 1; host_epoch++;
@@ -466,7 +467,7 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
 #ifdef GPUI_TESTING
       [test_clipboard releaseGlobally]; test_clipboard=nil;
 #endif
-      NSApp.delegate=nil; app_delegate=nil; state=0;
+      NSApp.delegate=nil; app_delegate=nil; background_host=NO; state=0;
       return 0;
     }
     if (!state) return 1;
@@ -494,8 +495,11 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
       w.window.contentView=view; w.window.delegate=w; w.window.title=title;
       windows[@(w.token)]=w; result_token=w.token;
       resize_surface(w); emit(w,1,0,0,0,0,0);
-      [w.window center]; [w.window makeKeyAndOrderFront:nil]; [w.window makeFirstResponder:view];
-      [NSApp activateIgnoringOtherApps:YES];
+      [w.window makeFirstResponder:view];
+      if (!background_host) {
+        [w.window center]; [w.window makeKeyAndOrderFront:nil];
+        [NSApp activateIgnoringOtherApps:YES];
+      }
       return 0;
     }
     if (op == 6) {
@@ -533,6 +537,9 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
     GPWindow *w=windows[@(token)];
     if (!w) return op == 8 && token > 0 && token <= next_token ? 0 : 10;
     switch (op) {
+      case 18:
+        if (!background_host) return 9;
+        [w.window orderBack:nil]; return 0;
       case 4: {
         NSString *title=[[NSString alloc] initWithBytes:bytes length:len encoding:NSUTF8StringEncoding];
         if (!title) return 17; w.window.title=title; return 0;
