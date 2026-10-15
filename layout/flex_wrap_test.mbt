@@ -163,6 +163,39 @@ test "wrapped min and max sizes determine line breaks before per-line growth" {
 }
 
 ///|
+test "wrapped decimal exact fit ignores binary64 residue but still breaks above it" {
+  let base = @layout.FlexContainer::new(
+      @layout.FlowDirection::row(),
+      unwrap_wrap_size(100.3, 20.0),
+    )
+    .with_align(@layout.AlignItems::start())
+    .with_wrap(@layout.FlexWrap::wrap())
+  let exact = unwrap_layout(
+    @layout.layout_flex(base, [
+      wrap_item(1, 50.1, 10.0),
+      wrap_item(2, 50.2, 10.0),
+    ]),
+  )
+  assert_eq(wrap_line_bounds(exact.items()), [
+    (0.0, 0.0, 50.1, 10.0),
+    (50.1, 0.0, 50.2, 10.0),
+  ])
+  assert_true(!exact.overflow())
+
+  let above = unwrap_layout(
+    @layout.layout_flex(base, [
+      wrap_item(3, 50.1, 10.0),
+      wrap_item(4, 50.2001, 10.0),
+    ]),
+  )
+  assert_eq(wrap_line_bounds(above.items()), [
+    (0.0, 0.0, 50.1, 10.0),
+    (0.0, 10.0, 50.2001, 10.0),
+  ])
+  assert_true(!above.overflow())
+}
+
+///|
 test "wrap-reverse uses safe cross-start placement when lines overflow" {
   let base = unwrap_wrap_gap(
     @layout.FlexContainer::new(

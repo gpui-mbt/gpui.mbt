@@ -826,7 +826,10 @@ fn place_wrapped_items(
     if !finite(proposed) || !finite(hypothetical) {
       line_error = Some(NonFiniteValue)
     } else {
-      if current.length() > 0 && proposed > main_extent {
+      // Suppress only binary64 accumulation residue at an exact-fit boundary;
+      // this is the engine's tiny scale-relative geometry tolerance, not a
+      // general conversion to GPUI's f32 pixel representation.
+      if current.length() > 0 && exceeds_with_tolerance(proposed, main_extent) {
         lines.push(current)
         current = []
         line_length = 0.0

@@ -136,7 +136,7 @@ The first layout engine supports a deliberately bounded flex subset. It does not
 
 ### Inputs and outputs
 
-- Coordinates and resolved lengths are finite logical points. Device pixels and scale conversion belong at the renderer/backend edge.
+- Coordinates and resolved lengths are finite logical points represented as `Double`; device pixels and scale conversion belong at the renderer/backend edge. A roughly 32-binary64-epsilon scale-relative tolerance suppresses arithmetic residue in overflow and exact-fit comparisons; it does not quantize all values to GPUI's `f32` pixel precision, so ULP-scale line-break boundaries are not claimed as identical.
 - Each node has a row or column flow direction, fixed or percentage dimensions, `auto` dimensions, a `nowrap`/`wrap`/`wrap-reverse` mode for definite containers, two-axis gap, padding, border widths, min/max dimensions (with `min <= max` required per axis), flex basis, non-negative flex grow/shrink factors, main-axis justification, and cross-axis start/center/end/stretch item alignment.
 - Width and height are measured as border-box dimensions. Padding and borders are removed before child layout. An inner dimension never becomes negative; excess insets produce a zero inner dimension.
 - A child can supply an intrinsic preferred size through a platform-neutral measure callback. Text intrinsic measurement is provided by the text-system contract; layout does not estimate text from character count.
