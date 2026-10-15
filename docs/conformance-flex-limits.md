@@ -45,3 +45,10 @@ GPUI style/test-support APIs and its locked Taffy flex resolution source were
 inspected to understand the measured results. No upstream implementation or
 test fixture was copied. The provenance record distinguishes GPUI's Apache-2.0
 package from the MIT-licensed Taffy dependency and its locked crate checksum.
+
+Independent exploratory controls found an existing device-scale snapping gap:
+GPUI snaps layout edges to device pixels after Taffy, while MoonBit exposes
+continuous logical coordinates. For fractional 1:2 growth, 10.6667/29.3333 can
+therefore appear as GPUI 10.5/29.5. Baseline and corrected MoonBit observations
+are identical in those controls, including variants without limits. This is a
+separate measured difference, not qualified by the 29 formal cases above.
