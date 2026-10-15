@@ -52,11 +52,21 @@ test "partial shrink uses the raw factor total and scaled factor ratios" {
       ])
     }
     let unequal = shrink_pair(
-      direction, 40.0, 0.25, 0.25, first_basis=20.0, second_basis=60.0,
+      direction,
+      40.0,
+      0.25,
+      0.25,
+      first_basis=20.0,
+      second_basis=60.0,
     )
     assert_eq(grow_main_bounds(unequal, direction), [(0.0, 15.0), (15.0, 45.0)])
     let zero_basis = shrink_pair(
-      direction, 40.0, 0.25, 0.25, first_basis=0.0, second_basis=80.0,
+      direction,
+      40.0,
+      0.25,
+      0.25,
+      first_basis=0.0,
+      second_basis=80.0,
     )
     assert_eq(grow_main_bounds(zero_basis, direction), [(0.0, 0.0), (0.0, 60.0)])
   }
@@ -133,7 +143,12 @@ test "finite large shrink factors with zero bases retain valid geometry" {
   for
     direction in [@layout.FlowDirection::row(), @layout.FlowDirection::column()] {
     let result = shrink_pair(
-      direction, 0.0, 1.0e308, 1.0e308, first_basis=0.0, second_basis=0.0,
+      direction,
+      0.0,
+      1.0e308,
+      1.0e308,
+      first_basis=0.0,
+      second_basis=0.0,
     )
     assert_eq(grow_main_bounds(result, direction), [(0.0, 0.0), (0.0, 0.0)])
     assert_true(!result.overflow())
