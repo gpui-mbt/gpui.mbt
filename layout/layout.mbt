@@ -523,7 +523,8 @@ priv struct PreparedItem {
 /// Lay out one deterministic row/column flex line. Positive free space is
 /// distributed by grow factors. For totals below one, the signed budget is
 /// free space times that total minus line gaps, matching pinned GPUI.
-/// Negative initial free space is distributed by shrink*basis.
+/// Negative initial free space is distributed by shrink*basis; shrink totals
+/// below one limit that budget while retaining any resulting overflow.
 /// Each result is clamped once to min/max, matching the documented first subset.
 pub fn layout_flex(
   container : FlexContainer,
@@ -670,10 +671,18 @@ fn place_items(
     let mut basis_total = 0.0
     let mut grow_total = 0.0
     let mut shrink_total = 0.0
+    let mut shrink_factor_total = 0.0
     for entry in prepared {
       basis_total += entry.basis
       grow_total += entry.item.grow
       shrink_total += entry.weight
+      // Only totals below one reduce the shrink budget. Saturate the raw
+      // factor sum so finite huge factors with zero bases stay valid.
+      shrink_factor_total = if entry.item.shrink >= 1.0 - shrink_factor_total {
+        1.0
+      } else {
+        shrink_factor_total + entry.item.shrink
+      }
     }
     let free = main_extent - gaps - basis_total
     if !finite(basis_total) ||
@@ -689,6 +698,16 @@ fn place_items(
       } else {
         free
       }
+      let shrink_space = if free < 0.0 && shrink_factor_total < 1.0 {
+        let partial = free * shrink_factor_total - gaps
+        if partial > free {
+          partial
+        } else {
+          free
+        }
+      } else {
+        free
+      }
       let resolved : Array[Double] = []
       let mut used = gaps
       let mut numeric_error = false
@@ -696,7 +715,7 @@ fn place_items(
         let proposed = if free > 0.0 && grow_total > 0.0 {
           entry.basis + grow_space * (entry.item.grow / grow_total)
         } else if free < 0.0 && shrink_total > 0.0 {
-          entry.basis + free * (entry.weight / shrink_total)
+          entry.basis + shrink_space * (entry.weight / shrink_total)
         } else {
           entry.basis
         }

@@ -8,6 +8,9 @@
 
 ### Fixed
 
+- Limit flex-shrink allocation when shrink factors total less than one,
+  preserving measured overflow, weighted shares and signed alignment.
+  (`docs/conformance-fractional-shrink.md`)
 - Match pinned GPUI partial flex-grow allocation when a line has gaps, including
   zero or negative distribution budgets and center/end placement.
   (`docs/conformance-gap-budget.md`)
