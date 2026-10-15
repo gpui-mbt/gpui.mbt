@@ -919,24 +919,39 @@ fn place_wrapped_lines(
   main_extent : Double,
   cross_extent : Double,
 ) -> Result[FlexLayout, LayoutError] {
-  let line_offsets : Array[Double] = []
-  let mut cross_cursor = if container.wrap is FlexWrap::WrapReverse {
-    cross_extent
-  } else {
-    0.0
-  }
-  let mut index = 0
-  while index < lines.length() {
-    let line_size = line_cross_sizes[index]
-    if container.wrap is FlexWrap::WrapReverse {
-      cross_cursor -= line_size
-      line_offsets.push(cross_cursor)
-      cross_cursor -= container.gap
-    } else {
-      line_offsets.push(cross_cursor)
+  let line_offsets : Array[Double] = Array::make(lines.length(), 0.0)
+  if container.wrap is FlexWrap::WrapReverse &&
+    exceeds_with_tolerance(cross_total, cross_extent) {
+    // Taffy's default align-content uses safe-start when lines overflow. With
+    // wrap-reverse, line order is reversed from the physical cross start; it
+    // must not be bottom/right anchored beyond the container.
+    let mut cross_cursor = 0.0
+    let mut index = lines.length() - 1
+    while index >= 0 {
+      let line_size = line_cross_sizes[index]
+      line_offsets[index] = cross_cursor
       cross_cursor += line_size + container.gap
+      index -= 1
     }
-    index += 1
+  } else if container.wrap is FlexWrap::WrapReverse {
+    let mut cross_cursor = cross_extent
+    let mut index = 0
+    while index < lines.length() {
+      let line_size = line_cross_sizes[index]
+      cross_cursor -= line_size
+      line_offsets[index] = cross_cursor
+      cross_cursor -= container.gap
+      index += 1
+    }
+  } else {
+    let mut cross_cursor = 0.0
+    let mut index = 0
+    while index < lines.length() {
+      let line_size = line_cross_sizes[index]
+      line_offsets[index] = cross_cursor
+      cross_cursor += line_size + container.gap
+      index += 1
+    }
   }
   let output : Array[LayoutBox] = []
   let mut any_overflow = exceeds_with_tolerance(cross_total, cross_extent)
