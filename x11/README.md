@@ -12,8 +12,10 @@ native X server does not require XWayland.
 - One host and one live window, all calls on the creating thread. Stop is explicit.
 - Logical scale 1; server-accepted ConfigureNotify dimensions are authoritative.
 - Shared GLES2 quads, transforms, clipping, grayscale Linux text, and readback.
-- One FrameCompleted event after each successful EGL swap. This reports renderer
-  readiness, not a compositor presentation timestamp.
+- One FrameCompleted event after each successful EGL swap, with at most one
+  outstanding completion. Further presents return Busy until it is consumed,
+  preventing redraw loops from starving input. This reports renderer readiness,
+  not a compositor presentation timestamp.
 - XKB server keymap/group lookup, detectable repeat (and legacy repeat pairs),
   locale Compose, copied UTF8 TextInput, focus/epoch fencing, pointer/buttons/scroll.
 - UTF8_STRING CLIPBOARD ownership and reads, including ICCCM INCR. Transfers are
