@@ -443,6 +443,15 @@ static int present(GPWindow *w, const uint8_t *bytes, int32_t len) {
 #endif
   return command.status == MTLCommandBufferStatusCompleted ? 0 : 16;
 }
+// LSUIElement bundles already have Accessory policy. AppKit returns NO when
+// asked to set that same policy, so request a transition only when needed.
+static BOOL ensure_background_policy(NSApplication *application) {
+  if (application.activationPolicy != NSApplicationActivationPolicyAccessory &&
+      ![application setActivationPolicy:NSApplicationActivationPolicyAccessory])
+    return NO;
+  return application.activationPolicy == NSApplicationActivationPolicyAccessory;
+}
+
 static int32_t native_call(int32_t op, int64_t token, double x, double y, const uint8_t *bytes, int32_t len) {
   if (![NSThread isMainThread]) return 18;
   if (len < 0 || len > 16*1024*1024 || (len && !bytes)) return 5;
@@ -454,8 +463,7 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
       [NSApplication sharedApplication];
       background_host = op == 17;
       if (background_host) {
-        if (![NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory] ||
-            NSApp.activationPolicy != NSApplicationActivationPolicyAccessory) {
+        if (!ensure_background_policy(NSApp)) {
           white_mask_texture=nil; pipeline=nil; queue=nil; device=nil; background_host=NO;
           return 9;
         }
