@@ -11,6 +11,10 @@
 
 ### Fixed
 
+- Allow macOS background hosts to start inside an application bundle that
+  already has Accessory policy, while still rejecting refused or ineffective
+  policy transitions. (`docs/conformance-accessory-policy.md`)
+
 - Redistribute flex space after main-axis min/max limits freeze children,
   using clamped sizes to select growth or shrink and retaining partial-factor
   budgets and unavoidable overflow. (`docs/conformance-flex-limits.md`)
