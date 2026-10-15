@@ -25,6 +25,7 @@ pub extend TreeLayoutError with Eq::{not_equal, equal}
 /// child dimensions are auto.
 pub struct FlexTreeStyle {
   direction : FlowDirection
+  wrap : FlexWrap
   gap : Double
   padding : Insets
   border : Insets
@@ -36,6 +37,7 @@ pub struct FlexTreeStyle {
 pub fn FlexTreeStyle::new(direction : FlowDirection) -> FlexTreeStyle {
   {
     direction,
+    wrap: FlexWrap::no_wrap(),
     gap: 0.0,
     padding: Insets::zero(),
     border: Insets::zero(),
@@ -58,6 +60,7 @@ pub fn FlexTreeStyle::with_gap(
     Ok(_) =>
       Ok({
         direction: self.direction,
+        wrap: self.wrap,
         gap,
         padding: self.padding,
         border: self.border,
@@ -75,6 +78,7 @@ pub fn FlexTreeStyle::with_insets(
 ) -> FlexTreeStyle {
   {
     direction: self.direction,
+    wrap: self.wrap,
     gap: self.gap,
     padding,
     border,
@@ -90,6 +94,7 @@ pub fn FlexTreeStyle::with_justify(
 ) -> FlexTreeStyle {
   {
     direction: self.direction,
+    wrap: self.wrap,
     gap: self.gap,
     padding: self.padding,
     border: self.border,
@@ -105,11 +110,28 @@ pub fn FlexTreeStyle::with_align(
 ) -> FlexTreeStyle {
   {
     direction: self.direction,
+    wrap: self.wrap,
     gap: self.gap,
     padding: self.padding,
     border: self.border,
     justify: self.justify,
     align,
+  }
+}
+
+///|
+pub fn FlexTreeStyle::with_wrap(
+  self : FlexTreeStyle,
+  wrap : FlexWrap,
+) -> FlexTreeStyle {
+  {
+    direction: self.direction,
+    wrap,
+    gap: self.gap,
+    padding: self.padding,
+    border: self.border,
+    justify: self.justify,
+    align: self.align,
   }
 }
 
@@ -257,6 +279,7 @@ fn layout_tree_children(
     Ok(())
   } else {
     let base = FlexContainer::new(style.direction, parent_bounds.size())
+      .with_wrap(style.wrap)
       .with_insets(style.padding, style.border)
       .with_justify(style.justify)
       .with_align(style.align)

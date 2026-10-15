@@ -33,6 +33,34 @@ pub fn FlowDirection::column() -> FlowDirection {
 }
 
 ///|
+/// Whether flex items stay on one line or form additional cross-axis lines.
+/// Recursive intrinsic measurement currently retains its existing no-wrap
+/// approximation for auto-sized containers.
+pub enum FlexWrap {
+  NoWrap
+  Wrap
+  WrapReverse
+} derive(Eq)
+
+///|
+pub extend FlexWrap with Eq::{not_equal, equal}
+
+///|
+pub fn FlexWrap::no_wrap() -> FlexWrap {
+  NoWrap
+}
+
+///|
+pub fn FlexWrap::wrap() -> FlexWrap {
+  Wrap
+}
+
+///|
+pub fn FlexWrap::wrap_reverse() -> FlexWrap {
+  WrapReverse
+}
+
+///|
 /// Main-axis placement of remaining space, including negative overflow space.
 pub enum JustifyContent {
   Start
@@ -372,6 +400,7 @@ pub fn FlexItem::with_cross_limits(
 /// flex-tree layer before this line engine is called.
 pub struct FlexContainer {
   direction : FlowDirection
+  wrap : FlexWrap
   size : @primitives.Size
   gap : Double
   padding : Insets
@@ -387,6 +416,7 @@ pub fn FlexContainer::new(
 ) -> FlexContainer {
   {
     direction,
+    wrap: FlexWrap::no_wrap(),
     size,
     gap: 0.0,
     padding: Insets::zero(),
@@ -408,6 +438,7 @@ pub fn FlexContainer::with_gap(
   } else {
     Ok({
       direction: self.direction,
+      wrap: self.wrap,
       size: self.size,
       gap,
       padding: self.padding,
@@ -426,6 +457,7 @@ pub fn FlexContainer::with_insets(
 ) -> FlexContainer {
   {
     direction: self.direction,
+    wrap: self.wrap,
     size: self.size,
     gap: self.gap,
     padding,
@@ -442,6 +474,7 @@ pub fn FlexContainer::with_justify(
 ) -> FlexContainer {
   {
     direction: self.direction,
+    wrap: self.wrap,
     size: self.size,
     gap: self.gap,
     padding: self.padding,
@@ -458,12 +491,30 @@ pub fn FlexContainer::with_align(
 ) -> FlexContainer {
   {
     direction: self.direction,
+    wrap: self.wrap,
     size: self.size,
     gap: self.gap,
     padding: self.padding,
     border: self.border,
     justify: self.justify,
     align,
+  }
+}
+
+///|
+pub fn FlexContainer::with_wrap(
+  self : FlexContainer,
+  wrap : FlexWrap,
+) -> FlexContainer {
+  {
+    direction: self.direction,
+    wrap,
+    size: self.size,
+    gap: self.gap,
+    padding: self.padding,
+    border: self.border,
+    justify: self.justify,
+    align: self.align,
   }
 }
 
@@ -565,9 +616,16 @@ pub fn layout_flex(
           match prepare_items(container, items, main_extent, cross_extent) {
             Err(error) => Err(error)
             Ok(prepared) =>
-              place_items(
-                container, prepared, content_bounds, main_extent, cross_extent,
-              )
+              match container.wrap {
+                FlexWrap::NoWrap =>
+                  place_items(
+                    container, prepared, content_bounds, main_extent, cross_extent,
+                  )
+                FlexWrap::Wrap | FlexWrap::WrapReverse =>
+                  place_wrapped_items(
+                    container, prepared, content_bounds, main_extent, cross_extent,
+                  )
+              }
           }
         }
       }
@@ -623,7 +681,8 @@ fn prepare_items(
               let cross = match cross_value {
                 Some(value) => value
                 None =>
-                  if container.align is Stretch {
+                  if container.align is Stretch &&
+                    container.wrap is FlexWrap::NoWrap {
                     cross_extent
                   } else {
                     intrinsic_cross
@@ -737,6 +796,241 @@ fn place_items(
         }
       }
     }
+  }
+}
+
+///|
+/// Lay out bounded wrapped lines. Line breaks use hypothetical main sizes;
+/// flexible sizing is then resolved independently for each line. The default
+/// cross-line alignment is stretch, matching GPUI/Taffy's default for this
+/// fixed-viewport subset.
+fn place_wrapped_items(
+  container : FlexContainer,
+  prepared : Array[PreparedItem],
+  content_bounds : @primitives.Rect,
+  main_extent : Double,
+  cross_extent : Double,
+) -> Result[FlexLayout, LayoutError] {
+  let lines : Array[Array[PreparedItem]] = []
+  let mut current : Array[PreparedItem] = []
+  let mut line_length = 0.0
+  let mut line_error : LayoutError? = None
+  for entry in prepared {
+    let hypothetical = clamp_once(
+      entry.basis,
+      entry.item.min_main,
+      entry.item.max_main,
+    )
+    let gap = if current.length() == 0 { 0.0 } else { container.gap }
+    let proposed = line_length + gap + hypothetical
+    if !finite(proposed) || !finite(hypothetical) {
+      line_error = Some(NonFiniteValue)
+    } else {
+      if current.length() > 0 && proposed > main_extent {
+        lines.push(current)
+        current = []
+        line_length = 0.0
+      }
+      let next_gap = if current.length() == 0 { 0.0 } else { container.gap }
+      line_length += next_gap + hypothetical
+      current.push(entry)
+    }
+  }
+  if current.length() > 0 {
+    lines.push(current)
+  }
+  match line_error {
+    Some(error) => Err(error)
+    None => {
+      let resolved_lines : Array[Array[Double]] = []
+      let used_main : Array[Double] = []
+      let line_cross_sizes : Array[Double] = []
+      let mut error : LayoutError? = None
+      for line in lines {
+        let gaps = if line.length() > 1 {
+          (line.length() - 1).to_double() * container.gap
+        } else {
+          0.0
+        }
+        if !finite(gaps) {
+          error = Some(NonFiniteValue)
+        } else {
+          match resolve_main_sizes(line, main_extent, gaps) {
+            Err(value) => error = Some(value)
+            Ok((sizes, used)) => {
+              resolved_lines.push(sizes)
+              used_main.push(used)
+              let mut cross = 0.0
+              for entry in line {
+                if entry.cross > cross {
+                  cross = entry.cross
+                }
+              }
+              line_cross_sizes.push(cross)
+            }
+          }
+        }
+      }
+      match error {
+        Some(value) => Err(value)
+        None => {
+          let line_gap_total = if lines.length() > 1 {
+            (lines.length() - 1).to_double() * container.gap
+          } else {
+            0.0
+          }
+          let mut cross_total = line_gap_total
+          for value in line_cross_sizes {
+            cross_total += value
+          }
+          if !finite(line_gap_total) || !finite(cross_total) {
+            Err(NonFiniteValue)
+          } else {
+            if lines.length() > 0 && cross_total < cross_extent {
+              let addition = (cross_extent - cross_total) /
+                lines.length().to_double()
+              for index = 0
+                  index < line_cross_sizes.length()
+                  index = index + 1 {
+                line_cross_sizes[index] = line_cross_sizes[index] + addition
+              }
+              cross_total = cross_extent
+            }
+            place_wrapped_lines(
+              container, lines, resolved_lines, used_main, line_cross_sizes, cross_total,
+              content_bounds, main_extent, cross_extent,
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
+///|
+fn place_wrapped_lines(
+  container : FlexContainer,
+  lines : Array[Array[PreparedItem]],
+  resolved_lines : Array[Array[Double]],
+  used_main : Array[Double],
+  line_cross_sizes : Array[Double],
+  cross_total : Double,
+  content_bounds : @primitives.Rect,
+  main_extent : Double,
+  cross_extent : Double,
+) -> Result[FlexLayout, LayoutError] {
+  let line_offsets : Array[Double] = []
+  let mut cross_cursor = if container.wrap is FlexWrap::WrapReverse {
+    cross_extent
+  } else {
+    0.0
+  }
+  let mut index = 0
+  while index < lines.length() {
+    let line_size = line_cross_sizes[index]
+    if container.wrap is FlexWrap::WrapReverse {
+      cross_cursor -= line_size
+      line_offsets.push(cross_cursor)
+      cross_cursor -= container.gap
+    } else {
+      line_offsets.push(cross_cursor)
+      cross_cursor += line_size + container.gap
+    }
+    index += 1
+  }
+  let output : Array[LayoutBox] = []
+  let mut any_overflow = exceeds_with_tolerance(cross_total, cross_extent)
+  let mut error : LayoutError? = None
+  for line_index = 0; line_index < lines.length(); line_index = line_index + 1 {
+    let line = lines[line_index]
+    let sizes = resolved_lines[line_index]
+    let line_used = used_main[line_index]
+    let line_cross = line_cross_sizes[line_index]
+    let cross_line_start = line_offsets[line_index]
+    let leftover = main_extent - line_used
+    let mut main_cursor = match container.justify {
+      JustifyContent::Start => 0.0
+      Center => leftover / 2.0
+      End => leftover
+    }
+    for item_index = 0; item_index < line.length(); item_index = item_index + 1 {
+      let entry = line[item_index]
+      let main_size = sizes[item_index]
+      let cross_size = if container.align is AlignItems::Stretch &&
+        entry.item.cross is Dimension::Auto {
+        clamp_once(line_cross, entry.item.min_cross, entry.item.max_cross)
+      } else {
+        entry.cross
+      }
+      let cross_free = line_cross - cross_size
+      let cross_alignment = match container.align {
+        AlignItems::Start =>
+          if container.wrap is FlexWrap::WrapReverse {
+            cross_free
+          } else {
+            0.0
+          }
+        AlignItems::Center => cross_free / 2.0
+        AlignItems::End =>
+          if container.wrap is FlexWrap::WrapReverse {
+            0.0
+          } else {
+            cross_free
+          }
+        AlignItems::Stretch =>
+          if container.wrap is FlexWrap::WrapReverse {
+            cross_free
+          } else {
+            0.0
+          }
+      }
+      let cross_start = cross_line_start + cross_alignment
+      let x = if container.direction is Row {
+        content_bounds.left() + main_cursor
+      } else {
+        content_bounds.left() + cross_start
+      }
+      let y = if container.direction is Row {
+        content_bounds.top() + cross_start
+      } else {
+        content_bounds.top() + main_cursor
+      }
+      let width = if container.direction is Row {
+        main_size
+      } else {
+        cross_size
+      }
+      let height = if container.direction is Row {
+        cross_size
+      } else {
+        main_size
+      }
+      match @primitives.Rect::new(x, y, width, height) {
+        Err(_) => error = Some(GeometryFailure)
+        Ok(bounds) => {
+          let main_overflow = exceeds_with_tolerance(
+              main_extent - main_cursor,
+              main_extent,
+            ) ||
+            exceeds_with_tolerance(main_cursor + main_size, main_extent)
+          let cross_overflow = exceeds_with_tolerance(
+              cross_extent - cross_start,
+              cross_extent,
+            ) ||
+            exceeds_with_tolerance(cross_start + cross_size, cross_extent)
+          let overflow = main_overflow || cross_overflow
+          if overflow {
+            any_overflow = true
+          }
+          output.push({ id: entry.item.id, bounds, overflow, })
+        }
+      }
+      main_cursor += main_size + container.gap
+    }
+  }
+  match error {
+    Some(value) => Err(value)
+    None => Ok({ content_bounds, items: output, overflow: any_overflow, })
   }
 }
 
