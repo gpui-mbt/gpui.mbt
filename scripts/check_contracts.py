@@ -747,6 +747,8 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
             "capability", "core", "element", "layout", "platform", "primitives", "scene",
         },
         "examples/browser_board": {"examples/task_board"},
+        "examples/layout_playground": {"layout", "primitives"},
+        "examples/browser_layout": {"examples/layout_playground"},
         "examples/mcp_stdio": {"capability", "diagnostics", "mcp"},
     }
     required_runtime_packages = {

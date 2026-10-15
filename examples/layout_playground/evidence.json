@@ -1,0 +1,2737 @@
+{
+  "schema_version": 1,
+  "source_repository": "gpui-mbt/gpui-conformance",
+  "source_revision": "cdd3cdadf605346ed2b90a59d461697582b8751c",
+  "source_path": "results/flex-limits-macos-arm64-20261015.json",
+  "source_sha256": "9bf91c3efc64dfefd94ed5cb078bb4ad6917d757b1281f6532666f0e2c593b1f",
+  "suite_revision": "48e40200c15f61eb2b4799fe9391ff91aa3b13ef",
+  "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+  "baseline_revision": "e7854d297ebd8f64ef332ba17e9893061b930a03",
+  "candidate_revision": "b3d668e643e67c7c689ab92941a65c74c2811c6c",
+  "platform": "macOS 26.5.2 arm64",
+  "measured_at": "2026-10-15",
+  "tolerance": 0.0001,
+  "recorded_summary": {
+    "pass": 29,
+    "mismatch": 0,
+    "unsupported": 0,
+    "unverified": 0
+  },
+  "cases": [
+    {
+      "input": {
+        "id": "limits-grow-max-first",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          30,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          70.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          50,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          70,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-grow-max-column",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 20,
+        "height": 100,
+        "gap": 0,
+        "children": [
+          [
+            10,
+            20
+          ],
+          [
+            10,
+            20
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "direction": "column",
+        "max_main": [
+          30,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          20.0,
+          100.0
+        ],
+        [
+          0.0,
+          0.0,
+          10.0,
+          30.0
+        ],
+        [
+          0.0,
+          30.0,
+          10.0,
+          70.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          20,
+          100
+        ],
+        [
+          0,
+          0,
+          10,
+          30
+        ],
+        [
+          0,
+          30,
+          10,
+          50
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          20,
+          100
+        ],
+        [
+          0,
+          0,
+          10,
+          30
+        ],
+        [
+          0,
+          30,
+          10,
+          70
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-grow-max-second",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          null,
+          30
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          70.0,
+          10.0
+        ],
+        [
+          70.0,
+          0.0,
+          30.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          50,
+          10
+        ],
+        [
+          50,
+          0,
+          30,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          70,
+          10
+        ],
+        [
+          70,
+          0,
+          30,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-grow-max-both-control",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          30,
+          40
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          40.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          40,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          40,
+          10
+        ]
+      ],
+      "before_status": "pass"
+    },
+    {
+      "input": {
+        "id": "limits-grow-max-center",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "justify": "center",
+        "max_main": [
+          30,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          70.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          10,
+          0,
+          30,
+          10
+        ],
+        [
+          40,
+          0,
+          50,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          70,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-grow-max-end",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "justify": "end",
+        "max_main": [
+          30,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          70.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          20,
+          0,
+          30,
+          10
+        ],
+        [
+          50,
+          0,
+          50,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          70,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-grow-max-gap",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 108,
+        "height": 20,
+        "gap": 8,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          30,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          108.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          38.0,
+          0.0,
+          70.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          108,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          38,
+          0,
+          50,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          108,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          38,
+          0,
+          70,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-grow-max-unequal-factors",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          0.5,
+          1.5
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          30,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          70.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          65,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          70,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-partial-grow-clamp-control",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          0.25,
+          0.25
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          30,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          35.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          35,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          35,
+          10
+        ]
+      ],
+      "before_status": "pass"
+    },
+    {
+      "input": {
+        "id": "limits-remaining-grow-below-one-control",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          0.5,
+          0.5
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          30,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          50.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          50,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          50,
+          10
+        ]
+      ],
+      "before_status": "pass"
+    },
+    {
+      "input": {
+        "id": "limits-grow-max-below-basis",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            40,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          30,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          70.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          40,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          70,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-zero-grow-max",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          10,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          10.0,
+          10.0
+        ],
+        [
+          10.0,
+          0.0,
+          90.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          10,
+          10
+        ],
+        [
+          10,
+          0,
+          80,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          10,
+          10
+        ],
+        [
+          10,
+          0,
+          90,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-raw-exact-fit-max",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 80,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            40,
+            10
+          ],
+          [
+            40,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          30,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          80.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          50.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          80,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          40,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          80,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          50,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-shrink-min-first",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 40,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            40,
+            10
+          ],
+          [
+            40,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "min_main": [
+          30,
+          0
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          40.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          10.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          20,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          10,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-shrink-min-column",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 20,
+        "height": 40,
+        "gap": 0,
+        "children": [
+          [
+            10,
+            40
+          ],
+          [
+            10,
+            40
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "direction": "column",
+        "min_main": [
+          30,
+          0
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          20.0,
+          40.0
+        ],
+        [
+          0.0,
+          0.0,
+          10.0,
+          30.0
+        ],
+        [
+          0.0,
+          30.0,
+          10.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          20,
+          40
+        ],
+        [
+          0,
+          0,
+          10,
+          30
+        ],
+        [
+          0,
+          30,
+          10,
+          20
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          20,
+          40
+        ],
+        [
+          0,
+          0,
+          10,
+          30
+        ],
+        [
+          0,
+          30,
+          10,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-shrink-min-second",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 40,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            40,
+            10
+          ],
+          [
+            40,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "min_main": [
+          0,
+          30
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          40.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          10.0,
+          10.0
+        ],
+        [
+          10.0,
+          0.0,
+          30.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          20,
+          10
+        ],
+        [
+          20,
+          0,
+          30,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          10,
+          10
+        ],
+        [
+          10,
+          0,
+          30,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-shrink-min-both-control",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 40,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            40,
+            10
+          ],
+          [
+            40,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "min_main": [
+          30,
+          30
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          40.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          30.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          30,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          30,
+          10
+        ]
+      ],
+      "before_status": "pass"
+    },
+    {
+      "input": {
+        "id": "limits-shrink-min-center",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 40,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            40,
+            10
+          ],
+          [
+            40,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "justify": "center",
+        "min_main": [
+          30,
+          0
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          40.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          10.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          -5,
+          0,
+          30,
+          10
+        ],
+        [
+          25,
+          0,
+          20,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          10,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-shrink-min-end",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 40,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            40,
+            10
+          ],
+          [
+            40,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "justify": "end",
+        "min_main": [
+          30,
+          0
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          40.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          10.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          -10,
+          0,
+          30,
+          10
+        ],
+        [
+          20,
+          0,
+          20,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          10,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-shrink-min-gap",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 48,
+        "height": 20,
+        "gap": 8,
+        "children": [
+          [
+            40,
+            10
+          ],
+          [
+            40,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "min_main": [
+          30,
+          0
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          48.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          38.0,
+          0.0,
+          10.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          48,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          38,
+          0,
+          20,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          48,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          38,
+          0,
+          10,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-shrink-min-unequal-bases",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 40,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            60,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "min_main": [
+          15,
+          0
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          40.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          15.0,
+          10.0
+        ],
+        [
+          15.0,
+          0.0,
+          25.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          15,
+          10
+        ],
+        [
+          15,
+          0,
+          30,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          15,
+          10
+        ],
+        [
+          15,
+          0,
+          25,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-partial-shrink-clamp-control",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 40,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            40,
+            10
+          ],
+          [
+            40,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          0.25,
+          0.25
+        ],
+        "min_main": [
+          35,
+          0
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          40.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          35.0,
+          10.0
+        ],
+        [
+          35.0,
+          0.0,
+          30.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          35,
+          10
+        ],
+        [
+          35,
+          0,
+          30,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          40,
+          20
+        ],
+        [
+          0,
+          0,
+          35,
+          10
+        ],
+        [
+          35,
+          0,
+          30,
+          10
+        ]
+      ],
+      "before_status": "pass"
+    },
+    {
+      "input": {
+        "id": "limits-raw-exact-fit-min",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 60,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            40,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "min_main": [
+          30,
+          0
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          60.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          30.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          60,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          40,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          60,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          30,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-inflexible-limits-control",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          0,
+          0
+        ],
+        "min_main": [
+          30,
+          0
+        ],
+        "max_main": [
+          null,
+          10
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          30.0,
+          10.0
+        ],
+        [
+          30.0,
+          0.0,
+          10.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          10,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          30,
+          10
+        ],
+        [
+          30,
+          0,
+          10,
+          10
+        ]
+      ],
+      "before_status": "pass"
+    },
+    {
+      "input": {
+        "id": "limits-generous-max-control",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          100,
+          100
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          50.0,
+          10.0
+        ],
+        [
+          50.0,
+          0.0,
+          50.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          50,
+          10
+        ],
+        [
+          50,
+          0,
+          50,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          50,
+          10
+        ],
+        [
+          50,
+          0,
+          50,
+          10
+        ]
+      ],
+      "before_status": "pass"
+    },
+    {
+      "input": {
+        "id": "limits-zero-max",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          0,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          10.0
+        ],
+        [
+          0.0,
+          0.0,
+          100.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          0,
+          10
+        ],
+        [
+          0,
+          0,
+          50,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          0,
+          10
+        ],
+        [
+          0,
+          0,
+          100,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-mixed-min-max",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            40,
+            10
+          ],
+          [
+            40,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "min_main": [
+          60,
+          0
+        ],
+        "max_main": [
+          null,
+          30
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          70.0,
+          10.0
+        ],
+        [
+          70.0,
+          0.0,
+          30.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          60,
+          10
+        ],
+        [
+          60,
+          0,
+          30,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          70,
+          10
+        ],
+        [
+          70,
+          0,
+          30,
+          10
+        ]
+      ],
+      "before_status": "mismatch"
+    },
+    {
+      "input": {
+        "id": "limits-hypothetical-exact-fit-control",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 80,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            40,
+            10
+          ],
+          [
+            40,
+            10
+          ]
+        ],
+        "grow": [
+          1,
+          1
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "min_main": [
+          0,
+          45
+        ],
+        "max_main": [
+          35,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          80.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          35.0,
+          10.0
+        ],
+        [
+          35.0,
+          0.0,
+          45.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          80,
+          20
+        ],
+        [
+          0,
+          0,
+          35,
+          10
+        ],
+        [
+          35,
+          0,
+          45,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          80,
+          20
+        ],
+        [
+          0,
+          0,
+          35,
+          10
+        ],
+        [
+          35,
+          0,
+          45,
+          10
+        ]
+      ],
+      "before_status": "pass"
+    },
+    {
+      "input": {
+        "id": "limits-zero-basis-capped-partial-control",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            0,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          0.25,
+          0.25
+        ],
+        "shrink": [
+          1,
+          1
+        ],
+        "max_main": [
+          0,
+          null
+        ]
+      },
+      "upstream": [
+        [
+          0.0,
+          0.0,
+          100.0,
+          20.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          10.0
+        ],
+        [
+          0.0,
+          0.0,
+          40.0,
+          10.0
+        ]
+      ],
+      "before": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          0,
+          10
+        ],
+        [
+          0,
+          0,
+          40,
+          10
+        ]
+      ],
+      "candidate": [
+        [
+          0,
+          0,
+          100,
+          20
+        ],
+        [
+          0,
+          0,
+          0,
+          10
+        ],
+        [
+          0,
+          0,
+          40,
+          10
+        ]
+      ],
+      "before_status": "pass"
+    }
+  ]
+}
