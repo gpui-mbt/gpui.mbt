@@ -140,7 +140,10 @@ test "center and end place the unallocated fractional grow space" {
 }
 
 ///|
-test "fractional grow subtracts gaps before allocating and justifying" {
+// Independent bounded-layout contract: gaps consume the main budget once.
+// Pinned GPUI partial-grow-with-gap behavior remains a measured difference;
+// see docs/conformance-fractional-grow.md.
+test "fractional grow retains the independent single gap budget" {
   for
     direction in [@layout.FlowDirection::row(), @layout.FlowDirection::column()] {
     for

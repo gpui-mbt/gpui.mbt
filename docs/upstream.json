@@ -89,6 +89,28 @@
         "Observed through headless logical layout with independently authored scenarios; no upstream implementation or test fixtures were copied.",
         "No full CSS flex, native window, pixel, physical input or IME compatibility claim."
       ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": ["crates/gpui/src/style.rs", "crates/gpui/src/app/test_context.rs"],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares license = Apache-2.0; its LICENSE-APACHE resolves to the root Apache License 2.0 text."
+        }
+      ],
+      "destination_paths": ["layout/layout.mbt", "layout/fractional_grow_test.mbt", "docs/conformance-fractional-grow.md"],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Only positive free-space allocation for grow totals below one changes; shrink and single-pass min/max clamping retain the bounded MoonBit subset.",
+        "The independent gap budget subtracts gaps once; the formal partial-grow-with-gap case remains different from pinned GPUI (35-point MoonBit widths versus 31-point GPUI widths for a 108-point row, 8-point gap and two 20-point bases with factors 0.25 each).",
+        "Observed through headless logical layout with independently authored scenarios; no upstream implementation or test fixtures were copied.",
+        "MoonBit uses binary64 for factors and geometry; very small-factor regressions test finite geometry rather than GPUI floating-point identity.",
+        "No full CSS flex, native rendering, pixel, physical input or IME compatibility claim."
+      ]
     }
   ]
 }

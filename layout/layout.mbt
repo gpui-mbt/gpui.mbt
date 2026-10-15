@@ -521,8 +521,9 @@ priv struct PreparedItem {
 
 ///|
 /// Lay out one deterministic row/column flex line. Positive free space is
-/// distributed by grow factors; negative free space by shrink*basis. Each
-/// result is clamped once to min/max, matching the documented first subset.
+/// distributed by grow factors, consuming only their combined fraction when
+/// their sum is below one; negative free space is distributed by shrink*basis.
+/// Each result is clamped once to min/max, matching the documented first subset.
 pub fn layout_flex(
   container : FlexContainer,
   items : Array[FlexItem],
@@ -680,12 +681,13 @@ fn place_items(
       !finite(free) {
       Err(NonFiniteValue)
     } else {
+      let grow_divisor = if grow_total < 1.0 { 1.0 } else { grow_total }
       let resolved : Array[Double] = []
       let mut used = gaps
       let mut numeric_error = false
       for entry in prepared {
         let proposed = if free > 0.0 && grow_total > 0.0 {
-          entry.basis + free * (entry.item.grow / grow_total)
+          entry.basis + free * (entry.item.grow / grow_divisor)
         } else if free < 0.0 && shrink_total > 0.0 {
           entry.basis + free * (entry.weight / shrink_total)
         } else {
