@@ -541,6 +541,113 @@ pub fn LayoutBox::overflow(self : LayoutBox) -> Bool {
 }
 
 ///|
+/// Round an authored nonnegative length to the nearest device pixel, with
+/// midpoint ties toward zero. The result remains in logical pixels.
+fn snap_authored_length_to_device_grid(
+  value : Double,
+  scale_factor : Double,
+) -> Result[Double, LayoutError] {
+  if !finite(value) || !finite(scale_factor) {
+    Err(NonFiniteValue)
+  } else if value < 0.0 || scale_factor <= 0.0 {
+    Err(NegativeValue)
+  } else {
+    let device_value = value * scale_factor
+    if !finite(device_value) {
+      Err(NonFiniteValue)
+    } else {
+      let result = round_half_toward_zero(device_value) / scale_factor
+      if finite(result) {
+        Ok(result)
+      } else {
+        Err(NonFiniteValue)
+      }
+    }
+  }
+}
+
+///|
+/// Round a nonnegative measured size upward to the next device pixel. The
+/// result remains in logical pixels.
+fn ceil_measured_length_to_device_grid(
+  value : Double,
+  scale_factor : Double,
+) -> Result[Double, LayoutError] {
+  if !finite(value) || !finite(scale_factor) {
+    Err(NonFiniteValue)
+  } else if value < 0.0 || scale_factor <= 0.0 {
+    Err(NegativeValue)
+  } else {
+    let device_value = value * scale_factor
+    if !finite(device_value) {
+      Err(NonFiniteValue)
+    } else {
+      let result = device_value.ceil() / scale_factor
+      if finite(result) {
+        Ok(result)
+      } else {
+        Err(NonFiniteValue)
+      }
+    }
+  }
+}
+
+///|
+/// Snap an already-computed absolute rectangle by rounding its near and far
+/// edges independently. This preserves the absolute-edge layout boundary used
+/// by GPUI; callers should pass unrounded absolute origins, including for
+/// nested nodes.
+fn snap_absolute_rect_to_device_grid(
+  bounds : @primitives.Rect,
+  scale_factor : Double,
+) -> Result[@primitives.Rect, LayoutError] {
+  if !finite(scale_factor) {
+    Err(NonFiniteValue)
+  } else if scale_factor <= 0.0 {
+    Err(NegativeValue)
+  } else {
+    let near_x = bounds.left()
+    let near_y = bounds.top()
+    let far_x = near_x + bounds.size().width()
+    let far_y = near_y + bounds.size().height()
+    let near_x_device = near_x * scale_factor
+    let near_y_device = near_y * scale_factor
+    let far_x_device = far_x * scale_factor
+    let far_y_device = far_y * scale_factor
+    if !finite(near_x) ||
+      !finite(near_y) ||
+      !finite(far_x) ||
+      !finite(far_y) ||
+      !finite(near_x_device) ||
+      !finite(near_y_device) ||
+      !finite(far_x_device) ||
+      !finite(far_y_device) {
+      Err(NonFiniteValue)
+    } else {
+      let left = round_half_toward_zero(near_x_device) / scale_factor
+      let top = round_half_toward_zero(near_y_device) / scale_factor
+      let right = round_half_toward_zero(far_x_device) / scale_factor
+      let bottom = round_half_toward_zero(far_y_device) / scale_factor
+      match @primitives.Rect::new(left, top, right - left, bottom - top) {
+        Ok(value) => Ok(value)
+        Err(_) => Err(GeometryFailure)
+      }
+    }
+  }
+}
+
+///|
+fn round_half_toward_zero(value : Double) -> Double {
+  let magnitude = if value < 0.0 { -value } else { value }
+  let rounded = (magnitude - 0.5).ceil()
+  if value < 0.0 {
+    -rounded
+  } else {
+    rounded
+  }
+}
+
+///|
 pub struct FlexLayout {
   content_bounds : @primitives.Rect
   items : Array[LayoutBox]

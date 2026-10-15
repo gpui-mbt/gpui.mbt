@@ -4,6 +4,8 @@
 
 ### Added
 
+- Add an opt-in GPUI device-scale layout boundary while preserving raw logical
+  layout by default. (`docs/conformance-device-scale.md`)
 - Add macOS background-host startup with hidden windows and explicit
   nonactivating window ordering for owned observation fixtures.
 
