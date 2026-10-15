@@ -204,3 +204,41 @@ test "device-grid layout rejects nonpositive and nonfinite scales" {
     is Err(Flex(NonFiniteValue)),
   )
 }
+
+///|
+test "device-grid tree honors 1x and non-2x scales without changing raw layout" {
+  let style = FlexTreeStyle::new(FlowDirection::row()).with_wrap(
+    FlexWrap::wrap(),
+  )
+  let viewport = device_grid_size(60.0, 10.0)
+  let half_tie_nodes = [
+    device_grid_tree_item(2, 1, 40.0, 10.5, None),
+    device_grid_tree_item(3, 1, 40.0, 10.5, None),
+  ]
+  let raw = match layout_flex_tree(1, viewport, style, half_tie_nodes) {
+    Ok(value) => value
+    Err(_) => fail("raw scale-neutral layout was rejected")
+  }
+  let one_x = match
+    layout_flex_tree_with_device_scale(1, viewport, style, half_tie_nodes, 1.0) {
+    Ok(value) => value
+    Err(_) => fail("one-times device-grid layout was rejected")
+  }
+  assert_eq(raw.items()[1].bounds().top(), 10.5)
+  assert_eq(one_x.items()[1].bounds().top(), 10.0)
+
+  let fractional_nodes = [
+    device_grid_tree_item(2, 1, 40.0, 10.4, None),
+    device_grid_tree_item(3, 1, 40.0, 10.4, None),
+    device_grid_tree_item(4, 1, 40.0, 10.4, None),
+  ]
+  let one_and_half_x = match
+    layout_flex_tree_with_device_scale(
+      1, viewport, style, fractional_nodes, 1.5,
+    ) {
+    Ok(value) => value
+    Err(_) => fail("one-and-a-half-times device-grid layout was rejected")
+  }
+  assert_eq(one_and_half_x.items()[1].bounds().top(), 16.0 / 1.5)
+  assert_eq(one_and_half_x.items()[2].bounds().top(), 32.0 / 1.5)
+}
