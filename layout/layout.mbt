@@ -521,8 +521,9 @@ priv struct PreparedItem {
 
 ///|
 /// Lay out one deterministic row/column flex line. Positive free space is
-/// distributed by grow factors, consuming only their combined fraction when
-/// their sum is below one; negative free space is distributed by shrink*basis.
+/// distributed by grow factors. For totals below one, the signed budget is
+/// free space times that total minus line gaps, matching pinned GPUI.
+/// Negative initial free space is distributed by shrink*basis.
 /// Each result is clamped once to min/max, matching the documented first subset.
 pub fn layout_flex(
   container : FlexContainer,
