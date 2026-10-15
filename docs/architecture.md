@@ -145,11 +145,11 @@ The first layout engine supports a deliberately bounded flex subset. It does not
 
 ### Distribution and excluded behavior
 
-For a definite main-axis size, layout subtracts gaps and insets, computes each child's basis, then distributes positive free space by grow factors or negative free space by `shrink * basis`. It clamps each result once to min/max. Space left after clamping is handled by the selected justification; it is not redistributed in a second flex pass. This explicit rule is simpler than the full CSS flex algorithm and is the first conformance target.
+For a definite main-axis size, layout subtracts gaps and insets, computes each child's basis, then distributes positive free space by grow factors or negative free space by `shrink * basis`. It clamps each result once to min/max. Space left after clamping is handled by the selected justification; it is not redistributed in a second flex pass. Center and end use signed remaining space on both axes, so oversized children may start before the content origin. Start and stretch keep the leading content edge. This explicit rule is simpler than the full CSS flex algorithm and is the first conformance target.
 
 The first subset excludes wrapping, grid, absolute/fixed positioning, floats, percentage margins, arbitrary CSS units, intrinsic min-content/max-content negotiation, fragmentation, and browser-specific style behavior. These features return an explicit unsupported-style result if presented to this engine. Adding one requires contract and property tests before implementation.
 
-Invalid or non-finite constraints are rejected before producing a layout tree. For valid input, identical constraints and intrinsic measurements produce identical logical bounds. Results must be finite and non-negative, respect declared min/max constraints, and preserve source child order. Child overflow caused by an explicit minimum larger than available space is allowed and reported in the result; layout does not hide it by returning invalid geometry. The `layout` to `element` boundary returns IDs and logical bounds only, not platform objects.
+Invalid or non-finite constraints are rejected before producing a layout tree. For valid input, identical constraints and intrinsic measurements produce identical logical bounds. Origins must be finite; lengths must also be non-negative, respect declared min/max constraints, and preserve source child order. Child overflow caused by fixed dimensions or an explicit minimum larger than available space is allowed and reported on either side of the content bounds; layout does not hide it by returning invalid geometry. The `layout` to `element` boundary returns IDs and logical bounds only, not platform objects.
 
 ## Scene and renderer boundary
 

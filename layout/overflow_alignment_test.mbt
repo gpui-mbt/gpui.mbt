@@ -290,3 +290,21 @@ test "negative aligned origins include insets and remain finite" {
     assert_true(result.overflow())
   }
 }
+
+///|
+test "fractional center and end exact fits retain overflow tolerance" {
+  for
+    justify in [@layout.JustifyContent::center(), @layout.JustifyContent::end()] {
+    let container = unwrap_gap(
+      alignment_container(@layout.FlowDirection::row(), 80.0, 20.0),
+      0.8,
+    ).with_justify(justify)
+    let first = unwrap_item_flex(alignment_item(1, 5.6, 10.0), 0.8, 1.0)
+    let second = unwrap_item_flex(alignment_item(2, 72.8, 10.0), 1.1, 1.0)
+    let result = unwrap_layout(@layout.layout_flex(container, [first, second]))
+    assert_true(!result.overflow())
+    for item in result.items() {
+      assert_true(!item.overflow())
+    }
+  }
+}

@@ -8,6 +8,9 @@
 
 ### Fixed
 
+- Preserve center/end flex alignment when children exceed the available main
+  or cross size, including negative origins and leading overflow reporting.
+  (`docs/conformance-layout.md`)
 - Use half-open element bounds for pointer hit testing: right/bottom edges
   and zero-extent nodes no longer receive hits. Shared edges belong to the
   element starting at that edge. (`docs/conformance-pointer.md`)
