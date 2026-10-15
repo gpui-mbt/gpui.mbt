@@ -91,6 +91,36 @@ test "recursive flex tree produces absolute stable preorder bounds" {
 }
 
 ///|
+test "recursive flex tree passes wrap mode to direct child layout" {
+  let style = @layout.FlexTreeStyle::new(@layout.FlowDirection::row()).with_wrap(
+    @layout.FlexWrap::wrap(),
+  )
+  let first = @layout.FlexTreeNode::new(tree_item(2, 40.0, 10.0), 1)
+  let second = @layout.FlexTreeNode::new(tree_item(3, 40.0, 10.0), 1)
+  match
+    @layout.layout_flex_tree(1, tree_size(60.0, 30.0), style, [first, second]) {
+    Err(_) => fail("valid wrapped flex tree rejected")
+    Ok(result) => {
+      let items = result.items()
+      assert_eq(items.length(), 2)
+      assert_eq(
+        items.map(item => {
+          let bounds = item.bounds()
+          (
+            bounds.left(),
+            bounds.top(),
+            bounds.size().width(),
+            bounds.size().height(),
+          )
+        }),
+        [(0.0, 0.0, 40.0, 10.0), (0.0, 15.0, 40.0, 10.0)],
+      )
+      assert_true(!result.overflow())
+    }
+  }
+}
+
+///|
 test "recursive flex tree rejects missing parents and closed subtrees" {
   let style = @layout.FlexTreeStyle::new(@layout.FlowDirection::row())
   let missing = @layout.FlexTreeNode::new(tree_item(2, 10.0, 10.0), 99)
