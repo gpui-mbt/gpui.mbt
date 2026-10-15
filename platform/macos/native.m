@@ -453,7 +453,15 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
       if (status) { pipeline=nil; queue=nil; device=nil; return status; }
       [NSApplication sharedApplication];
       background_host = op == 17;
-      [NSApp setActivationPolicy:background_host ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular];
+      if (background_host) {
+        if (![NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory] ||
+            NSApp.activationPolicy != NSApplicationActivationPolicyAccessory) {
+          white_mask_texture=nil; pipeline=nil; queue=nil; device=nil; background_host=NO;
+          return 9;
+        }
+      } else {
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+      }
       app_delegate = [GPApplicationDelegate new]; NSApp.delegate = app_delegate;
       windows = [NSMutableDictionary new]; events = [NSMutableArray new]; current=nil; overflow=NO;
       [NSApp finishLaunching]; state = 1; host_epoch++;
