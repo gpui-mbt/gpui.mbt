@@ -215,23 +215,13 @@
         "docs/conformance-flex-limits.md"
       ],
       "method": "independent_from_behavior",
-      "inspected_dependency": {
-        "name": "taffy",
-        "version": "0.13.0",
-        "license_expression": "MIT",
-        "crate_sha256": "c034e05f6ee85a12daa63863c2245797715075c70649947aa0da54f3f2ab1d0f",
-        "paths": [
-          "src/compute/flexbox.rs",
-          "Cargo.toml",
-          "LICENSE"
-        ]
-      },
       "material_deviations": [
         "Measured 29 independently authored headless scenarios against unchanged pinned GPUI; baseline nine controls agree and twenty cases differ.",
         "Definite single-line main-axis limits choose factor mode using hypothetical clamped sizes and iteratively freeze violations; partial factor budgets retain initial free space and the measured gap correction.",
         "Source was inspected to explain behavior; the resolver and regressions were independently written without copying upstream implementation or tests.",
         "Public API, cross-axis clamp and finite-value contracts are retained; worst-case main-axis work is quadratic in the line child count.",
-        "No wrapping, margins, intrinsic minimum, full CSS/binary32 parity, native pixel, physical input or IME claim."
+        "No wrapping, margins, intrinsic minimum, full CSS/binary32 parity, native pixel, physical input or IME claim.",
+        "Inspected dependency: taffy 0.13.0, MIT (Cargo.toml and LICENSE); src/compute/flexbox.rs; locked crate SHA-256 c034e05f6ee85a12daa63863c2245797715075c70649947aa0da54f3f2ab1d0f."
       ]
     }
   ]
