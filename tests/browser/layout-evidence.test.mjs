@@ -31,3 +31,33 @@ test("the published source and measured revisions remain separately identified",
   assert.notEqual(evidence.candidate_revision, evidence.baseline_revision);
   assert.equal(evidence.tolerance, 0.0001);
 });
+
+test("published origin projections remain distinct from full bounds evidence", () => {
+  const projections = JSON.parse(readFileSync(new URL("../../examples/layout_playground/projection_evidence.json", import.meta.url), "utf8"));
+  assert.equal(projections.schema_version, 1);
+  assert.equal(projections.cases.length, 5);
+  assert.equal(projections.source_repository, "gpui-mbt/gpui-conformance");
+  assert.match(projections.source_revision, /^[a-f0-9]{40}$/);
+  assert.match(projections.scope, /not complete upstream rectangles/);
+  assert.deepEqual(projections.cases.map((c) => c.id), [
+    "justify-between-row-gap", "justify-between-column-gap",
+    "justify-between-negative-overflow-fallback",
+    "wrap-decimal-exact-fit", "wrap-decimal-overflow-above-fit",
+  ]);
+  assert.deepEqual(projections.cases.map((c) => c.recorded_origins), [
+    [0, 80], [0, 80], [0, 68], [0, 0], [0, 10],
+  ]);
+  for (const record of projections.cases) {
+    assert.equal(record.input.id, record.id);
+    assert.equal(record.input.kind, "layout");
+    assert.equal(record.input.layer, "headless-layout");
+    assert.equal(record.input.children.length, 2);
+    assert.ok(["main-origins", "line-origins"].includes(record.projection));
+    assert.ok(record.recorded_origins.every(Number.isFinite));
+    assert.equal(record.recorded_origins.length, 2);
+    assert.match(projections.source_blobs[record.source_scenarios], /^[a-f0-9]{40}$/);
+    assert.match(projections.source_blobs[record.source_document], /^[a-f0-9]{40}$/);
+    assert.ok(!Object.hasOwn(record, "upstream"));
+    assert.ok(!Object.hasOwn(record, "before"));
+  }
+});

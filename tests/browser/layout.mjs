@@ -8,6 +8,7 @@ import { chromium } from "playwright";
 const root = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const site = join(root, "_build/browser-site");
 const evidence = JSON.parse(readFileSync(join(root, "examples/layout_playground/evidence.json"), "utf8"));
+const projections = JSON.parse(readFileSync(join(root, "examples/layout_playground/projection_evidence.json"), "utf8"));
 const output = (name) => join(root, `_build/browser-layout-${name}`);
 for (const page of ["index.html", "proof.html", "layout.html"]) assert.ok(existsSync(join(site, page)));
 const server = createServer((request, response) => {
@@ -68,6 +69,46 @@ try {
     assert.equal(await page.locator("#delta").textContent(), "0 pt");
   }
   passed.push("29 measured browser cases / exact coordinate tables");
+
+  stage = "published coordinate projections and edit invalidation";
+  for (let i = 0; i < projections.cases.length; i += 1) {
+    const record = projections.cases[i];
+    await select(evidence.cases.length + i);
+    assert.equal(await page.locator("#case-id").textContent(), record.id);
+    assert.equal(await page.locator("#record-grid").isVisible(), false);
+    assert.match(await page.locator("#projection-evidence").textContent(), /Only these origins are saved/);
+    assert.equal(await page.locator("#projection-source").getAttribute("href"),
+      "https://github.com/" + projections.source_repository + "/blob/" +
+        projections.source_revision + "/" + record.source_document);
+    const coords = await bounds();
+    const axis = record.projection === "main-origins"
+      ? (record.input.direction === "column" ? 1 : 0)
+      : (record.input.direction === "column" ? 0 : 1);
+    for (let child = 0; child < 2; child += 1) {
+      assert.ok(Math.abs(coords[child + 1][axis] - record.recorded_origins[child]) <= evidence.tolerance);
+    }
+    assert.equal(await page.locator("#comparison").textContent(), "Matches recorded GPUI origins");
+    if (i === 0) assert.equal(coords[2][0], 80);
+    if (i === 1) assert.equal(coords[2][1], 80);
+  }
+  await select(evidence.cases.length);
+  await page.getByRole("slider", { name: "Container gap", exact: true }).focus();
+  await page.keyboard.press("ArrowRight"); await settled("unmeasured");
+  assert.equal(await page.locator("#delta").textContent(), "—");
+  await page.keyboard.press("ArrowLeft"); await settled("match");
+  await page.locator("#reset").click(); await settled("match");
+  await select(evidence.cases.length + 4);
+  assert.equal((await bounds())[2][1], 10);
+  await page.locator('[data-field="wrap"]').selectOption("2"); await settled("unmeasured");
+  const reverse = await bounds();
+  assert.ok(reverse[1][1] > reverse[2][1]);
+  await page.locator('[data-field="wrap"]').selectOption("1"); await settled("match");
+  await page.getByRole("slider", { name: "Container cross-axis size", exact: true }).focus();
+  await page.keyboard.press("ArrowRight"); await settled("unmeasured");
+  await page.locator("#reset").click(); await settled("match");
+  await select(0);
+  assert.equal(await page.locator("#record-grid").isVisible(), true);
+  passed.push("5 published origin-only cases, space-between/wrap/reverse and changed-input boundaries");
 
   stage = "live grow shrink gap min max and reset";
   await select(0);

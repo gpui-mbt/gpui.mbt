@@ -33,17 +33,21 @@
               <button type="button" data-case="limits-grow-max-first" disabled>Capped grow</button>
               <button type="button" data-case="limits-shrink-min-first" disabled>Minimum shrink</button>
               <button type="button" data-case="limits-partial-shrink-clamp-control" disabled>Overflow</button>
+              <button type="button" data-case="justify-between-row-gap" disabled>Space between</button>
+              <button type="button" data-case="wrap-decimal-overflow-above-fit" disabled>Wrap lines</button>
             </div>
             <p class="case-id" id="case-id"></p>
             <fieldset id="container-controls" disabled>
               <legend>Container</legend>
-              <div class="pair"><label>Direction<select data-field="direction"><option value="0">Row →</option><option value="1">Column ↓</option></select></label><label>Justify<select data-field="justify"><option value="0">Start</option><option value="1">Center</option><option value="2">End</option></select></label></div>
+              <div class="pair"><label>Direction<select data-field="direction"><option value="0">Row →</option><option value="1">Column ↓</option></select></label><label>Justify<select data-field="justify"><option value="0">Start</option><option value="1">Center</option><option value="2">End</option><option value="3">Space between</option></select></label></div>
+              <div class="pair"><label>Wrap<select data-field="wrap"><option value="0">No wrap</option><option value="1">Wrap</option><option value="2">Wrap reverse</option></select></label><p class="control-note">Two children · definite container · line-local flex</p></div>
               <label class="range-label">Main-axis size <output id="extent-value"></output><input data-field="extent" type="range" min="20" max="200" step="1" aria-label="Container main-axis size" /></label>
-              <label class="range-label">Gap <output id="gap-value"></output><input data-field="gap" type="range" min="0" max="40" step="1" aria-label="Container gap" /></label>
+              <label class="range-label">Cross-axis size <output id="cross-value"></output><input data-field="cross" type="range" min="10" max="100" step="1" aria-label="Container cross-axis size" /></label>
+              <label class="range-label">Item and line gap <output id="gap-value"></output><input data-field="gap" type="range" min="0" max="40" step="1" aria-label="Container gap" /></label>
             </fieldset>
             <div id="child-controls"></div>
             <p class="input-message" id="input-message" role="status"></p>
-            <p class="control-note">Lengths are logical points. Blank max = unbounded. Changes stay in this session.</p>
+            <p class="control-note">Lengths are logical points. One shared gap controls both items and wrapped lines. Blank max = unbounded. Changes stay in this session.</p>
           </aside>
 
           <div class="workspace">
@@ -58,21 +62,23 @@
             <section class="record-panel" aria-labelledby="record-heading">
               <div class="section-heading"><div><p class="eyebrow">03 / RECORDED ON 15 OCT 2026</p><h2 id="record-heading">A fix you can see.</h2></div><span class="record-label">SAVED MEASUREMENTS</span></div>
               <p class="panel-help">These two views always show the selected case's original inputs. Editing the live controls does not rerun GPUI or the old engine.</p>
-              <div class="record-grid"><figure><h3>Upstream GPUI <span>recorded</span></h3><canvas id="upstream-canvas" role="img" aria-label="Recorded upstream GPUI layout"></canvas></figure><figure><h3>MoonBit before #79 <span>recorded</span></h3><canvas id="before-canvas" role="img" aria-label="Recorded MoonBit layout before the fix"></canvas></figure></div>
+              <div class="record-grid" id="record-grid"><figure><h3>Upstream GPUI <span>recorded</span></h3><canvas id="upstream-canvas" role="img" aria-label="Recorded upstream GPUI layout"></canvas></figure><figure><h3>MoonBit before #79 <span>recorded</span></h3><canvas id="before-canvas" role="img" aria-label="Recorded MoonBit layout before the fix"></canvas></figure></div>
+              <p id="projection-evidence" class="history-explanation" hidden></p>
+              <a id="projection-source" hidden target="_blank" rel="noreferrer">Read the original measured comparison ↗</a>
               <p id="history-explanation" class="history-explanation"></p>
-              <div class="table-scroll"><table><caption>Exact bounds · [x, y, width, height] · logical points</caption><thead><tr><th scope="col">Child</th><th scope="col">MoonBit live</th><th scope="col">GPUI recorded</th><th scope="col">Before fix recorded</th></tr></thead><tbody id="bounds-table"></tbody></table></div>
+              <div class="table-scroll"><table><caption id="bounds-caption">Exact bounds · [x, y, width, height] · logical points</caption><thead><tr><th scope="col">Child</th><th scope="col">MoonBit live</th><th scope="col">GPUI recorded</th><th scope="col">Before fix recorded</th></tr></thead><tbody id="bounds-table"></tbody></table></div>
             </section>
           </div>
         </section>
 
         <section class="evidence" aria-labelledby="evidence-heading">
-          <div><p class="eyebrow">THE MEASURED BOUNDARY</p><h2 id="evidence-heading">Coordinates. With context.</h2><p>A published macOS arm64 headless comparison records <strong>29/29</strong> min/max cases agreeing after the fix, with <strong>72/72</strong> earlier cases preserved. Before the fix: 9 matches, 20 differences.</p><a id="evidence-link">Read the published comparison ↗</a></div>
+          <div><p class="eyebrow">THE MEASURED BOUNDARY</p><h2 id="evidence-heading">Coordinates. With context.</h2><p>A published macOS arm64 headless comparison records <strong>29/29</strong> min/max cases agreeing after the fix, with <strong>72/72</strong> earlier cases preserved. Before the fix: 9 matches, 20 differences. Five additional published GPUI origin projections cover space-between and wrap; they are not full-bounds measurements.</p><a id="evidence-link">Read the published comparison ↗</a></div>
           <div class="evidence-details"><dl><div><dt>Upstream GPUI</dt><dd id="upstream-revision"></dd></div><div><dt>Measured MoonBit candidate</dt><dd id="candidate-revision"></dd></div><div><dt>Measured MoonBit baseline</dt><dd id="baseline-revision"></dd></div><div><dt>Executed suite</dt><dd id="suite-revision"></dd></div><div><dt>Platform / tolerance</dt><dd>macOS 26.5.2 arm64 / 0.0001 pt</dd></div></dl><a id="record-link">Pinned result index & input provenance ↗</a></div>
         </section>
         <section class="boundaries" aria-label="Implementation and limitations">
           <div><span>01</span><h3>MoonBit owns the behavior.</h3><p>Typed state, bounded edits, min/max validation, flex resolution and coordinate comparison compile to JavaScript. HTML controls and Canvas 2D are the browser host.</p></div>
           <div><span>02</span><h3>Historical evidence stays historical.</h3><p>The saved result index is an excerpt of published measurements. Raw execution artifacts were not revalidated here. A live match compares coordinates to that record; it is not a new upstream run.</p></div>
-          <div><span>03</span><h3>A deliberately small slice.</h3><p>One definite flex line, two children. No wrapping, intrinsic text sizing or full CSS parity. Device-pixel snapping can differ. This experimental JS/Canvas host does not establish native rendering, input or IME parity.</p></div>
+          <div><span>03</span><h3>A deliberately small slice.</h3><p>One definite container with two children; at most two wrapped lines. One gap controls both axes. No intrinsic text sizing, align-content or full CSS parity. Device-pixel snapping can differ. This experimental JS/Canvas host does not establish native rendering, input or IME parity.</p></div>
         </section>
       </main>
       <footer>Independent MoonBit implementation of the GPUI programming model.<a href="https://github.com/gpui-mbt/gpui.mbt/blob/main/docs/browser-demo.md">How this demo works ↗</a></footer>

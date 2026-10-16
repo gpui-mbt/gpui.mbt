@@ -1,5 +1,6 @@
 import * as moon from "mbt:f4ah6o/gpui/examples/browser_layout";
 import evidence from "../../layout_playground/evidence.json";
+import projections from "../../layout_playground/projection_evidence.json";
 
 const $ = (selector) => document.querySelector(selector);
 const format = (value) => Number(value.toFixed(4)).toString();
@@ -52,6 +53,7 @@ function syncControls() {
     if (control !== document.activeElement) control.value = value ?? "";
   }
   $("#extent-value").textContent = `${format(config.extent)} pt`;
+  $("#cross-value").textContent = `${format(config.cross)} pt`;
   $("#gap-value").textContent = `${format(config.gap)} pt`;
 }
 
@@ -118,30 +120,67 @@ function render() {
     syncControls();
     $("#case-id").textContent = snapshot.id;
     const status = snapshot.comparison.status;
+    const full = snapshot.projection === "bounds";
+    const projectionLabel = snapshot.projection === "main-origins"
+      ? "main-axis origins" : "cross-axis line origins";
     $("#comparison").dataset.status = status;
-    $("#comparison").textContent = { match: "Matches recorded GPUI", mismatch: "Differs from recorded GPUI", unmeasured: "Custom · not compared" }[status];
+    $("#comparison").textContent = status === "unmeasured"
+      ? "Custom · not compared"
+      : status === "match"
+        ? (full ? "Matches recorded GPUI" : "Matches recorded GPUI origins")
+        : (full ? "Differs from recorded GPUI" : "Differs from recorded GPUI origins");
     $("#comparison-help").textContent = status === "unmeasured"
-      ? "Custom inputs have no upstream measurement here. Reset this case to compare the original inputs again. Saved views below retain the original case."
-      : "All live x/y/width/height coordinates are compared with this case's saved upstream result (tolerance 0.0001 pt). GPUI is not running in this browser.";
+      ? "Custom inputs have no upstream measurement here. Reset or restore every original input to compare. Saved evidence is never recomputed."
+      : full
+        ? "All live x/y/width/height coordinates are compared with saved upstream bounds (tolerance 0.0001 pt). GPUI is not running here."
+        : "Only the two " + projectionLabel + " are compared (tolerance 0.0001 pt). Complete GPUI rectangles were not published with this excerpt.";
     const dimension = snapshot.config.column ? 3 : 2;
-    $("#size-a").textContent = `${format(snapshot.bounds[1][dimension])} pt`;
-    $("#size-b").textContent = `${format(snapshot.bounds[2][dimension])} pt`;
-    $("#delta").textContent = snapshot.comparison.maxDelta === null ? "—" : `${format(snapshot.comparison.maxDelta)} pt`;
+    $("#size-a").textContent = format(snapshot.bounds[1][dimension]) + " pt";
+    $("#size-b").textContent = format(snapshot.bounds[2][dimension]) + " pt";
+    $("#delta").textContent = snapshot.comparison.maxDelta === null ? "—" : format(snapshot.comparison.maxDelta) + " pt";
     $("#overflow").textContent = snapshot.overflow ? "Overflow remains" : "Within container";
     paint($("#live-canvas"), snapshot.bounds, viewport([snapshot.bounds]));
     $("#live-canvas").dataset.config = JSON.stringify(snapshot.config);
-    const recordedView = viewport([snapshot.upstream, snapshot.before]);
-    paint($("#upstream-canvas"), snapshot.upstream, recordedView);
-    paint($("#before-canvas"), snapshot.before, recordedView);
-    const axis = snapshot.recordedConfig.column ? 3 : 2;
-    const pair = (boxes) => boxes.slice(1).map((box) => format(box[axis])).join(" / ");
-    const changed = JSON.stringify(snapshot.upstream) !== JSON.stringify(snapshot.before);
-    $("#history-explanation").textContent = changed
-      ? `Recorded main-axis sizes: before ${pair(snapshot.before)} pt → GPUI ${pair(snapshot.upstream)} pt. The old engine clamped once; #79 redistributes the remaining space after limits freeze a child.`
-      : `Preservation control: both recorded engines already returned ${pair(snapshot.upstream)} pt. Fractional shares, constrained space and unavoidable overflow must retain their measured behavior.`;
+    $("#record-grid").hidden = !full;
+    $("#projection-evidence").hidden = full;
+    $("#projection-source").hidden = full;
+    $("#record-heading").textContent = full ? "A fix you can see." : "An origin-only comparison.";
+    $("#bounds-caption").textContent = full
+      ? "Exact bounds · [x, y, width, height] · logical points"
+      : "Live bounds only · saved GPUI full rectangles are unavailable";
+    if (full) {
+      const recordedView = viewport([snapshot.upstream, snapshot.before]);
+      paint($("#upstream-canvas"), snapshot.upstream, recordedView);
+      paint($("#before-canvas"), snapshot.before, recordedView);
+      const axis = snapshot.recordedConfig.column ? 3 : 2;
+      const pair = (boxes) => boxes.slice(1).map((box) => format(box[axis])).join(" / ");
+      const changed = JSON.stringify(snapshot.upstream) !== JSON.stringify(snapshot.before);
+      $("#history-explanation").textContent = changed
+        ? "Recorded main-axis sizes: before " + pair(snapshot.before) + " pt → GPUI " + pair(snapshot.upstream) + " pt. The old engine clamped once; #79 redistributes remaining space after limits freeze a child."
+        : "Preservation control: both recorded engines already returned " + pair(snapshot.upstream) + " pt. Fractional shares, constrained space and unavoidable overflow must retain their measured behavior.";
+    } else {
+      const origins = (values) => "[" + values.map(format).join(", ") + "] pt";
+      $("#projection-evidence").textContent =
+        "GPUI published " + projectionLabel + ": " + origins(snapshot.recordedOrigins) + ". " +
+        "Live MoonBit " + projectionLabel + ": " + origins(snapshot.liveOrigins) + ". " +
+        "Only these origins are saved; no GPUI root/child rectangles or before-fix rectangles are reconstructed.";
+      $("#projection-source").href = "https://github.com/" + projections.source_repository +
+        "/blob/" + projections.source_revision + "/" + snapshot.recordSource;
+      $("#history-explanation").textContent =
+        "The cited GPUI comparison ran separately. Selecting this case does not execute Rust/GPUI or replay old code.";
+      delete $("#upstream-canvas").dataset.bounds;
+      delete $("#before-canvas").dataset.bounds;
+    }
     const rows = [1, 2].map((i) => {
       const row = document.createElement("tr");
-      for (const text of [i === 1 ? "A" : "B", ...[snapshot.bounds, snapshot.upstream, snapshot.before].map((boxes) => `[${boxes[i].map(format).join(", ")}]`)]) {
+      const recordedCells = full
+        ? [snapshot.upstream, snapshot.before].map((boxes) => "[" + boxes[i].map(format).join(", ") + "]")
+        : ["Not recorded (origins only)", "Not recorded"];
+      for (const text of [
+        i === 1 ? "A" : "B",
+        "[" + snapshot.bounds[i].map(format).join(", ") + "]",
+        ...recordedCells,
+      ]) {
         const cell = document.createElement("td");
         cell.textContent = text;
         row.append(cell);

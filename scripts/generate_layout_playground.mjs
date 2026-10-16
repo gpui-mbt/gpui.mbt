@@ -36,8 +36,10 @@ const presets = evidence.cases.map(({ input: s, upstream, before }) => {
     id: ${JSON.stringify(s.id)},
     config: {
       extent: ${number(column ? s.height : s.width)},
+      cross: ${number(column ? s.width : s.height)},
       column: ${column},
       gap: ${number(s.gap)},
+      wrap: 0,
       justify: ${["start", "center", "end"].indexOf(s.justify || "start")},
       children: [${s.children.map((child, i) => `{
         basis: ${number(child[column ? 1 : 0])},

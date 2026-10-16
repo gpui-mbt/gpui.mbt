@@ -5,8 +5,10 @@ let presets : Array[Preset] = [
     id: "limits-grow-max-first",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -34,8 +36,10 @@ let presets : Array[Preset] = [
     id: "limits-grow-max-column",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: true,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -63,8 +67,10 @@ let presets : Array[Preset] = [
     id: "limits-grow-max-second",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         { basis: 20.0, grow: 1.0, shrink: 1.0, minimum: 0.0, maximum: None, },
@@ -92,8 +98,10 @@ let presets : Array[Preset] = [
     id: "limits-grow-max-both-control",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -127,8 +135,10 @@ let presets : Array[Preset] = [
     id: "limits-grow-max-center",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 1,
       children: [
         {
@@ -156,8 +166,10 @@ let presets : Array[Preset] = [
     id: "limits-grow-max-end",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 2,
       children: [
         {
@@ -185,8 +197,10 @@ let presets : Array[Preset] = [
     id: "limits-grow-max-gap",
     config: {
       extent: 108.0,
+      cross: 20.0,
       column: false,
       gap: 8.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -214,8 +228,10 @@ let presets : Array[Preset] = [
     id: "limits-grow-max-unequal-factors",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -243,8 +259,10 @@ let presets : Array[Preset] = [
     id: "limits-partial-grow-clamp-control",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -272,8 +290,10 @@ let presets : Array[Preset] = [
     id: "limits-remaining-grow-below-one-control",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -301,8 +321,10 @@ let presets : Array[Preset] = [
     id: "limits-grow-max-below-basis",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -330,8 +352,10 @@ let presets : Array[Preset] = [
     id: "limits-zero-grow-max",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -359,8 +383,10 @@ let presets : Array[Preset] = [
     id: "limits-raw-exact-fit-max",
     config: {
       extent: 80.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -388,8 +414,10 @@ let presets : Array[Preset] = [
     id: "limits-shrink-min-first",
     config: {
       extent: 40.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         { basis: 40.0, grow: 0.0, shrink: 1.0, minimum: 30.0, maximum: None, },
@@ -411,8 +439,10 @@ let presets : Array[Preset] = [
     id: "limits-shrink-min-column",
     config: {
       extent: 40.0,
+      cross: 20.0,
       column: true,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         { basis: 40.0, grow: 0.0, shrink: 1.0, minimum: 30.0, maximum: None, },
@@ -434,8 +464,10 @@ let presets : Array[Preset] = [
     id: "limits-shrink-min-second",
     config: {
       extent: 40.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         { basis: 40.0, grow: 0.0, shrink: 1.0, minimum: 0.0, maximum: None, },
@@ -457,8 +489,10 @@ let presets : Array[Preset] = [
     id: "limits-shrink-min-both-control",
     config: {
       extent: 40.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         { basis: 40.0, grow: 0.0, shrink: 1.0, minimum: 30.0, maximum: None, },
@@ -480,8 +514,10 @@ let presets : Array[Preset] = [
     id: "limits-shrink-min-center",
     config: {
       extent: 40.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 1,
       children: [
         { basis: 40.0, grow: 0.0, shrink: 1.0, minimum: 30.0, maximum: None, },
@@ -503,8 +539,10 @@ let presets : Array[Preset] = [
     id: "limits-shrink-min-end",
     config: {
       extent: 40.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 2,
       children: [
         { basis: 40.0, grow: 0.0, shrink: 1.0, minimum: 30.0, maximum: None, },
@@ -526,8 +564,10 @@ let presets : Array[Preset] = [
     id: "limits-shrink-min-gap",
     config: {
       extent: 48.0,
+      cross: 20.0,
       column: false,
       gap: 8.0,
+      wrap: 0,
       justify: 0,
       children: [
         { basis: 40.0, grow: 0.0, shrink: 1.0, minimum: 30.0, maximum: None, },
@@ -549,8 +589,10 @@ let presets : Array[Preset] = [
     id: "limits-shrink-min-unequal-bases",
     config: {
       extent: 40.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         { basis: 20.0, grow: 0.0, shrink: 1.0, minimum: 15.0, maximum: None, },
@@ -572,8 +614,10 @@ let presets : Array[Preset] = [
     id: "limits-partial-shrink-clamp-control",
     config: {
       extent: 40.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         { basis: 40.0, grow: 0.0, shrink: 0.25, minimum: 35.0, maximum: None, },
@@ -595,8 +639,10 @@ let presets : Array[Preset] = [
     id: "limits-raw-exact-fit-min",
     config: {
       extent: 60.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         { basis: 20.0, grow: 0.0, shrink: 1.0, minimum: 30.0, maximum: None, },
@@ -618,8 +664,10 @@ let presets : Array[Preset] = [
     id: "limits-inflexible-limits-control",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         { basis: 20.0, grow: 0.0, shrink: 0.0, minimum: 30.0, maximum: None, },
@@ -647,8 +695,10 @@ let presets : Array[Preset] = [
     id: "limits-generous-max-control",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -682,8 +732,10 @@ let presets : Array[Preset] = [
     id: "limits-zero-max",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -711,8 +763,10 @@ let presets : Array[Preset] = [
     id: "limits-mixed-min-max",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         { basis: 40.0, grow: 1.0, shrink: 1.0, minimum: 60.0, maximum: None, },
@@ -740,8 +794,10 @@ let presets : Array[Preset] = [
     id: "limits-hypothetical-exact-fit-control",
     config: {
       extent: 80.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {
@@ -769,8 +825,10 @@ let presets : Array[Preset] = [
     id: "limits-zero-basis-capped-partial-control",
     config: {
       extent: 100.0,
+      cross: 20.0,
       column: false,
       gap: 0.0,
+      wrap: 0,
       justify: 0,
       children: [
         {

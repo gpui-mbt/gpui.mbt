@@ -126,14 +126,15 @@ table and resize/DPR handling. It does not use CSS flex to compute demo geometry
 The canvas fits logical rectangles to each view; recorded views share a scale.
 Exact point values are available in the table even for zero-size children.
 
-Controls cover main-axis extent (20–200 pt), gap (0–40 pt), row/column flow,
-start/center/end placement, each child's basis/min/max (0–200 pt) and grow/shrink
+Controls cover main-axis extent (20–200 pt), cross-axis extent (10–100 pt),
+shared item/line gap (0–40 pt), row/column flow, nowrap/wrap/wrap-reverse,
+start/center/end/space-between placement, each child's basis/min/max (0–200 pt) and grow/shrink
 factors (0–4). Blank max is unbounded; zero is a real zero maximum. Invalid,
 nonfinite or reversed min/max edits do not change the last valid model. Presets
 are immutable: selecting/resetting a case restores every input. No persistence
 or network runtime is required.
 
-The 29 presets and recorded coordinates are excerpts of
+The original 29 full-rectangle presets and recorded coordinates are excerpts of
 [`gpui-conformance@cdd3cdadf605`](https://github.com/gpui-mbt/gpui-conformance/blob/cdd3cdadf605346ed2b90a59d461697582b8751c/results/flex-limits-macos-arm64-20261015.json).
 [`evidence.json`](../examples/layout_playground/evidence.json) retains the input,
 upstream/baseline/candidate bounds, baseline status, source-file SHA-256 and
@@ -155,8 +156,20 @@ the actual inputs/observations; then regenerate with
 `node scripts/generate_layout_playground.mjs` and run the tests. Generation uses
 the pinned toolchain's `moonfmt` (`MOONFMT_BIN` can override its executable).
 
-A **live match** means all current bounds agree within 0.0001 pt with the saved
-upstream bounds for exactly the selected preset's inputs. Any different inputs
+For five additional two-child cases, [projection_evidence.json](../examples/layout_playground/projection_evidence.json)
+pins the committed conformance scenarios and published results notes. The
+[space-between note](https://github.com/gpui-mbt/gpui-conformance/blob/6144541eeeb995ede20ec2fcf2340f620760ffc9/JUSTIFY_BETWEEN_RESULTS.md)
+reports main-axis origins of 0/80 for rows/columns and 0/68 for overflow.
+The [wrap note](https://github.com/gpui-mbt/gpui-conformance/blob/6144541eeeb995ede20ec2fcf2340f620760ffc9/FLEX_WRAP_RESULTS.md)
+reports line origins 0/0 for decimal exact fit and 0/10 for overflow. Those
+decimal cases explicitly do **not** certify complete bounds because upstream
+device-scale snapping differs from MoonBit logical doubles. The additional
+cases compare origin projections only, never invented GPUI or before-fix
+rectangles. No raw execution artifact is revalidated by the Playground.
+
+A **live full-bounds match** compares all rectangle coordinates within 0.0001 pt
+for the selected original 29 presets. An **origin-only match** compares the
+named two coordinates and no others. Any different inputs
 show **Custom · not compared**, with no delta or GPUI compatibility claim.
 Returning every input to its preset value restores comparison eligibility.
 Both historical canvases retain the original inputs while live inputs change.
@@ -164,15 +177,19 @@ No upstream GPUI or old-engine code executes in the browser. Raw archived
 executables/logs are not revalidated here, so an index excerpt and a live match
 do not qualify a new conformance-suite execution.
 
-The scope is one definite line with two children, not wrapping, intrinsic text
-measurement, full CSS/binary32 parity or native/backend parity. GPUI's device
+The scope is a definite two-child container with at most two lines, including
+wrap and wrap-reverse. The bounded `FlexContainer::with_gap` API uses the same
+gap for both items and lines; independent row/column gaps, align-content,
+intrinsic text sizing, full CSS/binary32 parity and native/backend parity
+remain out of scope. GPUI's device
 pixel snapping can differ from MoonBit's continuous logical coordinates.
 
 `vp run browser:layout:evidence` checks generated presets and metadata integrity.
-Portable MoonBit tests compare all 29 inputs and cover invalid atomic edits,
-reset, gap/direction and zero/unbounded maxima. `vp run browser:layout:smoke`
+Portable MoonBit tests compare all 29 full-bounds inputs plus five origin projections,
+and cover invalid atomic edits, reset, gap/direction, wrapping/reversal,
+space-between, cross-axis extent and zero/unbounded maxima. `vp run browser:layout:smoke`
 serves the production artifact below `/gpui.mbt/` and checks all 29 cases via
-real controls, grow/shrink/gap/extent/min/max edits, saved-view isolation,
+real controls, grow/shrink/gap/extent/min/max/wrap/cross edits, five origin projections, saved-view isolation,
 keyboard input, zero deltas, overflow, canvas pixels, 320–1440px widths, touch,
 DPR 2 and round-trip navigation to both retained demos. Browser CI runs it
 before packaging the same three-page Pages artifact and uploads screenshots
