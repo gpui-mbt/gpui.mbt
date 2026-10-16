@@ -483,7 +483,8 @@ pub struct FlexContainer {
   direction : FlowDirection
   wrap : FlexWrap
   size : @primitives.Size
-  gap : Double
+  gap_x : Double
+  gap_y : Double
   padding : Insets
   border : Insets
   justify : JustifyContent
@@ -500,7 +501,8 @@ pub fn FlexContainer::new(
     direction,
     wrap: FlexWrap::no_wrap(),
     size,
-    gap: 0.0,
+    gap_x: 0.0,
+    gap_y: 0.0,
     padding: Insets::zero(),
     border: Insets::zero(),
     justify: Start,
@@ -510,20 +512,51 @@ pub fn FlexContainer::new(
 }
 
 ///|
+/// Set both physical gaps, replacing any earlier axis-specific settings.
 pub fn FlexContainer::with_gap(
   self : FlexContainer,
   gap : Double,
 ) -> Result[FlexContainer, LayoutError] {
-  if !finite(gap) {
+  self.with_gaps(gap, gap)
+}
+
+///|
+/// Set the physical horizontal gap while preserving the vertical gap.
+/// This is the item gap in rows and the line gap in wrapped columns.
+pub fn FlexContainer::with_gap_x(
+  self : FlexContainer,
+  gap : Double,
+) -> Result[FlexContainer, LayoutError] {
+  self.with_gaps(gap, self.gap_y)
+}
+
+///|
+/// Set the physical vertical gap while preserving the horizontal gap.
+/// This is the item gap in columns and the line gap in wrapped rows.
+pub fn FlexContainer::with_gap_y(
+  self : FlexContainer,
+  gap : Double,
+) -> Result[FlexContainer, LayoutError] {
+  self.with_gaps(self.gap_x, gap)
+}
+
+///|
+fn FlexContainer::with_gaps(
+  self : FlexContainer,
+  gap_x : Double,
+  gap_y : Double,
+) -> Result[FlexContainer, LayoutError] {
+  if !finite(gap_x) || !finite(gap_y) {
     Err(NonFiniteValue)
-  } else if gap < 0.0 {
+  } else if gap_x < 0.0 || gap_y < 0.0 {
     Err(NegativeValue)
   } else {
     Ok({
       direction: self.direction,
       wrap: self.wrap,
       size: self.size,
-      gap,
+      gap_x,
+      gap_y,
       padding: self.padding,
       border: self.border,
       justify: self.justify,
@@ -543,7 +576,8 @@ pub fn FlexContainer::with_insets(
     direction: self.direction,
     wrap: self.wrap,
     size: self.size,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding,
     border,
     justify: self.justify,
@@ -561,7 +595,8 @@ pub fn FlexContainer::with_justify(
     direction: self.direction,
     wrap: self.wrap,
     size: self.size,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding: self.padding,
     border: self.border,
     justify,
@@ -579,7 +614,8 @@ pub fn FlexContainer::with_align(
     direction: self.direction,
     wrap: self.wrap,
     size: self.size,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding: self.padding,
     border: self.border,
     justify: self.justify,
@@ -597,7 +633,8 @@ pub fn FlexContainer::with_wrap(
     direction: self.direction,
     wrap,
     size: self.size,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding: self.padding,
     border: self.border,
     justify: self.justify,
@@ -617,12 +654,31 @@ pub fn FlexContainer::with_align_content(
     direction: self.direction,
     wrap: self.wrap,
     size: self.size,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding: self.padding,
     border: self.border,
     justify: self.justify,
     align: self.align,
     align_content,
+  }
+}
+
+///|
+fn FlexContainer::main_gap(self : FlexContainer) -> Double {
+  if self.direction is Row {
+    self.gap_x
+  } else {
+    self.gap_y
+  }
+}
+
+///|
+fn FlexContainer::cross_gap(self : FlexContainer) -> Double {
+  if self.direction is Row {
+    self.gap_y
+  } else {
+    self.gap_x
   }
 }
 
@@ -967,7 +1023,7 @@ fn place_items(
 ) -> Result[FlexLayout, LayoutError] {
   let count = prepared.length()
   let gaps = if count > 1 {
-    (count - 1).to_double() * container.gap
+    (count - 1).to_double() * container.main_gap()
   } else {
     0.0
   }
@@ -1034,7 +1090,7 @@ fn place_items(
               output.push({ id: entry.item.id, bounds, overflow, })
             }
           }
-          cursor += main_size + container.gap + between_extra
+          cursor += main_size + container.main_gap() + between_extra
           index += 1
         }
         match error {
@@ -1068,7 +1124,7 @@ fn place_wrapped_items(
       entry.item.min_main,
       entry.item.max_main,
     )
-    let gap = if current.length() == 0 { 0.0 } else { container.gap }
+    let gap = if current.length() == 0 { 0.0 } else { container.main_gap() }
     let proposed = line_length + gap + hypothetical
     if !finite(proposed) || !finite(hypothetical) {
       line_error = Some(NonFiniteValue)
@@ -1081,7 +1137,11 @@ fn place_wrapped_items(
         current = []
         line_length = 0.0
       }
-      let next_gap = if current.length() == 0 { 0.0 } else { container.gap }
+      let next_gap = if current.length() == 0 {
+        0.0
+      } else {
+        container.main_gap()
+      }
       line_length += next_gap + hypothetical
       current.push(entry)
     }
@@ -1098,7 +1158,7 @@ fn place_wrapped_items(
       let mut error : LayoutError? = None
       for line in lines {
         let gaps = if line.length() > 1 {
-          (line.length() - 1).to_double() * container.gap
+          (line.length() - 1).to_double() * container.main_gap()
         } else {
           0.0
         }
@@ -1125,7 +1185,7 @@ fn place_wrapped_items(
         Some(value) => Err(value)
         None => {
           let line_gap_total = if lines.length() > 1 {
-            (lines.length() - 1).to_double() * container.gap
+            (lines.length() - 1).to_double() * container.cross_gap()
           } else {
             0.0
           }
@@ -1188,7 +1248,7 @@ fn place_wrapped_lines(
       main_spacing(SpaceEvenly, lines.length(), cross_free)
     _ => (0.0, 0.0)
   }
-  let line_gap = container.gap + between_extra
+  let line_gap = container.cross_gap() + between_extra
   if container.wrap is FlexWrap::WrapReverse {
     if container.align_content is AlignContent::End ||
       (
@@ -1347,7 +1407,7 @@ fn place_wrapped_lines(
           output.push({ id: entry.item.id, bounds, overflow, })
         }
       }
-      main_cursor += main_size + container.gap + between_extra
+      main_cursor += main_size + container.main_gap() + between_extra
     }
   }
   match error {
