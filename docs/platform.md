@@ -207,6 +207,27 @@ make scene tests reproducible without a window server or GPU.
 
 ## Text and IME
 
+### Implemented contract: UTF-16 values and explicit conversion
+
+The current public `text/` value model uses **UTF-16 code-unit offsets**, as
+defined in [the text model](text-model.md). This includes `TextDocument`,
+`TextRange`, directional `TextSelection`, `TextComposition`, and the copied
+`text_layout/` geometry consumed by the bounded `controls/text_field/` model.
+`TextDocument::utf8_offset` and `utf16_offset` perform strict conversion at
+Unicode scalar boundaries; surrogate-interior and UTF-8 scalar-interior offsets
+are rejected. These helpers do not establish grapheme segmentation, a native
+IME session, or live document/session ownership.
+
+The UTF-8 range paragraph below is the **M0 design target**, not the implemented
+public offset contract. UTF-8 text bytes at an FFI/wire boundary do not change
+the units of existing MoonBit range values. Keep conversion explicit against
+the exact document at every boundary. Do not migrate all offsets or relabel
+UTF-16 values as bytes to match this design text. A future change needs a
+separate versioned API/migration decision and preservation of current consumers.
+See [the shared UI host audit](shared-ui-host-contract.md) for reuse and gaps.
+
+### Future M0 text/IME design target
+
 The following is the complete design target. The browser's bounded `TextItem`
 and the interaction lab's committed-insert bridge do not implement this range,
 shaping, selection, or IME contract. Weekboard's search/add fields use ordinary
