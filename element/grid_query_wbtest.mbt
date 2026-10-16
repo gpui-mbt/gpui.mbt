@@ -666,3 +666,137 @@ test "invalid query shapes and device scales cannot invoke callbacks" {
   )
   assert_eq(calls.val, 0)
 }
+
+///|
+test "query generated roots snap independently before negative origin translation" {
+  for scale in [1.0, 1.25, 2.0] {
+    for horizontal in [false, true] {
+      for cross_extent in [10.0, 14.0] {
+        let observed : Ref[@primitives.Size?] = Ref(None)
+        let calls = Ref(0)
+        let style = @layout.FlexTreeStyle::new(
+          if horizontal {
+            @layout.FlowDirection::column()
+          } else {
+            @layout.FlowDirection::row()
+          },
+        ).with_align(@layout.AlignItems::end())
+        let root = Element::root(1, style).with_child(
+          query_flex(2, 10.0 / scale, 12.0 / scale).with_container_query(fn(
+            size,
+          ) {
+            calls.val += 1
+            observed.val = Some(size)
+            Ok(
+              Element::grid_root(
+                3,
+                @layout.GridTreeStyle::new(
+                  if horizontal {
+                    8
+                  } else {
+                    1
+                  },
+                  if horizontal {
+                    1
+                  } else {
+                    8
+                  },
+                ).unwrap(),
+              ).with_child(query_grid(4)),
+            )
+          }),
+        )
+        let viewport = if horizontal {
+          query_size(cross_extent / scale, 100.0 / scale)
+        } else {
+          query_size(100.0 / scale, cross_extent / scale)
+        }
+        let request = root
+          .request_layout_with_device_scale(viewport, scale)
+          .unwrap()
+        let assigned = request.layout.items()[0].bounds()
+        let tree = request.prepaint().unwrap().tree()
+        assert_eq(calls.val, 1)
+        assert_true(observed.val == Some(assigned.size()))
+        assert_true(tree.node(2).unwrap().bounds() == assigned)
+        assert_true(tree.node(3).unwrap().bounds() == assigned)
+        let leaf = tree.node(4).unwrap().bounds()
+        let origin = (cross_extent - 12.0) / scale
+        if horizontal {
+          assert_eq(leaf.left(), origin)
+          assert_eq(leaf.size().width(), 1.0 / scale)
+        } else {
+          assert_eq(leaf.top(), origin)
+          assert_eq(leaf.size().height(), 1.0 / scale)
+        }
+        assert_true(tree.node(3).unwrap().parent() == Some(2))
+        assert_true(tree.node(4).unwrap().parent() == Some(3))
+        assert_true(request.prepaint() is Err(AlreadyPrepainted))
+        assert_eq(calls.val, 1)
+      }
+    }
+  }
+}
+
+///|
+test "nested query origins translate independently rounded returned roots" {
+  for scale in [None, Some(1.0), Some(1.25), Some(2.0)] {
+    let unit = match scale {
+      None => 1.0
+      Some(value) => 1.0 / value
+    }
+    let calls = Ref(0)
+    let observed : Array[@primitives.Size] = []
+    let style = query_style().with_align(@layout.AlignItems::end())
+    let root = Element::root(1, style).with_child(
+      query_flex(2, 10.0 * unit, 12.0 * unit).with_container_query(fn(size) {
+        calls.val += 1
+        observed.push(size)
+        Ok(
+          Element::root(3, style)
+          .with_query_root_size(query_size(10.0 * unit, 10.0 * unit))
+          .with_child(
+            query_flex(4, 10.0 * unit, 12.0 * unit).with_container_query(fn(
+              size,
+            ) {
+              calls.val += 1
+              observed.push(size)
+              Ok(
+                Element::grid_root(5, @layout.GridTreeStyle::new(1, 8).unwrap()).with_child(
+                  query_grid(6),
+                ),
+              )
+            }),
+          ),
+        )
+      }),
+    )
+    let viewport = query_size(100.0 * unit, 10.0 * unit)
+    let request = match scale {
+      None => root.request_layout(viewport).unwrap()
+      Some(scale) =>
+        root.request_layout_with_device_scale(viewport, scale).unwrap()
+    }
+    let tree = request.prepaint().unwrap().tree()
+    assert_eq(calls.val, 2)
+    assert_eq(observed.length(), 2)
+    assert_true(observed[0] == tree.node(2).unwrap().bounds().size())
+    assert_true(observed[1] == tree.node(4).unwrap().bounds().size())
+    assert_true(tree.nodes().map(fn(node) { node.id() }) == [1, 2, 3, 4, 5, 6])
+    assert_true(tree.node(3).unwrap().parent() == Some(2))
+    assert_true(tree.node(5).unwrap().parent() == Some(4))
+    assert_eq(tree.node(2).unwrap().bounds().top(), -2.0 * unit)
+    assert_eq(tree.node(4).unwrap().bounds().top(), -4.0 * unit)
+    assert_eq(tree.node(6).unwrap().bounds().top(), -4.0 * unit)
+    assert_eq(
+      tree.node(6).unwrap().bounds().size().height(),
+      if scale is None {
+        1.5
+      } else {
+        unit
+      },
+    )
+    assert_true(request.prepaint() is Err(AlreadyPrepainted))
+    assert_eq(calls.val, 2)
+  }
+}

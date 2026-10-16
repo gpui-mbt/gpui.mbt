@@ -39,6 +39,10 @@ arbitrary alignment. A span that cannot fit returns `InvalidSpan` or
 duplicate IDs, non-finite arithmetic, geometric overflow and unrepresentable
 bounds return explicit errors.
 
+Overflow comparisons use the existing bounded binary64 tolerance from flex
+layout, so reconstructed far edges do not turn exact-fit fractional tracks into
+overflow. Meaningful excess from fixed-size items remains overflow.
+
 ## Mixed trees
 
 Use `Element::grid_root` for a viewport grid root, `Element::grid_item` for an
@@ -72,7 +76,11 @@ No callback runs during `request_layout`, including device-scale requests. Durin
 prepaint, each encountered callback receives its actual assigned `Size`, not the
 window viewport. Its returned `Element::root` or `Element::grid_root` is laid out
 independently against that definite size, then attached at the query's actual
-origin. Nested queries retain cumulative depth and preorder.
+origin. Each generated root lays out at zero and rounds its own absolute edges
+before its separately snapped query origin is added. This independent-root
+boundary matters at negative midpoint coordinates; ordinary descendants within
+each mixed tree still round their final absolute edges together. Nested queries
+retain cumulative origins, depth and preorder.
 
 Generated roots fill the offered size by default. The bounded
 `with_query_root_size(Size)` override supplies explicit physical dimensions for
@@ -112,9 +120,13 @@ cannot adopt an old tree's focus owner.
 `layout/grid_wbtest.mbt` covers generic track counts, asymmetric physical gaps and
 insets, percentages, sparse holes and whole-span occupancy, full columns, fixed
 overflow, zero-min tracks, numeric guards, and absolute-edge snapping.
+Exact-fit fractional far-edge residue and genuine fixed overflow are checked on
+both axes, including an ordinary negative-origin absolute-snapping control.
 
 `element/grid_query_wbtest.mbt` covers deferred and nested callbacks, allocated
 size and nonzero origin, tiny/huge independent roots, root-size snapping,
+independent-root negative-midpoint rounding on both axes at device scales 1,
+1.25 and 2, positive-origin controls and nested translated roots,
 reentrant/failure/repeat leases, global ID and cumulative-depth guards, invalid
 roots, unsupported combinations, builder chains, scroll siblings, hit testing,
 immutable results, and focus/bounds-refresh constraints. These assertions are

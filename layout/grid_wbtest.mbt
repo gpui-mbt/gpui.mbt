@@ -332,3 +332,75 @@ test "single grid tracks do not overflow from an unused gap stride" {
   assert_eq(result.items()[0].bounds().left(), 0.0)
   assert_eq(result.items()[0].bounds().size().width(), 1.0e308)
 }
+
+///|
+test "grid exact fit tolerates fractional far-edge residue but keeps real overflow" {
+  for horizontal in [true, false] {
+    let style = if horizontal {
+      GridTreeStyle::new(3, 1).unwrap().with_gap_x(1.0).unwrap()
+    } else {
+      GridTreeStyle::new(1, 3).unwrap().with_gap_y(1.0).unwrap()
+    }
+    let size = if horizontal {
+      grid_size(7.0, 1.0)
+    } else {
+      grid_size(1.0, 7.0)
+    }
+    let result = layout_grid(GridContainer::new(size, style), [
+      grid_auto(1),
+      grid_auto(2),
+      grid_auto(3),
+    ]).unwrap()
+    let last = result.items()[2].bounds()
+    // This exact-fit reconstruction is one binary64 step beyond seven.
+    assert_true(
+      if horizontal {
+        last.right() > 7.0
+      } else {
+        last.bottom() > 7.0
+      },
+    )
+    assert_true(!result.overflow())
+    for item in result.items() {
+      assert_true(!item.overflow())
+    }
+    let oversized = if horizontal {
+      GridItem::new(3, Points(2.0), Auto)
+    } else {
+      GridItem::new(3, Auto, Points(2.0))
+    }
+    let overflow = layout_grid(GridContainer::new(size, style), [
+      grid_auto(1),
+      grid_auto(2),
+      oversized,
+    ]).unwrap()
+    assert_true(overflow.overflow())
+    assert_true(!overflow.items()[0].overflow())
+    assert_true(overflow.items()[2].overflow())
+  }
+}
+
+///|
+test "ordinary mixed trees still snap absolute edges at negative origins" {
+  let layout = layout_mixed_tree_at(
+    1,
+    @primitives.Rect::new(0.0, 0.0, 100.0, 10.0).unwrap(),
+    FlexStyle(FlexTreeStyle::new(Row).with_align(End)),
+    [
+      MixedTreeNode::new(
+        FlexChild(
+          FlexItem::new(2, Points(10.0), Points(12.0), grid_size(0.0, 0.0)),
+        ),
+        1,
+        Some(GridStyle(GridTreeStyle::new(1, 8).unwrap())),
+      ),
+      MixedTreeNode::new(GridChild(grid_auto(3)), 2, None),
+    ],
+    Some(1.0),
+  ).unwrap()
+  // Without an independent query-root boundary, [-2, -0.5] rounds to [-2, 0].
+  assert_true(
+    layout.items()[1].bounds() ==
+    @primitives.Rect::new(0.0, -2.0, 10.0, 2.0).unwrap(),
+  )
+}

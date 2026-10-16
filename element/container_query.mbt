@@ -48,7 +48,8 @@ pub fn Element::with_grid_children_style(
 ///|
 /// A query is a childless request-layout leaf. Its callback receives the
 /// assigned size during prepaint, then its returned declarative root is laid
-/// out independently against that definite size at the query's actual origin.
+/// out and rounded independently against that definite size, then translated
+/// to the query's snapped origin.
 /// Each query-bearing RequestedLayout can prepaint only once, including after
 /// failure or reentrant attempts. Fresh requests may reuse this Element.
 /// This is a MoonBit per-request contract, not Rust object-reuse equivalence.
@@ -348,7 +349,16 @@ fn prepaint_container_queries(
   }
   let overflow = Ref(request.layout.overflow())
   match
-    expand_query_layout(request, None, 0, nodes, placements, seen, overflow) {
+    expand_query_layout(
+      request,
+      @primitives.Point::new(0.0, 0.0).unwrap(),
+      None,
+      0,
+      nodes,
+      placements,
+      seen,
+      overflow,
+    ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -376,6 +386,7 @@ fn prepaint_container_queries(
 ///|
 fn expand_query_layout(
   request : RequestedLayout,
+  origin : @primitives.Point,
   parent : UInt64?,
   base_depth : Int32,
   output : Array[ElementNode],
@@ -402,13 +413,17 @@ fn expand_query_layout(
       },
       depth,
     }
-    let bounds = if index == 0 {
+    let local_bounds = if index == 0 {
       request.layout.root_bounds()
     } else {
       if boxes[index - 1].id() != placement.element.id {
         return Err(GeometryFailure)
       }
       boxes[index - 1].bounds()
+    }
+    let bounds = match local_bounds.translated(origin) {
+      Ok(value) => value
+      Err(_) => return Err(GeometryFailure)
     }
     output.push(placement_node(placement, bounds))
     expanded.push(placement)
@@ -444,19 +459,24 @@ fn expand_query_layout(
           }
           seen.push(element.id)
         }
-        let child_bounds = match generated.query_root_size {
-          None => bounds
-          Some(size) =>
-            match
-              @primitives.Rect::new(
-                bounds.left(),
-                bounds.top(),
-                size.width(),
-                size.height(),
-              ) {
-              Ok(value) => value
-              Err(_) => return Err(GeometryFailure)
-            }
+        // Each returned root has an independent layout coordinate system.
+        // Round its edges before adding the separately snapped prepaint offset;
+        // half-toward-zero rounding is not invariant under signed translation.
+        let child_size = generated.query_root_size.unwrap_or(bounds.size())
+        let child_bounds = match
+          @primitives.Rect::new(
+            0.0,
+            0.0,
+            child_size.width(),
+            child_size.height(),
+          ) {
+          Ok(value) => value
+          Err(_) => return Err(GeometryFailure)
+        }
+        let child_origin = match
+          scroll_translation(bounds.origin(), request.scale_factor) {
+          Ok(value) => value
+          Err(error) => return Err(error)
         }
         let child_request = match
           mixed_layout_at(generated, child_bounds, request.scale_factor) {
@@ -468,13 +488,19 @@ fn expand_query_layout(
           Some(lease) => lease.val = true
           None => ()
         }
+        let generated_bounds = match
+          child_request.layout.root_bounds().translated(child_origin) {
+          Ok(value) => value
+          Err(_) => return Err(GeometryFailure)
+        }
         overflow.val = overflow.val ||
           child_request.layout.overflow() ||
-          child_request.layout.root_bounds().right() > bounds.right() ||
-          child_request.layout.root_bounds().bottom() > bounds.bottom()
+          generated_bounds.right() > bounds.right() ||
+          generated_bounds.bottom() > bounds.bottom()
         match
           expand_query_layout(
             child_request,
+            child_origin,
             Some(placement.element.id),
             depth + 1,
             output,

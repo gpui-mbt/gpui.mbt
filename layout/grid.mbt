@@ -316,10 +316,10 @@ pub fn layout_grid(
       Ok(bounds) => bounds
       Err(_) => return Err(Numeric(GeometryFailure))
     }
-    let item_overflow = item_width > area_width ||
-      item_height > area_height ||
-      bounds.right() > content_bounds.right() ||
-      bounds.bottom() > content_bounds.bottom()
+    let item_overflow = exceeds_with_tolerance(item_width, area_width) ||
+      exceeds_with_tolerance(item_height, area_height) ||
+      exceeds_with_tolerance(bounds.right(), content_bounds.right()) ||
+      exceeds_with_tolerance(bounds.bottom(), content_bounds.bottom())
     overflow = overflow || item_overflow
     output.push({ id: item.id, bounds, overflow: item_overflow, })
     // Sparse auto-placement resumes here; it must never backfill earlier holes.

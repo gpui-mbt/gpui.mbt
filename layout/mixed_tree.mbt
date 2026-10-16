@@ -37,7 +37,8 @@ pub fn MixedTreeNode::id(self : MixedTreeNode) -> UInt64 {
 
 ///|
 /// Lay out all descendants in raw absolute coordinates before snapping any
-/// final edge. A nonzero origin is used for independently laid-out query roots.
+/// final edge. A supplied origin participates in this tree's edge rounding.
+/// Independent query roots lay out at zero and translate the rounded result.
 /// Optional root_size is an authored physical size, snapped before descendants
 /// are resolved; omitted root_size keeps the offered definite root bounds.
 pub fn layout_mixed_tree_at(
