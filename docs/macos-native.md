@@ -118,8 +118,7 @@ transform/clip/alpha/paint order and backing-pixel dimensions. Fault injection v
 The test source also removes device/queue/pipeline state, invokes explicit
 recovery and checks the following frame through pixel readback. Hosted execution
 is recorded per run in the external actrun artifacts; capability negotiation
-stays disabled pending release-tier evidence. The tests do not establish bounded
-of this path remains pending, so capability negotiation stays disabled. The
+stays disabled pending release-tier evidence. Hosted recovery acceptance remains pending, so capability negotiation stays disabled. The
 display smoke enumerates the active AppKit screens through CoreGraphics without
 changing display configuration, checks copied frame/mode/scale data, and
 rejects stale-host, wrong-thread, and invalid-buffer calls. It does not simulate
@@ -132,7 +131,6 @@ round-trips UTF-8 through a unique private pasteboard; cursor smoke exercises
 the three supported native cursor selections and unsupported-tag handling.
 General Pasteboard exchange and visible cursor confirmation remain open. The
 tests do not establish bounded memory over sustained churn.
-memory over sustained churn.
 
 The MoonBit smoke executable uses the portable Backend interface and checks
 creation, two completed GPU frames, resize, close request, destruction and event
@@ -173,16 +171,18 @@ rectangles, not windows.
 Run the field interactively with `./script/build_and_run.sh --demo text-field`.
 For deterministic source/provider checks and a test-hook app build, use
 `./script/test_macos.sh --text-field --target-dir <fresh-external-directory>`.
-For the native GPU runner and real Kotoeri flow, provision the public pinned
-tooling profile once, then execute the local actrun matrix:
+The **historic** native GPU/Kotoeri actrun runner lives under
+`infra/macos-desktop/` on [source PR #40](https://github.com/gpui-mbt/gpui.mbt/pull/40),
+but is **not included in this ported PR #89 slice**. Therefore its
+`profile.py` and `actrun-feedback.py` commands are not runnable from this
+worktree, and its retained old-revision results must not certify the new
+integration. Only the checked-in native tests and test-hook build above can be
+run without that harness.
 
-```sh
-export GPUI_MACOS_PROFILE_ROOT=/private/tmp/gpui-macos-quality-profile
-python3 infra/macos-desktop/profile.py --root "$GPUI_MACOS_PROFILE_ROOT" bootstrap
-RUN_DIR="$(mktemp -d /private/tmp/gpui-macos-native.XXXXXX)"
-python3 infra/macos-desktop/actrun-feedback.py \
-  --root "$GPUI_MACOS_PROFILE_ROOT" --mode native --run-dir "$RUN_DIR/native"
-```
+For this source, rebind the harness and pin the exact candidate revision
+before attempting Kotoeri acceptance on an unlocked Apple Silicon Mac. A
+successful native build alone does not qualify composition/Return,
+Escape cancellation, the final blurred frame, or source restoration.
 
 The runner builds native checks and the text-field test-hooks app under the
 provided run directory. Its qualified host profile records macOS 26.5.2 arm64
@@ -196,11 +196,7 @@ are recorded in each external actrun summary and its retained artifacts; source
 configuration alone does not establish a pass. No support tier or production
 release gate changes here.
 
-To run the full approved local quality matrix, including portable/schema,
-proof, mutation, hot-path and native IME stages, use the same profile and a
-separate fresh run directory:
-
-```sh
-python3 infra/macos-desktop/actrun-feedback.py \
-  --root "$GPUI_MACOS_PROFILE_ROOT" --mode quality --run-dir "$RUN_DIR/quality"
-```
+The complete historical actrun quality matrix also lives on #40, not in this
+slice. To execute it against the port, first integrate its tooling with
+source-bound inputs and run a new exact-HEAD qualification; do not relabel an
+older matrix result as this slice's `quality` PASS.
