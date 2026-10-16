@@ -1,0 +1,339 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/gpui/layout"
+
+import {
+  "f4ah6o/gpui/primitives",
+}
+
+// Values
+pub const MAX_FLEX_TREE_DEPTH : Int = 64
+
+pub const MAX_GRID_CELLS : Int = 4096
+
+pub fn layout_flex(FlexContainer, Array[FlexItem]) -> Result[FlexLayout, LayoutError]
+
+pub fn layout_flex_tree(UInt64, @primitives.Size, FlexTreeStyle, Array[FlexTreeNode]) -> Result[FlexTreeLayout, TreeLayoutError]
+
+pub fn layout_flex_tree_with_device_scale(UInt64, @primitives.Size, FlexTreeStyle, Array[FlexTreeNode], Double) -> Result[FlexTreeLayout, TreeLayoutError]
+
+pub fn layout_grid(GridContainer, Array[GridItem]) -> Result[GridLayout, GridLayoutError]
+
+pub fn layout_mixed_tree_at(UInt64, @primitives.Rect, MixedTreeStyle, Array[MixedTreeNode], Double?, root_size? : @primitives.Size) -> Result[FlexTreeLayout, TreeLayoutError]
+
+pub fn resolve_dimension(Dimension, Double?) -> Result[Double?, LayoutError]
+
+// Errors
+
+// Types and methods
+pub enum AlignContent {
+  Start
+  Center
+  End
+  Stretch
+  SpaceBetween
+  SpaceAround
+  SpaceEvenly
+} derive(Eq)
+pub fn AlignContent::center() -> Self
+pub fn AlignContent::end() -> Self
+pub fn AlignContent::equal(Self, Self) -> Bool
+pub fn AlignContent::not_equal(Self, Self) -> Bool
+pub fn AlignContent::space_around() -> Self
+pub fn AlignContent::space_between() -> Self
+pub fn AlignContent::space_evenly() -> Self
+pub fn AlignContent::start() -> Self
+pub fn AlignContent::stretch() -> Self
+
+pub enum AlignItems {
+  Start
+  Center
+  End
+  Stretch
+} derive(Eq)
+pub fn AlignItems::center() -> Self
+pub fn AlignItems::end() -> Self
+pub fn AlignItems::equal(Self, Self) -> Bool
+pub fn AlignItems::not_equal(Self, Self) -> Bool
+pub fn AlignItems::start() -> Self
+pub fn AlignItems::stretch() -> Self
+
+pub enum Dimension {
+  Auto
+  Points(Double)
+  Percent(Double)
+} derive(Eq)
+pub fn Dimension::auto() -> Self
+pub fn Dimension::equal(Self, Self) -> Bool
+pub fn Dimension::not_equal(Self, Self) -> Bool
+pub fn Dimension::percent(Double) -> Result[Self, LayoutError]
+pub fn Dimension::points(Double) -> Result[Self, LayoutError]
+
+pub struct FlexContainer {
+  direction : FlowDirection
+  wrap : FlexWrap
+  size : @primitives.Size
+  gap_x : Double
+  gap_y : Double
+  padding : Insets
+  border : Insets
+  justify : JustifyContent
+  align : AlignItems
+  align_content : AlignContent
+}
+pub fn FlexContainer::new(FlowDirection, @primitives.Size) -> Self
+pub fn FlexContainer::with_align(Self, AlignItems) -> Self
+pub fn FlexContainer::with_align_content(Self, AlignContent) -> Self
+pub fn FlexContainer::with_gap(Self, Double) -> Result[Self, LayoutError]
+pub fn FlexContainer::with_gap_x(Self, Double) -> Result[Self, LayoutError]
+pub fn FlexContainer::with_gap_y(Self, Double) -> Result[Self, LayoutError]
+pub fn FlexContainer::with_insets(Self, Insets, Insets) -> Self
+pub fn FlexContainer::with_justify(Self, JustifyContent) -> Self
+pub fn FlexContainer::with_wrap(Self, FlexWrap) -> Self
+
+pub struct FlexItem {
+  id : UInt64
+  main : Dimension
+  cross : Dimension
+  intrinsic : @primitives.Size
+  grow : Double
+  shrink : Double
+  min_main : Double
+  max_main : Double?
+  min_cross : Double
+  max_cross : Double?
+}
+pub fn FlexItem::id(Self) -> UInt64
+pub fn FlexItem::new(UInt64, Dimension, Dimension, @primitives.Size) -> Self
+pub fn FlexItem::with_cross_limits(Self, Double, Double?) -> Result[Self, LayoutError]
+pub fn FlexItem::with_flex(Self, Double, Double) -> Result[Self, LayoutError]
+pub fn FlexItem::with_intrinsic(Self, @primitives.Size) -> Self
+pub fn FlexItem::with_main_limits(Self, Double, Double?) -> Result[Self, LayoutError]
+
+pub struct FlexLayout {
+  content_bounds : @primitives.Rect
+  items : Array[LayoutBox]
+  overflow : Bool
+}
+pub fn FlexLayout::content_bounds(Self) -> @primitives.Rect
+pub fn FlexLayout::items(Self) -> Array[LayoutBox]
+pub fn FlexLayout::overflow(Self) -> Bool
+
+pub struct FlexTreeLayout {
+  root_id : UInt64
+  root_bounds : @primitives.Rect
+  items : Array[TreeLayoutBox]
+  overflow : Bool
+}
+pub fn FlexTreeLayout::items(Self) -> Array[TreeLayoutBox]
+pub fn FlexTreeLayout::overflow(Self) -> Bool
+pub fn FlexTreeLayout::root_bounds(Self) -> @primitives.Rect
+pub fn FlexTreeLayout::root_id(Self) -> UInt64
+
+pub struct FlexTreeNode {
+  item : FlexItem
+  parent : UInt64
+  children_style : FlexTreeStyle?
+}
+pub fn FlexTreeNode::id(Self) -> UInt64
+pub fn FlexTreeNode::new(FlexItem, UInt64) -> Self
+pub fn FlexTreeNode::parent(Self) -> UInt64
+pub fn FlexTreeNode::with_children(Self, FlexTreeStyle) -> Self
+
+pub struct FlexTreeStyle {
+  direction : FlowDirection
+  wrap : FlexWrap
+  gap_x : Double
+  gap_y : Double
+  padding : Insets
+  border : Insets
+  justify : JustifyContent
+  align : AlignItems
+  align_content : AlignContent
+}
+pub fn FlexTreeStyle::new(FlowDirection) -> Self
+pub fn FlexTreeStyle::with_align(Self, AlignItems) -> Self
+pub fn FlexTreeStyle::with_align_content(Self, AlignContent) -> Self
+pub fn FlexTreeStyle::with_gap(Self, Double) -> Result[Self, LayoutError]
+pub fn FlexTreeStyle::with_gap_x(Self, Double) -> Result[Self, LayoutError]
+pub fn FlexTreeStyle::with_gap_y(Self, Double) -> Result[Self, LayoutError]
+pub fn FlexTreeStyle::with_insets(Self, Insets, Insets) -> Self
+pub fn FlexTreeStyle::with_justify(Self, JustifyContent) -> Self
+pub fn FlexTreeStyle::with_wrap(Self, FlexWrap) -> Self
+
+pub enum FlexWrap {
+  NoWrap
+  Wrap
+  WrapReverse
+} derive(Eq)
+pub fn FlexWrap::equal(Self, Self) -> Bool
+pub fn FlexWrap::no_wrap() -> Self
+pub fn FlexWrap::not_equal(Self, Self) -> Bool
+pub fn FlexWrap::wrap() -> Self
+pub fn FlexWrap::wrap_reverse() -> Self
+
+pub enum FlowDirection {
+  Row
+  Column
+} derive(Eq)
+pub fn FlowDirection::column() -> Self
+pub fn FlowDirection::equal(Self, Self) -> Bool
+pub fn FlowDirection::not_equal(Self, Self) -> Bool
+pub fn FlowDirection::row() -> Self
+
+pub(all) enum GridColumnPlacement {
+  AutoColumns(Int)
+  FullColumns
+} derive(Eq)
+pub fn GridColumnPlacement::equal(Self, Self) -> Bool
+pub fn GridColumnPlacement::not_equal(Self, Self) -> Bool
+
+pub struct GridContainer {
+  size : @primitives.Size
+  style : GridTreeStyle
+}
+pub fn GridContainer::new(@primitives.Size, GridTreeStyle) -> Self
+
+pub struct GridItem {
+  id : UInt64
+  width : Dimension
+  height : Dimension
+  columns : GridColumnPlacement
+  row_span : Int
+}
+pub fn GridItem::full_columns(Self) -> Self
+pub fn GridItem::id(Self) -> UInt64
+pub fn GridItem::new(UInt64, Dimension, Dimension) -> Self
+pub fn GridItem::with_span(Self, Int, Int) -> Result[Self, GridLayoutError]
+
+pub struct GridLayout {
+  content_bounds : @primitives.Rect
+  items : Array[LayoutBox]
+  overflow : Bool
+}
+pub fn GridLayout::content_bounds(Self) -> @primitives.Rect
+pub fn GridLayout::items(Self) -> Array[LayoutBox]
+pub fn GridLayout::overflow(Self) -> Bool
+
+pub(all) enum GridLayoutError {
+  InvalidTrackCount
+  CellLimitExceeded
+  InvalidSpan
+  PlacementExhausted
+  DuplicateId
+  Numeric(LayoutError)
+} derive(Eq)
+pub fn GridLayoutError::equal(Self, Self) -> Bool
+pub fn GridLayoutError::not_equal(Self, Self) -> Bool
+
+pub struct GridTreeStyle {
+  columns : Int
+  rows : Int
+  gap_x : Double
+  gap_y : Double
+  padding : Insets
+  border : Insets
+}
+pub fn GridTreeStyle::new(Int, Int) -> Result[Self, GridLayoutError]
+pub fn GridTreeStyle::with_gap(Self, Double) -> Result[Self, GridLayoutError]
+pub fn GridTreeStyle::with_gap_x(Self, Double) -> Result[Self, GridLayoutError]
+pub fn GridTreeStyle::with_gap_y(Self, Double) -> Result[Self, GridLayoutError]
+pub fn GridTreeStyle::with_insets(Self, Insets, Insets) -> Self
+
+pub struct Insets {
+  top : Double
+  right : Double
+  bottom : Double
+  left : Double
+} derive(Eq)
+pub fn Insets::all(Double) -> Result[Self, LayoutError]
+pub fn Insets::bottom(Self) -> Double
+pub fn Insets::equal(Self, Self) -> Bool
+pub fn Insets::left(Self) -> Double
+pub fn Insets::new(Double, Double, Double, Double) -> Result[Self, LayoutError]
+pub fn Insets::not_equal(Self, Self) -> Bool
+pub fn Insets::right(Self) -> Double
+pub fn Insets::top(Self) -> Double
+pub fn Insets::zero() -> Self
+
+pub enum JustifyContent {
+  Start
+  Center
+  End
+  SpaceBetween
+  SpaceAround
+  SpaceEvenly
+} derive(Eq)
+pub fn JustifyContent::center() -> Self
+pub fn JustifyContent::end() -> Self
+pub fn JustifyContent::equal(Self, Self) -> Bool
+pub fn JustifyContent::not_equal(Self, Self) -> Bool
+pub fn JustifyContent::space_around() -> Self
+pub fn JustifyContent::space_between() -> Self
+pub fn JustifyContent::space_evenly() -> Self
+pub fn JustifyContent::start() -> Self
+
+pub struct LayoutBox {
+  id : UInt64
+  bounds : @primitives.Rect
+  overflow : Bool
+}
+pub fn LayoutBox::bounds(Self) -> @primitives.Rect
+pub fn LayoutBox::id(Self) -> UInt64
+pub fn LayoutBox::overflow(Self) -> Bool
+
+pub enum LayoutError {
+  NonFiniteValue
+  NegativeValue
+  InvalidMinMax
+  IndefinitePercentage
+  DuplicateId
+  GeometryFailure
+} derive(Eq)
+pub fn LayoutError::equal(Self, Self) -> Bool
+pub fn LayoutError::not_equal(Self, Self) -> Bool
+
+pub(all) enum MixedTreeItem {
+  FlexChild(FlexItem)
+  GridChild(GridItem)
+}
+
+pub struct MixedTreeNode {
+  item : MixedTreeItem
+  parent : UInt64
+  children_style : MixedTreeStyle?
+}
+pub fn MixedTreeNode::id(Self) -> UInt64
+pub fn MixedTreeNode::new(MixedTreeItem, UInt64, MixedTreeStyle?) -> Self
+
+pub(all) enum MixedTreeStyle {
+  FlexStyle(FlexTreeStyle)
+  GridStyle(GridTreeStyle)
+}
+
+pub struct TreeLayoutBox {
+  id : UInt64
+  bounds : @primitives.Rect
+  overflow : Bool
+}
+pub fn TreeLayoutBox::bounds(Self) -> @primitives.Rect
+pub fn TreeLayoutBox::id(Self) -> UInt64
+pub fn TreeLayoutBox::overflow(Self) -> Bool
+
+pub(all) enum TreeLayoutError {
+  DuplicateId
+  MissingParent
+  InvalidPreorder
+  MissingContainer
+  TreeTooDeep
+  Flex(LayoutError)
+  GeometryFailure
+  Grid(GridLayoutError)
+  MismatchedItem
+  UnsupportedIntrinsicGrid
+} derive(Eq)
+pub fn TreeLayoutError::equal(Self, Self) -> Bool
+pub fn TreeLayoutError::not_equal(Self, Self) -> Bool
+
+// Type aliases
+
+// Traits

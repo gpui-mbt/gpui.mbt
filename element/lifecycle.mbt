@@ -31,6 +31,10 @@ pub struct Element {
   pointer_events : Bool
   priv scroll_offset : @primitives.Point?
   priv uniform_list : UniformList?
+  priv grid_item : @layout.GridItem?
+  priv grid_style : @layout.GridTreeStyle?
+  priv container_query : ((@primitives.Size) -> Result[Element, ElementError])?
+  priv query_root_size : @primitives.Size?
 }
 
 ///|
@@ -54,6 +58,10 @@ pub fn Element::root(
     pointer_events: true,
     scroll_offset: None,
     uniform_list: None,
+    grid_item: None,
+    grid_style: None,
+    container_query: None,
+    query_root_size: None,
   }
 }
 
@@ -74,6 +82,10 @@ pub fn Element::new(item : @layout.FlexItem) -> Element {
     pointer_events: true,
     scroll_offset: None,
     uniform_list: None,
+    grid_item: None,
+    grid_style: None,
+    container_query: None,
+    query_root_size: None,
   }
 }
 
@@ -97,6 +109,10 @@ pub fn Element::with_children_style(
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
     uniform_list: self.uniform_list,
+    grid_item: self.grid_item,
+    grid_style: None,
+    container_query: self.container_query,
+    query_root_size: self.query_root_size,
   }
 }
 
@@ -119,6 +135,10 @@ pub fn Element::with_child(self : Element, child : Element) -> Element {
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
     uniform_list: self.uniform_list,
+    grid_item: self.grid_item,
+    grid_style: self.grid_style,
+    container_query: self.container_query,
+    query_root_size: self.query_root_size,
   }
 }
 
@@ -141,6 +161,10 @@ pub fn Element::with_background(
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
     uniform_list: self.uniform_list,
+    grid_item: self.grid_item,
+    grid_style: self.grid_style,
+    container_query: self.container_query,
+    query_root_size: self.query_root_size,
   }
 }
 
@@ -160,6 +184,10 @@ pub fn Element::with_focusable(self : Element, focusable : Bool) -> Element {
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
     uniform_list: self.uniform_list,
+    grid_item: self.grid_item,
+    grid_style: self.grid_style,
+    container_query: self.container_query,
+    query_root_size: self.query_root_size,
   }
 }
 
@@ -179,6 +207,10 @@ pub fn Element::with_pointer_events(self : Element, enabled : Bool) -> Element {
     pointer_events: enabled,
     scroll_offset: self.scroll_offset,
     uniform_list: self.uniform_list,
+    grid_item: self.grid_item,
+    grid_style: self.grid_style,
+    container_query: self.container_query,
+    query_root_size: self.query_root_size,
   }
 }
 
@@ -218,6 +250,7 @@ pub fn[T : IntoElement] into_element(value : T) -> Element {
 pub struct RequestedLayout {
   priv placements : Array[ElementPlacement]
   priv scale_factor : Double?
+  priv query_lease : Ref[Bool]?
   viewport : @primitives.Size
   layout : @layout.FlexTreeLayout
 }
@@ -294,6 +327,9 @@ fn Element::request_layout_internal(
   viewport : @primitives.Size,
   scale_factor : Double?,
 ) -> Result[RequestedLayout, ElementError] {
+  if has_mixed_layout(self) {
+    return request_mixed_layout(self, viewport, scale_factor)
+  }
   if !self.is_root {
     Err(RootRequired)
   } else {
@@ -339,7 +375,13 @@ fn Element::request_layout_internal(
                   @layout.layout_flex_tree(self.id, viewport, style, nodes) {
                   Err(error) => Err(LayoutFailure(error))
                   Ok(layout) =>
-                    Ok({ placements, viewport, layout, scale_factor, })
+                    Ok({
+                      placements,
+                      viewport,
+                      layout,
+                      scale_factor,
+                      query_lease: None,
+                    })
                 }
               Some(scale) =>
                 match
@@ -352,7 +394,13 @@ fn Element::request_layout_internal(
                   ) {
                   Err(error) => Err(LayoutFailure(error))
                   Ok(layout) =>
-                    Ok({ placements, viewport, layout, scale_factor, })
+                    Ok({
+                      placements,
+                      viewport,
+                      layout,
+                      scale_factor,
+                      query_lease: None,
+                    })
                 }
             }
           }
@@ -368,6 +416,16 @@ fn Element::request_layout_internal(
 pub fn RequestedLayout::prepaint(
   self : RequestedLayout,
 ) -> Result[Prepainted, ElementError] {
+  match self.query_lease {
+    Some(lease) => {
+      if lease.val {
+        return Err(AlreadyPrepainted)
+      }
+      lease.val = true
+      return prepaint_container_queries(self)
+    }
+    None => ()
+  }
   let nodes : Array[ElementNode] = []
   let layout_boxes = self.layout.items()
   let root_bounds = self.layout.root_bounds()

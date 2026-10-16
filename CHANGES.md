@@ -4,6 +4,11 @@
 
 ### Added
 
+- Add bounded explicit equal-fraction grid layout, opt-in mixed flex/grid trees,
+  and deferred container queries with per-request one-shot prepaint, global
+  generated-tree validation, physical overflow, and absolute device-edge
+  snapping. (`docs/grid-container-query.md`)
+
 - Add bounded vertical uniform lists with real recursive prototype measurement,
   lazy visible-row layout, checked stable IDs, complete scroll extent, existing
   scene/input clips, and one-shot row click sessions. (`docs/uniform-list.md`)
