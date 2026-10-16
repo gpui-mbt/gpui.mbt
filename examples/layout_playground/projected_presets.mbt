@@ -90,5 +90,5 @@ let projected_presets : Array[ProjectedPreset] = [
     projection: 1,
     recorded: [0.0, 10.0],
     document: "FLEX_WRAP_RESULTS.md",
-  }
+  },
 ]

@@ -146,25 +146,28 @@ fn resolve(config : Config) -> @layout.FlexLayout {
     @layout.FlowDirection::row()
   }
   let container = @layout.FlexContainer::new(
-    direction,
-    if config.column {
-      size(config.cross, config.extent)
-    } else {
-      size(config.extent, config.cross)
-    },
-  )
-    .with_wrap(match config.wrap {
-      1 => @layout.FlexWrap::wrap()
-      2 => @layout.FlexWrap::wrap_reverse()
-      _ => @layout.FlexWrap::no_wrap()
-    })
-    .with_justify(match config.justify {
-      1 => @layout.JustifyContent::center()
-      2 => @layout.JustifyContent::end()
-      3 => @layout.JustifyContent::space_between()
-      _ => @layout.JustifyContent::start()
-    },
-  )
+      direction,
+      if config.column {
+        size(config.cross, config.extent)
+      } else {
+        size(config.extent, config.cross)
+      },
+    )
+    .with_wrap(
+      match config.wrap {
+        1 => @layout.FlexWrap::wrap()
+        2 => @layout.FlexWrap::wrap_reverse()
+        _ => @layout.FlexWrap::no_wrap()
+      },
+    )
+    .with_justify(
+      match config.justify {
+        1 => @layout.JustifyContent::center()
+        2 => @layout.JustifyContent::end()
+        3 => @layout.JustifyContent::space_between()
+        _ => @layout.JustifyContent::start()
+      },
+    )
   let container = match container.with_gap(config.gap) {
     Ok(value) => value
     Err(_) => abort("playground gap is bounded at ingress")
@@ -231,8 +234,7 @@ fn projected_origins(
   column : Bool,
   projection : Int32,
 ) -> Array[Double] {
-  let dimension = if (projection == 0 && column) ||
-    (projection == 1 && !column) {
+  let dimension = if (projection == 0 && column) || (projection == 1 && !column) {
     1
   } else {
     0
@@ -286,6 +288,7 @@ pub fn Playground::snapshot(self : Playground) -> String {
 }
 
 ///|
+
 ///|
 pub fn preset_ids() -> String {
   let ids = presets.map(preset => preset.id)

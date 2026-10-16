@@ -97,10 +97,13 @@ test "wrap projections do not claim all bounds are measured" {
     let record = projected_presets[i]
     let model = Playground::new()
     assert_true(model.select(presets.length() + i))
-    assert_true(origin_delta(
-      projected_origins(bounds(resolve(model.config)), model.config.column, 1),
-      record.recorded,
-    ) <= 0.0001)
+    assert_true(
+      origin_delta(
+        projected_origins(bounds(resolve(model.config)), model.config.column, 1),
+        record.recorded,
+      ) <=
+      0.0001,
+    )
     assert_true(model.snapshot().contains("\"projection\":\"line-origins\""))
     assert_true(model.snapshot().contains("\"status\":\"match\""))
     assert_true(model.change("wrap", -1, 2.0))
