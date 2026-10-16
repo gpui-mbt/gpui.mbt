@@ -347,6 +347,48 @@
         "Viewport-rectangle masks exclude visible-border inset behavior; wheel routing follows the selected target ancestry rather than unrelated overlapping hitboxes. These bounds cover the borderless nested scroll viewports in scrollable.rs.",
         "One-axis overflow, axis fallback, concurrent diagonal movement, gesture locking, line/precise conversion, inertia, scrollbars, anchoring, reveal/focus scrolling and native-window rendering remain outside this slice. No general GPUI, GPU-pixel or physical-input parity claim."
       ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": [
+        "crates/gpui/examples/focus_visible.rs",
+        "crates/gpui/src/tab_stop.rs",
+        "crates/gpui/src/window.rs",
+        "crates/gpui/src/elements/div.rs",
+        "crates/gpui_web/src/events.rs"
+      ],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares Apache-2.0; its LICENSE-APACHE resolves to the root Apache License 2.0 text."
+        },
+        {
+          "path": "crates/gpui_web/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui_web/Cargo.toml",
+          "evidence": "The inspected web input adapter belongs to gpui_web, which separately declares Apache-2.0."
+        }
+      ],
+      "destination_paths": [
+        "element/element.mbt",
+        "element/lifecycle.mbt",
+        "element/scroll_viewport.mbt",
+        "element/focus_traversal.mbt",
+        "element/focus_traversal_test.mbt",
+        "element/focus_traversal_wbtest.mbt",
+        "docs/conformance-focus-traversal.md"
+      ],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Independently implemented flat live-node traversal with signed Int32 tab_index and separate tab_stop metadata, both preserved through builders and prepaint. Defaults are zero and false; non-stop focusable nodes remain ordering anchors; ties use stable preorder. No upstream implementation, test bodies or assets were copied.",
+        "Traversal preserves the current acquisition for an already-focused destination, while explicit with_focus retains deliberate reacquisition. Existing immutable snapshots, stale-owner protections and fresh prepaint lineage are unchanged; no numeric-ID ownership adoption or broad reconciliation is added.",
+        "Mouse/Keyboard InputModality is a separate explicit after_input value, not an implicit side effect of pure routing. KeyPressed selects Keyboard; pointer move/down selects Mouse; releases, committed text and scroll retain modality. Queries cover exact focus, keyboard focus-visible and uncaptured hover policy only.",
+        "The separate browser harness pin 5a5fbe79917971a4d52a96b6ddb04da198a5012e has identical focus_visible.rs and gpui_web/events.rs blobs, byte-identical tab_stop.rs production code, and byte-identical scoped window/div behavior. Full hashes are recorded without changing the repository compatibility pin.",
+        "The real unchanged-main baseline at 89a11dd7d4cfc4acfa7b8efea52bbf88ac00ccbf fails compilation for missing APIs. Source-derived core regressions and four independent mutation controls pass; actual Rust/browser paired execution is separate and pending, not established by those tests.",
+        "Tab groups, keymaps, native accessibility, captured-hitbox hover exceptions, Touch, full GPUI/CSS semantics, native pixels and physical input remain outside scope. Existing layout, scroll and independent-axis gap behavior are unchanged."
+      ]
     }
   ]
 }

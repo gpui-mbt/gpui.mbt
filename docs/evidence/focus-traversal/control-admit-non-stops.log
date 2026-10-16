@@ -1,0 +1,8 @@
+[f4ah6o/gpui] test element/focus_traversal_wbtest.mbt:2 ("tab no-op traversal never allocates focus identity while a changed target does") failed: element/focus_traversal_wbtest.mbt:39:17-39:65@f4ah6o/gpui FAILED: unchanged destination allocated identity
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:110 ("non-stop current nodes retain signed and equal-index ordering anchors") failed: element/focus_traversal_test.mbt:128:3-128:59@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:137 ("focusable defaults and tab indices alone are not traversal destinations") failed: element/focus_traversal_test.mbt:145:3-145:55@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:155 ("singleton traversal preserves acquisition while explicit focus reacquires") failed: element/focus_traversal_test.mbt:160:3-160:61@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:199 ("traversal snapshots own input and returned arrays without changing node order") failed: element/focus_traversal_test.mbt:217:3-217:44@f4ah6o/gpui FAILED: `false` is not true
+Total tests: 95, passed: 90, failed: 5.
+
+EXIT_CODE=2

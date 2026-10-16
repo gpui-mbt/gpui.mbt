@@ -80,21 +80,27 @@ pub struct Element {
   children : Array[Element]
   background : @primitives.Color?
   focusable : Bool
+  tab_index : Int
+  tab_stop : Bool
   pointer_events : Bool
   // private fields
 }
 pub fn Element::into_element(Self) -> Self
+pub fn Element::is_tab_stop(Self) -> Bool
 pub fn Element::new(@layout.FlexItem) -> Self
 pub fn Element::render(Self) -> Self
 pub fn Element::request_layout(Self, @primitives.Size) -> Result[RequestedLayout, ElementError]
 pub fn Element::request_layout_with_device_scale(Self, @primitives.Size, Double) -> Result[RequestedLayout, ElementError]
 pub fn Element::root(UInt64, @layout.FlexTreeStyle) -> Self
+pub fn Element::tab_index(Self) -> Int
 pub fn Element::with_background(Self, @primitives.Color?) -> Self
 pub fn Element::with_child(Self, Self) -> Self
 pub fn Element::with_children_style(Self, @layout.FlexTreeStyle) -> Self
 pub fn Element::with_focusable(Self, Bool) -> Self
 pub fn Element::with_pointer_events(Self, Bool) -> Self
 pub fn Element::with_scroll_offset(Self, @primitives.Point) -> Self
+pub fn Element::with_tab_index(Self, Int) -> Self
+pub fn Element::with_tab_stop(Self, Bool) -> Self
 pub impl IntoElement for Element
 pub impl Render for Element
 
@@ -120,6 +126,8 @@ pub struct ElementNode {
   parent : UInt64?
   bounds : @primitives.Rect
   focusable : Bool
+  tab_index : Int
+  tab_stop : Bool
   pointer_events : Bool
   background : @primitives.Color?
   // private fields
@@ -130,11 +138,15 @@ pub fn ElementNode::bounds(Self) -> @primitives.Rect
 pub fn ElementNode::from_layout_box(@layout.LayoutBox, UInt64?) -> Self
 pub fn ElementNode::id(Self) -> UInt64
 pub fn ElementNode::is_focusable(Self) -> Bool
+pub fn ElementNode::is_tab_stop(Self) -> Bool
 pub fn ElementNode::new(UInt64, UInt64?, @primitives.Rect) -> Self
 pub fn ElementNode::parent(Self) -> UInt64?
+pub fn ElementNode::tab_index(Self) -> Int
 pub fn ElementNode::with_background(Self, @primitives.Color?) -> Self
 pub fn ElementNode::with_focusable(Self, Bool) -> Self
 pub fn ElementNode::with_pointer_events(Self, Bool) -> Self
+pub fn ElementNode::with_tab_index(Self, Int) -> Self
+pub fn ElementNode::with_tab_stop(Self, Bool) -> Self
 
 pub struct ElementTree {
   focused : UInt64?
@@ -145,9 +157,13 @@ pub fn ElementTree::dispatch_input(Self, @primitives.InputEvent) -> DispatchPlan
 pub fn ElementTree::dispatch_input_with(Self, @primitives.InputEvent, (DispatchContext, @primitives.InputEvent) -> Result[Unit, ElementError]) -> Result[DispatchOutcome, ElementError]
 pub fn ElementTree::dispatch_pointer(Self, @primitives.Point) -> DispatchPlan
 pub fn ElementTree::dispatch_pointer_with(Self, @primitives.Point, (DispatchContext) -> Result[Unit, ElementError]) -> Result[DispatchOutcome, ElementError]
+pub fn ElementTree::focus_next(Self) -> Result[Self, ElementError]
 pub fn ElementTree::focus_owner(Self) -> FocusOwner?
+pub fn ElementTree::focus_prev(Self) -> Result[Self, ElementError]
 pub fn ElementTree::focused(Self) -> UInt64?
 pub fn ElementTree::hit_test(Self, @primitives.Point) -> UInt64?
+pub fn ElementTree::is_focus_visible(Self, UInt64, InputModality) -> Bool
+pub fn ElementTree::is_focused(Self, UInt64) -> Bool
 pub fn ElementTree::new(Array[ElementNode]) -> Result[Self, ElementError]
 pub fn ElementTree::node(Self, UInt64) -> ElementNode?
 pub fn ElementTree::nodes(Self) -> Array[ElementNode]
@@ -173,6 +189,15 @@ pub struct FocusOwner {
 pub fn FocusOwner::equal(Self, Self) -> Bool
 pub fn FocusOwner::id(Self) -> UInt64
 pub fn FocusOwner::not_equal(Self, Self) -> Bool
+
+pub(all) enum InputModality {
+  Mouse
+  Keyboard
+} derive(Eq)
+pub fn InputModality::after_input(Self, @primitives.InputEvent) -> Self
+pub fn InputModality::allows_hover(Self) -> Bool
+pub fn InputModality::equal(Self, Self) -> Bool
+pub fn InputModality::not_equal(Self, Self) -> Bool
 
 pub struct Prepainted {
   tree : ElementTree

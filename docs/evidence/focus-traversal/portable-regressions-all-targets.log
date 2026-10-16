@@ -1,0 +1,4 @@
+Total tests: 537, passed: 537, failed: 0. [wasm]
+Total tests: 537, passed: 537, failed: 0. [wasm-gc]
+Total tests: 537, passed: 537, failed: 0. [js]
+Total tests: 536, passed: 536, failed: 0. [native]

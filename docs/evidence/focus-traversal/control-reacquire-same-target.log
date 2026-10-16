@@ -1,0 +1,5 @@
+[f4ah6o/gpui] test element/focus_traversal_wbtest.mbt:2 ("tab no-op traversal never allocates focus identity while a changed target does") failed: element/focus_traversal_wbtest.mbt:39:17-39:65@f4ah6o/gpui FAILED: unchanged destination allocated identity
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:155 ("singleton traversal preserves acquisition while explicit focus reacquires") failed: element/focus_traversal_test.mbt:160:3-160:61@f4ah6o/gpui FAILED: `false` is not true
+Total tests: 95, passed: 93, failed: 2.
+
+EXIT_CODE=2

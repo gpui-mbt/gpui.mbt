@@ -25,6 +25,8 @@ pub struct Element {
   children : Array[Element]
   background : @primitives.Color?
   focusable : Bool
+  tab_index : Int32
+  tab_stop : Bool
   pointer_events : Bool
   priv scroll_offset : @primitives.Point?
 }
@@ -44,6 +46,8 @@ pub fn Element::root(
     children: [],
     background: None,
     focusable: false,
+    tab_index: 0,
+    tab_stop: false,
     pointer_events: true,
     scroll_offset: None,
   }
@@ -60,6 +64,8 @@ pub fn Element::new(item : @layout.FlexItem) -> Element {
     children: [],
     background: None,
     focusable: false,
+    tab_index: 0,
+    tab_stop: false,
     pointer_events: true,
     scroll_offset: None,
   }
@@ -79,6 +85,8 @@ pub fn Element::with_children_style(
     children: copy_elements(self.children),
     background: self.background,
     focusable: self.focusable,
+    tab_index: self.tab_index,
+    tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
   }
@@ -97,6 +105,8 @@ pub fn Element::with_child(self : Element, child : Element) -> Element {
     children,
     background: self.background,
     focusable: self.focusable,
+    tab_index: self.tab_index,
+    tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
   }
@@ -115,6 +125,8 @@ pub fn Element::with_background(
     children: copy_elements(self.children),
     background: color,
     focusable: self.focusable,
+    tab_index: self.tab_index,
+    tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
   }
@@ -130,6 +142,8 @@ pub fn Element::with_focusable(self : Element, focusable : Bool) -> Element {
     children: copy_elements(self.children),
     background: self.background,
     focusable,
+    tab_index: self.tab_index,
+    tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
   }
@@ -145,6 +159,8 @@ pub fn Element::with_pointer_events(self : Element, enabled : Bool) -> Element {
     children: copy_elements(self.children),
     background: self.background,
     focusable: self.focusable,
+    tab_index: self.tab_index,
+    tab_stop: self.tab_stop,
     pointer_events: enabled,
     scroll_offset: self.scroll_offset,
   }
@@ -331,6 +347,8 @@ pub fn RequestedLayout::prepaint(
         let node = ElementNode::new(element.id, placement.parent, rect)
           .with_background(element.background)
           .with_focusable(element.focusable)
+          .with_tab_index(element.tab_index)
+          .with_tab_stop(element.tab_stop)
           .with_pointer_events(element.pointer_events)
         nodes.push(node)
       }

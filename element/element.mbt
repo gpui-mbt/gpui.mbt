@@ -63,6 +63,8 @@ pub struct ElementNode {
   parent : UInt64?
   bounds : @primitives.Rect
   focusable : Bool
+  tab_index : Int32
+  tab_stop : Bool
   pointer_events : Bool
   background : @primitives.Color?
   priv scroll_viewport : ScrollViewport?
@@ -79,6 +81,8 @@ pub fn ElementNode::new(
     parent,
     bounds,
     focusable: false,
+    tab_index: 0,
+    tab_stop: false,
     pointer_events: true,
     background: None,
     scroll_viewport: None,
@@ -135,6 +139,8 @@ pub fn ElementNode::with_focusable(
     parent: self.parent,
     bounds: self.bounds,
     focusable,
+    tab_index: self.tab_index,
+    tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     background: self.background,
     scroll_viewport: self.scroll_viewport,
@@ -151,6 +157,8 @@ pub fn ElementNode::with_pointer_events(
     parent: self.parent,
     bounds: self.bounds,
     focusable: self.focusable,
+    tab_index: self.tab_index,
+    tab_stop: self.tab_stop,
     pointer_events: enabled,
     background: self.background,
     scroll_viewport: self.scroll_viewport,
@@ -167,6 +175,8 @@ pub fn ElementNode::with_background(
     parent: self.parent,
     bounds: self.bounds,
     focusable: self.focusable,
+    tab_index: self.tab_index,
+    tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     background: color,
     scroll_viewport: self.scroll_viewport,
