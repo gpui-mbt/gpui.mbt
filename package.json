@@ -9,6 +9,8 @@
     "browser:install": "playwright install --with-deps chromium",
     "browser:smoke": "node tests/browser/smoke.mjs",
     "browser:board:smoke": "node tests/browser/board.mjs",
+    "browser:layout:smoke": "node tests/browser/layout.mjs",
+    "browser:layout:evidence": "node scripts/generate_layout_playground.mjs --check && node --test tests/browser/layout-evidence.test.mjs",
     "browser:dev-watch": "node tests/browser/dev-watch.mjs",
     "browser:services:test": "node --test tests/browser/clipboard.test.mjs tests/browser/text-input.test.mjs",
     "browser:canvas:test": "node --test tests/browser/canvas-renderer.test.mjs tests/browser/canvas-accessibility.test.mjs",
