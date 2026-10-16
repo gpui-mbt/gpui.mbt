@@ -31,6 +31,7 @@ pub struct FlexTreeStyle {
   border : Insets
   justify : JustifyContent
   align : AlignItems
+  align_content : AlignContent
 }
 
 ///|
@@ -43,6 +44,7 @@ pub fn FlexTreeStyle::new(direction : FlowDirection) -> FlexTreeStyle {
     border: Insets::zero(),
     justify: JustifyContent::start(),
     align: AlignItems::start(),
+    align_content: AlignContent::stretch(),
   }
 }
 
@@ -66,6 +68,7 @@ pub fn FlexTreeStyle::with_gap(
         border: self.border,
         justify: self.justify,
         align: self.align,
+        align_content: self.align_content,
       })
   }
 }
@@ -84,6 +87,7 @@ pub fn FlexTreeStyle::with_insets(
     border,
     justify: self.justify,
     align: self.align,
+    align_content: self.align_content,
   }
 }
 
@@ -100,6 +104,7 @@ pub fn FlexTreeStyle::with_justify(
     border: self.border,
     justify,
     align: self.align,
+    align_content: self.align_content,
   }
 }
 
@@ -116,6 +121,7 @@ pub fn FlexTreeStyle::with_align(
     border: self.border,
     justify: self.justify,
     align,
+    align_content: self.align_content,
   }
 }
 
@@ -132,6 +138,26 @@ pub fn FlexTreeStyle::with_wrap(
     border: self.border,
     justify: self.justify,
     align: self.align,
+    align_content: self.align_content,
+  }
+}
+
+///|
+/// Align wrapped child lines within this node's definite inner cross extent.
+/// NoWrap ignores this setting; recursive auto measurement is unchanged.
+pub fn FlexTreeStyle::with_align_content(
+  self : FlexTreeStyle,
+  align_content : AlignContent,
+) -> FlexTreeStyle {
+  {
+    direction: self.direction,
+    wrap: self.wrap,
+    gap: self.gap,
+    padding: self.padding,
+    border: self.border,
+    justify: self.justify,
+    align: self.align,
+    align_content,
   }
 }
 
@@ -515,6 +541,7 @@ fn snap_tree_style_to_device_scale(
     border,
     justify: style.justify,
     align: style.align,
+    align_content: style.align_content,
   })
 }
 
@@ -542,6 +569,7 @@ fn layout_tree_children(
       .with_insets(style.padding, style.border)
       .with_justify(style.justify)
       .with_align(style.align)
+      .with_align_content(style.align_content)
     match base.with_gap(style.gap) {
       Err(error) => Err(Flex(error))
       Ok(container) =>

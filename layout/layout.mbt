@@ -141,6 +141,40 @@ pub fn AlignItems::stretch() -> AlignItems {
 }
 
 ///|
+/// Cross-axis placement of wrapped lines. Start and End are flex-relative,
+/// including under wrap-reverse; Center and End retain signed overflow space.
+/// Stretch is the default and retains safe physical-start overflow placement.
+pub enum AlignContent {
+  Start
+  Center
+  End
+  Stretch
+} derive(Eq)
+
+///|
+pub extend AlignContent with Eq::{not_equal, equal}
+
+///|
+pub fn AlignContent::start() -> AlignContent {
+  Start
+}
+
+///|
+pub fn AlignContent::center() -> AlignContent {
+  Center
+}
+
+///|
+pub fn AlignContent::end() -> AlignContent {
+  End
+}
+
+///|
+pub fn AlignContent::stretch() -> AlignContent {
+  Stretch
+}
+
+///|
 /// A logical dimension. Percent values use 1.0 == 100%.
 pub enum Dimension {
   Auto
@@ -429,6 +463,7 @@ pub struct FlexContainer {
   border : Insets
   justify : JustifyContent
   align : AlignItems
+  align_content : AlignContent
 }
 
 ///|
@@ -445,6 +480,7 @@ pub fn FlexContainer::new(
     border: Insets::zero(),
     justify: Start,
     align: AlignItems::Start,
+    align_content: AlignContent::stretch(),
   }
 }
 
@@ -467,6 +503,7 @@ pub fn FlexContainer::with_gap(
       border: self.border,
       justify: self.justify,
       align: self.align,
+      align_content: self.align_content,
     })
   }
 }
@@ -486,6 +523,7 @@ pub fn FlexContainer::with_insets(
     border,
     justify: self.justify,
     align: self.align,
+    align_content: self.align_content,
   }
 }
 
@@ -503,6 +541,7 @@ pub fn FlexContainer::with_justify(
     border: self.border,
     justify,
     align: self.align,
+    align_content: self.align_content,
   }
 }
 
@@ -520,6 +559,7 @@ pub fn FlexContainer::with_align(
     border: self.border,
     justify: self.justify,
     align,
+    align_content: self.align_content,
   }
 }
 
@@ -537,6 +577,27 @@ pub fn FlexContainer::with_wrap(
     border: self.border,
     justify: self.justify,
     align: self.align,
+    align_content: self.align_content,
+  }
+}
+
+///|
+/// Align wrapped lines within the inner cross extent. NoWrap ignores this
+/// setting and continues to use AlignItems for its single line.
+pub fn FlexContainer::with_align_content(
+  self : FlexContainer,
+  align_content : AlignContent,
+) -> FlexContainer {
+  {
+    direction: self.direction,
+    wrap: self.wrap,
+    size: self.size,
+    gap: self.gap,
+    padding: self.padding,
+    border: self.border,
+    justify: self.justify,
+    align: self.align,
+    align_content,
   }
 }
 
@@ -1050,7 +1111,9 @@ fn place_wrapped_items(
           if !finite(line_gap_total) || !finite(cross_total) {
             Err(NonFiniteValue)
           } else {
-            if lines.length() > 0 && cross_total < cross_extent {
+            if container.align_content is AlignContent::Stretch &&
+              lines.length() > 0 &&
+              cross_total < cross_extent {
               let addition = (cross_extent - cross_total) /
                 lines.length().to_double()
               for index = 0
@@ -1084,31 +1147,48 @@ fn place_wrapped_lines(
   cross_extent : Double,
 ) -> Result[FlexLayout, LayoutError] {
   let line_offsets : Array[Double] = Array::make(lines.length(), 0.0)
-  if container.wrap is FlexWrap::WrapReverse &&
-    exceeds_with_tolerance(cross_total, cross_extent) {
-    // Taffy's default align-content uses safe-start when lines overflow. With
-    // wrap-reverse, line order is reversed from the physical cross start; it
-    // must not be bottom/right anchored beyond the container.
-    let mut cross_cursor = 0.0
-    let mut index = lines.length() - 1
-    while index >= 0 {
-      let line_size = line_cross_sizes[index]
-      line_offsets[index] = cross_cursor
-      cross_cursor += line_size + container.gap
-      index -= 1
-    }
-  } else if container.wrap is FlexWrap::WrapReverse {
-    let mut cross_cursor = cross_extent
-    let mut index = 0
-    while index < lines.length() {
-      let line_size = line_cross_sizes[index]
-      cross_cursor -= line_size
-      line_offsets[index] = cross_cursor
-      cross_cursor -= container.gap
-      index += 1
+  let cross_free = cross_extent - cross_total
+  if container.wrap is FlexWrap::WrapReverse {
+    if container.align_content is AlignContent::End ||
+      (
+        container.align_content is AlignContent::Stretch &&
+        exceeds_with_tolerance(cross_total, cross_extent)
+      ) {
+      // Flex-relative end and overflowing default stretch anchor the stack at
+      // physical start. Accumulate from that edge rather than subtracting the
+      // line sizes from their total: cancellation must not move this edge.
+      let mut cross_cursor = 0.0
+      let mut index = lines.length() - 1
+      while index >= 0 {
+        let line_size = line_cross_sizes[index]
+        line_offsets[index] = cross_cursor
+        cross_cursor += line_size + container.gap
+        index -= 1
+      }
+    } else {
+      // Flex-relative start is anchored directly at the inner far edge.
+      // The half-sum centers the stack without overflowing a full sum or
+      // cancelling a small cross extent against a much larger line total.
+      let mut cross_cursor = if container.align_content is AlignContent::Center {
+        cross_extent / 2.0 + cross_total / 2.0
+      } else {
+        cross_extent
+      }
+      let mut index = 0
+      while index < lines.length() {
+        let line_size = line_cross_sizes[index]
+        cross_cursor -= line_size
+        line_offsets[index] = cross_cursor
+        cross_cursor -= container.gap
+        index += 1
+      }
     }
   } else {
-    let mut cross_cursor = 0.0
+    let mut cross_cursor = match container.align_content {
+      AlignContent::Start | AlignContent::Stretch => 0.0
+      AlignContent::Center => cross_free / 2.0
+      AlignContent::End => cross_free
+    }
     let mut index = 0
     while index < lines.length() {
       let line_size = line_cross_sizes[index]
