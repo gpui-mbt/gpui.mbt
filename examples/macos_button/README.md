@@ -164,6 +164,26 @@ platforms, or a macOS support tier.
 
 ## Current qualification status
 
+As of 2026-10-15, final-source external AX acceptance remains **unqualified**.
+The historical passes below do not qualify current main. On catch-up candidate
+`99f4b91da65b9c0269f26815f20542c77250115d`, the client verified the exact
+app PID, bundle ID and path, then failed to retrieve AXWindows. Baseline
+`50dfcc53adba5e034e44d8300b84577ca7300c2e` also failed AXWindows discovery;
+the later semantic/session freshness correction was not externally AX-tested.
+See [issue 0024](../../issues/open/0024-apple-silicon-macos-button-integration.md)
+for the separate recorded FAIL and UNRUN outcomes.
+
+The [conformance investigation](https://github.com/gpui-mbt/gpui-conformance/blob/test/20261015-ax-appkit-isolation/AX_COMPARISON_INVESTIGATION.md)
+compares those records with the newer external AXApplication alias and adds a
+stock AppKit control. Its results cannot qualify this Button or replace the
+two-AXPress acceptance. The current regular-policy sample activates its window
+on startup, including through `test_macos_button_ax.sh --all`; do not run it
+under a nonactivation requirement. The separate stock control uses Accessory
+policy without activation or permission prompts. Its native matrix is unrun
+at the time of this documentation update.
+
+### Historical bounded validation
+
 Pinned ActRun `run-2` passed five stages and 30 commands on commit
 `4ab16de6dae5ad73712e3e69b639994e2135dc05`; the independent gpt-6.1-sol/xhigh
 re-review approved that revision with zero findings. A later post-unlock
