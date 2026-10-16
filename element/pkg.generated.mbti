@@ -52,6 +52,31 @@ pub fn DispatchPlan::bubble(Self) -> Array[UInt64]
 pub fn DispatchPlan::capture(Self) -> Array[UInt64]
 pub fn DispatchPlan::target(Self) -> UInt64?
 
+pub enum DragDispatchError {
+  DuplicateSourceBinding(UInt64)
+  DuplicateTargetBinding(UInt64)
+  UnknownSourceBinding(UInt64)
+  UnknownTargetBinding(UInt64)
+  CursorOffsetOverflow(UInt64)
+  ReentrantDispatch
+} derive(Eq)
+pub fn DragDispatchError::equal(Self, Self) -> Bool
+pub fn DragDispatchError::not_equal(Self, Self) -> Bool
+
+pub enum DragDispatchOutcome[T] {
+  Unchanged
+  Admitted
+  Activated
+  Moved
+  Cancelled
+  Rejected(UInt64)
+  Dropped(UInt64, T)
+} derive(Eq)
+pub fn[T : Eq] DragDispatchOutcome::equal(Self[T], Self[T]) -> Bool
+pub fn[T : Eq] DragDispatchOutcome::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T] DragDispatchOutcome::state_changed(Self[T]) -> Bool
+pub fn[T] DragDispatchOutcome::was_stopped(Self[T]) -> Bool
+
 pub enum DragError {
   InvalidThreshold
 } derive(Eq)
@@ -71,6 +96,32 @@ pub fn DragGesture::position(Self) -> @primitives.Point?
 pub fn DragGesture::release(Self, @primitives.Point) -> (Self, UInt64?)
 pub fn DragGesture::source(Self) -> UInt64?
 pub fn DragGesture::update(Self, @primitives.Point) -> Self
+
+pub struct DragSession[T] {
+  // private fields
+}
+pub fn[T] DragSession::cancel(Self[T]) -> Bool
+pub fn[T] DragSession::dispatch(Self[T], ElementTree, @primitives.InputEvent, Array[DragSource[T]], Array[DropTarget[T]]) -> Result[DragDispatchOutcome[T], DragDispatchError]
+pub fn[T] DragSession::new() -> Self[T]
+pub fn[T] DragSession::snapshot(Self[T]) -> DragSnapshot[T]
+
+pub enum DragSnapshot[T] {
+  Idle
+  Pending(source~ : UInt64, origin~ : @primitives.Point)
+  Active(source~ : UInt64, origin~ : @primitives.Point, position~ : @primitives.Point, cursor_offset~ : @primitives.Point, payload~ : T)
+} derive(Eq)
+pub fn[T : Eq] DragSnapshot::equal(Self[T], Self[T]) -> Bool
+pub fn[T : Eq] DragSnapshot::not_equal(Self[T], Self[T]) -> Bool
+
+pub struct DragSource[T] {
+  // private fields
+}
+pub fn[T] DragSource::new(UInt64, T) -> Self[T]
+
+pub struct DropTarget[T] {
+  // private fields
+}
+pub fn[T] DropTarget::new(UInt64, can_drop? : (T) -> Bool) -> Self[T]
 
 pub struct Element {
   id : UInt64
