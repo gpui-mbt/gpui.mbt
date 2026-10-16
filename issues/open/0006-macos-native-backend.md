@@ -1,5 +1,16 @@
 # macOS native backend roadmap
 
+
+> Porting note (2026-10-16): The active macOS text-field integration is
+> [PR #89](https://github.com/gpui-mbt/gpui.mbt/pull/89). Historical source,
+> actrun scripts, and failed live-Kotoeri evidence remain on [PR #40](https://github.com/gpui-mbt/gpui.mbt/pull/40)
+> and its child [PR #45](https://github.com/gpui-mbt/gpui.mbt/pull/45).
+> References below to `infra/macos-desktop/` are historical acceptance
+> requirements, **not executable paths in PR #89**. The current native
+> slice provides `script/test_macos.sh --text-field` and a test-hook app
+> build; actual Apple Silicon/Kotoeri qualification needs the runner to be
+> rebound to the exact #89 source before it can be considered complete.
+
 Status: open
 Model: gpt-6-luna
 Parent: [0004-platform-rendering-and-native-boundaries.md](0004-platform-rendering-and-native-boundaries.md)
