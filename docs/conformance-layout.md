@@ -56,3 +56,28 @@ scale-relative overflow/exact-fit tolerance are unchanged. The tests cover
 rows, columns, empty/singleton lists, overflow, and wrapped lines. This adds only
 this bounded mode; it does not claim complete CSS flexbox or GPUI styling
 parity.
+
+## `space-around` and `space-evenly` capability addition
+
+`JustifyContent::space_around()` gives each item equal surrounding free space,
+so each outer space is half an inter-item share. `space_evenly()` gives equal
+free space before, between, and after items. Fixed `gap` remains additional to
+the distributed inter-item share. Both modes center a fitting singleton and
+fall back to start when a line has no positive free space, matching the pinned
+GPUI implementation. Empty lists do not divide by zero. Each wrapped line is
+resolved independently after grow/shrink and min/max sizing.
+
+These modes were absent from baseline `bb3fa1ef552ae22d372cfcea8723e99498aa5fe7`;
+this is a capability addition, not a correction of an existing named mode.
+The new 24-case real GPUI corpus measures rows/columns, nonzero gaps, zero through
+three children, exact fit, overflowing pairs and singletons, wrap/wrap-reverse,
+capped growth, and fractional growth. The baseline's start fallback records
+8 matches and 16 differences; the new library implementation matches all 24.
+The corpus explicitly requests device scale 2, which is measured/asserted on
+the pinned GPUI TestWindow and uses the existing MoonBit layout snapping API.
+Raw `layout_flex` geometry remains unsnapped.
+
+See the independent [distributed spacing corpus and evidence](https://github.com/gpui-mbt/gpui-conformance/blob/test/layout-distributed-spacing-20261016/DISTRIBUTED_SPACING_RESULTS.md).
+These finite, definite-size cases do not qualify intrinsic sizing, reversed
+main-axis flow/RTL, margins, align-content modes, text shaping, physical input,
+GPU pixels, or native/IME conformance.

@@ -67,6 +67,8 @@ pub enum JustifyContent {
   Center
   End
   SpaceBetween
+  SpaceAround
+  SpaceEvenly
 } derive(Eq)
 
 ///|
@@ -90,6 +92,20 @@ pub fn JustifyContent::end() -> JustifyContent {
 ///|
 pub fn JustifyContent::space_between() -> JustifyContent {
   SpaceBetween
+}
+
+///|
+/// Distribute positive free space with half-sized outer spaces. An overflowing
+/// line falls back to start; a fitting singleton is centered.
+pub fn JustifyContent::space_around() -> JustifyContent {
+  SpaceAround
+}
+
+///|
+/// Distribute positive free space equally before, between, and after items.
+/// An overflowing line falls back to start; a fitting singleton is centered.
+pub fn JustifyContent::space_evenly() -> JustifyContent {
+  SpaceEvenly
 }
 
 ///|
@@ -825,6 +841,37 @@ fn prepare_items(
 }
 
 ///|
+// Return the leading offset and extra inter-item space for one resolved line.
+// Keep wrapped and unwrapped placement on the same bounded GPUI semantics.
+fn main_spacing(
+  justify : JustifyContent,
+  count : Int32,
+  leftover : Double,
+) -> (Double, Double) {
+  match justify {
+    Start => (0.0, 0.0)
+    Center => (leftover / 2.0, 0.0)
+    End => (leftover, 0.0)
+    SpaceBetween =>
+      if count > 1 && leftover > 0.0 {
+        (0.0, leftover / (count - 1).to_double())
+      } else {
+        (0.0, 0.0)
+      }
+    SpaceAround | SpaceEvenly =>
+      if count == 0 || leftover <= 0.0 {
+        (0.0, 0.0)
+      } else if justify is SpaceAround {
+        let space = leftover / count.to_double()
+        (space / 2.0, space)
+      } else {
+        let space = leftover / (count.to_double() + 1.0)
+        (space, space)
+      }
+  }
+}
+
+///|
 fn place_items(
   container : FlexContainer,
   prepared : Array[PreparedItem],
@@ -845,20 +892,12 @@ fn place_items(
       Err(error) => Err(error)
       Ok((resolved, used)) => {
         let leftover = main_extent - used
-        // GPUI/Taffy falls back to start placement when there is no positive
-        // free space. With zero or one item there is no inter-item gap to share.
-        let between_extra = if container.justify is JustifyContent::SpaceBetween &&
-          count > 1 &&
-          leftover > 0.0 {
-          leftover / (count - 1).to_double()
-        } else {
-          0.0
-        }
-        let mut cursor = match container.justify {
-          JustifyContent::Start | SpaceBetween => 0.0
-          Center => leftover / 2.0
-          End => leftover
-        }
+        let (leading, between_extra) = main_spacing(
+          container.justify,
+          count,
+          leftover,
+        )
+        let mut cursor = leading
         let output : Array[LayoutBox] = []
         let mut any_overflow = exceeds_with_tolerance(used, main_extent)
         let mut error : LayoutError? = None
@@ -1088,20 +1127,12 @@ fn place_wrapped_lines(
     let line_cross = line_cross_sizes[line_index]
     let cross_line_start = line_offsets[line_index]
     let leftover = main_extent - line_used
-    // Distribute independently within this line. Overflow follows Taffy's
-    // start fallback, and a singleton line has no between-item gap.
-    let between_extra = if container.justify is JustifyContent::SpaceBetween &&
-      line.length() > 1 &&
-      leftover > 0.0 {
-      leftover / (line.length() - 1).to_double()
-    } else {
-      0.0
-    }
-    let mut main_cursor = match container.justify {
-      JustifyContent::Start | SpaceBetween => 0.0
-      Center => leftover / 2.0
-      End => leftover
-    }
+    let (leading, between_extra) = main_spacing(
+      container.justify,
+      line.length(),
+      leftover,
+    )
+    let mut main_cursor = leading
     for item_index = 0; item_index < line.length(); item_index = item_index + 1 {
       let entry = line[item_index]
       let main_size = sizes[item_index]
