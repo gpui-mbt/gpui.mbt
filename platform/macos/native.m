@@ -1970,6 +1970,7 @@ const GpuiApi *gpui_macos_api_v1(void) {
   return &api;
 }
 
+enum { MACOS_DISPLAY_CAPACITY = 16, MACOS_DISPLAY_FIELDS = 14 };
 static BOOL valid_screen_rect(NSRect rect) {
   return isfinite(NSMinX(rect)) && isfinite(NSMinY(rect)) &&
       isfinite(NSWidth(rect)) && isfinite(NSHeight(rect)) &&
@@ -2062,7 +2063,10 @@ int32_t gpui_macos_display_snapshot_v1(int64_t host, double *records,
     if (count) memcpy(records, copied, count * MACOS_DISPLAY_FIELDS * sizeof(double));
     return (int32_t)count;
   }
+}
 
+/* Opt-in E2E access to the last completed native Metal frame. Pixel copying
+ * canonicalizes the private BGRA drawable bytes to top-left RGBA8. */
 int32_t gpui_macos_test_frame_meta_v1(int64_t window, double *output) {
 #ifdef GPUI_TESTING
   if (![NSThread isMainThread]) return 18;
