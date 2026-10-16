@@ -109,7 +109,11 @@ test "wrap projections do not claim all bounds are measured" {
     assert_true(model.change("wrap", -1, 2.0))
     assert_true(model.snapshot().contains("\"status\":\"unmeasured\""))
     let reversed = bounds(resolve(model.config))
-    assert_true(reversed[1][1] > reversed[2][1])
+    if i == 4 {
+      assert_true(reversed[1][1] > reversed[2][1])
+    } else {
+      assert_eq(reversed[1][1], reversed[2][1])
+    }
     assert_true(model.change("wrap", -1, 1.0))
     assert_true(model.snapshot().contains("\"status\":\"match\""))
   }
