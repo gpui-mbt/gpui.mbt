@@ -152,7 +152,7 @@ pointer input, app activation counts, and accepted GPU frames in the evidence.
 Shared Button/accessibility/fixture corrections, Linux/Windows code, generic
 all-widget AX coverage, VoiceOver qualification, rich text, palette/IME,
 multi-display admission, vlmkit/Yami transport, release and support promotion.
-Do not take over open PR #40/#45/#46 or pending Linux PRs #53–#56.
+Do not take over PR #45/#46 or the archived #40 and its #89 slice, or pending Linux PRs #53–#56.
 
 ## 提案する方針
 
