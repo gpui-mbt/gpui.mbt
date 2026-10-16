@@ -15,6 +15,7 @@ pub enum ElementError {
   GeometryFailure
   LayoutBoundsMismatch
   ScrollLayoutBoundsUnsupported
+  UniformListFailure(UniformListError)
 } derive(Eq)
 
 ///|
@@ -71,6 +72,7 @@ pub struct ElementNode {
   pointer_events : Bool
   background : @primitives.Color?
   priv scroll_viewport : ScrollViewport?
+  priv uniform_list : UniformListLayout?
 }
 
 ///|
@@ -90,6 +92,7 @@ pub fn ElementNode::new(
     pointer_events: true,
     background: None,
     scroll_viewport: None,
+    uniform_list: None,
   }
 }
 
@@ -149,6 +152,7 @@ pub fn ElementNode::with_focusable(
     pointer_events: self.pointer_events,
     background: self.background,
     scroll_viewport: self.scroll_viewport,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -168,6 +172,7 @@ pub fn ElementNode::with_pointer_events(
     pointer_events: enabled,
     background: self.background,
     scroll_viewport: self.scroll_viewport,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -187,6 +192,7 @@ pub fn ElementNode::with_background(
     pointer_events: self.pointer_events,
     background: color,
     scroll_viewport: self.scroll_viewport,
+    uniform_list: self.uniform_list,
   }
 }
 

@@ -173,6 +173,7 @@ pub enum ElementError {
   GeometryFailure
   LayoutBoundsMismatch
   ScrollLayoutBoundsUnsupported
+  UniformListFailure(UniformListError)
 } derive(Eq)
 pub fn ElementError::equal(Self, Self) -> Bool
 pub fn ElementError::not_equal(Self, Self) -> Bool
@@ -231,6 +232,7 @@ pub fn ElementTree::restore_focus(Self, FocusOwner?, FocusOwner) -> Self
 pub fn ElementTree::scroll_viewport(Self, UInt64) -> ScrollViewport?
 pub fn ElementTree::scroll_wheel(Self, @primitives.Point, Double, Double) -> Result[Array[ScrollViewport], ScrollError]
 pub fn ElementTree::to_scene(Self) -> @scene.Scene
+pub fn ElementTree::uniform_list(Self, UInt64) -> UniformListLayout?
 pub fn ElementTree::with_focus(Self, UInt64) -> Result[Self, ElementError]
 pub fn ElementTree::with_focus_owner(Self, FocusOwner) -> Result[Self, ElementError]
 pub fn ElementTree::with_layout_bounds(Self, Prepainted) -> Result[Self, ElementError]
@@ -305,6 +307,75 @@ pub fn ScrollViewport::bounds(Self) -> @primitives.Rect
 pub fn ScrollViewport::id(Self) -> UInt64
 pub fn ScrollViewport::max_offset(Self) -> @primitives.Point
 pub fn ScrollViewport::offset(Self) -> @primitives.Point
+
+pub struct UniformList {
+  // private fields
+}
+pub fn UniformList::into_element(Self) -> Element
+pub fn UniformList::new(@layout.FlexItem, Int, UniformListIdSpace, (UniformListRange) -> Result[Array[Element], UniformListError]) -> Result[Self, UniformListError]
+pub fn UniformList::with_scroll_offset(Self, Double) -> Result[Self, UniformListError]
+pub impl IntoElement for UniformList
+
+pub enum UniformListClickOutcome {
+  Unchanged
+  Pressed(index~ : Int, id~ : UInt64)
+  Cancelled
+  Clicked(index~ : Int, id~ : UInt64)
+} derive(Eq)
+pub fn UniformListClickOutcome::equal(Self, Self) -> Bool
+pub fn UniformListClickOutcome::not_equal(Self, Self) -> Bool
+
+pub struct UniformListClickSession {
+  // private fields
+}
+pub fn UniformListClickSession::cancel(Self) -> Bool
+pub fn UniformListClickSession::dispatch(Self, ElementTree, @primitives.InputEvent) -> UniformListClickOutcome
+pub fn UniformListClickSession::new(UInt64) -> Self
+pub fn UniformListClickSession::reconcile(Self, ElementTree) -> Bool
+
+pub(all) enum UniformListError {
+  InvalidCount
+  InvalidIdSpace
+  ReservedIdCollision(UInt64)
+  InvalidRangeIndex(Int)
+  InvalidLocalSlot(UInt64)
+  FactoryFailure(String)
+  InvalidFactoryLength(Int, Int)
+  InvalidRowRoot(Int, UInt64)
+  RowIdOutsideNamespace(Int, UInt64)
+  UnsupportedListShape
+  UnsupportedRowShape(Int)
+  NonFiniteOffset
+  InvalidMeasuredHeight
+  GeometryOverflow
+  NonUniformVisibleRow(Int)
+} derive(Eq)
+pub fn UniformListError::equal(Self, Self) -> Bool
+pub fn UniformListError::not_equal(Self, Self) -> Bool
+
+pub struct UniformListIdSpace {
+  // private fields
+}
+pub fn UniformListIdSpace::new(UInt64, UInt64) -> Result[Self, UniformListError]
+
+pub struct UniformListLayout {
+  // private fields
+}
+pub fn UniformListLayout::bounds(Self) -> @primitives.Rect
+pub fn UniformListLayout::content_size(Self) -> @primitives.Size
+pub fn UniformListLayout::id(Self) -> UInt64
+pub fn UniformListLayout::item_count(Self) -> Int
+pub fn UniformListLayout::max_offset(Self) -> Double
+pub fn UniformListLayout::measured_item_size(Self) -> @primitives.Size?
+pub fn UniformListLayout::offset(Self) -> Double
+pub fn UniformListLayout::visible_range(Self) -> UniformListRange
+
+pub struct UniformListRange {
+  // private fields
+}
+pub fn UniformListRange::end(Self) -> Int
+pub fn UniformListRange::id(Self, Int, UInt64) -> Result[UInt64, UniformListError]
+pub fn UniformListRange::start(Self) -> Int
 
 // Type aliases
 
