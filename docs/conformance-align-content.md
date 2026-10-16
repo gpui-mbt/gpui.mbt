@@ -4,6 +4,9 @@
 portable layout API. Select it with `FlexContainer::with_align_content` or
 `FlexTreeStyle::with_align_content`. Stretch remains the default. This is a
 capability addition: the earlier API always stretched wrapped line boxes.
+The later [distributed-line extension](conformance-content-distribution.md) adds
+`space_between()`, `space_around()`, and `space_evenly()` without changing these
+four modes. The evidence below is the historical four-mode slice.
 
 ## Contract
 
@@ -79,8 +82,9 @@ Existing [wrap regressions](../layout/flex_wrap_test.mbt) retain default-behavio
 coverage. The provenance entry is recorded as `independent_from_behavior` in
 [`upstream.json`](upstream.json); no upstream code or fixtures were copied.
 
-Distributed align-content modes, margins, baseline alignment, writing modes,
-flex order, and general CSS/GPUI styling remain outside scope. Recursive auto
+The later distributed align-content extension has its own contract and evidence.
+Margins, baseline alignment, writing modes, flex order, and general CSS/GPUI
+styling remain outside scope. Recursive auto
 containers retain their existing no-wrap intrinsic measurement approximation.
 Logical geometry remains binary64 with the existing narrow arithmetic tolerance,
 not bit-identical upstream binary32 arithmetic. Headless layout evidence does
