@@ -282,6 +282,37 @@
         "Existing Start, Center, End, Stretch, NoWrap, tree builders, device-scale style copying, and no-wrap recursive intrinsic measurement remain unchanged. Independent near/far anchoring protects finite large-ratio distributed line edges.",
         "Original implementation and regression cases; no upstream implementation or fixture was copied. MoonBit retains binary64 geometry. The headless evidence does not establish full CSS, native pixels, physical input, or IME parity."
       ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": [
+        "crates/gpui/src/style.rs",
+        "crates/gpui/src/styled.rs",
+        "crates/gpui/src/app/test_context.rs"
+      ],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares Apache-2.0; existing pinned package license evidence is unchanged."
+        }
+      ],
+      "destination_paths": [
+        "layout/layout.mbt",
+        "layout/tree.mbt",
+        "layout/axis_gaps_test.mbt",
+        "docs/conformance-axis-gaps.md"
+      ],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Adds independent physical horizontal and vertical gaps through validated immutable builders. The legacy gap setter replaces both axes; individual setters preserve the other axis, including explicit zero.",
+        "Row and column flow select the main gap for line breaks, flexible sizing, justification, and the existing no-wrap intrinsic measurement approximation; wrapped content alignment uses only the cross gap.",
+        "Both gaps survive recursive instantiation and are independently snapped as authored lengths before the opt-in device-scale layout path.",
+        "Observed through actual pinned GPUI headless execution using its public gap_x/gap_y APIs and 36 independently authored cases: four baseline controls agree and 32 expose the missing capability. Nine separate subpixel probes cover authored snapping and exact-fit line breaks.",
+        "Implementation and regressions were independently written without copying upstream implementation or fixtures. Equal-gap behavior and binary64 geometry remain unchanged; percentage gaps, full CSS, native pixels, physical input, and IME parity are outside scope."
+      ]
     }
   ]
 }
