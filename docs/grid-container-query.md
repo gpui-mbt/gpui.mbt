@@ -81,6 +81,10 @@ before its separately snapped query origin is added. This independent-root
 boundary matters at negative midpoint coordinates; ordinary descendants within
 each mixed tree still round their final absolute edges together. Nested queries
 retain cumulative origins, depth and preorder.
+Overflow at the translated query boundary uses the same bounded binary64
+tolerance as layout, while keeping the assigned and generated pixel bounds
+unchanged. Exact-fit translation residue is ignored; genuinely oversized roots
+still report overflow.
 
 Generated roots fill the offered size by default. The bounded
 `with_query_root_size(Size)` override supplies explicit physical dimensions for
@@ -127,6 +131,7 @@ both axes, including an ordinary negative-origin absolute-snapping control.
 size and nonzero origin, tiny/huge independent roots, root-size snapping,
 independent-root negative-midpoint rounding on both axes at device scales 1,
 1.25 and 2, positive-origin controls and nested translated roots,
+both-axis exact-fit translation residue and genuine oversized-root controls,
 reentrant/failure/repeat leases, global ID and cumulative-depth guards, invalid
 roots, unsupported combinations, builder chains, scroll siblings, hit testing,
 immutable results, and focus/bounds-refresh constraints. These assertions are

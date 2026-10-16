@@ -495,8 +495,11 @@ fn expand_query_layout(
         }
         overflow.val = overflow.val ||
           child_request.layout.overflow() ||
-          generated_bounds.right() > bounds.right() ||
-          generated_bounds.bottom() > bounds.bottom()
+          query_exceeds_with_tolerance(generated_bounds.right(), bounds.right()) ||
+          query_exceeds_with_tolerance(
+            generated_bounds.bottom(),
+            bounds.bottom(),
+          )
         match
           expand_query_layout(
             child_request,
@@ -515,6 +518,26 @@ fn expand_query_layout(
     }
   }
   Ok(())
+}
+
+///|
+/// Match layout's package-private exceeds_with_tolerance policy at this
+/// translated boundary. Independent root snapping can reconstruct the same
+/// far edge one binary64 step beyond the assigned edge; retain the geometry
+/// and suppress only the bounded arithmetic residue when reporting overflow.
+fn query_exceeds_with_tolerance(value : Double, limit : Double) -> Bool {
+  if value <= limit {
+    false
+  } else {
+    let scale = if value > 1.0 {
+      value
+    } else if limit > 1.0 {
+      limit
+    } else {
+      1.0
+    }
+    value - limit > scale * 7.105427357601002e-15
+  }
 }
 
 ///|

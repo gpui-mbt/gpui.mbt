@@ -800,3 +800,134 @@ test "nested query origins translate independently rounded returned roots" {
     assert_eq(calls.val, 2)
   }
 }
+
+///|
+fn query_fractional_boundary(
+  horizontal : Bool,
+  oversized : Bool,
+) -> RequestedLayout {
+  let root = Element::grid_root(
+      1,
+      @layout.GridTreeStyle::new(
+        if horizontal {
+          5
+        } else {
+          1
+        },
+        if horizontal {
+          1
+        } else {
+          5
+        },
+      ).unwrap(),
+    )
+    .with_child(query_grid(2))
+    .with_child(
+      Element::grid_item(
+        @layout.GridItem::new(
+          3,
+          @layout.Dimension::auto(),
+          @layout.Dimension::auto(),
+        )
+        .with_span(
+          if horizontal {
+            2
+          } else {
+            1
+          },
+          if horizontal {
+            1
+          } else {
+            2
+          },
+        )
+        .unwrap(),
+      ).with_container_query(fn(_) {
+        let generated = Element::grid_root(
+          4,
+          @layout.GridTreeStyle::new(1, 1).unwrap(),
+        )
+        Ok(
+          if oversized {
+            generated.with_query_root_size(
+              if horizontal {
+                query_size(2.4, 0.8)
+              } else {
+                query_size(0.8, 2.4)
+              },
+            )
+          } else {
+            generated
+          },
+        )
+      }),
+    )
+  root
+  .request_layout_with_device_scale(
+    if horizontal {
+      query_size(4.0, 0.8)
+    } else {
+      query_size(0.8, 4.0)
+    },
+    1.25,
+  )
+  .unwrap()
+}
+
+///|
+test "query translated horizontal exact-fit residue does not overflow" {
+  let request = query_fractional_boundary(true, false)
+  let assigned = request.layout.items()[1].bounds()
+  assert_true(!request.layout.overflow())
+  assert_eq(assigned.left(), 0.8)
+  assert_eq(assigned.right(), 2.4)
+  assert_eq(assigned.size().width(), 1.5999999999999999)
+  let painted = request.prepaint().unwrap()
+  let generated = painted.tree().node(4).unwrap().bounds()
+  assert_eq(generated.size().width(), 1.6)
+  assert_eq(generated.right(), 2.4000000000000004)
+  assert_true(!painted.overflow())
+}
+
+///|
+test "query translated vertical exact-fit residue does not overflow" {
+  let request = query_fractional_boundary(false, false)
+  let assigned = request.layout.items()[1].bounds()
+  assert_true(!request.layout.overflow())
+  assert_eq(assigned.top(), 0.8)
+  assert_eq(assigned.bottom(), 2.4)
+  assert_eq(assigned.size().height(), 1.5999999999999999)
+  let painted = request.prepaint().unwrap()
+  let generated = painted.tree().node(4).unwrap().bounds()
+  assert_eq(generated.size().height(), 1.6)
+  assert_eq(generated.bottom(), 2.4000000000000004)
+  assert_true(!painted.overflow())
+}
+
+///|
+test "query translated boundary keeps genuinely oversized generated roots" {
+  for horizontal in [true, false] {
+    let request = query_fractional_boundary(horizontal, true)
+    assert_true(!request.layout.overflow())
+    let painted = request.prepaint().unwrap()
+    let assigned = painted.tree().node(3).unwrap().bounds()
+    let generated = painted.tree().node(4).unwrap().bounds()
+    assert_true(painted.overflow())
+    if horizontal {
+      assert_eq(generated.size().width(), 2.4)
+      assert_true(generated.right() - assigned.right() > 0.79)
+    } else {
+      assert_eq(generated.size().height(), 2.4)
+      assert_true(generated.bottom() - assigned.bottom() > 0.79)
+    }
+  }
+}
+
+///|
+test "query boundary tolerance remains bounded below meaningful subpixel excess" {
+  assert_true(!query_exceeds_with_tolerance(2.4000000000000004, 2.4))
+  assert_true(!query_exceeds_with_tolerance(-2.4, -2.4000000000000004))
+  assert_true(query_exceeds_with_tolerance(2.4 + 0.0000000001, 2.4))
+  assert_true(query_exceeds_with_tolerance(-2.4 + 0.0000000001, -2.4))
+  assert_true(!query_exceeds_with_tolerance(2.3, 2.4))
+}
