@@ -48,6 +48,8 @@ pub fn Element::with_scroll_offset(
     children: copy_elements(self.children),
     background: self.background,
     focusable: self.focusable,
+    tab_index: self.tab_index,
+    tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: Some(offset),
   }
@@ -212,6 +214,8 @@ fn resolve_scroll_nodes(
       parent: original.parent,
       bounds,
       focusable: original.focusable,
+      tab_index: original.tab_index,
+      tab_stop: original.tab_stop,
       pointer_events: original.pointer_events,
       background: original.background,
       scroll_viewport: viewport,

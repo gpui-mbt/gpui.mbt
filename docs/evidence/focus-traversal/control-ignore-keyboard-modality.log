@@ -1,0 +1,5 @@
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:248 ("every key press changes modality despite key modifiers repeats or missing focus") failed: element/focus_traversal_test.mbt:279:15-281:16@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:359 ("input dispatch remains route-only and explicit modality transition precedes callbacks") failed: element/focus_traversal_test.mbt:388:3-388:28@f4ah6o/gpui FAILED: `false` is not true
+Total tests: 95, passed: 93, failed: 2.
+
+EXIT_CODE=2

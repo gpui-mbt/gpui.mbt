@@ -1,0 +1,4 @@
+Total tests: 95, passed: 95, failed: 0. [wasm]
+Total tests: 95, passed: 95, failed: 0. [wasm-gc]
+Total tests: 95, passed: 95, failed: 0. [js]
+Total tests: 95, passed: 95, failed: 0. [native]

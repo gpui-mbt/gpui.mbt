@@ -1,0 +1,92 @@
+{
+  "date": "2026-10-16",
+  "base_revision": "89a11dd7d4cfc4acfa7b8efea52bbf88ac00ccbf",
+  "branch": "feat/focus-visible-traversal-20261016",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "status": "source-derived/core evidence only; actual Rust browser paired evidence pending",
+  "unchanged_main_baseline": {
+    "product_sources_unchanged": true,
+    "added_probe": "unchanged-main-api-probe.mbt.txt",
+    "command": "moon test element/focus_traversal_api_probe_test.mbt --target js --deny-warn -j 2",
+    "exit_code": 1,
+    "meaning": "missing-API compile failure, not an executed behavioral mismatch",
+    "compiler_output": {
+      "raw_file": "unchanged-main-api-probe.raw.json",
+      "raw_decoded_sha256": "aaeef53893c6fa5d6b1ba87b27a4e21bb55b1444c7a87bef909b1b36c4fb24a6",
+      "display_file": "unchanged-main-api-probe.log",
+      "display_normalization": "Trailing whitespace removed per line only; exact original output retained in raw JSON."
+    }
+  },
+  "checks": [
+    {
+      "command": "moon test element --target all --deny-warn -j 2",
+      "result": "95 passed on each of js/native/wasm/wasm-gc",
+      "exit_code": 0
+    },
+    {
+      "command": "moon test primitives diagnostics core layout element scene text text_layout controls/button controls/text_field controls/command_palette accessibility capability mcp testing/core_model examples/task_board --target all --deny-warn -j 2",
+      "result": "537 passed each js/wasm/wasm-gc; 536 passed native",
+      "exit_code": 0
+    },
+    {
+      "command": "moon check --target all --deny-warn -j 2",
+      "exit_code": 0
+    },
+    {
+      "command": "moon fmt --check",
+      "exit_code": 0
+    },
+    {
+      "command": "moon info --target js --package f4ah6o/gpui/element; cmp element/pkg.generated.mbti _build/js/debug/check/element/element.mbti",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 -m unittest discover -s tests -p 'test_*.py'",
+      "result": "142 passed",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 scripts/check_contracts.py",
+      "result": "valid documents; production release evidence pending",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check 89a11dd7d4cfc4acfa7b8efea52bbf88ac00ccbf; git diff --cached --check",
+      "exit_code": 0,
+      "result": "full base-to-working-tree diff and staged diff, including newly added evidence files"
+    }
+  ],
+  "tested_files_sha256": {
+    "element/element.mbt": "1fb31f385d9f75e6aeff8aa1b06a0e5d0005ee9f23b3464d8e83d0909cb00eb8",
+    "element/lifecycle.mbt": "36adee4bd2a8f926af3eccd8d001b93ba09ac2311b97cad3878ee55387043313",
+    "element/scroll_viewport.mbt": "f2573bcbc9eca2042747601d51b5cc41c7909623fcc0ac44c6f7edee7e39a562",
+    "element/focus_traversal.mbt": "e587216f65ec26e666147440c9888cfe3b92331aff4a709f20cca71b1688a507",
+    "element/focus_traversal_test.mbt": "f8219e32d527e8aece134d3f669fb34a7b29b483b08972763c3d104fba8b1e09",
+    "element/focus_traversal_wbtest.mbt": "b93870e3112e4331ed3c86f0d1ee22ab4ebfc82484e63052cf1f93fe2f7aeda2",
+    "element/pkg.generated.mbti": "1f84b38ff5f0ef59f6b86beac142393045d1eebe1fded9db18ff56e6c0e6335d",
+    "docs/upstream.json": "8875aaae081c09cbed45c7cc58b7e2ef20155ae1cc698d55c3d9478e70bbd875",
+    "docs/conformance-focus-traversal.md": "ae6b582fa5b8f96b8f3381dba3514760c653b937dfbe5b43e027987f6df7caca"
+  },
+  "evidence_files_sha256": {
+    "all-target-check.log": "1bf42eeb6f8fd30adb32282746882b2f730fa0f85b98480ae2864a182e5b0648",
+    "control-admit-non-stops.log": "6dbc6bc6770dad990af6762503576699e1d1327f643d912a6a3f4ca9c49589cf",
+    "control-ignore-keyboard-modality.log": "9e47b0ceef4942cd49f9901aa045191e509ea13e82b1369878b63da60d00e1fa",
+    "control-reacquire-same-target.log": "6d7f0e05a9428f2130df69316f893f730045f22e498d4c5ecafe3960d89a69e9",
+    "control-reverse-signed-order.log": "4bdfd1516bc8d24dc290d8b18c8e212ecf1952064c43050e334eff8a6fa89132",
+    "controls-restored.log": "195c427a3d76bb5f6d8a67686691dd2e98668afaf50bd65059d05b7741ea4da8",
+    "element-final-all-targets.log": "d80810df34273516d952f535a415718fa7c397935899cdcf5afeb1caaf587c23",
+    "element-js.log": "195c427a3d76bb5f6d8a67686691dd2e98668afaf50bd65059d05b7741ea4da8",
+    "element-native.log": "195c427a3d76bb5f6d8a67686691dd2e98668afaf50bd65059d05b7741ea4da8",
+    "element-wasm-gc.log": "195c427a3d76bb5f6d8a67686691dd2e98668afaf50bd65059d05b7741ea4da8",
+    "element-wasm.log": "195c427a3d76bb5f6d8a67686691dd2e98668afaf50bd65059d05b7741ea4da8",
+    "implemented-api-probe.log": "b136ac6dbfa8a737c1c47b4ab55287d32add1374feaea7f839a55b45a9685782",
+    "negative-controls.json": "b20f20f9524c2520dd6bff7fd15521c0bf2bfa498dc8ec7d6669cdcc1dd0d4c1",
+    "portable-regressions-all-targets.log": "335fd3596340202ef298ad31addd23949ef639bece93ac9d9eb1f46a9e2d6454",
+    "python-regressions.log": "48f2fd80360719d4f29e1a32e854425731ee5f9fa2408ad707948f3701f931cd",
+    "source-provenance.json": "20b04edbd4df68dc9cb80c0634f2b8c97e4afec5d15c1671b5e40be8c050eb4e",
+    "toolchain.txt": "f72241cb5b8cb0d863ea810055e1a031b50ce03601040f705935a7af05c4e56b",
+    "unchanged-main-api-probe.log": "0933b716ff62ecb9bd2d59921d03b33170b4004d9335c8e69165fe97cb84a345",
+    "unchanged-main-api-probe.mbt.txt": "672f226c8b7ccd15d9d5541ec89cb21b0122f432d5697c727fcadeca1f241ee4",
+    "unchanged-main-api-probe.raw.json": "d2e8c889ae7e0d2827094b330335b835a5e534c3087ab9cc03989a55f1602f75"
+  }
+}

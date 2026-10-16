@@ -1,0 +1,37 @@
+Error: [4015]
+    ╭─[ /workspace/shared/gpui-mbt-focus-visible-20261016/element/focus_traversal_api_probe_test.mbt:10:6 ]
+    │
+ 10 │     .with_tab_index(-1)
+    │      ───────┬──────
+    │             ╰──────── Type @f4ah6o/gpui/element.ElementNode has no method with_tab_index.
+────╯
+Error: [4015]
+    ╭─[ /workspace/shared/gpui-mbt-focus-visible-20261016/element/focus_traversal_api_probe_test.mbt:16:20 ]
+    │
+ 16 │   assert_true(tree.focus_next() is Ok(_))
+    │                    ─────┬────
+    │                         ╰────── Type @f4ah6o/gpui/element.ElementTree has no method focus_next.
+────╯
+Error: [4015]
+    ╭─[ /workspace/shared/gpui-mbt-focus-visible-20261016/element/focus_traversal_api_probe_test.mbt:17:20 ]
+    │
+ 17 │   assert_true(tree.focus_prev() is Ok(_))
+    │                    ─────┬────
+    │                         ╰────── Type @f4ah6o/gpui/element.ElementTree has no method focus_prev.
+────╯
+Error: [4024]
+    ╭─[ /workspace/shared/gpui-mbt-focus-visible-20261016/element/focus_traversal_api_probe_test.mbt:18:18 ]
+    │
+ 18 │   let modality = @element.InputModality::Mouse.after_input(
+    │                  ───────────┬──────────
+    │                             ╰──────────── The type/trait @element.InputModality is not found.
+────╯
+Error: [4024]
+    ╭─[ /workspace/shared/gpui-mbt-focus-visible-20261016/element/focus_traversal_api_probe_test.mbt:21:27 ]
+    │
+ 21 │   assert_true(modality == @element.InputModality::Keyboard)
+    │                           ───────────┬──────────
+    │                                      ╰──────────── The type/trait @element.InputModality is not found.
+────╯
+
+EXIT_CODE=1

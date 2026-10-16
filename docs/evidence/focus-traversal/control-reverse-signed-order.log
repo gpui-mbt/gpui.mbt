@@ -1,0 +1,8 @@
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:70 ("tab traversal orders signed extremes and equal indices by stable preorder") failed: element/focus_traversal_test.mbt:80:3-80:80@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:110 ("non-stop current nodes retain signed and equal-index ordering anchors") failed: element/focus_traversal_test.mbt:124:3-124:61@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:175 ("removed stops and focus never survive by stale numeric identity") failed: element/focus_traversal_test.mbt:186:3-186:56@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:199 ("traversal snapshots own input and returned arrays without changing node order") failed: element/focus_traversal_test.mbt:212:3-212:44@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:401 ("declarative tab metadata survives every builder layout scroll and device scaling") failed: element/focus_traversal_test.mbt:447:5-447:58@f4ah6o/gpui FAILED: `false` is not true
+Total tests: 95, passed: 90, failed: 5.
+
+EXIT_CODE=2

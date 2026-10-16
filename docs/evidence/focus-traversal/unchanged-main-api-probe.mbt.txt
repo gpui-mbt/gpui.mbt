@@ -1,0 +1,22 @@
+///|
+// Missing-API probe, unchanged product sources at main 89a11dd7d4cfc4acfa7b8efea52bbf88ac00ccbf.
+test "focus traversal public API is available" {
+  let bounds = match @primitives.Rect::new(0.0, 0.0, 20.0, 20.0) {
+    Ok(value) => value
+    Err(_) => abort("valid bounds rejected")
+  }
+  let node = @element.ElementNode::new(1, None, bounds)
+    .with_focusable(true)
+    .with_tab_index(-1)
+    .with_tab_stop(true)
+  let tree = match @element.ElementTree::new([node]) {
+    Ok(value) => value
+    Err(_) => abort("valid tree rejected")
+  }
+  assert_true(tree.focus_next() is Ok(_))
+  assert_true(tree.focus_prev() is Ok(_))
+  let modality = @element.InputModality::Mouse.after_input(
+    @primitives.KeyPressed(key=@primitives.Tab, modifiers=@primitives.Modifiers::none(), repeat=false),
+  )
+  assert_true(modality == @element.InputModality::Keyboard)
+}

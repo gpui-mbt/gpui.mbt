@@ -1,0 +1,13 @@
+..................................................................................................................................GPUI_UBUNTU_DIAGNOSTIC_STATUS=91; preserving benchmark exit=17
+.GPUI_UBUNTU_DIAGNOSTIC_STATUS=0; preserving benchmark exit=139
+..GPUI_UBUNTU_DIAGNOSTIC_START_FAILED=synthetic diagnostic launch failure; preserving benchmark exit=31
+.GPUI_UBUNTU_DIAGNOSTIC_STATUS=91; preserving benchmark exit=17
+...GPUI_WAYLAND_TRACE_FILE=/tmp/tmp590_zi4g/trace.log bytes=31
+..SYNTHETIC_CLIENT_STDOUT_ONLY
+GPUI_WAYLAND_TRACE_FILE=/tmp/tmp7a6bo0gw/trace.log bytes=64
+..Wayland diagnostic trace could not be saved: [Errno 17] File exists: '/tmp/tmpgb7oqntt/not-a-directory'
+.
+----------------------------------------------------------------------
+Ran 142 tests in 1.633s
+
+OK

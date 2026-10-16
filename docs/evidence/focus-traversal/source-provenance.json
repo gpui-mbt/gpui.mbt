@@ -1,0 +1,101 @@
+{
+  "compatibility_pin": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+  "separate_browser_suite_pin": "5a5fbe79917971a4d52a96b6ddb04da198a5012e",
+  "files": [
+    {
+      "path": "crates/gpui/examples/focus_visible.rs",
+      "browser_pin_blob": "c5b3d5dfec3a189d088a621baff55eb55a121b6c",
+      "compatibility_pin_blob": "c5b3d5dfec3a189d088a621baff55eb55a121b6c",
+      "browser_pin_sha256": "533c5101ae1727d33b3b7c339efdb2e5dd4c1e1343d6b0ffaa8babc92a8f908b",
+      "compatibility_pin_sha256": "533c5101ae1727d33b3b7c339efdb2e5dd4c1e1343d6b0ffaa8babc92a8f908b",
+      "full_file_identical": true
+    },
+    {
+      "path": "crates/gpui_web/src/events.rs",
+      "browser_pin_blob": "9908b423470ba8f46379832a80a468ca5ccf0c7b",
+      "compatibility_pin_blob": "9908b423470ba8f46379832a80a468ca5ccf0c7b",
+      "browser_pin_sha256": "9fdfc3695a93083fe881153dcc66356df00eb09761190664cc093520bc3ae001",
+      "compatibility_pin_sha256": "9fdfc3695a93083fe881153dcc66356df00eb09761190664cc093520bc3ae001",
+      "full_file_identical": true
+    },
+    {
+      "path": "crates/gpui/src/tab_stop.rs",
+      "browser_pin_blob": "9e529d8c3de30cd5a31eaf78f7f324a800e4828d",
+      "compatibility_pin_blob": "bde651ae5c4572dbe5a795c91082dc8d8cc58b7e",
+      "browser_pin_sha256": "0c14aec0196ad632601015e166dfcd3df72228292646120bbc3857c3631cd680",
+      "compatibility_pin_sha256": "7f742d6d6b7e5cd6fc634f2764fc3937e1cdebcf086d4b7c166379724edd1881",
+      "full_file_identical": false
+    },
+    {
+      "path": "crates/gpui/src/window.rs",
+      "browser_pin_blob": "33fa14bfea6ebad50743d6d4014955d1055ef772",
+      "compatibility_pin_blob": "259a451ab16b7ec1900ba7b9a9ca9a7e197e5d94",
+      "browser_pin_sha256": "d85123a09e45761a3a60e196157caa5ceee0e61a9b4adfde484052a31eb4b64a",
+      "compatibility_pin_sha256": "2fe230dc311a9dc9b0475e2b5bbe3fbd6b4f54251e38c2b1a977d806fa3ae3e0",
+      "full_file_identical": false
+    },
+    {
+      "path": "crates/gpui/src/elements/div.rs",
+      "browser_pin_blob": "5d3b03b057bcac09f987a4587598a08a06872361",
+      "compatibility_pin_blob": "fc292f2a81e2ee0c16da4974f7953cdcfcd2c902",
+      "browser_pin_sha256": "2b42be05756f49e6ff496fcbdc91c79f6b8ebf2f148ed356a8bf24f417375bb1",
+      "compatibility_pin_sha256": "f320948b8f90e36b7100ac3e0e061235d1e9422aeb323918e313f7d69980cfa9",
+      "full_file_identical": false
+    },
+    {
+      "path": "crates/gpui/Cargo.toml",
+      "browser_pin_blob": "f6616c8c74318a1ea75536d3f45e90ac6cadc6a0",
+      "compatibility_pin_blob": "1957084c876333bb58ec118869503cb09a8f3d92",
+      "browser_pin_sha256": "a50e210fa0b66b6a0e8e5c62f31023a132f30c0a496cb28da3f0a37051cdb6cd",
+      "compatibility_pin_sha256": "16f92649589714375c652c90bae60e65fc878a616bf268b6e4d005842b0e4c0b",
+      "full_file_identical": false
+    },
+    {
+      "path": "crates/gpui_web/Cargo.toml",
+      "browser_pin_blob": "4018a96329bf81ad4f4918c6350fb9226db36ae4",
+      "compatibility_pin_blob": "80c4ca0decf4e3830a41dc407dde9b2f65cbe028",
+      "browser_pin_sha256": "b045d2318309f07466700beebda8b503ec09539f6c7f47483a80867d853ca497",
+      "compatibility_pin_sha256": "42d9c0d7cfc4910d1af1c25706cc3fb23feb73ed9940b9a850269f8b20769266",
+      "full_file_identical": false
+    },
+    {
+      "path": "LICENSE-APACHE",
+      "browser_pin_blob": "461a0fe5ba20a096c281a2686da08fef79f534a3",
+      "compatibility_pin_blob": "461a0fe5ba20a096c281a2686da08fef79f534a3",
+      "browser_pin_sha256": "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a",
+      "compatibility_pin_sha256": "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a",
+      "full_file_identical": true
+    }
+  ],
+  "scoped_equivalence": [
+    {
+      "scope": "tab_stop.rs production before #[cfg(test)]",
+      "identical": true,
+      "sha256": "741c19f765ee98a82a36986ced9600c258bafbc22745d13dc2017b1943a3f1de"
+    },
+    {
+      "scope": "same-owner focus no-op and flat traversal",
+      "identical": true,
+      "browser_sha256": "b12662fe72deb68ca2d382d32dc9285e477b52734c70ccff30ab58f75e1f0c75",
+      "compatibility_sha256": "b12662fe72deb68ca2d382d32dc9285e477b52734c70ccff30ab58f75e1f0c75"
+    },
+    {
+      "scope": "uncaptured hover keyboard suppression",
+      "identical": true,
+      "browser_sha256": "6930a7f69950d83911fc40fbc88c3de35a289fd81ee00d5601ca8e627efb97ff",
+      "compatibility_sha256": "6930a7f69950d83911fc40fbc88c3de35a289fd81ee00d5601ca8e627efb97ff"
+    },
+    {
+      "scope": "modality before dispatch",
+      "identical": true,
+      "browser_sha256": "a9d5b4e8633531dd748acd55282fd8aff8f90342b2637c23ba9834f330d9a243",
+      "compatibility_sha256": "a9d5b4e8633531dd748acd55282fd8aff8f90342b2637c23ba9834f330d9a243"
+    },
+    {
+      "scope": "ordinary focus followed by focus-visible override",
+      "identical": true,
+      "browser_sha256": "3d17cfec34b8450614c8268fccdcfb7ac137ae1eb10f6a6eff2d2daebdfbd6bd",
+      "compatibility_sha256": "3d17cfec34b8450614c8268fccdcfb7ac137ae1eb10f6a6eff2d2daebdfbd6bd"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "kind": "independent mutated-implementation controls, not an upstream oracle",
+  "target": "js",
+  "unmutated_implementation_sha256": "e587216f65ec26e666147440c9888cfe3b92331aff4a709f20cca71b1688a507",
+  "controls": [
+    {
+      "name": "reverse-signed-order",
+      "replacement_from": "nodes[left].tab_index < nodes[right].tab_index",
+      "replacement_to": "nodes[left].tab_index > nodes[right].tab_index",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 95, passed: 90, failed: 5."
+      ],
+      "log": "docs/evidence/focus-traversal/control-reverse-signed-order.log"
+    },
+    {
+      "name": "admit-non-stops",
+      "replacement_from": "if node.focusable && node.tab_stop {",
+      "replacement_to": "if node.focusable {",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 95, passed: 90, failed: 5."
+      ],
+      "log": "docs/evidence/focus-traversal/control-admit-non-stops.log"
+    },
+    {
+      "name": "ignore-keyboard-modality",
+      "replacement_from": "@primitives.KeyPressed(..) => Keyboard",
+      "replacement_to": "@primitives.KeyPressed(..) => Mouse",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 95, passed: 93, failed: 2."
+      ],
+      "log": "docs/evidence/focus-traversal/control-ignore-keyboard-modality.log"
+    },
+    {
+      "name": "reacquire-same-target",
+      "replacement_from": "if self.focused == Some(id) {\n        Ok(self)\n      } else {\n        self.with_focus(id)\n      }",
+      "replacement_to": "self.with_focus(id)",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 95, passed: 93, failed: 2."
+      ],
+      "log": "docs/evidence/focus-traversal/control-reacquire-same-target.log"
+    }
+  ],
+  "restored_summary": "Total tests: 95, passed: 95, failed: 0."
+}
