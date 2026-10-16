@@ -37,19 +37,25 @@ Empty preedit cancels and restores the original selection, while a later empty
 commit remains a real deletion.
 
 Use `./script/test_macos.sh --text-field --target-dir <fresh-external-directory>`
-for the provider/owner tests and a test-hook app build. The real Japanese input
-and retained-pixel acceptance is driven by
-`infra/macos-desktop/ime-acceptance.py`; the native actrun matrix invokes it
-after the synthetic native E2E. Provision a local public-tool profile and run
-the complete matrix with:
+for the provider/owner tests and a test-hook app build.
 
-```sh
-export GPUI_MACOS_PROFILE_ROOT=/private/tmp/gpui-macos-quality-profile
-python3 infra/macos-desktop/profile.py --root "$GPUI_MACOS_PROFILE_ROOT" bootstrap
-RUN_DIR="$(mktemp -d /private/tmp/gpui-macos-native.XXXXXX)"
-python3 infra/macos-desktop/actrun-feedback.py \
-  --root "$GPUI_MACOS_PROFILE_ROOT" --mode native --run-dir "$RUN_DIR/native"
-```
+## Live IME acceptance (not yet qualified for this slice)
+
+The historical native actrun profile, including `infra/macos-desktop/profile.py`,
+`infra/macos-desktop/actrun-feedback.py` and
+`infra/macos-desktop/ime-acceptance.py`, is retained on
+[the source PR #40](https://github.com/gpui-mbt/gpui.mbt/pull/40).
+**Those files are deliberately excluded from this PR #89 branch.** Do not
+execute the historical profile as though it tested this slice, and do not
+report old screenshots, source hashes or a 6/7 partial run as a pass.
+
+To qualify PR #89, restore/rebind the native acceptance harness to this exact
+source revision in a separate test-only integration, rebuild the app from the
+same revision on an unlocked Apple Silicon Mac, and record source/tree/binary
+hashes, Kotoeri input callbacks, accepted frame revisions, and screenshots.
+The assertions for Return commit, Escape cancellation, final blurred frame,
+context source restoration and cleanup must remain strict; missing callbacks
+or failed acceptance keep the native IME gate red.
 
 The real IME step requires a logged-in desktop with the Japanese Kotoeri source
 enabled. The test hook selects it only on this app window's NSTextInputContext
