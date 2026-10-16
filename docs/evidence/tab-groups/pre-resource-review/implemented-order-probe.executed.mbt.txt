@@ -1,0 +1,40 @@
+///|
+// Independent tab_stop.rs skeleton. On unchanged main group prefixes cannot
+// be expressed; retaining hierarchy alone must not be mistaken for support.
+test "unchanged main second Tab must reach item1 before group1 child" {
+  let bounds = match @primitives.Rect::new(0, 0, 20, 20) {
+    Ok(value) => value
+    Err(_) => abort("invalid bounds")
+  }
+  let root = @element.ElementNode::new(1, None, bounds).with_focusable(true)
+  let item0 = @element.ElementNode::new(10, Some(1), bounds)
+    .with_focusable(true).with_tab_index(1).with_tab_stop(true)
+  let item1 = @element.ElementNode::new(11, Some(1), bounds)
+    .with_focusable(true).with_tab_index(2).with_tab_stop(true)
+  let group1 = @element.ElementNode::new(100, Some(1), bounds)
+    .with_focusable(true).with_tab_index(6).with_tab_group_index(Some(6))
+  let group1_child = @element.ElementNode::new(101, Some(100), bounds)
+    .with_focusable(true).with_tab_index(1).with_tab_stop(true)
+  let tree = match @element.ElementTree::new([root, item0, item1, group1, group1_child]) {
+    Ok(value) => value
+    Err(_) => abort("invalid tree")
+  }
+  let focused = match tree.with_focus(1) {
+    Ok(value) => value
+    Err(_) => abort("invalid focus")
+  }
+  let first = match focused.focus_next() {
+    Ok(value) => value
+    Err(_) => abort("first traversal failed")
+  }
+  assert_true(first.focused() == Some(10))
+  let second = match first.focus_next() {
+    Ok(value) => value
+    Err(_) => abort("second traversal failed")
+  }
+  let actual = match second.focused() {
+    Some(id) => id
+    None => abort("missing destination")
+  }
+  assert_eq(actual, 11)
+}

@@ -26,6 +26,7 @@ pub struct Element {
   background : @primitives.Color?
   focusable : Bool
   tab_index : Int32
+  tab_group_index : Int32?
   tab_stop : Bool
   pointer_events : Bool
   priv scroll_offset : @primitives.Point?
@@ -47,6 +48,7 @@ pub fn Element::root(
     background: None,
     focusable: false,
     tab_index: 0,
+    tab_group_index: None,
     tab_stop: false,
     pointer_events: true,
     scroll_offset: None,
@@ -65,6 +67,7 @@ pub fn Element::new(item : @layout.FlexItem) -> Element {
     background: None,
     focusable: false,
     tab_index: 0,
+    tab_group_index: None,
     tab_stop: false,
     pointer_events: true,
     scroll_offset: None,
@@ -86,6 +89,7 @@ pub fn Element::with_children_style(
     background: self.background,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
@@ -106,6 +110,7 @@ pub fn Element::with_child(self : Element, child : Element) -> Element {
     background: self.background,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
@@ -126,6 +131,7 @@ pub fn Element::with_background(
     background: color,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
@@ -143,6 +149,7 @@ pub fn Element::with_focusable(self : Element, focusable : Bool) -> Element {
     background: self.background,
     focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
@@ -160,6 +167,7 @@ pub fn Element::with_pointer_events(self : Element, enabled : Bool) -> Element {
     background: self.background,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: enabled,
     scroll_offset: self.scroll_offset,
@@ -348,6 +356,7 @@ pub fn RequestedLayout::prepaint(
           .with_background(element.background)
           .with_focusable(element.focusable)
           .with_tab_index(element.tab_index)
+          .with_tab_group_index(element.tab_group_index)
           .with_tab_stop(element.tab_stop)
           .with_pointer_events(element.pointer_events)
         nodes.push(node)

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "method": "Raw diagnostic logs are retained exactly as UTF-8 JSON-escaped text with decoded byte counts and SHA256. Display logs only remove trailing spaces and add an explicit normalization header.",
+  "logs": [
+    {
+      "display_log": "docs/evidence/tab-groups/pre-resource-review/unchanged-main-api-probe.log",
+      "display_sha256": "6503699b0bcdb5806f5f3606f0c5915ad4c4f800cbf591318b227b06a64d48a0",
+      "raw_container": "docs/evidence/tab-groups/pre-resource-review/unchanged-main-api-probe.raw.json",
+      "container_sha256": "6c276699bad93aa8e7778807f330fbe61469a75f6417bc83eafd8543287346fe",
+      "decoded_byte_count": 949,
+      "decoded_sha256": "e6fe0271ee7685a214c78feed149adf99cb369b81b19d2fa4ff788183fda527b"
+    },
+    {
+      "display_log": "docs/evidence/tab-groups/pre-resource-review/unchanged-main-order-probe-initial-compile-error.log",
+      "display_sha256": "b8eee2cbd815e596266ae8cc309a228ec764394276b92b7d8e1cec7414e00212",
+      "raw_container": "docs/evidence/tab-groups/pre-resource-review/unchanged-main-order-probe-initial-compile-error.raw.json",
+      "container_sha256": "b6608f648c156c034ed7aed3d929eab9e1358b0cc2a6eda886d58fdb63be4754",
+      "decoded_byte_count": 1136,
+      "decoded_sha256": "9038c061e1fe558414e6eaf561ca7c837d1ef0a6419998aaf8f51fd030c4412b"
+    },
+    {
+      "display_log": "docs/evidence/tab-groups/staged-raw-log-whitespace-observation.log",
+      "display_sha256": "720b5928418ac72807007e12c9d792e259d8acc3b300b8537070c0c607464376",
+      "raw_container": "docs/evidence/tab-groups/staged-raw-log-whitespace-observation.raw.json",
+      "container_sha256": "f7adc3b7a33f378c68de92602f72d20452f8520969ebb77ec5eff5a699cd0227",
+      "decoded_byte_count": 1414,
+      "decoded_sha256": "88437ecaaeae1b09da2d75efb322890c39bb0328a8f2055373edd9d152cb965b"
+    },
+    {
+      "display_log": "docs/evidence/tab-groups/unchanged-main-api-probe.log",
+      "display_sha256": "6503699b0bcdb5806f5f3606f0c5915ad4c4f800cbf591318b227b06a64d48a0",
+      "raw_container": "docs/evidence/tab-groups/unchanged-main-api-probe.raw.json",
+      "container_sha256": "6c276699bad93aa8e7778807f330fbe61469a75f6417bc83eafd8543287346fe",
+      "decoded_byte_count": 949,
+      "decoded_sha256": "e6fe0271ee7685a214c78feed149adf99cb369b81b19d2fa4ff788183fda527b"
+    },
+    {
+      "display_log": "docs/evidence/tab-groups/unchanged-main-order-probe-initial-compile-error.log",
+      "display_sha256": "b8eee2cbd815e596266ae8cc309a228ec764394276b92b7d8e1cec7414e00212",
+      "raw_container": "docs/evidence/tab-groups/unchanged-main-order-probe-initial-compile-error.raw.json",
+      "container_sha256": "b6608f648c156c034ed7aed3d929eab9e1358b0cc2a6eda886d58fdb63be4754",
+      "decoded_byte_count": 1136,
+      "decoded_sha256": "9038c061e1fe558414e6eaf561ca7c837d1ef0a6419998aaf8f51fd030c4412b"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+start=2026-10-16T14:36:05Z
+command=moon test element --target js --deny-warn -j 2
+Total tests: 110, passed: 110, failed: 0.
+exit_status=0
+end=2026-10-16T14:36:06Z

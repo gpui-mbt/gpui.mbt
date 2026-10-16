@@ -1,0 +1,7 @@
+start=2026-10-16T14:41:29Z
+command=moon test element --target js --deny-warn -j 2
+[f4ah6o/gpui] test element/tab_groups_test.mbt:102 ("proper path prefixes precede longer negative suffixes and groups include their own handle") failed: element/tab_groups_test.mbt:110:3-110:59@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:130 ("signed extremes compare directly at every path depth") failed: element/tab_groups_test.mbt:144:3-144:74@f4ah6o/gpui FAILED: `false` is not true
+Total tests: 112, passed: 110, failed: 2.
+exit_status=2
+end=2026-10-16T14:41:30Z

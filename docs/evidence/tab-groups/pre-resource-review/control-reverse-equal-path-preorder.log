@@ -1,0 +1,11 @@
+start=2026-10-16T14:36:01Z
+command=moon test element --target js --deny-warn -j 2
+[f4ah6o/gpui] test element/tab_groups_test.mbt:40 ("tab_stop example has all twelve group-prefixed destinations and wraps both ways") failed: element/tab_groups_test.mbt:42:3-45:4@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:115 ("equal complete paths use preorder across sibling groups and ordinary ancestors") failed: element/tab_groups_test.mbt:125:3-125:64@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:229 ("removing a group removes all its destinations without changing surviving ownership") failed: element/tab_groups_test.mbt:236:3-238:4@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:70 ("tab traversal orders signed extremes and equal indices by stable preorder") failed: element/focus_traversal_test.mbt:80:3-80:80@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:89 ("tab equal-index preorder includes descendants before the next sibling") failed: element/focus_traversal_test.mbt:105:3-105:64@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/focus_traversal_test.mbt:110 ("non-stop current nodes retain signed and equal-index ordering anchors") failed: element/focus_traversal_test.mbt:121:3-121:59@f4ah6o/gpui FAILED: `false` is not true
+Total tests: 110, passed: 104, failed: 6.
+exit_status=2
+end=2026-10-16T14:36:01Z

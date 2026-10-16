@@ -1,0 +1,17 @@
+///|
+test "tab group index is independently configurable on node and element" {
+  let bounds = match @primitives.Rect::new(0, 0, 20, 20) {
+    Ok(value) => value
+    Err(_) => abort("invalid bounds")
+  }
+  let node = @element.ElementNode::new(1, None, bounds)
+    .with_tab_index(9).with_tab_group_index(Some(6))
+  assert_true(node.tab_group_index() == Some(6))
+  assert_eq(node.tab_index(), 9)
+  let style = @layout.FlexTreeStyle::new(@layout.FlowDirection::row())
+  let element = @element.Element::root(1, style)
+    .with_tab_index(9).with_tab_group_index(Some(6))
+  assert_true(element.tab_group_index() == Some(6))
+  assert_eq(element.tab_index(), 9)
+  assert_true(element.with_tab_group_index(None).tab_group_index() is None)
+}

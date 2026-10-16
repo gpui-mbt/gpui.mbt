@@ -1,0 +1,4 @@
+start=2026-10-16T14:44:02Z
+command=git diff --cached --check -- . ':(exclude)docs/evidence/tab-groups/*.log'
+exit_status=0
+end=2026-10-16T14:44:02Z

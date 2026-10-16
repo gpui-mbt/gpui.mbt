@@ -1,0 +1,9 @@
+start=2026-10-16T14:35:59Z
+command=moon test element --target js --deny-warn -j 2
+[f4ah6o/gpui] test element/tab_groups_wbtest.mbt:2 ("group path construction owns each key and unwinds closed ancestor groups") failed: element/tab_groups_wbtest.mbt:20:3-20:78@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:56 ("group containers are non-stop anchors inside their own prefix and never trap focus") failed: element/tab_groups_test.mbt:65:3-65:67@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:102 ("proper path prefixes precede longer negative suffixes and groups include their own handle") failed: element/tab_groups_test.mbt:110:3-110:59@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:178 ("separate group and handle indices allow tracked handles without conflation") failed: element/tab_groups_test.mbt:186:3-186:59@f4ah6o/gpui FAILED: `false` is not true
+Total tests: 110, passed: 106, failed: 4.
+exit_status=2
+end=2026-10-16T14:36:00Z

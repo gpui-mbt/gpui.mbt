@@ -1,0 +1,17 @@
+start=2026-10-16T14:41:31Z
+command=moon test element --target js --deny-warn -j 2
+[f4ah6o/gpui] test element/tab_groups_wbtest.mbt:2 ("group prefix links share ancestors and unwind closed subtrees") failed: element/tab_groups_wbtest.mbt:25:5-25:52@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_wbtest.mbt:38 ("group builder defensively copies children and traversal owns input node arrays") failed: element/tab_groups_wbtest.mbt:75:3-75:41@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_wbtest.mbt:124 ("deep group key storage is linear and comparison scratch is reused") failed: element/tab_groups_wbtest.mbt:146:3-146:41@f4ah6o/gpui FAILED: `1025 != 1`
+diff:
+-1025 +1
+[f4ah6o/gpui] test element/tab_groups_test.mbt:79 ("nested signed group paths outrank preorder and ordinary ancestor indices") failed: element/tab_groups_test.mbt:95:3-95:62@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:102 ("proper path prefixes precede longer negative suffixes and groups include their own handle") failed: element/tab_groups_test.mbt:110:3-110:59@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:115 ("equal complete paths use preorder across sibling groups and ordinary ancestors") failed: element/tab_groups_test.mbt:125:3-125:64@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:130 ("signed extremes compare directly at every path depth") failed: element/tab_groups_test.mbt:144:3-144:74@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:178 ("separate group and handle indices allow tracked handles without conflation") failed: element/tab_groups_test.mbt:186:3-186:59@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:345 ("clearing one group prefix restores flat ordering without changing descendants or prior snapshots") failed: element/tab_groups_test.mbt:351:3-351:57@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:360 ("direct deeply grouped trees traverse iteratively without a new depth rejection") failed: element/tab_groups_test.mbt:373:3-373:71@f4ah6o/gpui FAILED: `false` is not true
+Total tests: 112, passed: 102, failed: 10.
+exit_status=2
+end=2026-10-16T14:41:31Z

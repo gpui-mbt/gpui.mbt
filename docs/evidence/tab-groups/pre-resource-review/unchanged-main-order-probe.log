@@ -1,0 +1,9 @@
+start=2026-10-16T14:31:01Z
+a99e111a37c0ac98bd847e9ea493c78589207875
+29449e394c0faf2b25beb2a1b6a4bce2806b3231
+[f4ah6o/gpui] test element/tab_group_baseline_probe_test.mbt:4 ("unchanged main second Tab must reach item1 before group1 child") failed: element/tab_group_baseline_probe_test.mbt:39:3-39:24@f4ah6o/gpui FAILED: `101 != 11`
+diff:
+-101 +11
+Total tests: 1, passed: 0, failed: 1.
+exit_status=2
+end=2026-10-16T14:31:02Z

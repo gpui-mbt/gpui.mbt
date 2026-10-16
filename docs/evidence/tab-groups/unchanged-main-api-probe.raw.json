@@ -1,0 +1,7 @@
+{
+  "kind": "Exact raw UTF-8 diagnostic log in a JSON-escaped text container",
+  "original_filename": "unchanged-main-api-probe.log",
+  "decoded_byte_count": 949,
+  "decoded_sha256": "e6fe0271ee7685a214c78feed149adf99cb369b81b19d2fa4ff788183fda527b",
+  "raw_text": "start=2026-10-16T14:30:46Z\nError: [4015]\n   ╭─[ /workspace/shared/gpui-tab-stop-core-20261016/element/tab_group_api_probe_test.mbt:8:24 ]\n   │\n 8 │     .with_tab_index(9).with_tab_group_index(Some(6))\n   │                        ──────────┬─────────  \n   │                                  ╰─────────── Type @f4ah6o/gpui/element.ElementNode has no method with_tab_group_index.\n───╯\nError: [4015]\n    ╭─[ /workspace/shared/gpui-tab-stop-core-20261016/element/tab_group_api_probe_test.mbt:13:24 ]\n    │\n 13 │     .with_tab_index(9).with_tab_group_index(Some(6))\n    │                        ──────────┬─────────  \n    │                                  ╰─────────── Type @f4ah6o/gpui/element.Element has no method with_tab_group_index.\n────╯\nexit_status=1\nend=2026-10-16T14:30:46Z\n"
+}

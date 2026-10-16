@@ -1,0 +1,30 @@
+Normalized display log: trailing diagnostic-gutter spaces removed.
+Exact raw bytes: unchanged-main-order-probe-initial-compile-error.raw.json
+Decoded raw SHA256: 9038c061e1fe558414e6eaf561ca7c837d1ef0a6419998aaf8f51fd030c4412b
+
+start=2026-10-16T14:30:46Z
+a99e111a37c0ac98bd847e9ea493c78589207875
+29449e394c0faf2b25beb2a1b6a4bce2806b3231
+moon 0.1.20261012 (748b63c 2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moon
+moonc v0.10.15+943464bfa (2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moonc
+moonrun 0.1.20261012 (748b63c 2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moonrun
+
+Feature flags enabled: rr_moon_mod,rr_moon_pkg
+Error: [4014]
+    ╭─[ /workspace/shared/gpui-tab-stop-core-20261016/element/tab_group_baseline_probe_test.mbt:39:21 ]
+    │
+ 39 │   assert_eq(actual, 11U64)
+    │                     ─┬─
+    │                      ╰─── Expr Type Mismatch
+        has type : UInt
+        wanted   : UInt64
+────╯
+Error: [3002]
+    ╭─[ /workspace/shared/gpui-tab-stop-core-20261016/element/tab_group_baseline_probe_test.mbt:39:24 ]
+    │
+ 39 │   assert_eq(actual, 11U64)
+    │                        ─┬
+    │                         ╰── Parse error, unexpected token integer, you may expect `,` or `)`.
+────╯
+exit_status=1
+end=2026-10-16T14:30:46Z
