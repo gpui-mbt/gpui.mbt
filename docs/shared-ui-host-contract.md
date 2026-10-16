@@ -1,0 +1,209 @@
+# Shared UI host contract audit (GP-00)
+
+Status: public API inventory and executable **headless** comparison. This audit
+adds no native host capability, changes no control semantics, and promotes no
+platform support tier. The four-platform product gate remains separate.
+
+Audit baseline: GPUI `a99e111a37c0ac98bd847e9ea493c78589207875`, Yami-kumo
+`21d85061e7445c479b483bcffa12679f7730d89a`. The [four-platform plan][plan]
+contains the original GP-00/01/02/03 packets. Those are scope and dependency
+references, not runtime evidence. In particular, an unmerged focus change must
+not be treated as a public API in this baseline. Re-run this inventory and the
+fixtures against the final integration head.
+
+## Evidence vocabulary
+
+- **Public value API**: an exported portable type/function. Deterministic tests
+  can establish its bounded value semantics; they do not establish host input.
+- **Host implementation**: code exists for a specific backend. Only a named,
+  exact-source runtime profile can qualify the corresponding OS behavior.
+- **Experimental host-local API**: some names are exported in generated `.mbti`
+  files, but the route remains opt-in/backend-specific and is not the shared
+  `platform.Backend` text/IME capability. Exported visibility is not support.
+- **Gap**: the required shared contract, transport, or qualifying evidence is
+  absent. Use the gap IDs below rather than filling the matrix with a different
+  platform's pass, a model pass, or a design-target paragraph.
+
+The dependency direction remains Yami adapter → GPUI public packages → host.
+GPUI has no Yami/Kumo runtime dependency. The comparison runner creates a
+throwaway consumer module that imports both implementations for testing only.
+No OS text-input or accessibility implementation belongs in the Yami adapter.
+The Web DOM branch belongs above scene lowering; existing Canvas rendering is
+not a semantic DOM reconstruction source.
+
+## Existing public API mapping
+
+“Yami call site” names existing native integration and the intended new shared
+consumer. New TextField/Dialog entries are requirements, not claims that these
+Yami components are already implemented.
+
+| Required function / Yami call site | Reuse in GPUI | Boundary and next work | Evidence profile |
+| --- | --- | --- | --- |
+| Domain state and actions; native sample `App`/counter owner, new shared runtime | `core.App`, `Entity[T]`, `App::read/update`, scoped `Context`, explicit `notify` and `destroy_entity` | Keep effects with the same App/Entity. No duplicate state store or automatic host scheduler is supplied. | Existing portable core tests; no GUI claim. |
+| Button pointer/key state; `native/components/button.mbt` and new Button adapter | `controls/button.Button::new/handle_input/with_enabled/with_loading/with_focus/with_bounds/cancel_press` | Existing Yami `ButtonInteraction` is not equivalent. Apply the versioned decision below, keeping legacy behavior. | Paired `headless-button-public-api-{js,native,wasm,wasm-gc}`; all use actual models. |
+| Button label/flat paint; native `NativeText`/`NativeButton` | `text_layout.TextMeasurement`, `scene.SceneItem::text_run`, Button paint helpers | Yami owns theme and semantic view intent. CoreText/Pango/DirectWrite measurement and native raster admission stay in GPUI. | Existing source-specific text/renderer profiles; this audit runs no pixels. |
+| Row/column/container sizing; native `layout_item`, `NativeAppShell` | `layout.FlexItem`, `FlexContainer`, `layout_flex_tree`, `layout_flex_tree_with_device_scale`; `element.Element` layout bridge | Reuse the deterministic layout engine; do not introduce a Yami native flex engine. DOM layout needs its own semantic/layout acceptance. | Portable layout and separate conformance fixtures. |
+| Hit testing, capture/bubble routing and focused dispatch; native sample input owner | `element.ElementNode/ElementTree`, `hit_test`, `dispatch_pointer`, `dispatch_input`, `without_subtree`, `FocusOwner` | IDs/owner lineage, cancel on removal or invalidation and focus synchronization remain explicit. No window pointer-leave event exists in `InputEvent`. | Portable element tests; window delivery separately qualified. |
+| Flat tab traversal, focus-visible and restoration; new Button/Dialog | `ElementTree::focus_next/focus_prev/is_focus_visible/restore_focus`, `InputModality` | Already present at baseline; do not rebuild flat traversal. Modal scopes, background suppression and disappearance fallback remain **GP-03-FOCUS**. Later public focus work must be reconciled independently. | [Bounded focus traversal](conformance-focus-traversal.md), portable ownership tests. |
+| Text values, directional ranges, composition; new TextField | `text.TextDocument`, `TextSelection`, `TextRange`, `TextComposition`; strict `utf8_offset/utf16_offset` | UTF-16 is current. Immutable branches do not enforce live owner/session freshness. **GP-01-SESSION** owns that missing shared host boundary. | Existing UTF-16/UTF-8 scalar-boundary and composition suites. |
+| Bounded editing, history and composition presentation; new TextField | `controls/text_field.TextField::handle_input/update_composition/update_composition_utf8/commit_composition/cancel_composition`, `revision`, `committed_document`, `caret_rect` | Reuse existing field transactions, undo/redo, cursor-stop admission and failure rollback. It is a bounded single-line LTR field, not general grapheme/bidi/multiline support. **GP-01-SESSION**, **GP-01-GEOMETRY**. | Portable field tests; backend-specific measurement and presentation separately tested. |
+| Measured caret/hit geometry; new TextField native adapter | `text_layout.TextMeasurement/CaretGeometry/TextHit`, Linux Pango, Windows DirectWrite and macOS CoreText packages | Returned coordinates/UTF-16 offsets remain explicit. No public universal shaping/segmentation engine; capability-gate unsupported layouts. **GP-01-GEOMETRY**. | Headless native measurement is distinct from rendered caret or candidate-window evidence. |
+| Window lifetime, scale, events and frames; 3 native entrypoints | `platform.Backend`; `platform.Event` with window/sequence/scale; `platform/macos.Host`, `ubuntu.Host`, `windows.Host` | Existing host/window/rendering slices are reusable. Backend interface has no common begin/update/end text-session or semantic-action methods. **GP-01-SESSION**, **GP-03-AX**. | Existing exact-host window/frame profiles; this audit runs no window. |
+| Role/name/enabled/loading/focus and Invoke; new semantic adapter | `accessibility.AccessibilityModel::publish/resolve_action`, owned `NodeId`, immutable snapshots | Preserve semantic nodes independently of pixels. Only bounded roles/Invoke exist; value/selection/relation fields and native notifications are incomplete. Action intent is a validation receipt, not a one-shot executable token. **GP-03-SEMANTICS**, **GP-03-AX**. | Portable model and transport-free projection tests only. |
+
+Source entrypoints and generated public API inventories:
+[core](../core/pkg.generated.mbti), [button](../controls/button/pkg.generated.mbti),
+[layout](../layout/layout.mbt), [element](../element/pkg.generated.mbti),
+[text](../text/pkg.generated.mbti), [field](../controls/text_field/pkg.generated.mbti),
+[text layout](../text_layout/pkg.generated.mbti),
+[platform](../platform/pkg.generated.mbti),
+[accessibility](../accessibility/pkg.generated.mbti).
+
+## Three OS host gaps
+
+| Host | Implemented/reusable surface | Missing or unqualified requirement | Packet / existing issue |
+| --- | --- | --- | --- |
+| Linux / Ubuntu | `Host` window/event/scene API; Pango geometry; bounded text field; `DirectKeyboardText`; exported host-local `begin_text_session`, `update_text_session`, `next_editor_event`, `cancel_text_session`, `end_text_session` | Text-input-v1/Weston/IBus/Mozc route is experimental opt-in. Its epoch/FIFO/serial mechanics should be reused, but it is not a shared `platform.Backend` text contract or general public `TextInput` claim. Integrated Japanese composition, candidate placement/selection and wider compositor profiles need exact-source evidence. **GP-02-L-IME**. | [GP-02-L][gp02l], [0007 Ubuntu](../issues/open/0007-ubuntu-native-backend.md), [Ubuntu IME scope](ubuntu-ime.md), [field scope](linux-text-field.md). |
+| Windows | `Host` window/event/scene API; DirectWrite geometry; bounded field; exported host-local session methods and `TextSessionTarget/Event` | IMM32 is private/experimental, default-off. A target/epoch-bearing API exists and should be adapted, not reimplemented in Yami. Common ownership/revision contract plus real Japanese IME and candidate-window qualification remain **GP-02-W-IME**. | [GP-02-W][gp02w], [0008 Windows](../issues/open/0008-windows-native-backend.md), [Windows guide](windows-native.md). |
+| macOS | `Host` AppKit/Metal window/event/scene API; copied CoreText measurement; bounded sample Button AX publish/take/revoke | No shared NSTextInputClient editor/composition bridge or TextField candidate-rectangle service. Lower-ASCII sample key handling is not committed-text/IME. **GP-02-M-IME** needs the host bridge and runtime evidence. | [GP-02-M][gp02m], [0006 macOS](../issues/open/0006-macos-native-backend.md), [macOS guide](macos-native.md). |
+| All native hosts | `AccessibilityModel`; transport-free Linux/Windows projections; sample-specific macOS Button AX route | Linux AT-SPI and Windows UIA providers, complete shared macOS AX mapping, TextField/Dialog semantic actions and assistive-technology acceptance remain **GP-03-AX**. Sample AXPress is not general AX. | [GP-03][gp03], [0004 platform boundary](../issues/open/0004-platform-rendering-and-native-boundaries.md), [accessibility scope](accessibility.md), OS issues above. |
+
+A method named `set_candidate_rect` or an exported text-session decoder does
+not prove an active, qualified IME. The adapter must use the correct negotiated
+route and report `UnsupportedCapability` when the required route is unavailable.
+Do not map an unavailable service to a successful empty result. The test result
+for an unexecuted runtime profile is `NOT_RUN`, even if its implementation is
+unsupported; these are two different facts.
+
+### Bounded remaining work
+
+- **GP-01-SESSION**: define a shared public adapter over existing text/field
+  transactions with live window/root/field generations, revision, session and
+  ordered preview/commit/cancel outcomes. Reject stale/foreign/destroyed targets.
+  Preserve an observed OS commit instead of rewriting every blur to cancel.
+  Tie to [GP-01][gp01] and [0004](../issues/open/0004-platform-rendering-and-native-boundaries.md).
+- **GP-01-GEOMETRY**: expose which exact cursor-stop, shaping, candidate-rectangle
+  and range capabilities the host supports; reuse strict conversions. Broader
+  grapheme/bidi behavior is a separate gate. Tie to GP-01 and 0004.
+- **GP-02-L/W/M-IME**: adapt and qualify each OS against GP-01 separately. Linux
+  and Windows are publication/ownership/qualification work over existing
+  experimental routes, not blank-slate editor projects. macOS needs its missing
+  native text client. Keep each OS result independent.
+- **GP-03-FOCUS**: build modal scoping/background suppression and robust focus
+  return around existing generational focus and flat traversal. Do not duplicate
+  flat traversal or infer safe return from a recycled integer ID.
+- **GP-03-SEMANTICS / GP-03-AX**: extend only fields/actions needed by Button,
+  TextField and Dialog; bind external actions to the current window/layout/owner
+  and same domain handler. Keep model, external API and screen-reader tests
+  separate. Tie to [GP-03][gp03], 0004 and relevant OS issues.
+
+## Current text contract versus the M0 target
+
+The [implemented text model](text-model.md) uses UTF-16 code-unit offsets in
+`TextDocument`, `TextSelection`, `TextRange`, `TextComposition`, field state and
+copied text geometry. The [platform M0 design](platform.md#text-and-ime) describes
+a future UTF-8 byte-range/grapheme-alignment target. It is not permission to
+change the current public offset unit globally.
+
+At a UTF-8 boundary, use `TextDocument::utf8_offset` / `utf16_offset` against
+the exact owning document/revision. Preserve direction by converting anchor and
+head independently. Reject `SplitSurrogate`, `SplitUtf8`, negative/out-of-bounds
+and overflow errors. Do not truncate, clamp or silently round. Scalar-valid
+conversion alone does not establish a grapheme stop or a measured caret stop.
+Native UTF-16 payloads still require well-formedness and exact revision/session
+validation. Text encoding at a C ABI or JSON wire is separate from range units.
+
+## Button comparison and vNext decision input
+
+The [versioned fixtures](../tests/shared-ui-host/button-fixtures.json) were
+specified before running the implementations. The [probe](../tests/shared-ui-host/button_probe.mbt)
+executes both existing APIs directly; it contains no third Button controller.
+The same key, repeat, pointer, bounds, cancel and loading operations are passed
+to both adapters. `activated` is the action returned at that step, not a guessed
+DOM click. `pressed` comes directly from each model. The legacy API does not own
+focus or geometry: those adapter operations are explicitly marked
+`caller-focus` / `caller-bounds`, and its focus observation is null. Focus loss
+calls the existing legacy `cancel`; a bounds change deliberately does not until
+a separate Cancel step, exposing the caller obligation.
+
+| Fixture / observation | Existing Yami | Existing GPUI |
+| --- | --- | --- |
+| Enter down, repeat, up | Two activations; never remains pressed | One activation on nonrepeat down; pressed until matching up |
+| Orphan repeated Enter | Activates | Suppressed |
+| Orphan repeated Space, then up | Arms and activates on up | Repeat does not arm; no activation |
+| Space down, repeat, up | One activation on up | Same |
+| Space → Enter → Enter-up → Space-up | Enter activates and cancels Space | First held key wins; Space activates on final up |
+| Enter → Space → Space-up → Enter-up | Two activations | One Enter activation; Space does not take ownership |
+| Space → unrelated Escape-up → Space-up | Unrelated release cancels Space | Unrelated release leaves Space armed; final release activates |
+| Pointer-down → Space-down → Space-up → pointer-up | Space supersedes pointer: one activation | Pointer and Space may both be armed: two activations |
+| Space-down → pointer-down → pointer-up → Space-up | Pointer supersedes Space | Pointer-down is ignored while pressed; final Space-up activates |
+| Primary-down → secondary-down → primary-up | Secondary down cancels ownership | Secondary down is ignored; primary-up activates |
+| Disabled; outside primary release; explicit cancel | No activation | Same |
+| Loading set / unset | No loading method; recorded `unsupported`, legacy state is unchanged | Both transitions cancel gestures; loading blocks activation and retains enabled focus |
+| Identical bounds | Caller retains state | Retains state |
+| Changed valid bounds | Caller must cancel; uncoordinated change leaves a pending press | Setter cancels pending gestures |
+| Rejected subminimum bounds during press | No bounds validation in interaction; caller routing geometry changes | Setter rejects and preserves old state/bounds |
+| 24×24 constructor | Accepted | Accepted |
+| 23×24, 24×20 or 0×0 supplied hit bounds | `NativeButton::element_node` accepts caller bounds | `Button::new` rejects below 24×24 |
+
+Legacy Yami `Xs` is intrinsically 20 logical points high. Its visual constructor
+and hit-node builder do not impose GPUI's 24×24 minimum. An implicit replacement
+would therefore change legacy dimensions or reject existing consumers. Source
+inspection also shows different ID constraints: GPUI rejects logical ID zero;
+Yami reserves the visual item range `id..id+5` and rejects overflow. The vNext
+adapter must keep nonzero logical identity and visual item allocation separate.
+
+Recommended additive vNext mapping for [YK-00][yk00]:
+
+1. Keep legacy `NativeButton` / `ButtonInteraction` unchanged. Do not make
+   legacy consumers inherit repeat, simultaneous-key, size or loading changes.
+2. Use one existing GPUI Button as the new native model. Specify nonrepeat Enter,
+   first-held-key ownership and loading-retains-focus explicitly in the vNext
+   contract; reject undersized native bounds or choose ≥24×24 during vNext layout.
+3. Copy no gesture state machine into Yami. A narrow native adapter may translate
+   semantic input into existing public methods and dispatch `Activated` to the
+   existing domain owner. Reconcile focus, bounds, removal and disposal explicitly.
+4. Decide cross-modality ownership before promising DOM/native action parity.
+   The existing GPUI pointer-plus-Space result is two actions; an audit must not
+   silently deduplicate it or label it one action. A single-gesture policy would
+   need a separately reviewed additive GPUI contract or explicitly documented
+   adapter cancellation policy and new paired fixtures. It is not changed here.
+5. DOM browser activation/focus/loading, scene rendering and native delivery
+   each need real runtime evidence. These pure API observations are decision
+   inputs, not proof that browser default events already match GPUI.
+
+## Reproduce and retain evidence
+
+From this GPUI checkout, with the documented MoonBit toolchain on `PATH` and a
+separate Yami checkout at the desired pinned SHA:
+
+```sh
+python3 scripts/audit_shared_ui_buttons.py \
+  --yami-source /path/to/Yami-kumo --target js \
+  --output /path/to/evidence/button-js
+# Repeat with --target native, wasm and wasm-gc for portable compiler targets.
+python3 -m unittest discover -s tests/shared-ui-host -v
+moon test controls/button text text_layout controls/text_field element core accessibility --target all --deny-warn
+```
+
+Each run retains `report.json`, raw stdout/stderr and the generated probe.
+Reports record candidate/dependency SHA, dirty-worktree status, tracked-diff,
+fixture/probe/runner hashes, command, toolchain, OS/architecture, exit code,
+actual and expected per-step observations. No expectation-update mode exists;
+any unknown difference fails. Missing output does not pass. A loading
+`unsupported` observation is retained as such even when the audit itself passes.
+A native compiler run here remains a headless Linux process, not Linux GUI,
+Windows, macOS, browser DOM, IME or assistive-technology qualification.
+
+The audit does not modify manifests or CI. Integration must run the fixture
+command against the exact proposed GPUI and Yami heads and retain those artifacts;
+existing aggregate tests alone do not execute this external-consumer comparison.
+Final publication still requires exact-head CI and independent review.
+
+[plan]: https://github.com/f4ah6o/Yami-kumo/blob/21d85061e7445c479b483bcffa12679f7730d89a/docs/roadmaps/20261017-four-platform-gui/ROADMAP.md
+[yk00]: https://github.com/f4ah6o/Yami-kumo/blob/21d85061e7445c479b483bcffa12679f7730d89a/issues/open/20261017-ui4-yk-00-architecture.md
+[gp01]: https://github.com/f4ah6o/Yami-kumo/blob/21d85061e7445c479b483bcffa12679f7730d89a/docs/roadmaps/20261017-four-platform-gui/repos/gpui-mbt/gpui.mbt/issues/open/20261017-ui4-gp-01-text-host-contract.md
+[gp02l]: https://github.com/f4ah6o/Yami-kumo/blob/21d85061e7445c479b483bcffa12679f7730d89a/docs/roadmaps/20261017-four-platform-gui/repos/gpui-mbt/gpui.mbt/issues/open/20261017-ui4-gp-02-l-linux-text-ime.md
+[gp02w]: https://github.com/f4ah6o/Yami-kumo/blob/21d85061e7445c479b483bcffa12679f7730d89a/docs/roadmaps/20261017-four-platform-gui/repos/gpui-mbt/gpui.mbt/issues/open/20261017-ui4-gp-02-w-windows-text-ime.md
+[gp02m]: https://github.com/f4ah6o/Yami-kumo/blob/21d85061e7445c479b483bcffa12679f7730d89a/docs/roadmaps/20261017-four-platform-gui/repos/gpui-mbt/gpui.mbt/issues/open/20261017-ui4-gp-02-m-macos-text-ime.md
+[gp03]: https://github.com/f4ah6o/Yami-kumo/blob/21d85061e7445c479b483bcffa12679f7730d89a/docs/roadmaps/20261017-four-platform-gui/repos/gpui-mbt/gpui.mbt/issues/open/20261017-ui4-gp-03-focus-accessibility.md

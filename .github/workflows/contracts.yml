@@ -18,6 +18,7 @@ jobs:
       - name: Validate document contracts and release evidence ledger
         run: |
           python3 -m unittest discover -s tests -p 'test_*.py'
+          python3 -m unittest discover -s tests/shared-ui-host -p 'test_*.py'
           python3 scripts/check_contracts.py
 
   moonbit-core:
@@ -25,6 +26,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: hustcer/setup-moonbit@1522f9aef02a8ca0187dfc00a41f5dd6b16750f7 # v1.23
         with:
           version: 0.10.15+943464bfa
@@ -70,6 +73,25 @@ jobs:
           mkdir -p "$XDG_CACHE_HOME"
           sh scripts/check_linux_text_fonts.sh
           env -u DISPLAY -u WAYLAND_DISPLAY moon test --target all --deny-warn
+
+      - name: Checkout pinned legacy Yami Button fixture dependency
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: f4ah6o/Yami-kumo
+          ref: 21d85061e7445c479b483bcffa12679f7730d89a
+          path: _build/shared-ui-audit/yami
+      - name: Compare both public Button APIs on each compiler target
+        run: |
+          for target in js native wasm wasm-gc; do
+            python3 scripts/audit_shared_ui_buttons.py --yami-source _build/shared-ui-audit/yami --target "$target" --output "_build/shared-ui-audit/evidence/$target"
+          done
+      - name: Retain shared Button contract audit evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shared-ui-button-audit
+          path: _build/shared-ui-audit/evidence
+          if-no-files-found: error
 
   mcp-stdio-reference:
     runs-on: ubuntu-24.04

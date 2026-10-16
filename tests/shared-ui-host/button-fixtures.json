@@ -1,0 +1,1857 @@
+{
+  "fixture_version": "gp00-button-v1",
+  "fixtures": [
+    {
+      "id": "enter-repeat",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Enter",
+          "repeat": false
+        },
+        {
+          "op": "down",
+          "key": "Enter",
+          "repeat": true
+        },
+        {
+          "op": "up",
+          "key": "Enter"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            true,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "orphan-enter-repeat",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Enter",
+          "repeat": true
+        },
+        {
+          "op": "up",
+          "key": "Enter"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "orphan-space-repeat",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": true
+        },
+        {
+          "op": "up",
+          "key": "Space"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "space-repeat",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": false
+        },
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": true
+        },
+        {
+          "op": "up",
+          "key": "Space"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            true,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "space-enter-release",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": false
+        },
+        {
+          "op": "down",
+          "key": "Enter",
+          "repeat": false
+        },
+        {
+          "op": "up",
+          "key": "Enter"
+        },
+        {
+          "op": "up",
+          "key": "Space"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            true,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "enter-space-release",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Enter",
+          "repeat": false
+        },
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": false
+        },
+        {
+          "op": "up",
+          "key": "Space"
+        },
+        {
+          "op": "up",
+          "key": "Enter"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            true,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "space-unrelated-release",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": false
+        },
+        {
+          "op": "up",
+          "key": "Escape"
+        },
+        {
+          "op": "up",
+          "key": "Space"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            true,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pointer-space-release",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "pointer_down",
+          "button": "Primary"
+        },
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": false
+        },
+        {
+          "op": "up",
+          "key": "Space"
+        },
+        {
+          "op": "pointer_up"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            true,
+            true,
+            "ok",
+            true
+          ],
+          [
+            true,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "space-pointer-release",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": false
+        },
+        {
+          "op": "pointer_down",
+          "button": "Primary"
+        },
+        {
+          "op": "pointer_up"
+        },
+        {
+          "op": "up",
+          "key": "Space"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            true,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "secondary-down-cancel",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "pointer_down",
+          "button": "Primary"
+        },
+        {
+          "op": "pointer_down",
+          "button": "Secondary"
+        },
+        {
+          "op": "pointer_up"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            true,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "outside-release",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "pointer_down",
+          "button": "Primary"
+        },
+        {
+          "op": "pointer_up",
+          "point": [
+            150,
+            50
+          ]
+        },
+        {
+          "op": "pointer_up"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "disabled",
+      "disabled": true,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Enter",
+          "repeat": false
+        },
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": false
+        },
+        {
+          "op": "up",
+          "key": "Space"
+        },
+        {
+          "op": "pointer_down",
+          "button": "Primary"
+        },
+        {
+          "op": "pointer_up"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            false
+          ],
+          [
+            false,
+            false,
+            "ok",
+            false
+          ],
+          [
+            false,
+            false,
+            "ok",
+            false
+          ],
+          [
+            false,
+            false,
+            "ok",
+            false
+          ],
+          [
+            false,
+            false,
+            "ok",
+            false
+          ],
+          [
+            false,
+            false,
+            "ok",
+            false
+          ]
+        ]
+      }
+    },
+    {
+      "id": "loading-focus",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "loading",
+          "value": true
+        },
+        {
+          "op": "down",
+          "key": "Enter",
+          "repeat": false
+        },
+        {
+          "op": "loading",
+          "value": false
+        },
+        {
+          "op": "down",
+          "key": "Enter",
+          "repeat": false
+        },
+        {
+          "op": "up",
+          "key": "Enter"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            false,
+            "unsupported",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "unsupported",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            true,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "loading-cancels-space",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": false
+        },
+        {
+          "op": "loading",
+          "value": true
+        },
+        {
+          "op": "up",
+          "key": "Space"
+        },
+        {
+          "op": "loading",
+          "value": false
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            true,
+            "unsupported",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "unsupported",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "same-bounds",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "pointer_down",
+          "button": "Primary"
+        },
+        {
+          "op": "bounds",
+          "bounds": [
+            0,
+            0,
+            100,
+            40
+          ]
+        },
+        {
+          "op": "pointer_up"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            true,
+            "caller-bounds",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            true,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "changed-bounds-uncoordinated",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "pointer_down",
+          "button": "Primary"
+        },
+        {
+          "op": "bounds",
+          "bounds": [
+            0,
+            0,
+            120,
+            40
+          ]
+        },
+        {
+          "op": "pointer_up"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            true,
+            "caller-bounds",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "changed-bounds-owner-cancel",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "pointer_down",
+          "button": "Primary"
+        },
+        {
+          "op": "bounds",
+          "bounds": [
+            0,
+            0,
+            120,
+            40
+          ]
+        },
+        {
+          "op": "cancel"
+        },
+        {
+          "op": "pointer_up"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            true,
+            "caller-bounds",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "explicit-key-cancel",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": false
+        },
+        {
+          "op": "cancel"
+        },
+        {
+          "op": "up",
+          "key": "Space"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "focus-loss-cancel",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "down",
+          "key": "Space",
+          "repeat": false
+        },
+        {
+          "op": "focus",
+          "value": false
+        },
+        {
+          "op": "focus",
+          "value": true
+        },
+        {
+          "op": "up",
+          "key": "Space"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            false,
+            "caller-focus",
+            null
+          ],
+          [
+            false,
+            false,
+            "caller-focus",
+            null
+          ],
+          [
+            false,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            false
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ],
+          [
+            false,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "invalid-bounds-preserves-state",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        100,
+        40
+      ],
+      "steps": [
+        {
+          "op": "pointer_down",
+          "button": "Primary"
+        },
+        {
+          "op": "bounds",
+          "bounds": [
+            0,
+            0,
+            23,
+            40
+          ]
+        },
+        {
+          "op": "pointer_up"
+        }
+      ],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ],
+          [
+            false,
+            true,
+            "ok",
+            null
+          ],
+          [
+            false,
+            true,
+            "caller-bounds",
+            null
+          ],
+          [
+            true,
+            false,
+            "ok",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ],
+          [
+            false,
+            true,
+            "ok",
+            true
+          ],
+          [
+            false,
+            true,
+            "invalid-bounds",
+            true
+          ],
+          [
+            true,
+            false,
+            "ok",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "minimum-24",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "steps": [],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "accepted",
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "id": "below-minimum-width",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        23,
+        24
+      ],
+      "steps": [],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "invalid-bounds",
+            false
+          ]
+        ]
+      }
+    },
+    {
+      "id": "legacy-xs-height",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        24,
+        20
+      ],
+      "steps": [],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "invalid-bounds",
+            false
+          ]
+        ]
+      }
+    },
+    {
+      "id": "zero-bounds",
+      "disabled": false,
+      "bounds": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "steps": [],
+      "expected": {
+        "yami": [
+          [
+            false,
+            false,
+            "accepted",
+            null
+          ]
+        ],
+        "gpui": [
+          [
+            false,
+            false,
+            "invalid-bounds",
+            false
+          ]
+        ]
+      }
+    }
+  ]
+}
