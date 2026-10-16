@@ -4,6 +4,12 @@
 
 ### Added
 
+- Add bounded vertical uniform lists with real recursive prototype measurement,
+  lazy visible-row layout, checked stable IDs, complete scroll extent, existing
+  scene/input clips, and one-shot row click sessions. (`docs/uniform-list.md`)
+  Fractional endpoints are bounded before integer conversion and factory calls,
+  including tiny positive viewports at maximum item counts.
+
 - Add optional signed tab-group prefixes independently of handle tab indices,
   with global lexicographic traversal, stable preorder ties, preserved focus
   ownership, and linear shared-prefix storage. (`docs/conformance-tab-groups.md`)

@@ -64,6 +64,7 @@ pub fn ElementNode::with_tab_index(
     pointer_events: self.pointer_events,
     background: self.background,
     scroll_viewport: self.scroll_viewport,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -91,6 +92,7 @@ pub fn ElementNode::with_tab_group_index(
     pointer_events: self.pointer_events,
     background: self.background,
     scroll_viewport: self.scroll_viewport,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -111,6 +113,7 @@ pub fn ElementNode::with_tab_stop(
     pointer_events: self.pointer_events,
     background: self.background,
     scroll_viewport: self.scroll_viewport,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -141,6 +144,7 @@ pub fn Element::with_tab_index(self : Element, index : Int32) -> Element {
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -166,6 +170,7 @@ pub fn Element::with_tab_group_index(self : Element, index : Int32?) -> Element 
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -184,6 +189,7 @@ pub fn Element::with_tab_stop(self : Element, enabled : Bool) -> Element {
     tab_stop: enabled,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
+    uniform_list: self.uniform_list,
   }
 }
 

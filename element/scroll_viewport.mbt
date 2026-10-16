@@ -53,6 +53,7 @@ pub fn Element::with_scroll_offset(
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: Some(offset),
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -71,7 +72,8 @@ pub fn ElementTree::scroll_viewport(
 /// Resolve a logical-pixel wheel delta without changing this live tree. Every
 /// pointer-enabled scroll viewport on the target-to-root route receives the
 /// same delta and clamps independently; unused delta is not redistributed.
-/// For diagonal deltas only the dominant axis moves, with ties choosing Y.
+/// Ordinary viewports use the dominant axis, with ties choosing Y. Uniform
+/// lists always use nonzero Y, otherwise X as a vertical fallback.
 /// Positive deltas increase content offsets (the browser/InputEvent convention).
 /// The returned fresh array contains all eligible ancestors, even at a limit.
 /// Save these offsets in caller state and render again to update geometry.
@@ -97,7 +99,12 @@ pub fn ElementTree::scroll_wheel(
           pointer_in_bounds(node.bounds, position) =>
           match node.scroll_viewport {
             None => ()
-            Some(viewport) =>
+            Some(viewport) => {
+              let (dx, dy) = if node.uniform_list is Some(_) {
+                (0.0, if delta_y != 0.0 { delta_y } else { delta_x })
+              } else {
+                (dx, dy)
+              }
               updates.push({
                 element_id: id,
                 viewport_bounds: viewport.viewport_bounds,
@@ -115,6 +122,7 @@ pub fn ElementTree::scroll_wheel(
                   ),
                 ),
               })
+            }
           }
         _ => ()
       }
@@ -191,23 +199,40 @@ fn resolve_scroll_nodes(
       Ok(bounds) => bounds
       Err(_) => return Err(GeometryFailure)
     }
-    let viewport = match placement.element.scroll_offset {
+    let uniform = match placement.element.uniform_list {
       None => None
-      Some(requested) => {
-        let maximum = match
-          scroll_maximum(layout_nodes, placements, index, scale_factor) {
-          Ok(maximum) => maximum
+      Some(list) =>
+        match resolve_uniform_list(list, bounds, scale_factor) {
+          Ok(value) => Some(value)
           Err(error) => return Err(error)
         }
-        Some({
-          element_id: original.id,
-          viewport_bounds: bounds,
-          position: scroll_point(
-            scroll_clamp(requested.x(), maximum.x()),
-            scroll_clamp(requested.y(), maximum.y()),
-          ),
-          maximum,
-        })
+    }
+    let viewport = if uniform is Some(list) {
+      Some({
+        element_id: original.id,
+        viewport_bounds: bounds,
+        position: scroll_point(0.0, list.position),
+        maximum: scroll_point(0.0, list.maximum),
+      })
+    } else {
+      match placement.element.scroll_offset {
+        None => None
+        Some(requested) => {
+          let maximum = match
+            scroll_maximum(layout_nodes, placements, index, scale_factor) {
+            Ok(maximum) => maximum
+            Err(error) => return Err(error)
+          }
+          Some({
+            element_id: original.id,
+            viewport_bounds: bounds,
+            position: scroll_point(
+              scroll_clamp(requested.x(), maximum.x()),
+              scroll_clamp(requested.y(), maximum.y()),
+            ),
+            maximum,
+          })
+        }
       }
     }
     resolved.push({
@@ -221,6 +246,7 @@ fn resolve_scroll_nodes(
       pointer_events: original.pointer_events,
       background: original.background,
       scroll_viewport: viewport,
+      uniform_list: uniform,
     })
     // A leaf has no descendants to translate. Avoid failing on an unused sum.
     let descendant_offset = match viewport {
