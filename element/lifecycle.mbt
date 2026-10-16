@@ -26,6 +26,7 @@ pub struct Element {
   background : @primitives.Color?
   focusable : Bool
   pointer_events : Bool
+  priv scroll_offset : @primitives.Point?
 }
 
 ///|
@@ -44,6 +45,7 @@ pub fn Element::root(
     background: None,
     focusable: false,
     pointer_events: true,
+    scroll_offset: None,
   }
 }
 
@@ -59,6 +61,7 @@ pub fn Element::new(item : @layout.FlexItem) -> Element {
     background: None,
     focusable: false,
     pointer_events: true,
+    scroll_offset: None,
   }
 }
 
@@ -77,6 +80,7 @@ pub fn Element::with_children_style(
     background: self.background,
     focusable: self.focusable,
     pointer_events: self.pointer_events,
+    scroll_offset: self.scroll_offset,
   }
 }
 
@@ -94,6 +98,7 @@ pub fn Element::with_child(self : Element, child : Element) -> Element {
     background: self.background,
     focusable: self.focusable,
     pointer_events: self.pointer_events,
+    scroll_offset: self.scroll_offset,
   }
 }
 
@@ -111,6 +116,7 @@ pub fn Element::with_background(
     background: color,
     focusable: self.focusable,
     pointer_events: self.pointer_events,
+    scroll_offset: self.scroll_offset,
   }
 }
 
@@ -125,6 +131,7 @@ pub fn Element::with_focusable(self : Element, focusable : Bool) -> Element {
     background: self.background,
     focusable,
     pointer_events: self.pointer_events,
+    scroll_offset: self.scroll_offset,
   }
 }
 
@@ -139,6 +146,7 @@ pub fn Element::with_pointer_events(self : Element, enabled : Bool) -> Element {
     background: self.background,
     focusable: self.focusable,
     pointer_events: enabled,
+    scroll_offset: self.scroll_offset,
   }
 }
 
@@ -177,6 +185,7 @@ pub fn[T : IntoElement] into_element(value : T) -> Element {
 /// root viewport and the original declarative tree is retained for prepaint.
 pub struct RequestedLayout {
   priv placements : Array[ElementPlacement]
+  priv scale_factor : Double?
   viewport : @primitives.Size
   layout : @layout.FlexTreeLayout
 }
@@ -267,7 +276,8 @@ fn Element::request_layout_internal(
                 match
                   @layout.layout_flex_tree(self.id, viewport, style, nodes) {
                   Err(error) => Err(LayoutFailure(error))
-                  Ok(layout) => Ok({ placements, viewport, layout, })
+                  Ok(layout) =>
+                    Ok({ placements, viewport, layout, scale_factor, })
                 }
               Some(scale) =>
                 match
@@ -279,7 +289,8 @@ fn Element::request_layout_internal(
                     scale,
                   ) {
                   Err(error) => Err(LayoutFailure(error))
-                  Ok(layout) => Ok({ placements, viewport, layout, })
+                  Ok(layout) =>
+                    Ok({ placements, viewport, layout, scale_factor, })
                 }
             }
         }
@@ -335,15 +346,19 @@ pub fn RequestedLayout::prepaint(
   match failure {
     Some(error) => Err(error)
     None =>
-      match ElementTree::new(nodes) {
+      match resolve_scroll_nodes(nodes, self.placements, self.scale_factor) {
         Err(error) => Err(error)
-        Ok(tree) =>
-          Ok({
-            tree,
-            viewport: self.viewport,
-            viewport_bounds: root_bounds,
-            overflow: self.layout.overflow(),
-          })
+        Ok(resolved) =>
+          match ElementTree::new(resolved) {
+            Err(error) => Err(error)
+            Ok(tree) =>
+              Ok({
+                tree,
+                viewport: self.viewport,
+                viewport_bounds: root_bounds,
+                overflow: self.layout.overflow(),
+              })
+          }
       }
   }
 }

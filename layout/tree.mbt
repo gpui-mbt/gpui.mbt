@@ -26,11 +26,13 @@ pub extend TreeLayoutError with Eq::{not_equal, equal}
 pub struct FlexTreeStyle {
   direction : FlowDirection
   wrap : FlexWrap
-  gap : Double
+  gap_x : Double
+  gap_y : Double
   padding : Insets
   border : Insets
   justify : JustifyContent
   align : AlignItems
+  align_content : AlignContent
 }
 
 ///|
@@ -38,35 +40,67 @@ pub fn FlexTreeStyle::new(direction : FlowDirection) -> FlexTreeStyle {
   {
     direction,
     wrap: FlexWrap::no_wrap(),
-    gap: 0.0,
+    gap_x: 0.0,
+    gap_y: 0.0,
     padding: Insets::zero(),
     border: Insets::zero(),
     justify: JustifyContent::start(),
     align: AlignItems::start(),
+    align_content: AlignContent::stretch(),
   }
 }
 
 ///|
+/// Set both physical gaps, replacing any earlier axis-specific settings.
 pub fn FlexTreeStyle::with_gap(
   self : FlexTreeStyle,
   gap : Double,
 ) -> Result[FlexTreeStyle, LayoutError] {
-  let probe_size = match @primitives.Size::new(0.0, 0.0) {
-    Ok(value) => value
-    Err(_) => abort("zero size must remain valid")
-  }
-  match FlexContainer::new(self.direction, probe_size).with_gap(gap) {
-    Err(error) => Err(error)
-    Ok(_) =>
-      Ok({
-        direction: self.direction,
-        wrap: self.wrap,
-        gap,
-        padding: self.padding,
-        border: self.border,
-        justify: self.justify,
-        align: self.align,
-      })
+  self.with_gaps(gap, gap)
+}
+
+///|
+/// Set the physical horizontal gap while preserving the vertical gap.
+/// This is the item gap in rows and the line gap in wrapped columns.
+pub fn FlexTreeStyle::with_gap_x(
+  self : FlexTreeStyle,
+  gap : Double,
+) -> Result[FlexTreeStyle, LayoutError] {
+  self.with_gaps(gap, self.gap_y)
+}
+
+///|
+/// Set the physical vertical gap while preserving the horizontal gap.
+/// This is the item gap in columns and the line gap in wrapped rows.
+pub fn FlexTreeStyle::with_gap_y(
+  self : FlexTreeStyle,
+  gap : Double,
+) -> Result[FlexTreeStyle, LayoutError] {
+  self.with_gaps(self.gap_x, gap)
+}
+
+///|
+fn FlexTreeStyle::with_gaps(
+  self : FlexTreeStyle,
+  gap_x : Double,
+  gap_y : Double,
+) -> Result[FlexTreeStyle, LayoutError] {
+  if !finite(gap_x) || !finite(gap_y) {
+    Err(NonFiniteValue)
+  } else if gap_x < 0.0 || gap_y < 0.0 {
+    Err(NegativeValue)
+  } else {
+    Ok({
+      direction: self.direction,
+      wrap: self.wrap,
+      gap_x,
+      gap_y,
+      padding: self.padding,
+      border: self.border,
+      justify: self.justify,
+      align: self.align,
+      align_content: self.align_content,
+    })
   }
 }
 
@@ -79,11 +113,13 @@ pub fn FlexTreeStyle::with_insets(
   {
     direction: self.direction,
     wrap: self.wrap,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding,
     border,
     justify: self.justify,
     align: self.align,
+    align_content: self.align_content,
   }
 }
 
@@ -95,11 +131,13 @@ pub fn FlexTreeStyle::with_justify(
   {
     direction: self.direction,
     wrap: self.wrap,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding: self.padding,
     border: self.border,
     justify,
     align: self.align,
+    align_content: self.align_content,
   }
 }
 
@@ -111,11 +149,13 @@ pub fn FlexTreeStyle::with_align(
   {
     direction: self.direction,
     wrap: self.wrap,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding: self.padding,
     border: self.border,
     justify: self.justify,
     align,
+    align_content: self.align_content,
   }
 }
 
@@ -127,11 +167,33 @@ pub fn FlexTreeStyle::with_wrap(
   {
     direction: self.direction,
     wrap,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding: self.padding,
     border: self.border,
     justify: self.justify,
     align: self.align,
+    align_content: self.align_content,
+  }
+}
+
+///|
+/// Align wrapped child lines within this node's definite inner cross extent.
+/// NoWrap ignores this setting; recursive auto measurement is unchanged.
+pub fn FlexTreeStyle::with_align_content(
+  self : FlexTreeStyle,
+  align_content : AlignContent,
+) -> FlexTreeStyle {
+  {
+    direction: self.direction,
+    wrap: self.wrap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
+    padding: self.padding,
+    border: self.border,
+    justify: self.justify,
+    align: self.align,
+    align_content,
   }
 }
 
@@ -493,7 +555,13 @@ fn snap_tree_style_to_device_scale(
   style : FlexTreeStyle,
   scale_factor : Double,
 ) -> Result[FlexTreeStyle, LayoutError] {
-  let gap = match snap_authored_length_to_device_grid(style.gap, scale_factor) {
+  let gap_x = match
+    snap_authored_length_to_device_grid(style.gap_x, scale_factor) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let gap_y = match
+    snap_authored_length_to_device_grid(style.gap_y, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -510,11 +578,13 @@ fn snap_tree_style_to_device_scale(
   Ok({
     direction: style.direction,
     wrap: style.wrap,
-    gap,
+    gap_x,
+    gap_y,
     padding,
     border,
     justify: style.justify,
     align: style.align,
+    align_content: style.align_content,
   })
 }
 
@@ -542,7 +612,8 @@ fn layout_tree_children(
       .with_insets(style.padding, style.border)
       .with_justify(style.justify)
       .with_align(style.align)
-    match base.with_gap(style.gap) {
+      .with_align_content(style.align_content)
+    match base.with_gaps(style.gap_x, style.gap_y) {
       Err(error) => Err(Flex(error))
       Ok(container) =>
         match
@@ -776,7 +847,8 @@ fn measure_container_axis(
           HeightAxis => vertical_insets
         }
         let gaps = if axis_is_main && count > 1 {
-          (count - 1).to_double() * style.gap
+          (count - 1).to_double() *
+          (if style.direction is Row { style.gap_x } else { style.gap_y })
         } else {
           0.0
         }

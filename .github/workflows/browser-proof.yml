@@ -51,6 +51,8 @@ jobs:
         run: vp install --frozen-lockfile
       - name: Check Vite+ browser tooling
         run: vp check
+      - name: Check layout playground published-record binding
+        run: vp run browser:layout:evidence
       - name: Test Electron/Tauri host bridge contracts
         run: vp run migration:host:test
       - name: Test browser clipboard and committed-text contracts
@@ -67,6 +69,7 @@ jobs:
         run: |
           vp run browser:smoke
           vp run browser:board:smoke
+          vp run browser:layout:smoke
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -80,6 +83,7 @@ jobs:
             _build/browser-board-mobile.png
             _build/browser-board-focus-*.png
             _build/browser-board-focus-paint.json
+            _build/browser-layout-*
           if-no-files-found: ignore
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:

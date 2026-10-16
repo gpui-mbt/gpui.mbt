@@ -81,6 +81,7 @@ pub struct Element {
   background : @primitives.Color?
   focusable : Bool
   pointer_events : Bool
+  // private fields
 }
 pub fn Element::into_element(Self) -> Self
 pub fn Element::new(@layout.FlexItem) -> Self
@@ -93,6 +94,7 @@ pub fn Element::with_child(Self, Self) -> Self
 pub fn Element::with_children_style(Self, @layout.FlexTreeStyle) -> Self
 pub fn Element::with_focusable(Self, Bool) -> Self
 pub fn Element::with_pointer_events(Self, Bool) -> Self
+pub fn Element::with_scroll_offset(Self, @primitives.Point) -> Self
 pub impl IntoElement for Element
 pub impl Render for Element
 
@@ -120,6 +122,7 @@ pub struct ElementNode {
   focusable : Bool
   pointer_events : Bool
   background : @primitives.Color?
+  // private fields
 }
 pub fn ElementNode::accepts_pointer_events(Self) -> Bool
 pub fn ElementNode::background(Self) -> @primitives.Color?
@@ -150,6 +153,8 @@ pub fn ElementTree::node(Self, UInt64) -> ElementNode?
 pub fn ElementTree::nodes(Self) -> Array[ElementNode]
 pub fn ElementTree::path_to_root(Self, UInt64) -> Result[Array[UInt64], ElementError]
 pub fn ElementTree::restore_focus(Self, FocusOwner?, FocusOwner) -> Self
+pub fn ElementTree::scroll_viewport(Self, UInt64) -> ScrollViewport?
+pub fn ElementTree::scroll_wheel(Self, @primitives.Point, Double, Double) -> Result[Array[ScrollViewport], ScrollError]
 pub fn ElementTree::to_scene(Self) -> @scene.Scene
 pub fn ElementTree::with_focus(Self, UInt64) -> Result[Self, ElementError]
 pub fn ElementTree::with_focus_owner(Self, FocusOwner) -> Result[Self, ElementError]
@@ -207,6 +212,14 @@ pub fn ScrollState::offset(Self) -> @primitives.Point
 pub fn ScrollState::scroll_by(Self, Double, Double) -> Result[Self, ScrollError]
 pub fn ScrollState::scroll_to(Self, Double, Double) -> Result[Self, ScrollError]
 pub fn ScrollState::with_sizes(Self, @primitives.Size, @primitives.Size) -> Self
+
+pub struct ScrollViewport {
+  // private fields
+}
+pub fn ScrollViewport::bounds(Self) -> @primitives.Rect
+pub fn ScrollViewport::id(Self) -> UInt64
+pub fn ScrollViewport::max_offset(Self) -> @primitives.Point
+pub fn ScrollViewport::offset(Self) -> @primitives.Point
 
 // Type aliases
 

@@ -65,6 +65,7 @@ pub struct ElementNode {
   focusable : Bool
   pointer_events : Bool
   background : @primitives.Color?
+  priv scroll_viewport : ScrollViewport?
 }
 
 ///|
@@ -80,6 +81,7 @@ pub fn ElementNode::new(
     focusable: false,
     pointer_events: true,
     background: None,
+    scroll_viewport: None,
   }
 }
 
@@ -135,6 +137,7 @@ pub fn ElementNode::with_focusable(
     focusable,
     pointer_events: self.pointer_events,
     background: self.background,
+    scroll_viewport: self.scroll_viewport,
   }
 }
 
@@ -150,6 +153,7 @@ pub fn ElementNode::with_pointer_events(
     focusable: self.focusable,
     pointer_events: enabled,
     background: self.background,
+    scroll_viewport: self.scroll_viewport,
   }
 }
 
@@ -165,6 +169,7 @@ pub fn ElementNode::with_background(
     focusable: self.focusable,
     pointer_events: self.pointer_events,
     background: color,
+    scroll_viewport: self.scroll_viewport,
   }
 }
 
@@ -400,10 +405,8 @@ pub fn ElementTree::hit_test(
     index -= 1
     let node = self.nodes[index]
     if node.pointer_events &&
-      position.x() >= node.bounds.left() &&
-      position.x() < node.bounds.right() &&
-      position.y() >= node.bounds.top() &&
-      position.y() < node.bounds.bottom() {
+      pointer_in_bounds(node.bounds, position) &&
+      self.within_scroll_clips(node, position) {
       hit = Some(node.id)
     }
   }
@@ -754,14 +757,35 @@ pub fn ElementTree::clear_focus(self : ElementTree) -> ElementTree {
 
 ///|
 /// Emit the deterministic headless scene for the currently supported element
-/// paint surface. Only background quads are emitted in this first slice.
+/// paint surface: background quads and balanced descendant scroll clips.
 pub fn ElementTree::to_scene(self : ElementTree) -> @scene.Scene {
   let commands : Array[@scene.PaintCommand] = []
+  let ancestors : Array[ElementNode] = []
   for node in self.nodes {
+    // Close each completed subtree before painting the next sibling/root.
+    while ancestors.length() > 0 &&
+          Some(ancestors[ancestors.length() - 1].id) != node.parent {
+      match ancestors.pop() {
+        Some(ancestor) if ancestor.scroll_viewport is Some(_) =>
+          commands.push(@scene.PaintCommand::clip_pop(ancestor.id))
+        _ => ()
+      }
+    }
     match node.background {
       None => ()
       Some(color) =>
         commands.push(@scene.PaintCommand::quad(node.id, node.bounds, color))
+    }
+    if node.scroll_viewport is Some(_) {
+      commands.push(@scene.PaintCommand::clip_push(node.id, node.bounds))
+    }
+    ancestors.push(node)
+  }
+  while ancestors.length() > 0 {
+    match ancestors.pop() {
+      Some(ancestor) if ancestor.scroll_viewport is Some(_) =>
+        commands.push(@scene.PaintCommand::clip_pop(ancestor.id))
+      _ => ()
     }
   }
   @scene.Scene::new(commands)

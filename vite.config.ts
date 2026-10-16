@@ -13,7 +13,7 @@ function initialMoonBitBuild(mode: "debug" | "release") {
     name: "gpui-initial-moonbit-build",
     enforce: "pre",
     configResolved() {
-      for (const entry of ["examples/browser", "examples/browser_board"]) {
+      for (const entry of ["examples/browser", "examples/browser_board", "examples/browser_layout"]) {
         execFileSync(
           process.env.MOON_BIN || "moon",
           [
@@ -102,6 +102,7 @@ export default defineConfig(({ command }) => {
         input: {
           board: resolve(siteRoot, "index.html"),
           proof: resolve(siteRoot, "proof.html"),
+          layout: resolve(siteRoot, "layout.html"),
         },
       },
     },

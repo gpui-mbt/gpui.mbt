@@ -8,7 +8,8 @@ GPUI layout-boundary behavior at a known device scale.
 The opt-in path keeps the stages distinct:
 
 1. Absolute authored flex lengths are rounded to the nearest device pixel,
-   with exact half-pixel ties toward zero. Percentage dimensions remain ratios.
+   with exact half-pixel ties toward zero. The horizontal and vertical authored
+   gaps are snapped independently. Percentage dimensions remain ratios.
 2. Measured intrinsic sizes are ceiled to device pixels. Nonzero border strokes
    remain at least one device pixel wide.
 3. Flex resolves in logical coordinates using those pre-rounded style values.

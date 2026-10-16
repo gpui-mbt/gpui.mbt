@@ -67,6 +67,8 @@ pub enum JustifyContent {
   Center
   End
   SpaceBetween
+  SpaceAround
+  SpaceEvenly
 } derive(Eq)
 
 ///|
@@ -90,6 +92,20 @@ pub fn JustifyContent::end() -> JustifyContent {
 ///|
 pub fn JustifyContent::space_between() -> JustifyContent {
   SpaceBetween
+}
+
+///|
+/// Distribute positive free space with half-sized outer spaces. An overflowing
+/// line falls back to start; a fitting singleton is centered.
+pub fn JustifyContent::space_around() -> JustifyContent {
+  SpaceAround
+}
+
+///|
+/// Distribute positive free space equally before, between, and after items.
+/// An overflowing line falls back to start; a fitting singleton is centered.
+pub fn JustifyContent::space_evenly() -> JustifyContent {
+  SpaceEvenly
 }
 
 ///|
@@ -122,6 +138,65 @@ pub fn AlignItems::end() -> AlignItems {
 ///|
 pub fn AlignItems::stretch() -> AlignItems {
   Stretch
+}
+
+///|
+/// Cross-axis placement of wrapped lines. Start and End are flex-relative,
+/// including under wrap-reverse; Center and End retain signed overflow space.
+/// Stretch is the default. Distributed modes preserve natural line sizes;
+/// they and Stretch use safe physical-start placement on overflow.
+pub enum AlignContent {
+  Start
+  Center
+  End
+  Stretch
+  SpaceBetween
+  SpaceAround
+  SpaceEvenly
+} derive(Eq)
+
+///|
+pub extend AlignContent with Eq::{not_equal, equal}
+
+///|
+pub fn AlignContent::start() -> AlignContent {
+  Start
+}
+
+///|
+pub fn AlignContent::center() -> AlignContent {
+  Center
+}
+
+///|
+pub fn AlignContent::end() -> AlignContent {
+  End
+}
+
+///|
+pub fn AlignContent::stretch() -> AlignContent {
+  Stretch
+}
+
+///|
+/// Distribute positive free cross space between wrapped lines. A fitting
+/// singleton stays at flex-start; overflow falls back to physical start.
+pub fn AlignContent::space_between() -> AlignContent {
+  SpaceBetween
+}
+
+///|
+/// Distribute positive free cross space with half-sized outer spaces.
+/// A fitting singleton is centered; overflow falls back to physical start.
+pub fn AlignContent::space_around() -> AlignContent {
+  SpaceAround
+}
+
+///|
+/// Distribute positive free cross space equally before, between, and after
+/// wrapped lines. A fitting singleton is centered; overflow uses physical start.
+pub fn AlignContent::space_evenly() -> AlignContent {
+  SpaceEvenly
 }
 
 ///|
@@ -408,11 +483,13 @@ pub struct FlexContainer {
   direction : FlowDirection
   wrap : FlexWrap
   size : @primitives.Size
-  gap : Double
+  gap_x : Double
+  gap_y : Double
   padding : Insets
   border : Insets
   justify : JustifyContent
   align : AlignItems
+  align_content : AlignContent
 }
 
 ///|
@@ -424,33 +501,67 @@ pub fn FlexContainer::new(
     direction,
     wrap: FlexWrap::no_wrap(),
     size,
-    gap: 0.0,
+    gap_x: 0.0,
+    gap_y: 0.0,
     padding: Insets::zero(),
     border: Insets::zero(),
     justify: Start,
     align: AlignItems::Start,
+    align_content: AlignContent::stretch(),
   }
 }
 
 ///|
+/// Set both physical gaps, replacing any earlier axis-specific settings.
 pub fn FlexContainer::with_gap(
   self : FlexContainer,
   gap : Double,
 ) -> Result[FlexContainer, LayoutError] {
-  if !finite(gap) {
+  self.with_gaps(gap, gap)
+}
+
+///|
+/// Set the physical horizontal gap while preserving the vertical gap.
+/// This is the item gap in rows and the line gap in wrapped columns.
+pub fn FlexContainer::with_gap_x(
+  self : FlexContainer,
+  gap : Double,
+) -> Result[FlexContainer, LayoutError] {
+  self.with_gaps(gap, self.gap_y)
+}
+
+///|
+/// Set the physical vertical gap while preserving the horizontal gap.
+/// This is the item gap in columns and the line gap in wrapped rows.
+pub fn FlexContainer::with_gap_y(
+  self : FlexContainer,
+  gap : Double,
+) -> Result[FlexContainer, LayoutError] {
+  self.with_gaps(self.gap_x, gap)
+}
+
+///|
+fn FlexContainer::with_gaps(
+  self : FlexContainer,
+  gap_x : Double,
+  gap_y : Double,
+) -> Result[FlexContainer, LayoutError] {
+  if !finite(gap_x) || !finite(gap_y) {
     Err(NonFiniteValue)
-  } else if gap < 0.0 {
+  } else if gap_x < 0.0 || gap_y < 0.0 {
     Err(NegativeValue)
   } else {
     Ok({
       direction: self.direction,
       wrap: self.wrap,
       size: self.size,
-      gap,
+      gap_x,
+      gap_y,
       padding: self.padding,
       border: self.border,
       justify: self.justify,
       align: self.align,
+      align_content: self.align_content,
     })
   }
 }
@@ -465,11 +576,13 @@ pub fn FlexContainer::with_insets(
     direction: self.direction,
     wrap: self.wrap,
     size: self.size,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding,
     border,
     justify: self.justify,
     align: self.align,
+    align_content: self.align_content,
   }
 }
 
@@ -482,11 +595,13 @@ pub fn FlexContainer::with_justify(
     direction: self.direction,
     wrap: self.wrap,
     size: self.size,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding: self.padding,
     border: self.border,
     justify,
     align: self.align,
+    align_content: self.align_content,
   }
 }
 
@@ -499,11 +614,13 @@ pub fn FlexContainer::with_align(
     direction: self.direction,
     wrap: self.wrap,
     size: self.size,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding: self.padding,
     border: self.border,
     justify: self.justify,
     align,
+    align_content: self.align_content,
   }
 }
 
@@ -516,11 +633,52 @@ pub fn FlexContainer::with_wrap(
     direction: self.direction,
     wrap,
     size: self.size,
-    gap: self.gap,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
     padding: self.padding,
     border: self.border,
     justify: self.justify,
     align: self.align,
+    align_content: self.align_content,
+  }
+}
+
+///|
+/// Align wrapped lines within the inner cross extent. NoWrap ignores this
+/// setting and continues to use AlignItems for its single line.
+pub fn FlexContainer::with_align_content(
+  self : FlexContainer,
+  align_content : AlignContent,
+) -> FlexContainer {
+  {
+    direction: self.direction,
+    wrap: self.wrap,
+    size: self.size,
+    gap_x: self.gap_x,
+    gap_y: self.gap_y,
+    padding: self.padding,
+    border: self.border,
+    justify: self.justify,
+    align: self.align,
+    align_content,
+  }
+}
+
+///|
+fn FlexContainer::main_gap(self : FlexContainer) -> Double {
+  if self.direction is Row {
+    self.gap_x
+  } else {
+    self.gap_y
+  }
+}
+
+///|
+fn FlexContainer::cross_gap(self : FlexContainer) -> Double {
+  if self.direction is Row {
+    self.gap_y
+  } else {
+    self.gap_x
   }
 }
 
@@ -825,6 +983,37 @@ fn prepare_items(
 }
 
 ///|
+// Return the leading offset and extra inter-item space for one resolved line.
+// Keep wrapped and unwrapped placement on the same bounded GPUI semantics.
+fn main_spacing(
+  justify : JustifyContent,
+  count : Int32,
+  leftover : Double,
+) -> (Double, Double) {
+  match justify {
+    Start => (0.0, 0.0)
+    Center => (leftover / 2.0, 0.0)
+    End => (leftover, 0.0)
+    SpaceBetween =>
+      if count > 1 && leftover > 0.0 {
+        (0.0, leftover / (count - 1).to_double())
+      } else {
+        (0.0, 0.0)
+      }
+    SpaceAround | SpaceEvenly =>
+      if count == 0 || leftover <= 0.0 {
+        (0.0, 0.0)
+      } else if justify is SpaceAround {
+        let space = leftover / count.to_double()
+        (space / 2.0, space)
+      } else {
+        let space = leftover / (count.to_double() + 1.0)
+        (space, space)
+      }
+  }
+}
+
+///|
 fn place_items(
   container : FlexContainer,
   prepared : Array[PreparedItem],
@@ -834,7 +1023,7 @@ fn place_items(
 ) -> Result[FlexLayout, LayoutError] {
   let count = prepared.length()
   let gaps = if count > 1 {
-    (count - 1).to_double() * container.gap
+    (count - 1).to_double() * container.main_gap()
   } else {
     0.0
   }
@@ -845,20 +1034,12 @@ fn place_items(
       Err(error) => Err(error)
       Ok((resolved, used)) => {
         let leftover = main_extent - used
-        // GPUI/Taffy falls back to start placement when there is no positive
-        // free space. With zero or one item there is no inter-item gap to share.
-        let between_extra = if container.justify is JustifyContent::SpaceBetween &&
-          count > 1 &&
-          leftover > 0.0 {
-          leftover / (count - 1).to_double()
-        } else {
-          0.0
-        }
-        let mut cursor = match container.justify {
-          JustifyContent::Start | SpaceBetween => 0.0
-          Center => leftover / 2.0
-          End => leftover
-        }
+        let (leading, between_extra) = main_spacing(
+          container.justify,
+          count,
+          leftover,
+        )
+        let mut cursor = leading
         let output : Array[LayoutBox] = []
         let mut any_overflow = exceeds_with_tolerance(used, main_extent)
         let mut error : LayoutError? = None
@@ -909,7 +1090,7 @@ fn place_items(
               output.push({ id: entry.item.id, bounds, overflow, })
             }
           }
-          cursor += main_size + container.gap + between_extra
+          cursor += main_size + container.main_gap() + between_extra
           index += 1
         }
         match error {
@@ -943,7 +1124,7 @@ fn place_wrapped_items(
       entry.item.min_main,
       entry.item.max_main,
     )
-    let gap = if current.length() == 0 { 0.0 } else { container.gap }
+    let gap = if current.length() == 0 { 0.0 } else { container.main_gap() }
     let proposed = line_length + gap + hypothetical
     if !finite(proposed) || !finite(hypothetical) {
       line_error = Some(NonFiniteValue)
@@ -956,7 +1137,11 @@ fn place_wrapped_items(
         current = []
         line_length = 0.0
       }
-      let next_gap = if current.length() == 0 { 0.0 } else { container.gap }
+      let next_gap = if current.length() == 0 {
+        0.0
+      } else {
+        container.main_gap()
+      }
       line_length += next_gap + hypothetical
       current.push(entry)
     }
@@ -973,7 +1158,7 @@ fn place_wrapped_items(
       let mut error : LayoutError? = None
       for line in lines {
         let gaps = if line.length() > 1 {
-          (line.length() - 1).to_double() * container.gap
+          (line.length() - 1).to_double() * container.main_gap()
         } else {
           0.0
         }
@@ -1000,7 +1185,7 @@ fn place_wrapped_items(
         Some(value) => Err(value)
         None => {
           let line_gap_total = if lines.length() > 1 {
-            (lines.length() - 1).to_double() * container.gap
+            (lines.length() - 1).to_double() * container.cross_gap()
           } else {
             0.0
           }
@@ -1011,7 +1196,9 @@ fn place_wrapped_items(
           if !finite(line_gap_total) || !finite(cross_total) {
             Err(NonFiniteValue)
           } else {
-            if lines.length() > 0 && cross_total < cross_extent {
+            if container.align_content is AlignContent::Stretch &&
+              lines.length() > 0 &&
+              cross_total < cross_extent {
               let addition = (cross_extent - cross_total) /
                 lines.length().to_double()
               for index = 0
@@ -1045,37 +1232,91 @@ fn place_wrapped_lines(
   cross_extent : Double,
 ) -> Result[FlexLayout, LayoutError] {
   let line_offsets : Array[Double] = Array::make(lines.length(), 0.0)
-  if container.wrap is FlexWrap::WrapReverse &&
-    exceeds_with_tolerance(cross_total, cross_extent) {
-    // Taffy's default align-content uses safe-start when lines overflow. With
-    // wrap-reverse, line order is reversed from the physical cross start; it
-    // must not be bottom/right anchored beyond the container.
-    let mut cross_cursor = 0.0
-    let mut index = lines.length() - 1
-    while index >= 0 {
-      let line_size = line_cross_sizes[index]
-      line_offsets[index] = cross_cursor
-      cross_cursor += line_size + container.gap
-      index -= 1
-    }
-  } else if container.wrap is FlexWrap::WrapReverse {
-    let mut cross_cursor = cross_extent
-    let mut index = 0
-    while index < lines.length() {
-      let line_size = line_cross_sizes[index]
-      cross_cursor -= line_size
-      line_offsets[index] = cross_cursor
-      cross_cursor -= container.gap
-      index += 1
+  let cross_free = cross_extent - cross_total
+  let distributed = match container.align_content {
+    AlignContent::SpaceBetween
+    | AlignContent::SpaceAround
+    | AlignContent::SpaceEvenly => true
+    _ => false
+  }
+  let (leading, between_extra) = match container.align_content {
+    AlignContent::SpaceBetween =>
+      main_spacing(SpaceBetween, lines.length(), cross_free)
+    AlignContent::SpaceAround =>
+      main_spacing(SpaceAround, lines.length(), cross_free)
+    AlignContent::SpaceEvenly =>
+      main_spacing(SpaceEvenly, lines.length(), cross_free)
+    _ => (0.0, 0.0)
+  }
+  let line_gap = container.cross_gap() + between_extra
+  if container.wrap is FlexWrap::WrapReverse {
+    if container.align_content is AlignContent::End ||
+      (
+        container.align_content is AlignContent::Stretch &&
+        exceeds_with_tolerance(cross_total, cross_extent)
+      ) ||
+      (distributed && cross_free <= 0.0) {
+      // Flex-relative end, overflowing default stretch, and nonpositive
+      // distributed spacing anchor the stack at physical start. Accumulate
+      // from that edge: cancellation must not move the safe outer boundary.
+      let mut cross_cursor = 0.0
+      let mut index = lines.length() - 1
+      while index >= 0 {
+        let line_size = line_cross_sizes[index]
+        line_offsets[index] = cross_cursor
+        cross_cursor += line_size + line_gap
+        index -= 1
+      }
+    } else if distributed && lines.length() > 1 {
+      // Build positive distributed spacing from the physical near edge too.
+      // Subtracting a very large first line from the far edge can erase the
+      // small lines and gaps that follow it. Anchor the opposite outer line
+      // independently so both boundaries survive that cancellation.
+      let mut cross_cursor = leading
+      let mut index = lines.length() - 1
+      while index >= 0 {
+        line_offsets[index] = cross_cursor
+        cross_cursor += line_cross_sizes[index] + line_gap
+        index -= 1
+      }
+      line_offsets[0] = cross_extent - leading - line_cross_sizes[0]
+    } else {
+      // Flex-relative start is anchored directly at the inner far edge.
+      // The half-sum centers the stack without overflowing a full sum or
+      // cancelling a small cross extent against a much larger line total.
+      let mut cross_cursor = if container.align_content is AlignContent::Center {
+        cross_extent / 2.0 + cross_total / 2.0
+      } else {
+        cross_extent - leading
+      }
+      let mut index = 0
+      while index < lines.length() {
+        let line_size = line_cross_sizes[index]
+        cross_cursor -= line_size
+        line_offsets[index] = cross_cursor
+        cross_cursor -= line_gap
+        index += 1
+      }
     }
   } else {
-    let mut cross_cursor = 0.0
+    let mut cross_cursor = match container.align_content {
+      AlignContent::Start | AlignContent::Stretch => 0.0
+      AlignContent::Center => cross_free / 2.0
+      AlignContent::End => cross_free
+      AlignContent::SpaceBetween
+      | AlignContent::SpaceAround
+      | AlignContent::SpaceEvenly => leading
+    }
     let mut index = 0
     while index < lines.length() {
       let line_size = line_cross_sizes[index]
       line_offsets[index] = cross_cursor
-      cross_cursor += line_size + container.gap
+      cross_cursor += line_size + line_gap
       index += 1
+    }
+    if distributed && cross_free > 0.0 && lines.length() > 1 {
+      let last = lines.length() - 1
+      line_offsets[last] = cross_extent - leading - line_cross_sizes[last]
     }
   }
   let output : Array[LayoutBox] = []
@@ -1088,20 +1329,12 @@ fn place_wrapped_lines(
     let line_cross = line_cross_sizes[line_index]
     let cross_line_start = line_offsets[line_index]
     let leftover = main_extent - line_used
-    // Distribute independently within this line. Overflow follows Taffy's
-    // start fallback, and a singleton line has no between-item gap.
-    let between_extra = if container.justify is JustifyContent::SpaceBetween &&
-      line.length() > 1 &&
-      leftover > 0.0 {
-      leftover / (line.length() - 1).to_double()
-    } else {
-      0.0
-    }
-    let mut main_cursor = match container.justify {
-      JustifyContent::Start | SpaceBetween => 0.0
-      Center => leftover / 2.0
-      End => leftover
-    }
+    let (leading, between_extra) = main_spacing(
+      container.justify,
+      line.length(),
+      leftover,
+    )
+    let mut main_cursor = leading
     for item_index = 0; item_index < line.length(); item_index = item_index + 1 {
       let entry = line[item_index]
       let main_size = sizes[item_index]
@@ -1174,7 +1407,7 @@ fn place_wrapped_lines(
           output.push({ id: entry.item.id, bounds, overflow, })
         }
       }
-      main_cursor += main_size + container.gap + between_extra
+      main_cursor += main_size + container.main_gap() + between_extra
     }
   }
   match error {

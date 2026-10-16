@@ -223,6 +223,130 @@
         "No wrapping, margins, intrinsic minimum, full CSS/binary32 parity, native pixel, physical input or IME claim.",
         "Inspected dependency: taffy 0.13.0, MIT (Cargo.toml and LICENSE); src/compute/flexbox.rs; locked crate SHA-256 c034e05f6ee85a12daa63863c2245797715075c70649947aa0da54f3f2ab1d0f."
       ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": [
+        "crates/gpui/src/style.rs",
+        "crates/gpui/src/app/test_context.rs"
+      ],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares Apache-2.0; existing pinned package license evidence is unchanged."
+        }
+      ],
+      "destination_paths": [
+        "layout/layout.mbt",
+        "layout/tree.mbt",
+        "layout/align_content_test.mbt",
+        "docs/conformance-align-content.md"
+      ],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "This earlier slice adds Start, Center, End, and Stretch align-content for definite wrapped row/column containers; distributed modes are recorded separately below.",
+        "The pinned public content_start/content_end methods are flex-relative, including wrap-reverse. Explicit modes retain signed overflow; default Stretch retains safe physical-start overflow.",
+        "Observed through actual pinned GPUI headless execution of 36 independently authored cases: 15 baseline controls pass and 21 cases expose the earlier missing content-alignment capability.",
+        "Builders, recursive tree placement, and device-scale style preparation preserve the field. NoWrap and the existing no-wrap recursive intrinsic-sizing approximation are unchanged.",
+        "Original implementation and regression examples; no upstream implementation or test fixture was copied. MoonBit retains binary64 geometry, and no full CSS, native pixels, physical input, or IME compatibility is claimed."
+      ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": [
+        "crates/gpui/src/style.rs",
+        "crates/gpui/src/app/test_context.rs"
+      ],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares Apache-2.0; existing pinned package license evidence is unchanged."
+        }
+      ],
+      "destination_paths": [
+        "layout/layout.mbt",
+        "layout/content_distribution_test.mbt",
+        "docs/conformance-content-distribution.md"
+      ],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Adds SpaceBetween, SpaceAround, and SpaceEvenly wrapped-line content distribution for definite row/column containers. Positive free space changes inter-line spacing, not line sizes or existing main-axis item gaps.",
+        "All three distributed modes use the measured safe physical-start overflow fallback, including wrap-reverse. A fitting singleton stays at flex-start for between and is centered for around/evenly.",
+        "Observed through actual pinned GPUI headless execution of 42 independently authored cases: 20 baseline controls pass and 22 cases expose the previously absent capability. A separate three-case reverse singleton-overflow check confirms preserved within-line alignment.",
+        "Existing Start, Center, End, Stretch, NoWrap, tree builders, device-scale style copying, and no-wrap recursive intrinsic measurement remain unchanged. Independent near/far anchoring protects finite large-ratio distributed line edges.",
+        "Original implementation and regression cases; no upstream implementation or fixture was copied. MoonBit retains binary64 geometry. The headless evidence does not establish full CSS, native pixels, physical input, or IME parity."
+      ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": [
+        "crates/gpui/src/style.rs",
+        "crates/gpui/src/styled.rs",
+        "crates/gpui/src/app/test_context.rs"
+      ],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares Apache-2.0; existing pinned package license evidence is unchanged."
+        }
+      ],
+      "destination_paths": [
+        "layout/layout.mbt",
+        "layout/tree.mbt",
+        "layout/axis_gaps_test.mbt",
+        "docs/conformance-axis-gaps.md"
+      ],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Adds independent physical horizontal and vertical gaps through validated immutable builders. The legacy gap setter replaces both axes; individual setters preserve the other axis, including explicit zero.",
+        "Row and column flow select the main gap for line breaks, flexible sizing, justification, and the existing no-wrap intrinsic measurement approximation; wrapped content alignment uses only the cross gap.",
+        "Both gaps survive recursive instantiation and are independently snapped as authored lengths before the opt-in device-scale layout path.",
+        "Observed through actual pinned GPUI headless execution using its public gap_x/gap_y APIs and 36 independently authored cases: four baseline controls agree and 32 expose the missing capability. Nine separate subpixel probes cover authored snapping and exact-fit line breaks.",
+        "Implementation and regressions were independently written without copying upstream implementation or fixtures. Equal-gap behavior and binary64 geometry remain unchanged; percentage gaps, full CSS, native pixels, physical input, and IME parity are outside scope."
+      ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": [
+        "crates/gpui/examples/scrollable.rs",
+        "crates/gpui/src/elements/div.rs",
+        "crates/gpui/src/window.rs",
+        "crates/gpui/src/style.rs"
+      ],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares license = Apache-2.0; its LICENSE-APACHE symlink resolves to the root Apache License 2.0 text."
+        }
+      ],
+      "destination_paths": [
+        "element/element.mbt",
+        "element/lifecycle.mbt",
+        "element/scroll_viewport.mbt",
+        "element/scroll_viewport_test.mbt",
+        "element/scroll_viewport_wbtest.mbt",
+        "docs/element-scroll-viewports.md"
+      ],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Independent bounded two-axis integration: direct-child content union plus padding determines rounded limits; descendants translate and clip; half-open hit tests intersect all ancestor viewports; dominant-axis wheel deltas reach each eligible ancestor unchanged. No upstream source, test bodies, fixtures or assets were copied.",
+        "The separate browser execution harness pins 5a5fbe79917971a4d52a96b6ddb04da198a5012e. The selected example (blob c81795618875aecf06e06043bd1709c48630b58f), relevant div.rs production sections, and scoped mask/offset/wheel functions were verified byte-identical to the unchanged repository compatibility pin. This does not update that global pin.",
+        "The unchanged-main baseline cannot compile the new viewport API. Original source-derived contract tests and translation/hit-clipping mutation controls exercise the implementation; actual Rust browser paired execution remains pending and is not implied by those tests.",
+        "Viewport-rectangle masks exclude visible-border inset behavior; wheel routing follows the selected target ancestry rather than unrelated overlapping hitboxes. These bounds cover the borderless nested scroll viewports in scrollable.rs.",
+        "One-axis overflow, axis fallback, concurrent diagonal movement, gesture locking, line/precise conversion, inertia, scrollbars, anchoring, reveal/focus scrolling and native-window rendering remain outside this slice. No general GPUI, GPU-pixel or physical-input parity claim."
+      ]
     }
   ]
 }

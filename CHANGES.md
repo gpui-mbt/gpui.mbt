@@ -4,6 +4,18 @@
 
 ### Added
 
+- Add independent physical horizontal and vertical flex gaps to direct containers
+  and recursive styles, including builder resets, intrinsic sizing, and device-scale
+  snapping. (`docs/conformance-axis-gaps.md`)
+
+- Add space-between/space-around/space-evenly wrapped-line content distribution,
+  preserving natural line sizes, safe overflow, and nested device-scale layout.
+  (`docs/conformance-content-distribution.md`)
+
+- Add start/center/end/stretch wrapped-line content alignment to direct flex
+  containers and recursive tree styles, preserving default stretch and nowrap.
+  (`docs/conformance-align-content.md`)
+
 - Add an opt-in GPUI device-scale layout boundary while preserving raw logical
   layout by default. (`docs/conformance-device-scale.md`)
 - Add macOS background-host startup with hidden windows and explicit
