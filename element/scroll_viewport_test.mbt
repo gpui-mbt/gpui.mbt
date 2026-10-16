@@ -481,3 +481,124 @@ test "scroll device-scale traversal retains unsnapped ancestors and rounds ties 
   assert_true(viewport_of(tie, 1).offset() == element_point(0, 0.25))
   assert_true(viewport_of(tie, 4).offset() == element_point(0.75, 0.5))
 }
+
+///|
+fn viewport_axis_gaps(
+  direction : @layout.FlowDirection,
+) -> @layout.FlexTreeStyle {
+  let horizontal = match
+    @layout.FlexTreeStyle::new(direction).with_gap_x(3.25) {
+    Ok(value) => value
+    Err(_) => abort("valid horizontal gap rejected")
+  }
+  match horizontal.with_gap_y(7.75) {
+    Ok(value) => value
+    Err(_) => abort("valid vertical gap rejected")
+  }
+}
+
+///|
+test "scroll limits use the physical item gap and its device-scale value" {
+  for
+    direction in [@layout.FlowDirection::row(), @layout.FlowDirection::column()] {
+    let root = @element.Element::root(1, viewport_axis_gaps(direction))
+      .with_scroll_offset(element_point(999, 999))
+      .with_child(@element.Element::new(viewport_item(2, 60, 50)))
+      .with_child(@element.Element::new(viewport_item(3, 60, 50)))
+    let raw = viewport_prepaint(root, 100, 100).tree()
+    let snapped = viewport_scaled(root).tree()
+    let row = direction is @layout.Row
+    let raw_limit = if row {
+      element_point(23.25, 0)
+    } else {
+      element_point(0, 27.75)
+    }
+    let snapped_limit = if row {
+      element_point(23, 0)
+    } else {
+      element_point(0, 27.5)
+    }
+    assert_true(viewport_of(raw, 1).max_offset() == raw_limit)
+    assert_true(viewport_of(raw, 1).offset() == raw_limit)
+    assert_true(viewport_of(snapped, 1).max_offset() == snapped_limit)
+    assert_true(viewport_of(snapped, 1).offset() == snapped_limit)
+    let final_child = if row {
+      element_rect(40, 0, 60, 50)
+    } else {
+      element_rect(0, 40, 50, 60)
+    }
+    assert_true(viewport_node(raw, 3).bounds() == final_child)
+    assert_true(viewport_node(snapped, 3).bounds() == final_child)
+    assert_true(raw.hit_test(element_point(45, 45)) == Some(3))
+    assert_true(snapped.hit_test(element_point(45, 45)) == Some(3))
+    assert_true(raw.hit_test(element_point(-0.01, -0.01)) is None)
+    assert_true(snapped.hit_test(element_point(-0.01, -0.01)) is None)
+  }
+}
+
+///|
+test "wrapped scroll limits preserve independent item and line gaps at device scale" {
+  for
+    direction in [@layout.FlowDirection::row(), @layout.FlowDirection::column()] {
+    let style = viewport_axis_gaps(direction)
+      .with_wrap(@layout.FlexWrap::wrap())
+      .with_align_content(@layout.AlignContent::start())
+    let root = @element.Element::root(1, style)
+      .with_scroll_offset(element_point(999, 999))
+      .with_child(@element.Element::new(viewport_item(2, 40, 60)))
+      .with_child(@element.Element::new(viewport_item(3, 40, 60)))
+      .with_child(@element.Element::new(viewport_item(4, 40, 60)))
+    let raw = viewport_prepaint(root, 100, 100).tree()
+    let snapped = viewport_scaled(root).tree()
+    let row = direction is @layout.Row
+    let raw_limit = if row {
+      element_point(0, 27.75)
+    } else {
+      element_point(23.25, 0)
+    }
+    let snapped_limit = if row {
+      element_point(0, 27.5)
+    } else {
+      element_point(23, 0)
+    }
+    assert_true(viewport_of(raw, 1).max_offset() == raw_limit)
+    assert_true(viewport_of(raw, 1).offset() == raw_limit)
+    assert_true(viewport_of(snapped, 1).max_offset() == snapped_limit)
+    assert_true(viewport_of(snapped, 1).offset() == snapped_limit)
+    let raw_second = if row {
+      element_rect(43.25, -27.75, 40, 60)
+    } else {
+      element_rect(-23.25, 47.75, 60, 40)
+    }
+    let snapped_second = if row {
+      element_rect(43, -27.5, 40, 60)
+    } else {
+      element_rect(-23, 47.5, 60, 40)
+    }
+    assert_true(viewport_node(raw, 3).bounds() == raw_second)
+    assert_true(viewport_node(snapped, 3).bounds() == snapped_second)
+    let final_child = if row {
+      element_rect(0, 40, 40, 60)
+    } else {
+      element_rect(40, 0, 60, 40)
+    }
+    assert_true(viewport_node(raw, 4).bounds() == final_child)
+    assert_true(viewport_node(snapped, 4).bounds() == final_child)
+    let inside_last = if row {
+      element_point(20, 99.99)
+    } else {
+      element_point(99.99, 20)
+    }
+    let outside_last = if row {
+      element_point(20, 100)
+    } else {
+      element_point(100, 20)
+    }
+    assert_true(raw.hit_test(inside_last) == Some(4))
+    assert_true(snapped.hit_test(inside_last) == Some(4))
+    assert_true(raw.hit_test(outside_last) is None)
+    assert_true(snapped.hit_test(outside_last) is None)
+    assert_true(raw.to_scene().validate() is Ok(_))
+    assert_true(snapped.to_scene().validate() is Ok(_))
+  }
+}

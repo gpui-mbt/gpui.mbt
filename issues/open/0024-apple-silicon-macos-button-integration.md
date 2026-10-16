@@ -234,6 +234,21 @@ existing experimental macOS support claim.
 
 ## 注記
 
+- 2026-10-15: Current-source external AX acceptance remains unqualified. The
+  [cross-repository investigation](https://github.com/gpui-mbt/gpui-conformance/blob/test/20261015-ax-appkit-isolation/AX_COMPARISON_INVESTIGATION.md)
+  confirms that the external client and bundle build script are unchanged
+  between historical-success documentation commit `21a50ce` and failed
+  catch-up `99f4b91`; bundle registration readiness alone did not establish
+  AXWindow readiness. Conformance's newer AXApplication self-alias is distinct
+  from this sample's recorded unavailable AXWindows result. Root cause is
+  undetermined. An isolated stock AppKit regression control now separates
+  engine hierarchy, packaging, event retrieval and publication delay; native
+  execution is still unrun. This investigation used Linux and made no GUI,
+  AXPress, activation or permission changes. The existing `--all` harness
+  starts the regular-policy host and activates its window, so it must not be
+  used while nonactivation is required. Keep the final-source real-client and
+  independent review gates open; historical passes and stock-control results
+  cannot satisfy them.
 - 2026-10-10: Stage A is merged; Stage B is the sole new packet. This repo
   retains open/done/closed issue locations; keep this issue in `open` while
   broader acceptance remains. Existing local changes and peer work are

@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add independent physical horizontal and vertical flex gaps to direct containers
+  and recursive styles, including builder resets, intrinsic sizing, and device-scale
+  snapping. (`docs/conformance-axis-gaps.md`)
+
 - Add space-between/space-around/space-evenly wrapped-line content distribution,
   preserving natural line sizes, safe overflow, and nested device-scale layout.
   (`docs/conformance-content-distribution.md`)
