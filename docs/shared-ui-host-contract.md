@@ -195,9 +195,10 @@ any unknown difference fails. Missing output does not pass. A loading
 A native compiler run here remains a headless Linux process, not Linux GUI,
 Windows, macOS, browser DOM, IME or assistive-technology qualification.
 
-The audit does not modify manifests or CI. Integration must run the fixture
-command against the exact proposed GPUI and Yami heads and retain those artifacts;
-existing aggregate tests alone do not execute this external-consumer comparison.
+The audit runner does not modify source manifests. The contracts workflow runs
+the fixture command on all four compiler targets against the exact proposed GPUI
+head and the pinned Yami revision, then retains the comparison artifacts.
+Existing aggregate tests alone do not execute this external-consumer comparison.
 Final publication still requires exact-head CI and independent review.
 
 [plan]: https://github.com/f4ah6o/Yami-kumo/blob/21d85061e7445c479b483bcffa12679f7730d89a/docs/roadmaps/20261017-four-platform-gui/ROADMAP.md
