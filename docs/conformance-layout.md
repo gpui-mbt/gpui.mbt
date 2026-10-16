@@ -42,3 +42,17 @@ contain executable hashes, source revisions/trees, toolchain/platform versions,
 raw process output, and field-level comparison results. This evidence does
 not establish full CSS flex behavior, broader GPUI layout compatibility,
 pixel equivalence, physical input, or IME support.
+
+## `space-between` capability addition
+
+`JustifyContent::space_between()` adds a previously absent main-axis mode. When
+there are at least two items and the resolved line has positive free space, the
+engine distributes that free space equally across its inter-item spaces. Empty
+and singleton lists do not divide by a zero or nonexistent gap; zero/negative
+free space preserves the independently measured GPUI start-placement fallback.
+Wrapped containers compute the share per line, rather than carrying spacing
+between lines. Existing start/center/end behavior, raw logical geometry, and
+scale-relative overflow/exact-fit tolerance are unchanged. The tests cover
+rows, columns, empty/singleton lists, overflow, and wrapped lines. This adds only
+this bounded mode; it does not claim complete CSS flexbox or GPUI styling
+parity.

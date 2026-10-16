@@ -86,6 +86,7 @@ pub fn Element::into_element(Self) -> Self
 pub fn Element::new(@layout.FlexItem) -> Self
 pub fn Element::render(Self) -> Self
 pub fn Element::request_layout(Self, @primitives.Size) -> Result[RequestedLayout, ElementError]
+pub fn Element::request_layout_with_device_scale(Self, @primitives.Size, Double) -> Result[RequestedLayout, ElementError]
 pub fn Element::root(UInt64, @layout.FlexTreeStyle) -> Self
 pub fn Element::with_background(Self, @primitives.Color?) -> Self
 pub fn Element::with_child(Self, Self) -> Self

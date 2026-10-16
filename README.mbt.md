@@ -7,7 +7,7 @@ Build GPUI-style user interfaces in MoonBit.
 ## What you can use today
 
 - **Application state** — `App`, typed `Entity[T]`, scoped updates, subscriptions, explicit notifications, deterministic queued work, and manually advanced timers.
-- **Layout and interaction** — deterministic row/column flex layout, recursive layout trees, hit testing, capture/bubble pointer dispatch, stop-propagation, focus state, and portable [scroll state](element/scroll.mbt) and [drag gestures](element/drag.mbt).
+- **Layout and interaction** — deterministic row/column flex layout, recursive layout trees, an opt-in device-scale layout boundary, hit testing, capture/bubble pointer dispatch, stop-propagation, focus state, and portable [scroll state](element/scroll.mbt) and [drag gestures](element/drag.mbt).
 - **Scene data** — ordered quads and bounded plain-text items, rectangle clip chains, affine transforms, opacity, and canonical `SceneSnapshot` data. The browser uses its system font; experimental Ubuntu, Windows, and macOS renderers draw documented grayscale subsets. macOS uses CoreText system sans for bounded single-line text; this does not add an editor or IME.
 - **Linux text** — merged [PR #27](https://github.com/f4ah6o/gpui.mbt/pull/27) provides copied PangoFT2 measurement, caret, and hit-test geometry; Ubuntu's GLES host now also presents supported plain-text items through grayscale masks. This is not text input, an editor, or a general Linux support claim; see the [Linux text guide](docs/linux-text.md).
 - **Semantic capabilities** — one typed operation can be bound to GUI actions, direct MoonBit calls, and optional MCP dispatch with shared domain validation. A checked JavaScript stdio fixture exercises the pinned stateless MCP wire adapter.
@@ -145,6 +145,7 @@ Subscriptions are explicitly canceled with `unsubscribe`. Deterministic timer te
 - [Portable text value model](docs/text-model.md)
 - [Linux text measurement and Ubuntu grayscale drawing](docs/linux-text.md)
 - [GPUI compatibility matrix](docs/compatibility.md)
+- [Device-scale layout boundaries](docs/conformance-device-scale.md)
 - [macOS native host](docs/macos-native.md)
 - [Ubuntu / Wayland host](docs/ubuntu.md)
 - [Windows reusable Button fixture](docs/windows-button.md)
