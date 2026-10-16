@@ -15,7 +15,7 @@ fn report(error : @diagnostics.FrameworkError) -> Unit {
 fn mac_paste_session_current(
   host : @macos.Host,
   owner : MacTextOwner?,
-  epoch_before : Int?,
+  epoch_before : Int32?,
 ) -> Bool {
   match (epoch_before, owner) {
     (Some(before), Some(value)) => {

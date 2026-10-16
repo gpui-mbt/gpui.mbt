@@ -2,7 +2,7 @@
 /// Owner-thread Win32 host. All HWND, DXGI and D3D11 objects remain private to
 /// the native shim; callers exchange only framework values and snapshots.
 pub struct Host {
-  priv token : Int
+  priv token : Int32
   priv mut stopped : Bool
 }
 
@@ -17,147 +17,147 @@ pub(all) enum HostState {
 pub extend HostState with Eq::{not_equal, equal}
 
 ///|
-extern "C" fn native_start(version : Int) -> Int = "gpui_windows_start"
+extern "C" fn native_start(version : Int32) -> Int32 = "gpui_windows_start"
 
 ///|
-extern "C" fn native_stop(host : Int) -> Int = "gpui_windows_stop"
+extern "C" fn native_stop(host : Int32) -> Int32 = "gpui_windows_stop"
 
 ///|
-extern "C" fn native_state(host : Int) -> Int = "gpui_windows_state"
+extern "C" fn native_state(host : Int32) -> Int32 = "gpui_windows_state"
 
 ///|
-extern "C" fn native_wake(host : Int) -> Int = "gpui_windows_wake"
+extern "C" fn native_wake(host : Int32) -> Int32 = "gpui_windows_wake"
 
 ///|
-extern "C" fn native_exit(host : Int) -> Int = "gpui_windows_exit"
+extern "C" fn native_exit(host : Int32) -> Int32 = "gpui_windows_exit"
 
 ///|
 #borrow(title)
 extern "C" fn native_create(
-  host : Int,
-  width : Int,
-  height : Int,
+  host : Int32,
+  width : Int32,
+  height : Int32,
   title : Bytes,
-  length : Int,
-) -> Int = "gpui_windows_create"
+  length : Int32,
+) -> Int32 = "gpui_windows_create"
 
 ///|
-extern "C" fn native_close(host : Int, window : Int) -> Int = "gpui_windows_close"
+extern "C" fn native_close(host : Int32, window : Int32) -> Int32 = "gpui_windows_close"
 
 ///|
-extern "C" fn native_destroy(host : Int, window : Int) -> Int = "gpui_windows_destroy"
+extern "C" fn native_destroy(host : Int32, window : Int32) -> Int32 = "gpui_windows_destroy"
 
 ///|
 #borrow(title)
 extern "C" fn native_title(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   title : Bytes,
-  length : Int,
-) -> Int = "gpui_windows_title"
+  length : Int32,
+) -> Int32 = "gpui_windows_title"
 
 ///|
 extern "C" fn native_size(
-  host : Int,
-  window : Int,
-  width : Int,
-  height : Int,
-) -> Int = "gpui_windows_size"
+  host : Int32,
+  window : Int32,
+  width : Int32,
+  height : Int32,
+) -> Int32 = "gpui_windows_size"
 
 ///|
 #borrow(metrics)
 extern "C" fn native_metrics(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   metrics : FixedArray[Double],
-) -> Int = "gpui_windows_metrics"
+) -> Int32 = "gpui_windows_metrics"
 
 ///|
 #borrow(metrics)
 extern "C" fn native_frame_metrics(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   metrics : FixedArray[Double],
-) -> Int = "gpui_windows_frame_metrics_v1"
+) -> Int32 = "gpui_windows_frame_metrics_v1"
 
 ///|
 #borrow(output)
 extern "C" fn native_frame_copy(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   output : FixedArray[Byte],
-  capacity : Int,
-) -> Int = "gpui_windows_frame_copy_v1"
+  capacity : Int32,
+) -> Int32 = "gpui_windows_frame_copy_v1"
 
 ///|
-extern "C" fn native_dispatch(host : Int, timeout : Int) -> Int = "gpui_windows_dispatch"
+extern "C" fn native_dispatch(host : Int32, timeout : Int32) -> Int32 = "gpui_windows_dispatch"
 
 ///|
 #borrow(event)
-extern "C" fn native_next(host : Int, event : FixedArray[Double]) -> Int = "gpui_windows_next"
+extern "C" fn native_next(host : Int32, event : FixedArray[Double]) -> Int32 = "gpui_windows_next"
 
 ///|
 #borrow(data)
 extern "C" fn native_present(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   data : FixedArray[Double],
-  length : Int,
-) -> Int = "gpui_windows_present"
+  length : Int32,
+) -> Int32 = "gpui_windows_present"
 
 ///|
 #borrow(data, text_bytes)
 extern "C" fn native_present_text(
-  abi : Int,
-  host : Int,
-  window : Int,
+  abi : Int32,
+  host : Int32,
+  window : Int32,
   data : FixedArray[Double],
-  length : Int,
+  length : Int32,
   text_bytes : Bytes,
-  text_length : Int,
-) -> Int = "gpui_windows_present_text"
+  text_length : Int32,
+) -> Int32 = "gpui_windows_present_text"
 
 ///|
-extern "C" fn native_recover(host : Int, window : Int) -> Int = "gpui_windows_recover"
+extern "C" fn native_recover(host : Int32, window : Int32) -> Int32 = "gpui_windows_recover"
 
 ///|
-extern "C" fn native_cursor(host : Int, cursor : Int) -> Int = "gpui_windows_cursor"
+extern "C" fn native_cursor(host : Int32, cursor : Int32) -> Int32 = "gpui_windows_cursor"
 
 ///|
 #borrow(output)
 extern "C" fn native_clipboard_read_size(
-  host : Int,
+  host : Int32,
   output : Bytes,
-  capacity : Int,
-) -> Int = "gpui_windows_clipboard_read_size"
+  capacity : Int32,
+) -> Int32 = "gpui_windows_clipboard_read_size"
 
 ///|
 #borrow(output)
 extern "C" fn native_clipboard_read_data(
-  host : Int,
+  host : Int32,
   output : Bytes,
-  capacity : Int,
-) -> Int = "gpui_windows_clipboard_read_data"
+  capacity : Int32,
+) -> Int32 = "gpui_windows_clipboard_read_data"
 
 ///|
 #borrow(text)
 extern "C" fn native_clipboard_write(
-  host : Int,
+  host : Int32,
   text : Bytes,
-  length : Int,
-) -> Int = "gpui_windows_clipboard_write"
+  length : Int32,
+) -> Int32 = "gpui_windows_clipboard_write"
 
 ///|
 #borrow(rgba)
 extern "C" fn native_readback_samples(
-  host : Int,
-  window : Int,
+  host : Int32,
+  window : Int32,
   rgba : FixedArray[Double],
-) -> Int = "gpui_windows_readback"
+) -> Int32 = "gpui_windows_readback"
 
 ///|
 fn backend_error(
-  status : Int,
+  status : Int32,
   operation : String,
 ) -> @diagnostics.FrameworkError {
   let code = match status {
@@ -183,7 +183,7 @@ fn backend_error(
 
 ///|
 fn outcome(
-  status : Int,
+  status : Int32,
   operation : String,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   if status == 0 {
@@ -248,8 +248,8 @@ pub fn Host::stop(self : Host) -> Result[Unit, @diagnostics.FrameworkError] {
 ///|
 pub fn Host::create_window(
   self : Host,
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   title : String,
 ) -> Result[@platform.WindowId, @diagnostics.FrameworkError] {
   let bytes = @utf8.encode(title)
@@ -286,8 +286,8 @@ pub fn Host::set_title(
 pub fn Host::set_size(
   self : Host,
   window : @platform.WindowId,
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   outcome(
     native_size(self.token, window.value().to_int(), width, height),
@@ -323,7 +323,7 @@ pub fn Host::recover_renderer(
 }
 
 ///|
-fn modifiers(bits : Int) -> @primitives.Modifiers {
+fn modifiers(bits : Int32) -> @primitives.Modifiers {
   @primitives.Modifiers::new(
     shift=(bits & 1) != 0,
     control=(bits & 2) != 0,
@@ -333,7 +333,7 @@ fn modifiers(bits : Int) -> @primitives.Modifiers {
 }
 
 ///|
-fn key(symbol : Int, scalar : Int) -> @primitives.Key? {
+fn key(symbol : Int32, scalar : Int32) -> @primitives.Key? {
   match symbol {
     0xff0d => Some(@primitives.Enter)
     0xff1b => Some(@primitives.Escape)
@@ -474,7 +474,7 @@ fn decode_event(data : FixedArray[Double]) -> @platform.EventKind? {
 ///|
 pub fn Host::next_event(
   self : Host,
-  timeout_ms? : Int = 16,
+  timeout_ms~ : Int32 = 16,
 ) -> Result[@platform.Event?, @diagnostics.FrameworkError] {
   let buffer = FixedArray::make(10, 0.0)
   let mut status = native_next(self.token, buffer)
@@ -510,7 +510,7 @@ pub fn Host::next_event(
 ///|
 pub fn Host::dispatch(
   self : Host,
-  timeout_ms : Int,
+  timeout_ms : Int32,
 ) -> Result[Array[@platform.Event], @diagnostics.FrameworkError] {
   match outcome(native_dispatch(self.token, timeout_ms), "dispatch") {
     Err(error) => Err(error)
@@ -824,7 +824,7 @@ pub fn Host::read_clipboard(
   if size > 16 * 1024 * 1024 {
     return Err(backend_error(8, "read_clipboard"))
   }
-  let zero : Int = 0
+  let zero : Int32 = 0
   let output = Bytes::makei(size, _ => zero.to_byte())
   let result = native_clipboard_read_data(self.token, output, size)
   if result < 0 {
@@ -913,7 +913,7 @@ pub fn Host::require_capability(
 fn logical_dimension(
   value : Double,
   operation : String,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   if value.is_nan() || value.is_inf() || value < 1.0 || value > 16384.0 {
     return Err(backend_error(3, operation))
   }
@@ -990,7 +990,7 @@ pub impl @platform.Backend for Host with fn window_metrics(self, window) {
 }
 
 ///|
-pub impl @platform.Backend for Host with fn next_event(self, timeout_ms? = 16) {
+pub impl @platform.Backend for Host with fn next_event(self, timeout_ms~ = 16) {
   self.next_event(timeout_ms~)
 }
 

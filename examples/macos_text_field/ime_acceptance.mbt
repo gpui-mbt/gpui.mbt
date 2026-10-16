@@ -1,6 +1,6 @@
 ///|
 struct MacAcceptanceKey {
-  code : Int
+  code : Int32
   text : String
 }
 
@@ -10,21 +10,21 @@ struct MacImeAcceptance {
   started : Bool
   finished : Bool
   source_restored : Bool
-  step : Int
+  step : Int32
   expected_dispatch_id : Int64
-  expected_key_code : Int
+  expected_key_code : Int32
   host_epoch : Int64
-  session_epoch : Int
+  session_epoch : Int32
   input_source : String
-  preedit_callbacks : Int
-  commit_callbacks : Int
-  cancel_callbacks : Int
+  preedit_callbacks : Int32
+  commit_callbacks : Int32
+  cancel_callbacks : Int32
   batches : Array[String]
   receipts : Array[String]
   pending_batch : @macos.EditorBatch?
-  pending_preedits : Int
-  pending_commits : Int
-  pending_cancellations : Int
+  pending_preedits : Int32
+  pending_commits : Int32
+  pending_cancellations : Int32
   last_preedit_identity : String
   last_candidate_screen_rect : String
   candidate_screen_rect : String
@@ -229,7 +229,7 @@ fn mac_acceptance_identity_matches(
 }
 
 ///|
-fn mac_acceptance_key(step : Int) -> MacAcceptanceKey? {
+fn mac_acceptance_key(step : Int32) -> MacAcceptanceKey? {
   match step {
     0 => Some({ code: 45, text: "n", })
     1 => Some({ code: 34, text: "i", })
@@ -252,7 +252,7 @@ fn mac_acceptance_post_step(
   window : @platform.WindowId,
   owner : MacTextOwner?,
   state : MacImeAcceptance,
-  step : Int,
+  step : Int32,
 ) -> MacImeAcceptance {
   let key = match mac_acceptance_key(step) {
     Some(value) => value
@@ -327,7 +327,7 @@ fn mac_acceptance_start(
   window : @platform.WindowId,
   field : @text_field.TextField,
   owner : MacTextOwner,
-  commit_count : Int,
+  commit_count : Int32,
   state : MacImeAcceptance,
 ) -> MacImeAcceptance {
   let session_state = {
@@ -724,7 +724,7 @@ fn mac_acceptance_poll_receipt(
 // accepted so `final_frame_revision` is newer than the last acknowledged
 // batch frame.
 fn mac_acceptance_finish_ready(
-  step : Int,
+  step : Int32,
   finished : Bool,
   dirty : Bool,
 ) -> Bool {
@@ -736,7 +736,7 @@ fn mac_acceptance_finish(
   host : @macos.Host,
   window : @platform.WindowId,
   field : @text_field.TextField,
-  commit_count : Int,
+  commit_count : Int32,
   owner : MacTextOwner?,
   state : MacImeAcceptance,
 ) -> MacImeAcceptance {

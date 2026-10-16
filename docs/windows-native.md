@@ -202,12 +202,15 @@ that arbitrary text is supported. DirectWrite comes from the Windows SDK and
 `examples/windows_text_field` is a visible, single-line field over the
 portable `TextField` control. It provides pointer placement/selection,
 committed text insertion, navigation/edit commands, bounded undo/redo, and
-clipboard actions. Paste checks the field revision and actual native focus
-around the clipboard read; in experimental-session mode it also checks the
-native editor epoch. Cut changes the field only after a successful clipboard
-write. If layout, scene admission, or presentation fails, the example retains
-the pending value while Busy and rolls back the entire field/history to the
-last shown snapshot after a hard rejection.
+clipboard actions. Adjacent committed text and same-direction deletion
+commands coalesce into one undo step; navigation and selection changes end a
+group. The Windows controller suite checks typing, Backspace, forward Delete,
+and the boundary between edit groups. Paste checks the field revision and
+actual native focus around the clipboard read; in experimental-session mode it
+also checks the native editor epoch. Cut changes the field only after a
+successful clipboard write. If layout, scene admission, or presentation fails,
+the example retains the pending value while Busy and rolls back the entire
+field/history to the last shown snapshot after a hard rejection.
 
 The script `scripts/run_windows_text_field.ps1` verifies the pinned MoonBit
 compiler, records revision/compiler/MSVC and command logs in

@@ -7,7 +7,7 @@ fn text_test_document(value : String) -> @text.TextDocument raise {
 }
 
 ///|
-fn text_test_range(start : Int, end : Int) -> @text.TextRange raise {
+fn text_test_range(start : Int32, end : Int32) -> @text.TextRange raise {
   match @text.TextRange::new(start, end) {
     Ok(range) => range
     Err(_) => fail("ordered non-negative test range should construct")
@@ -15,7 +15,10 @@ fn text_test_range(start : Int, end : Int) -> @text.TextRange raise {
 }
 
 ///|
-fn text_test_selection(anchor : Int, head : Int) -> @text.TextSelection raise {
+fn text_test_selection(
+  anchor : Int32,
+  head : Int32,
+) -> @text.TextSelection raise {
   match @text.TextSelection::new(anchor, head) {
     Ok(selection) => selection
     Err(_) => fail("non-negative test selection should construct")

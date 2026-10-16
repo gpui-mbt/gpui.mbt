@@ -3,9 +3,9 @@
 /// only MCP transport passes through the registry and protocol adapter.
 priv struct Fixture {
   server : @mcp.ProtocolServer
-  add : @capability.TypedCapability[Int, Int]
-  read : @capability.TypedCapability[Unit, Int]
-  gui_add : @capability.GuiBinding[Int, Int]
+  add : @capability.TypedCapability[Int32, Int32]
+  read : @capability.TypedCapability[Unit, Int32]
+  gui_add : @capability.GuiBinding[Int32, Int32]
 }
 
 ///|
@@ -26,8 +26,11 @@ fn closed_fixture_error() -> @diagnostics.FrameworkError {
 
 ///|
 fn add_capability(
-  counter : Ref[Int],
-) -> Result[@capability.TypedCapability[Int, Int], @diagnostics.FrameworkError] {
+  counter : Ref[Int32],
+) -> Result[
+  @capability.TypedCapability[Int32, Int32],
+  @diagnostics.FrameworkError,
+] {
   let descriptor = match
     @capability.Descriptor::new(
       "demo.counter.add",
@@ -102,8 +105,11 @@ fn add_capability(
 
 ///|
 fn read_capability(
-  counter : Ref[Int],
-) -> Result[@capability.TypedCapability[Unit, Int], @diagnostics.FrameworkError] {
+  counter : Ref[Int32],
+) -> Result[
+  @capability.TypedCapability[Unit, Int32],
+  @diagnostics.FrameworkError,
+] {
   let descriptor = match
     @capability.Descriptor::new(
       "demo.counter.read",
@@ -175,7 +181,7 @@ fn ensure_fixture() -> Result[Fixture, @diagnostics.FrameworkError] {
 }
 
 ///|
-fn direct_result(result : Result[Int, @diagnostics.FrameworkError]) -> String {
+fn direct_result(result : Result[Int32, @diagnostics.FrameworkError]) -> String {
   match result {
     Ok(value) => "{\"ok\":true,\"value\":\{value}}"
     Err(error) =>
@@ -228,7 +234,7 @@ pub fn mcp_stdio_tools_inventory_json() -> String {
 
 ///|
 #export_name("gpui_mcp_stdio_direct_add")
-pub fn mcp_stdio_direct_add(delta : Int) -> String {
+pub fn mcp_stdio_direct_add(delta : Int32) -> String {
   match ensure_fixture() {
     Err(error) => direct_result(Err(error))
     Ok(fixture) => direct_result(fixture.add.invoke(@capability.Direct, delta))
@@ -237,7 +243,7 @@ pub fn mcp_stdio_direct_add(delta : Int) -> String {
 
 ///|
 #export_name("gpui_mcp_stdio_gui_add")
-pub fn mcp_stdio_gui_add(delta : Int) -> String {
+pub fn mcp_stdio_gui_add(delta : Int32) -> String {
   match ensure_fixture() {
     Err(error) => direct_result(Err(error))
     Ok(fixture) => direct_result(fixture.gui_add.trigger(delta))

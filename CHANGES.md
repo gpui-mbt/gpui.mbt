@@ -4,7 +4,80 @@
 
 ### Added
 
+- Add an opt-in GPUI device-scale layout boundary while preserving raw logical
+  layout by default. (`docs/conformance-device-scale.md`)
+- Add macOS background-host startup with hidden windows and explicit
+  nonactivating window ordering for owned observation fixtures.
+
 ### Changed
+
+### Fixed
+
+- Allow macOS background hosts to start inside an application bundle that
+  already has Accessory policy, while still rejecting refused or ineffective
+  policy transitions. (`docs/conformance-accessory-policy.md`)
+
+- Redistribute flex space after main-axis min/max limits freeze children,
+  using clamped sizes to select growth or shrink and retaining partial-factor
+  budgets and unavoidable overflow. (`docs/conformance-flex-limits.md`)
+
+- Limit flex-shrink allocation when shrink factors total less than one,
+  preserving measured overflow, weighted shares and signed alignment.
+  (`docs/conformance-fractional-shrink.md`)
+- Match pinned GPUI partial flex-grow allocation when a line has gaps, including
+  zero or negative distribution budgets and center/end placement.
+  (`docs/conformance-gap-budget.md`)
+- Keep unallocated free space when flex-grow factors total less than one,
+  preserving each child's fractional share and the selected justification.
+  (`docs/conformance-fractional-grow.md`)
+- Preserve center/end flex alignment when children exceed the available main
+  or cross size, including negative origins and leading overflow reporting.
+  (`docs/conformance-layout.md`)
+- Use half-open element bounds for pointer hit testing: right/bottom edges
+  and zero-extent nodes no longer receive hits. Shared edges belong to the
+  element starting at that edge. (`docs/conformance-pointer.md`)
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.7.2 - 2026-10-13
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Reject stale macOS Button session copies before routing input, applying
+  metrics or close events, or publishing/revoking AppKit accessibility
+  bindings; read native accessibility snapshots from the current fixture
+  source. (`issues/open/0024-apple-silicon-macos-button-integration.md`)
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.7.1 - 2026-10-13
+
+### Added
+
+- Added Windows text-field controller coverage for grouped committed typing,
+  Backspace, forward Delete, and edit-group boundaries.
+
+### Changed
+
+- Ship the shared TextField adjacent typing and same-direction deletion
+  coalescing from [PR #66](https://github.com/gpui-mbt/gpui.mbt/pull/66) in the
+  Mooncakes package so Windows registry consumers receive that behavior.
 
 ### Fixed
 

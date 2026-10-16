@@ -1,5 +1,5 @@
 ///|
-fn text_pbt_fragment(value : Int) -> String {
+fn text_pbt_fragment(value : Int32) -> String {
   let reduced = value % 7
   let index = if reduced < 0 { reduced + 7 } else { reduced }
   match index {
@@ -14,7 +14,7 @@ fn text_pbt_fragment(value : Int) -> String {
 }
 
 ///|
-fn text_pbt_source(values : Array[Int]) -> (String, Array[Int]) {
+fn text_pbt_source(values : Array[Int32]) -> (String, Array[Int32]) {
   let builder = StringBuilder()
   let boundaries = [0]
   let mut offset = 0
@@ -28,7 +28,11 @@ fn text_pbt_source(values : Array[Int]) -> (String, Array[Int]) {
 }
 
 ///|
-fn text_pbt_scalar_slice(values : Array[Int], start : Int, end : Int) -> String {
+fn text_pbt_scalar_slice(
+  values : Array[Int32],
+  start : Int32,
+  end : Int32,
+) -> String {
   let builder = StringBuilder()
   for index, value in values {
     if index >= start && index < end {
@@ -39,7 +43,7 @@ fn text_pbt_scalar_slice(values : Array[Int], start : Int, end : Int) -> String 
 }
 
 ///|
-fn text_pbt_index(value : Int, limit : Int) -> Int {
+fn text_pbt_index(value : Int32, limit : Int32) -> Int32 {
   let remainder = value % limit
   if remainder < 0 {
     remainder + limit
@@ -52,7 +56,7 @@ fn text_pbt_index(value : Int, limit : Int) -> Int {
 // Stable suite ID: text.utf16-replacement.invariants
 test "property text edits preserve exact slices, length, selection, and snapshot" {
   @quickcheck.check(
-    (values : (Array[Int], Int, Int, Int, Int)) => {
+    (values : (Array[Int32], Int32, Int32, Int32, Int32)) => {
       let (scalars, first_choice, second_choice, replacement_a, replacement_b) = values
       let (source, boundaries) = text_pbt_source(scalars)
       let first_index = text_pbt_index(first_choice, boundaries.length())

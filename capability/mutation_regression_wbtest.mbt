@@ -1,5 +1,5 @@
 ///|
-fn resource_text(length : Int) -> String {
+fn resource_text(length : Int32) -> String {
   let builder = StringBuilder()
   for _index = 0; _index < length; _index = _index + 1 {
     builder.write_char('x')
@@ -10,8 +10,8 @@ fn resource_text(length : Int) -> String {
 ///|
 fn assert_transport_stats(
   value : Value,
-  nodes : Int,
-  chars : Int,
+  nodes : Int32,
+  chars : Int32,
 ) -> Unit raise {
   match transport_stats(value, 0) {
     Ok((actual_nodes, actual_chars)) => {

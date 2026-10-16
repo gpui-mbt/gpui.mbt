@@ -4,16 +4,16 @@
 priv struct PaletteReference {
   rows : Array[CommandMetadata]
   query : String
-  active : Int?
-  start : Int
+  active : Int32?
+  start : Int32
 }
 
 ///|
 fn palette_reference_visible(
   rows : Array[CommandMetadata],
-  active : Int?,
-  start : Int,
-) -> Int {
+  active : Int32?,
+  start : Int32,
+) -> Int32 {
   let maximum = if rows.length() > 8 { rows.length() - 8 } else { 0 }
   let candidate = match active {
     Some(index) if index < start => index
@@ -30,7 +30,7 @@ fn palette_reference_visible(
 }
 
 ///|
-fn palette_reference_first(rows : Array[CommandMetadata]) -> Int? {
+fn palette_reference_first(rows : Array[CommandMetadata]) -> Int32? {
   for index in 0..<rows.length() {
     if rows[index].is_enabled() {
       return Some(index)
@@ -62,7 +62,7 @@ fn palette_reference_filter(
 ///|
 fn palette_reference_navigate(
   state : PaletteReference,
-  direction : Int,
+  direction : Int32,
 ) -> PaletteReference {
   if direction == 0 {
     return state
@@ -401,7 +401,7 @@ fn palette_property_matches(
 // Property attribution and generated regression trace artifacts.
 test "property palette filter selection and visible list match shrinkable traces" {
   @quickcheck.check(
-    (trace : (Array[Bool], Array[Int])) => {
+    (trace : (Array[Bool], Array[Int32])) => {
       let (enabled, operations) = trace
       let commands = []
       for index in 0..<enabled.length() {

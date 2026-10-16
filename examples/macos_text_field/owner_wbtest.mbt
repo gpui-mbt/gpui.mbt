@@ -5,10 +5,10 @@ fn owner_test_rect() -> @primitives.Rect {
 
 ///|
 fn owner_test_modifiers(
-  shift? : Bool = false,
-  control? : Bool = false,
-  alt? : Bool = false,
-  meta? : Bool = false,
+  shift~ : Bool = false,
+  control~ : Bool = false,
+  alt~ : Bool = false,
+  meta~ : Bool = false,
 ) -> @primitives.Modifiers {
   @primitives.Modifiers::new(shift~, control~, alt~, meta~)
 }
@@ -432,12 +432,12 @@ test "accepted-frame state observer is read-only and carries exact integer caret
     let parsed = @json.parse(value)
     match parsed {
       Object(object) => {
-        assert_true(object.get("presentation") == Some((3).to_json()))
-        assert_true(object.get("text") == Some("Hello 日本".to_json()))
-        assert_true(object.get("committed") == Some("Hello 日本".to_json()))
-        assert_true(object.get("revision") == Some(revision.to_json()))
-        assert_true(object.get("session_epoch") == Some((17).to_json()))
-        assert_true(object.get("commit_count") == Some((1).to_json()))
+        assert_true(object.get("presentation") == Some(Json(3)))
+        assert_true(object.get("text") == Some(Json("Hello 日本")))
+        assert_true(object.get("committed") == Some(Json("Hello 日本")))
+        assert_true(object.get("revision") == Some(Json(revision)))
+        assert_true(object.get("session_epoch") == Some(Json(17)))
+        assert_true(object.get("commit_count") == Some(Json(1)))
         assert_true(object.get("caret") is Some(Object(_)))
         assert_true(object.get("field_bounds") is Some(Object(_)))
         assert_eq(object.length(), 16)

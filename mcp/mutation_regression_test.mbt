@@ -1,5 +1,5 @@
 ///|
-fn mutation_text(length : Int) -> String {
+fn mutation_text(length : Int32) -> String {
   let text = StringBuilder()
   for _ in 0..<length {
     text.write_char('x')
@@ -67,7 +67,7 @@ fn mutation_register(
 }
 
 ///|
-fn mutation_counting_adapter(executions : Ref[Int]) -> @mcp.Adapter raise {
+fn mutation_counting_adapter(executions : Ref[Int32]) -> @mcp.Adapter raise {
   let registry = @capability.Registry::new()
   mutation_register(
     registry,
@@ -711,9 +711,9 @@ test "schema mismatch diagnostics identify the rejected wire type before executi
 
 ///|
 fn mutation_nested_schema(
-  shape : Int,
-  wrappers : Int,
-  optional_depth : Int,
+  shape : Int32,
+  wrappers : Int32,
+  optional_depth : Int32,
 ) -> (@capability.Schema, String) raise {
   let mut schema = @capability.Schema::int()
   let mut value = "1"

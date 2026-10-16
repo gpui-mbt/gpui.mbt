@@ -73,10 +73,10 @@ fn field_bounds_json(field : @text_field.TextField) -> String {
 
 ///|
 fn state_json(
-  presentation : Int,
+  presentation : Int32,
   field : @text_field.TextField,
-  session_epoch : Int,
-  commit_count : Int,
+  session_epoch : Int32,
+  commit_count : Int32,
 ) -> String {
   let selection = field.selection()
   let source_revision = json_string(
@@ -95,10 +95,10 @@ fn state_json(
 
 ///|
 fn state_line(
-  presentation : Int,
+  presentation : Int32,
   field : @text_field.TextField,
-  session_epoch : Int,
-  commit_count : Int,
+  session_epoch : Int32,
+  commit_count : Int32,
 ) -> String {
   "GPUI_FIELD_MACOS_STATE \{state_json(presentation, field, session_epoch, commit_count)}"
 }
@@ -108,8 +108,8 @@ extern "C" fn state_flush_stdout() -> Unit = "gpui_macos_field_flush_stdout"
 
 ///|
 /// @test_only
-extern "C" fn acceptance_wait_command() -> Int = "gpui_macos_field_wait_command"
+extern "C" fn acceptance_wait_command() -> Int32 = "gpui_macos_field_wait_command"
 
 ///|
 /// @test_only
-extern "C" fn acceptance_poll_abort() -> Int = "gpui_macos_field_poll_abort"
+extern "C" fn acceptance_poll_abort() -> Int32 = "gpui_macos_field_poll_abort"

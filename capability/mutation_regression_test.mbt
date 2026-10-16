@@ -17,7 +17,7 @@ fn[T] mutation_invalid(
 }
 
 ///|
-fn mutation_repeat(text : String, count : Int) -> String {
+fn mutation_repeat(text : String, count : Int32) -> String {
   let builder = StringBuilder()
   for _index = 0; _index < count; _index = _index + 1 {
     builder.write_string(text)
@@ -30,7 +30,7 @@ fn mutation_descriptor(
   id : String,
   exposure : @capability.Exposure,
   external_name : String?,
-  version : Int,
+  version : Int32,
 ) -> Result[@capability.Descriptor, @diagnostics.FrameworkError] {
   @capability.Descriptor::new(
     id,
@@ -50,7 +50,7 @@ fn mutation_descriptor(
 ///|
 fn mutation_identity(
   descriptor : @capability.Descriptor,
-) -> @capability.TypedCapability[Int, Int] {
+) -> @capability.TypedCapability[Int32, Int32] {
   @capability.TypedCapability::new(
     descriptor,
     value => value.as_int(),

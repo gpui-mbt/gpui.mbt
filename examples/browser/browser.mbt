@@ -32,7 +32,7 @@ fn error_json(error : @diagnostics.FrameworkError) -> String {
 }
 
 ///|
-fn host_error(kind : Int) -> @diagnostics.FrameworkError {
+fn host_error(kind : Int32) -> @diagnostics.FrameworkError {
   let (code, operation, message) = match kind {
     0 =>
       (
@@ -88,7 +88,7 @@ fn host_error(kind : Int) -> @diagnostics.FrameworkError {
 
 ///|
 #export_name("gpui_browser_host_error")
-pub fn browser_host_error(kind : Int) -> String {
+pub fn browser_host_error(kind : Int32) -> String {
   error_json(host_error(kind))
 }
 
@@ -168,7 +168,7 @@ pub fn browser_pointer_move(x : Double, y : Double) -> String {
 pub fn browser_pointer_button(
   x : Double,
   y : Double,
-  button : Int,
+  button : Int32,
   pressed : Bool,
   shift : Bool,
   control : Bool,
@@ -219,7 +219,7 @@ pub fn browser_scroll(
 }
 
 ///|
-fn mouse_button(button : Int) -> @primitives.MouseButton? {
+fn mouse_button(button : Int32) -> @primitives.MouseButton? {
   match button {
     0 => Some(@primitives.Primary)
     1 => Some(@primitives.Middle)
@@ -346,7 +346,7 @@ pub fn browser_host_layout() -> String {
 
 ///|
 #export_name("gpui_browser_accessibility_focus")
-pub fn browser_accessibility_focus(id : Int, backwards : Bool) -> String {
+pub fn browser_accessibility_focus(id : Int32, backwards : Bool) -> String {
   match adapter_runtime.val {
     None => error_json(host_error(3))
     Some(adapter) =>
@@ -364,7 +364,7 @@ pub fn browser_accessibility_focus(id : Int, backwards : Bool) -> String {
 
 ///|
 #export_name("gpui_browser_accessibility_activate")
-pub fn browser_accessibility_activate(id : Int) -> String {
+pub fn browser_accessibility_activate(id : Int32) -> String {
   match adapter_runtime.val {
     None => error_json(host_error(3))
     Some(adapter) =>
@@ -377,7 +377,7 @@ pub fn browser_accessibility_activate(id : Int) -> String {
 
 ///|
 #export_name("gpui_browser_direct_counter")
-pub fn browser_direct_counter(delta : Int) -> String {
+pub fn browser_direct_counter(delta : Int32) -> String {
   match adapter_runtime.val {
     None => error_json(host_error(3))
     Some(adapter) =>
@@ -391,7 +391,7 @@ pub fn browser_direct_counter(delta : Int) -> String {
 
 ///|
 #export_name("gpui_browser_mcp_counter")
-pub fn browser_mcp_counter(delta : Int) -> String {
+pub fn browser_mcp_counter(delta : Int32) -> String {
   match adapter_runtime.val {
     None => error_json(host_error(3))
     Some(adapter) =>

@@ -9,7 +9,7 @@ pub struct ButtonAccessibilitySnapshot {
   enabled : Bool
   loading : Bool
   focused : Bool
-  activations : Int
+  activations : Int32
 }
 
 ///|
@@ -19,14 +19,14 @@ pub fn ButtonAccessibilitySnapshot::new(
   enabled : Bool,
   loading : Bool,
   focused : Bool,
-  activations : Int,
+  activations : Int32,
 ) -> ButtonAccessibilitySnapshot {
   { name, bounds, enabled, loading, focused, activations, }
 }
 
 ///|
 struct MacAXButtonPayload {
-  version : Int
+  version : Int32
   role : String
   name : String
   left : Double
@@ -36,7 +36,7 @@ struct MacAXButtonPayload {
   enabled : Bool
   loading : Bool
   focused : Bool
-  activations : Int
+  activations : Int32
   actions : Array[String]
 } derive(ToJson)
 

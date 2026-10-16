@@ -8,24 +8,24 @@
 /// Physical panel dimensions are omitted because Win32 does not provide a
 /// reliable value for every monitor.
 pub(all) struct DisplayInfo {
-  bounds_left_px : Int
-  bounds_top_px : Int
-  bounds_width_px : Int
-  bounds_height_px : Int
-  work_area_left_px : Int
-  work_area_top_px : Int
-  work_area_width_px : Int
-  work_area_height_px : Int
+  bounds_left_px : Int32
+  bounds_top_px : Int32
+  bounds_width_px : Int32
+  bounds_height_px : Int32
+  work_area_left_px : Int32
+  work_area_top_px : Int32
+  work_area_width_px : Int32
+  work_area_height_px : Int32
   is_primary : Bool
   is_window_monitor : Bool
   has_effective_dpi : Bool
-  effective_dpi_x : Int
-  effective_dpi_y : Int
+  effective_dpi_x : Int32
+  effective_dpi_y : Int32
   has_current_mode : Bool
-  mode_width_px : Int
-  mode_height_px : Int
-  refresh_rate_hz : Int
-  orientation_degrees : Int
+  mode_width_px : Int32
+  mode_height_px : Int32
+  refresh_rate_hz : Int32
+  orientation_degrees : Int32
 } derive(Eq)
 
 ///|
@@ -34,16 +34,16 @@ pub extend DisplayInfo with Eq::{not_equal, equal}
 ///|
 #borrow(records)
 extern "C" fn native_display_snapshot(
-  host : Int,
+  host : Int32,
   records : FixedArray[Double],
-  capacity : Int,
-) -> Int = "gpui_windows_display_snapshot"
+  capacity : Int32,
+) -> Int32 = "gpui_windows_display_snapshot"
 
 ///|
-const DISPLAY_SNAPSHOT_CAPACITY : Int = 16
+const DISPLAY_SNAPSHOT_CAPACITY : Int32 = 16
 
 ///|
-const DISPLAY_INFO_FIELDS : Int = 18
+const DISPLAY_INFO_FIELDS : Int32 = 18
 
 ///|
 fn exact_display_int(value : Double) -> Bool {
@@ -69,7 +69,7 @@ fn display_decode_error() -> @diagnostics.FrameworkError {
 /// records fail closed rather than returning a partial snapshot.
 fn decode_display_snapshot(
   records : FixedArray[Double],
-  count : Int,
+  count : Int32,
 ) -> Result[Array[DisplayInfo], @diagnostics.FrameworkError] {
   if count < 0 ||
     count > DISPLAY_SNAPSHOT_CAPACITY ||

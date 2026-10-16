@@ -15,7 +15,7 @@ struct MacButtonAXNode {
 struct MacButtonAXBinding {
   node : MacButtonAXNode
   transport_token : Int64
-  activations : Int
+  activations : Int32
 }
 
 ///|
@@ -24,7 +24,11 @@ struct MacButtonAXBinding {
 fn mac_button_accessibility_node(
   demo : @fixture.ButtonDemo,
 ) -> MacButtonAXNode? {
-  let nodes = demo.accessibility_snapshot().nodes()
+  let snapshot = match demo.accessibility_source() {
+    Ok((_, value)) => value
+    Err(_) => return None
+  }
+  let nodes = snapshot.nodes()
   let mut result : MacButtonAXNode? = None
   for node in nodes {
     let actions = node.supported_actions()
@@ -64,9 +68,9 @@ fn mac_button_ax_requires_new_binding(
 ///|
 fn mac_button_ax_matches(
   previous : MacButtonAXNode,
-  previous_activations : Int,
+  previous_activations : Int32,
   current : MacButtonAXNode,
-  current_activations : Int,
+  current_activations : Int32,
 ) -> Bool {
   previous.node_id == current.node_id &&
   previous.role == current.role &&
@@ -81,7 +85,7 @@ fn mac_button_ax_matches(
 ///|
 fn mac_button_ax_snapshot(
   node : MacButtonAXNode,
-  activations : Int,
+  activations : Int32,
 ) -> @macos.ButtonAccessibilitySnapshot {
   @macos.ButtonAccessibilitySnapshot::new(
     node.name,
@@ -97,11 +101,24 @@ fn mac_button_ax_snapshot(
 /// Do not expose stale fixture nodes while the host session is suspended or
 /// closing; the native binding stays absent until a live viewport exists.
 fn mac_button_ax_current_node(session : MacButtonSession) -> MacButtonAXNode? {
-  if session.is_presentable() {
+  if session.is_presentable() && mac_button_session_is_current(session) {
     mac_button_accessibility_node(session.demo())
   } else {
     None
   }
+}
+
+///|
+fn mac_button_stale_session_error(
+  operation : String,
+) -> @diagnostics.FrameworkError {
+  @diagnostics.FrameworkError::new(
+    @diagnostics.StaleHandle,
+    operation,
+    subsystem="macos-button",
+    backend="appkit-metal",
+    message="stale Button session cannot update the current owner",
+  )
 }
 
 ///|
@@ -114,17 +131,22 @@ fn MacButtonSession::sync_accessibility(
   host : @macos.Host,
   window : @platform.WindowId,
 ) -> Result[MacButtonSession, @diagnostics.FrameworkError] {
+  if !mac_button_session_is_current(self) {
+    return Err(mac_button_stale_session_error("sync_button_accessibility"))
+  }
   let current = mac_button_ax_current_node(self)
   match (self.accessibility_binding, current) {
     (None, None) => Ok(self)
     (Some(binding), None) => {
+      let next = mac_button_session_advance(self)
       match host.revoke_button_accessibility(window, binding.transport_token) {
         Err(error) => return Err(error)
         Ok(_) => ()
       }
-      Ok({ ..self, accessibility_binding: None, })
+      Ok({ ..next, accessibility_binding: None, })
     }
     (None, Some(node)) => {
+      let next = mac_button_session_advance(self)
       let transport_token = match
         host.publish_button_accessibility(
           window,
@@ -135,7 +157,7 @@ fn MacButtonSession::sync_accessibility(
         Err(error) => return Err(error)
       }
       Ok({
-        ..self,
+        ..next,
         accessibility_binding: Some({
           node,
           transport_token,
@@ -152,6 +174,7 @@ fn MacButtonSession::sync_accessibility(
         ) {
         return Ok(self)
       }
+      let next = mac_button_session_advance(self)
       let previous_token : Int64 = if mac_button_ax_requires_new_binding(
           binding.node,
           node,
@@ -174,7 +197,7 @@ fn MacButtonSession::sync_accessibility(
         Err(error) => return Err(error)
       }
       Ok({
-        ..self,
+        ..next,
         accessibility_binding: Some({
           node,
           transport_token,
@@ -191,13 +214,18 @@ fn MacButtonSession::revoke_accessibility(
   host : @macos.Host,
   window : @platform.WindowId,
 ) -> Result[MacButtonSession, @diagnostics.FrameworkError] {
+  if !mac_button_session_is_current(self) {
+    return Err(mac_button_stale_session_error("revoke_button_accessibility"))
+  }
   match self.accessibility_binding {
     None => Ok(self)
-    Some(binding) =>
+    Some(binding) => {
+      let next = mac_button_session_advance(self)
       match host.revoke_button_accessibility(window, binding.transport_token) {
         Err(error) => Err(error)
-        Ok(_) => Ok({ ..self, accessibility_binding: None, })
+        Ok(_) => Ok({ ..next, accessibility_binding: None, })
       }
+    }
   }
 }
 
@@ -208,10 +236,13 @@ fn MacButtonSession::dispatch_accessibility_token(
   self : MacButtonSession,
   transport_token : Int64,
 ) -> (MacButtonSession, Bool) {
+  if !mac_button_session_is_current(self) {
+    return (self, false)
+  }
   match self.accessibility_binding {
     Some(binding) if binding.transport_token == transport_token =>
       match self.demo.dispatch_accessibility_request(binding.node.request) {
-        Ok(demo) => ({ ..self, demo, }, true)
+        Ok(demo) => (mac_button_session_advance({ ..self, demo, }), true)
         Err(_) => (self, false)
       }
     _ => (self, false)

@@ -265,8 +265,8 @@ test "unmapped key skipping rejects malformed native records" {
 ///|
 fn native_record_reader(
   records : Array[(FixedArray[Double], Bytes)],
-  counts : FixedArray[Int],
-) -> (FixedArray[Double], FixedArray[Byte]) -> Int {
+  counts : FixedArray[Int32],
+) -> (FixedArray[Double], FixedArray[Byte]) -> Int32 {
   (out, text) => {
     counts[1] = counts[1] + 1
     if counts[0] >= records.length() {

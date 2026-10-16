@@ -1,6 +1,6 @@
 ///|
 /// Schema version for the first platform-neutral scene snapshot envelope.
-pub const SCENE_SNAPSHOT_SCHEMA_VERSION : Int = 1
+pub const SCENE_SNAPSHOT_SCHEMA_VERSION : Int32 = 1
 
 ///|
 /// Snapshot construction errors that are specific to the versioned envelope.
@@ -104,17 +104,17 @@ pub fn SceneResource::id(self : SceneResource) -> UInt64 {
 ///|
 /// One ordered rectangle-only clip chain in the current R0 subset.
 pub struct ClipChain {
-  id : Int
+  id : Int32
   priv rects : Array[@primitives.Rect]
 }
 
 ///|
-pub fn ClipChain::new(id : Int, rects : Array[@primitives.Rect]) -> ClipChain {
+pub fn ClipChain::new(id : Int32, rects : Array[@primitives.Rect]) -> ClipChain {
   { id, rects: copy_snapshot_rects(rects), }
 }
 
 ///|
-pub fn ClipChain::id(self : ClipChain) -> Int {
+pub fn ClipChain::id(self : ClipChain) -> Int32 {
   self.id
 }
 
@@ -134,7 +134,7 @@ pub(all) enum SceneItem {
     color~ : @primitives.Color,
     transform~ : AffineTransform,
     opacity~ : Double,
-    clip_chain_id~ : Int?
+    clip_chain_id~ : Int32?
   )
   TextItem(
     id~ : UInt64,
@@ -144,7 +144,7 @@ pub(all) enum SceneItem {
     color~ : @primitives.Color,
     transform~ : AffineTransform,
     opacity~ : Double,
-    clip_chain_id~ : Int?
+    clip_chain_id~ : Int32?
   )
   TextRunItem(
     id~ : UInt64,
@@ -155,7 +155,7 @@ pub(all) enum SceneItem {
     color~ : @primitives.Color,
     transform~ : AffineTransform,
     opacity~ : Double,
-    clip_chain_id~ : Int?
+    clip_chain_id~ : Int32?
   )
 }
 
@@ -166,7 +166,7 @@ pub fn SceneItem::quad(
   color : @primitives.Color,
   transform : AffineTransform,
   opacity : Double,
-  clip_chain_id : Int?,
+  clip_chain_id : Int32?,
 ) -> Result[SceneItem, SnapshotError] {
   if !snapshot_finite(opacity) || opacity < 0.0 || opacity > 1.0 {
     Err(InvalidOpacity)
@@ -189,7 +189,7 @@ pub fn SceneItem::text(
   color : @primitives.Color,
   transform : AffineTransform,
   opacity : Double,
-  clip_chain_id : Int?,
+  clip_chain_id : Int32?,
 ) -> Result[SceneItem, SnapshotError] {
   match snapshot_validate_text(text, font_size) {
     Err(error) => Err(error)
@@ -229,7 +229,7 @@ pub fn SceneItem::text_run(
   color : @primitives.Color,
   transform : AffineTransform,
   opacity : Double,
-  clip_chain_id : Int?,
+  clip_chain_id : Int32?,
 ) -> Result[SceneItem, SnapshotError] {
   match snapshot_validate_text(text, font_size) {
     Err(error) => Err(error)
@@ -264,7 +264,7 @@ pub fn SceneItem::id(self : SceneItem) -> UInt64 {
 }
 
 ///|
-pub fn SceneItem::clip_chain_id(self : SceneItem) -> Int? {
+pub fn SceneItem::clip_chain_id(self : SceneItem) -> Int32? {
   match self {
     QuadItem(clip_chain_id~, ..)
     | TextItem(clip_chain_id~, ..)
@@ -276,7 +276,7 @@ pub fn SceneItem::clip_chain_id(self : SceneItem) -> Int? {
 /// Versioned, platform-neutral scene snapshot. Arrays are copied on ingress and
 /// egress so snapshots remain immutable-by-contract.
 pub struct SceneSnapshot {
-  schema_version : Int
+  schema_version : Int32
   viewport : @primitives.Rect
   scale : Double
   priv resources : Array[SceneResource]
@@ -379,7 +379,7 @@ fn snapshot_transform_finite(transform : AffineTransform) -> Bool {
 }
 
 ///|
-fn snapshot_has_clip_chain(id : Int, chains : Array[ClipChain]) -> Bool {
+fn snapshot_has_clip_chain(id : Int32, chains : Array[ClipChain]) -> Bool {
   let mut found = false
   let mut chain_index = 0
   while chain_index < chains.length() && !found {
@@ -392,7 +392,7 @@ fn snapshot_has_clip_chain(id : Int, chains : Array[ClipChain]) -> Bool {
 }
 
 ///|
-pub fn SceneSnapshot::schema_version(self : SceneSnapshot) -> Int {
+pub fn SceneSnapshot::schema_version(self : SceneSnapshot) -> Int32 {
   self.schema_version
 }
 
@@ -515,11 +515,11 @@ pub fn Scene::snapshot_v1(
 fn snapshot_clip_chain_id(
   chains : Array[ClipChain],
   rects : Array[@primitives.Rect],
-) -> Int? {
+) -> Int32? {
   if rects.length() == 0 {
     None
   } else {
-    let mut found : Int? = None
+    let mut found : Int32? = None
     let mut index = 0
     while index < chains.length() && found is None {
       if snapshot_rect_arrays_equal(chains[index].rects(), rects) {

@@ -1,27 +1,27 @@
 ///|
 #borrow(bytes)
 extern "C" fn call(
-  op : Int,
+  op : Int32,
   token : Int64,
   x : Double,
   y : Double,
   bytes : Bytes,
-  length : Int,
-) -> Int = "gpui_call"
+  length : Int32,
+) -> Int32 = "gpui_call"
 
 ///|
 #borrow(records)
 extern "C" fn native_display_snapshot(
   host : Int64,
   records : FixedArray[Double],
-  capacity : Int,
-) -> Int = "gpui_macos_display_snapshot"
+  capacity : Int32,
+) -> Int32 = "gpui_macos_display_snapshot"
 
 ///|
-extern "C" fn integer(field : Int) -> Int64 = "gpui_integer"
+extern "C" fn integer(field : Int32) -> Int64 = "gpui_integer"
 
 ///|
-extern "C" fn number(field : Int) -> Double = "gpui_number"
+extern "C" fn number(field : Int32) -> Double = "gpui_number"
 
 ///|
 #borrow(payload, output)
@@ -29,47 +29,47 @@ extern "C" fn accessibility_publish(
   window : Int64,
   binding : Int64,
   payload : Bytes,
-  length : Int,
+  length : Int32,
   output : FixedArray[Int64],
-) -> Int = "gpui_macos_ax_publish"
+) -> Int32 = "gpui_macos_ax_publish"
 
 ///|
-extern "C" fn accessibility_revoke(window : Int64, binding : Int64) -> Int = "gpui_macos_ax_revoke"
+extern "C" fn accessibility_revoke(window : Int64, binding : Int64) -> Int32 = "gpui_macos_ax_revoke"
 
 ///|
 #borrow(output)
 extern "C" fn accessibility_take_request(
   window : Int64,
   output : FixedArray[Int64],
-) -> Int = "gpui_macos_ax_take_request"
+) -> Int32 = "gpui_macos_ax_take_request"
 
 ///|
 #borrow(metrics)
 extern "C" fn frame_metrics(
   window : Int64,
   metrics : FixedArray[Double],
-) -> Int = "gpui_macos_frame_metrics"
+) -> Int32 = "gpui_macos_frame_metrics"
 
 ///|
 #borrow(output)
 extern "C" fn frame_copy(
   window : Int64,
   output : FixedArray[Byte],
-  capacity : Int,
-) -> Int = "gpui_macos_frame_copy"
+  capacity : Int32,
+) -> Int32 = "gpui_macos_frame_copy"
 
 ///|
-extern "C" fn test_post_click(window : Int64, x : Double, y : Double) -> Int = "gpui_macos_test_post_click"
+extern "C" fn test_post_click(window : Int64, x : Double, y : Double) -> Int32 = "gpui_macos_test_post_click"
 
 ///|
-extern "C" fn test_post_escape(window : Int64) -> Int = "gpui_macos_test_post_escape"
+extern "C" fn test_post_escape(window : Int64) -> Int32 = "gpui_macos_test_post_escape"
 
 ///|
 #borrow(text)
 extern "C" fn test_post_key(
   window : Int64,
-  key_code : Int,
-  modifiers : Int,
+  key_code : Int32,
+  modifiers : Int32,
   text : Bytes,
-  text_length : Int,
-) -> Int = "gpui_macos_test_post_key"
+  text_length : Int32,
+) -> Int32 = "gpui_macos_test_post_key"

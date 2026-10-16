@@ -185,13 +185,13 @@ pub struct RequestedLayout {
 /// Lifecycle traversal is iterative, while the current recursive layout
 /// engine descends through nested containers. Keep the accepted depth bounded
 /// so malformed or generated trees cannot exhaust the host stack.
-pub const MAX_ELEMENT_DEPTH : Int = @layout.MAX_FLEX_TREE_DEPTH
+pub const MAX_ELEMENT_DEPTH : Int32 = @layout.MAX_FLEX_TREE_DEPTH
 
 ///|
 priv struct ElementPlacement {
   element : Element
   parent : UInt64?
-  depth : Int
+  depth : Int32
 }
 
 ///|
@@ -233,6 +233,26 @@ pub fn Element::request_layout(
   self : Element,
   viewport : @primitives.Size,
 ) -> Result[RequestedLayout, ElementError] {
+  self.request_layout_internal(viewport, None)
+}
+
+///|
+/// Run request-layout with an explicit device scale. The default
+/// `request_layout` path continues to return raw logical layout bounds.
+pub fn Element::request_layout_with_device_scale(
+  self : Element,
+  viewport : @primitives.Size,
+  scale_factor : Double,
+) -> Result[RequestedLayout, ElementError] {
+  self.request_layout_internal(viewport, Some(scale_factor))
+}
+
+///|
+fn Element::request_layout_internal(
+  self : Element,
+  viewport : @primitives.Size,
+  scale_factor : Double?,
+) -> Result[RequestedLayout, ElementError] {
   if !self.is_root {
     Err(RootRequired)
   } else {
@@ -242,9 +262,25 @@ pub fn Element::request_layout(
         match flatten_layout_tree(self) {
           Err(error) => Err(error)
           Ok((placements, nodes)) =>
-            match @layout.layout_flex_tree(self.id, viewport, style, nodes) {
-              Err(error) => Err(LayoutFailure(error))
-              Ok(layout) => Ok({ placements, viewport, layout, })
+            match scale_factor {
+              None =>
+                match
+                  @layout.layout_flex_tree(self.id, viewport, style, nodes) {
+                  Err(error) => Err(LayoutFailure(error))
+                  Ok(layout) => Ok({ placements, viewport, layout, })
+                }
+              Some(scale) =>
+                match
+                  @layout.layout_flex_tree_with_device_scale(
+                    self.id,
+                    viewport,
+                    style,
+                    nodes,
+                    scale,
+                  ) {
+                  Err(error) => Err(LayoutFailure(error))
+                  Ok(layout) => Ok({ placements, viewport, layout, })
+                }
             }
         }
     }
@@ -260,16 +296,7 @@ pub fn RequestedLayout::prepaint(
 ) -> Result[Prepainted, ElementError] {
   let nodes : Array[ElementNode] = []
   let layout_boxes = self.layout.items()
-  let root_bounds = match
-    @primitives.Rect::new(
-      0.0,
-      0.0,
-      self.viewport.width(),
-      self.viewport.height(),
-    ) {
-    Err(_) => return Err(GeometryFailure)
-    Ok(bounds) => bounds
-  }
+  let root_bounds = self.layout.root_bounds()
   let mut failure : ElementError? = None
   let mut index = 0
   while index < self.placements.length() && failure is None {
@@ -393,7 +420,7 @@ fn flatten_layout_tree(
 ///|
 fn push_children_reverse(
   parent : Element,
-  parent_depth : Int,
+  parent_depth : Int32,
   pending : Array[ElementPlacement],
 ) -> Unit {
   let mut index = parent.children.length()

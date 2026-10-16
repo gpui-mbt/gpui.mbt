@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "kind": "composition-survivor-review",
-  "turtles_version": "0.3.0",
-  "report_schema": 2,
+  "turtles_version": "0.4.7",
+  "report_schema": 3,
   "selection": "complete explicitly selected source files, not changed lines",
   "survivors": [
     {

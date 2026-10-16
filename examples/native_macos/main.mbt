@@ -40,7 +40,7 @@ fn scene(
 fn run(
   host : &@platform.Backend,
   smoke : Bool,
-  display_count : Int,
+  display_count : Int32,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let window = match
     host.create_window(

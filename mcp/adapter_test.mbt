@@ -58,12 +58,12 @@ fn mcp_query_descriptor(id : String) -> @capability.Descriptor {
 ///|
 fn install_fixture(
   app : @core.App,
-  entity : @core.Entity[Int],
-  notifications : Ref[Int],
+  entity : @core.Entity[Int32],
+  notifications : Ref[Int32],
 ) -> (
   @capability.Registry,
-  @capability.TypedCapability[Int, Int],
-  @capability.TypedCapability[Unit, Int],
+  @capability.TypedCapability[Int32, Int32],
+  @capability.TypedCapability[Unit, Int32],
 ) {
   let owner = match app.create_entity(0) {
     Ok(value) => value
@@ -158,12 +158,12 @@ priv struct SemanticTrace {
   state_after_json : String
   revision_before : UInt64
   revision_after : UInt64
-  notifications : Int
+  notifications : Int32
   result_json : String
 } derive(Eq)
 
 ///|
-fn run_lane(lane : Int, value : Int) -> SemanticTrace raise {
+fn run_lane(lane : Int32, value : Int32) -> SemanticTrace raise {
   let app = running_mcp_app()
   let entity = match app.create_entity(0) {
     Ok(value) => value
@@ -1044,7 +1044,7 @@ fn install_crud_capabilities(
 
 ///|
 fn invoke_string_lane(
-  lane : Int,
+  lane : Int32,
   capability : @capability.TypedCapability[String, String],
   adapter : @mcp.Adapter,
   external_name : String,
@@ -1071,7 +1071,7 @@ fn invoke_string_lane(
 
 ///|
 fn invoke_delete_lane(
-  lane : Int,
+  lane : Int32,
   capability : @capability.TypedCapability[Unit, Bool],
   adapter : @mcp.Adapter,
 ) -> Bool raise {
@@ -1102,13 +1102,13 @@ priv struct CrudTrace {
   results_json : String
   revision_before : UInt64
   revision_after : UInt64
-  notifications : Int
-  side_effect_count : Int
+  notifications : Int32
+  side_effect_count : Int32
   side_effects_json : String
 } derive(Eq)
 
 ///|
-fn run_crud_lane(lane : Int) -> CrudTrace raise {
+fn run_crud_lane(lane : Int32) -> CrudTrace raise {
   let app = running_mcp_app()
   let initial_names : Array[String] = []
   let entity = match app.create_entity(initial_names) {
@@ -1266,7 +1266,7 @@ test "CRUD availability failures agree before any side effect" {
 }
 
 ///|
-fn sequence_parity(commands : Array[Int]) -> Bool {
+fn sequence_parity(commands : Array[Int32]) -> Bool {
   let direct_app = match @core.App::new() {
     Ok(value) => value
     Err(_) => return false
@@ -1342,7 +1342,7 @@ fn sequence_parity(commands : Array[Int]) -> Bool {
 // Stable suite ID: capability-mcp-parity
 test "quickcheck: direct and MCP semantic sequences remain equivalent" {
   @quickcheck.check(
-    (commands : Array[Int]) => sequence_parity(commands),
+    (commands : Array[Int32]) => sequence_parity(commands),
     count=256,
     max_size=32,
     max_shrinks=500,

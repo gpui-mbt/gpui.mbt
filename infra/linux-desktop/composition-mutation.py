@@ -76,8 +76,8 @@ def candidate_tuple(row):
 
 
 def audit(report, snapshot, review, survivor_dir=None, discovery=None):
-    if report.get("schema") != 2 or report.get("turtles_version") != "0.3.0":
-        raise ValueError("requires turtles 0.3.0 / report schema 2")
+    if report.get("schema") != 3 or report.get("turtles_version") != "0.4.7":
+        raise ValueError("requires turtles 0.4.7 / report schema 3")
     if report.get("module") != str(snapshot) or report.get("test_scope") != "module":
         raise ValueError("requires the exact snapshot and full portable module test scope")
     if not report.get("moon_version") or not all(str(report.get(key, "")).isdigit() for key in
@@ -90,7 +90,7 @@ def audit(report, snapshot, review, survivor_dir=None, discovery=None):
         if fingerprints.get(relative) != fnv((snapshot / relative).read_bytes()):
             raise ValueError("source/configuration fingerprint mismatch: " + relative)
     if review.get("schema_version") != 1 or review.get("kind") != "composition-survivor-review" or \
-       review.get("turtles_version") != "0.3.0" or review.get("report_schema") != 2:
+       review.get("turtles_version") != "0.4.7" or review.get("report_schema") != 3:
         raise ValueError("invalid survivor review identity")
     approved = {}
     for row in review.get("survivors", []):
@@ -173,15 +173,15 @@ def execute(repo, binary, output, jobs=2):
     record = {"schema_version": 1, "scope": "portable composition-file mutation",
               "target": "wasm", "target_selection": "Moon default, verified dry-run",
               "selection": "complete explicit source files; no changed-line filtering",
-              "source_files": list(SOURCES), "turtles_version": "0.3.0", "report_schema": 2,
+              "source_files": list(SOURCES), "turtles_version": "0.4.7", "report_schema": 3,
               "cache_policy": "fresh outcomes; warm build cache only inside this invocation",
               "ok": False}
     before = source_state(repo)
     record["source_before"] = before
     try:
         version = subprocess.check_output([str(binary), "--version"], text=True).strip()
-        if version != "turtles 0.3.0":
-            raise RuntimeError("requires the official pinned turtles 0.3.0 installation")
+        if version != "turtles 0.4.7":
+            raise RuntimeError("requires the official pinned turtles 0.4.7 installation")
         record["tool_binary_sha256"] = sha256(binary)
         record["moon_version"] = subprocess.check_output(["moon", "version", "--all"], text=True).strip()
         config = tomllib.loads((repo / SCOPE).read_text())

@@ -5,7 +5,7 @@ const FIELD_FONT_FAMILY : String = "Segoe UI"
 const FIELD_FONT_SIZE : Double = 18.0
 
 ///|
-const FIELD_OWNER_GENERATION : Int = 2
+const FIELD_OWNER_GENERATION : Int32 = 2
 
 ///|
 fn palette_measure(
@@ -141,9 +141,9 @@ struct PaletteNativeComposition {
 
 ///|
 struct PaletteNativeOwner {
-  owner_generation : Int
-  open_epoch : Int
-  epoch : Int
+  owner_generation : Int32
+  open_epoch : Int32
+  epoch : Int32
   sequence : Int64
   composition : PaletteNativeComposition?
 }
@@ -228,9 +228,9 @@ fn palette_native_key_disposition(
 
 ///|
 fn palette_native_owner(
-  owner_generation : Int,
-  open_epoch : Int,
-  epoch : Int,
+  owner_generation : Int32,
+  open_epoch : Int32,
+  epoch : Int32,
 ) -> PaletteNativeOwner {
   { owner_generation, open_epoch, epoch, sequence: 0L, composition: None, }
 }
@@ -238,7 +238,7 @@ fn palette_native_owner(
 ///|
 fn palette_native_owner_after_update(
   owner : PaletteNativeOwner,
-  epoch : Int,
+  epoch : Int32,
 ) -> PaletteNativeOwner {
   if owner.epoch == epoch {
     owner
@@ -344,7 +344,7 @@ fn palette_update_native_field(
   window : @platform.WindowId,
   owner : PaletteNativeOwner,
   field : @text_field.TextField,
-  open_epoch : Int,
+  open_epoch : Int32,
   external_edit : Bool,
 ) -> Result[PaletteNativeOwner, @diagnostics.FrameworkError] {
   if owner.open_epoch != open_epoch || !field.is_focused() {
@@ -556,8 +556,8 @@ fn palette_native_append_result(
 fn palette_native_update_mark(
   owner : PaletteNativeOwner,
   text : String,
-  cursor_utf16 : Int?,
-  attributes : Array[Int],
+  cursor_utf16 : Int32?,
+  attributes : Array[Int32],
   replacement : @text.TextRange,
   measure : (@text.TextDocument) -> Result[
     @text_layout.TextMeasurement,
@@ -660,7 +660,7 @@ fn classify_palette_frame(
 /// A failed native close fence must not finish the terminal or run a command.
 fn palette_finish_close_after_fence(
   palette : @palette.CommandPalette,
-  epoch : Int,
+  epoch : Int32,
   tree : Ref[@element.ElementTree],
   fenced : Bool,
 ) -> Result[Unit, @palette.PaletteError] {

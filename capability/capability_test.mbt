@@ -41,10 +41,10 @@ fn external_int_descriptor(
 ///|
 fn int_capability(
   app : @core.App,
-  entity : @core.Entity[Int],
+  entity : @core.Entity[Int32],
   id : String,
   kind : @capability.OperationKind,
-) -> @capability.TypedCapability[Int, Int] raise {
+) -> @capability.TypedCapability[Int32, Int32] raise {
   @capability.TypedCapability::new(
     external_int_descriptor(id, kind),
     value => value.as_int(),

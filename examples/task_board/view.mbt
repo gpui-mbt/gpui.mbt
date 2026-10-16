@@ -1,6 +1,6 @@
 ///|
 priv struct LaneGeometry {
-  lane : Int
+  lane : Int32
   bounds : @primitives.Rect
   viewport : @primitives.Rect
 }
@@ -43,7 +43,7 @@ fn board_rect(
 }
 
 ///|
-fn lane_name(lane : Int) -> String {
+fn lane_name(lane : Int32) -> String {
   match lane {
     0 => "Backlog"
     1 => "In progress"
@@ -122,7 +122,7 @@ fn board_lanes(model : BoardModel) -> Result[Array[LaneGeometry], BoardError] {
 }
 
 ///|
-fn content_height(count : Int) -> Double {
+fn content_height(count : Int32) -> Double {
   if count == 0 {
     0.0
   } else {
@@ -237,7 +237,7 @@ fn board_tree(model : BoardModel) -> Result[@element.ElementTree, BoardError] {
 }
 
 ///|
-fn hit_card(model : BoardModel, position : @primitives.Point) -> Int? {
+fn hit_card(model : BoardModel, position : @primitives.Point) -> Int32? {
   match board_tree(model) {
     Err(_) => None
     Ok(tree) =>
@@ -249,7 +249,7 @@ fn hit_card(model : BoardModel, position : @primitives.Point) -> Int? {
 }
 
 ///|
-fn lane_at(model : BoardModel, position : @primitives.Point) -> Int? {
+fn lane_at(model : BoardModel, position : @primitives.Point) -> Int32? {
   if !board_rect(0.0, 0.0, model.width, model.height).contains(position) {
     return None
   }
@@ -267,7 +267,7 @@ fn lane_at(model : BoardModel, position : @primitives.Point) -> Int? {
 }
 
 ///|
-fn color(red : Int, green : Int, blue : Int) -> @primitives.Color {
+fn color(red : Int32, green : Int32, blue : Int32) -> @primitives.Color {
   match @primitives.Color::rgba(red, green, blue, 255) {
     Ok(value) => value
     Err(_) => abort("valid board color")
@@ -275,7 +275,7 @@ fn color(red : Int, green : Int, blue : Int) -> @primitives.Color {
 }
 
 ///|
-fn lane_color(lane : Int) -> @primitives.Color {
+fn lane_color(lane : Int32) -> @primitives.Color {
   match lane {
     0 => color(143, 151, 127)
     1 => color(184, 127, 79)
@@ -289,7 +289,7 @@ fn add_quad(
   id : UInt64,
   bounds : @primitives.Rect,
   fill : @primitives.Color,
-  clip : Int,
+  clip : Int32,
   opacity : Double,
 ) -> Unit {
   match
@@ -314,7 +314,7 @@ fn add_text(
   text : String,
   font_size : Double,
   fill : @primitives.Color,
-  clip : Int,
+  clip : Int32,
 ) -> Unit {
   if bounds.size().width() <= 0.0 || bounds.size().height() <= 0.0 {
     return
@@ -342,7 +342,7 @@ fn paint_card(
   bounds : @primitives.Rect,
   selected : Bool,
   hovered : Bool,
-  clip : Int,
+  clip : Int32,
   base : UInt64,
 ) -> Unit {
   let x = bounds.left()
@@ -576,7 +576,7 @@ fn bounds_json(bounds : @primitives.Rect) -> String {
 }
 
 ///|
-fn optional_id_json(value : Int?) -> String {
+fn optional_id_json(value : Int32?) -> String {
   match value {
     Some(id) => "\{id}"
     None => "null"

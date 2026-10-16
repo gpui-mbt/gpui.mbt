@@ -6,8 +6,8 @@
 pub(all) struct TextSessionTarget {
   window : @platform.WindowId
   sequence : Int64
-  epoch : Int
-  owner_generation : Int
+  epoch : Int32
+  owner_generation : Int32
 }
 
 ///|
@@ -18,8 +18,8 @@ pub(all) enum TextSessionEvent {
   CompositionStarted(replacement_range~ : @text.TextRange)
   Marked(
     text~ : String,
-    cursor_utf16~ : Int?,
-    attributes~ : Array[Int],
+    cursor_utf16~ : Int32?,
+    attributes~ : Array[Int32],
     replacement_range~ : @text.TextRange
   )
   Inserted(text~ : String, replacement_range~ : @text.TextRange)
@@ -37,87 +37,90 @@ pub(all) enum EditorEvent {
 }
 
 ///|
-const SESSION_EVENT_FIELDS : Int = 20
+const SESSION_EVENT_FIELDS : Int32 = 20
 
 ///|
-const SESSION_MAX_STRING_BYTES : Int = 4096
+const SESSION_MAX_STRING_BYTES : Int32 = 4096
 
 ///|
-const SESSION_MAX_ATTRIBUTES : Int = 4096
+const SESSION_MAX_ATTRIBUTES : Int32 = 4096
 
 ///|
-const SESSION_MAX_PAYLOAD : Int = SESSION_MAX_STRING_BYTES +
+const SESSION_MAX_PAYLOAD : Int32 = SESSION_MAX_STRING_BYTES +
   SESSION_MAX_ATTRIBUTES
 
 ///|
 #borrow(text)
 extern "C" fn native_session_begin(
-  host : Int,
-  window : Int,
-  owner_generation : Int,
+  host : Int32,
+  window : Int32,
+  owner_generation : Int32,
   text : Bytes,
-  text_length : Int,
-  anchor_utf16 : Int,
-  head_utf16 : Int,
+  text_length : Int32,
+  anchor_utf16 : Int32,
+  head_utf16 : Int32,
   x : Double,
   y : Double,
   width : Double,
   height : Double,
-) -> Int = "gpui_windows_session_begin"
+) -> Int32 = "gpui_windows_session_begin"
 
 ///|
 #borrow(text)
 extern "C" fn native_session_update(
-  host : Int,
-  window : Int,
-  epoch : Int,
-  owner_generation : Int,
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+  owner_generation : Int32,
   text : Bytes,
-  text_length : Int,
-  anchor_utf16 : Int,
-  head_utf16 : Int,
+  text_length : Int32,
+  anchor_utf16 : Int32,
+  head_utf16 : Int32,
   x : Double,
   y : Double,
   width : Double,
   height : Double,
-  external_edit : Int,
-) -> Int = "gpui_windows_session_update"
+  external_edit : Int32,
+) -> Int32 = "gpui_windows_session_update"
 
 ///|
 extern "C" fn native_session_cancel(
-  host : Int,
-  window : Int,
-  epoch : Int,
-  owner_generation : Int,
-) -> Int = "gpui_windows_session_cancel"
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+  owner_generation : Int32,
+) -> Int32 = "gpui_windows_session_cancel"
 
 ///|
 extern "C" fn native_session_end(
-  host : Int,
-  window : Int,
-  epoch : Int,
-  owner_generation : Int,
-) -> Int = "gpui_windows_session_end"
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+  owner_generation : Int32,
+) -> Int32 = "gpui_windows_session_end"
 
 ///|
 #borrow(event, payload)
 extern "C" fn native_next_editor(
-  host : Int,
+  host : Int32,
   event : FixedArray[Double],
   payload : FixedArray[Byte],
-  payload_capacity : Int,
-) -> Int = "gpui_windows_next_editor"
+  payload_capacity : Int32,
+) -> Int32 = "gpui_windows_next_editor"
 
 ///|
-extern "C" fn native_window_has_keyboard_focus(host : Int, window : Int) -> Int = "gpui_windows_window_has_keyboard_focus"
+extern "C" fn native_window_has_keyboard_focus(
+  host : Int32,
+  window : Int32,
+) -> Int32 = "gpui_windows_window_has_keyboard_focus"
 
 ///|
 extern "C" fn native_session_is_current(
-  host : Int,
-  window : Int,
-  epoch : Int,
-  owner_generation : Int,
-) -> Int = "gpui_windows_session_is_current"
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+  owner_generation : Int32,
+) -> Int32 = "gpui_windows_session_is_current"
 
 ///|
 fn session_exact_i32(value : Double) -> Bool {
@@ -132,7 +135,7 @@ fn session_exact_i32(value : Double) -> Bool {
 fn session_window_token(
   window : @platform.WindowId,
   operation : String,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let value = window.value()
   if value < 1L || value > 2147483647L {
     Err(backend_error(3, operation))
@@ -143,9 +146,9 @@ fn session_window_token(
 
 ///|
 fn session_epoch_outcome(
-  value : Int,
+  value : Int32,
   operation : String,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   if value > 0 {
     Ok(value)
   } else if value < 0 {
@@ -186,7 +189,7 @@ fn session_rect_valid(
 fn session_document(
   document : @text.TextDocument,
   operation : String,
-) -> Result[(Bytes, Int, Int), @diagnostics.FrameworkError] {
+) -> Result[(Bytes, Int32, Int32), @diagnostics.FrameworkError] {
   let length = match document.utf8_length() {
     Ok(value) => value
     Err(_) => return Err(backend_error(3, operation))
@@ -211,10 +214,10 @@ fn session_document(
 pub fn Host::begin_text_session(
   self : Host,
   window : @platform.WindowId,
-  owner_generation : Int,
+  owner_generation : Int32,
   document : @text.TextDocument,
   caret_rect : @primitives.Rect,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let operation = "begin_text_session"
   if owner_generation <= 0 {
     return Err(backend_error(3, operation))
@@ -257,12 +260,12 @@ pub fn Host::begin_text_session(
 pub fn Host::update_text_session(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
-  owner_generation : Int,
+  epoch : Int32,
+  owner_generation : Int32,
   document : @text.TextDocument,
   caret_rect : @primitives.Rect,
-  external_edit? : Bool = true,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  external_edit~ : Bool = true,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let operation = "update_text_session"
   if epoch <= 0 || owner_generation <= 0 {
     return Err(backend_error(3, operation))
@@ -311,9 +314,9 @@ pub fn Host::update_text_session(
 pub fn Host::cancel_text_session(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
-  owner_generation : Int,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  epoch : Int32,
+  owner_generation : Int32,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let operation = "cancel_text_session"
   if epoch <= 0 || owner_generation <= 0 {
     return Err(backend_error(3, operation))
@@ -332,8 +335,8 @@ pub fn Host::cancel_text_session(
 pub fn Host::end_text_session(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
-  owner_generation : Int,
+  epoch : Int32,
+  owner_generation : Int32,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let operation = "end_text_session"
   if epoch <= 0 || owner_generation <= 0 {
@@ -381,8 +384,8 @@ pub fn Host::window_has_keyboard_focus(
 pub fn Host::text_session_is_current(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
-  owner_generation : Int,
+  epoch : Int32,
+  owner_generation : Int32,
 ) -> Result[Bool, @diagnostics.FrameworkError] {
   let operation = "text_session_is_current"
   if epoch <= 0 || owner_generation <= 0 {
@@ -422,8 +425,8 @@ fn session_decode_error(operation : String) -> @diagnostics.FrameworkError {
 ///|
 fn session_zero_fields(
   data : FixedArray[Double],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Bool {
   for index = start; index < end; index = index + 1 {
     if data[index] != 0.0 {
@@ -456,7 +459,7 @@ fn session_range(
 ///|
 fn session_decode_text(
   bytes : Bytes,
-  length : Int,
+  length : Int32,
   operation : String,
 ) -> Result[String, @diagnostics.FrameworkError] {
   if length < 0 || length > SESSION_MAX_STRING_BYTES || bytes.length() < length {
@@ -619,7 +622,7 @@ fn session_decode_event(
           }
           None
         }
-        let attributes : Array[Int] = []
+        let attributes : Array[Int32] = []
         let attribute_start = text_length
         for index = 0; index < attribute_count; index = index + 1 {
           attributes.push(payload[attribute_start + index].to_int() & 0xff)
@@ -657,9 +660,9 @@ fn session_decode_event(
 /// Read the shared FIFO through its typed view. One dispatch budget is spent
 /// per call; platform records and text records retain one total order.
 fn next_editor_event_from_native(
-  read : (FixedArray[Double], FixedArray[Byte]) -> Int,
-  dispatch : (Int) -> Int,
-  timeout_ms : Int,
+  read : (FixedArray[Double], FixedArray[Byte]) -> Int32,
+  dispatch : (Int32) -> Int32,
+  timeout_ms : Int32,
 ) -> Result[EditorEvent?, @diagnostics.FrameworkError] {
   let fields = FixedArray::make(SESSION_EVENT_FIELDS, 0.0)
   let payload = FixedArray::make(SESSION_MAX_PAYLOAD, (0).to_byte())
@@ -699,7 +702,7 @@ fn next_editor_event_from_native(
 ///|
 pub fn Host::next_editor_event(
   self : Host,
-  timeout_ms? : Int = 16,
+  timeout_ms~ : Int32 = 16,
 ) -> Result[EditorEvent?, @diagnostics.FrameworkError] {
   next_editor_event_from_native(
     (fields, payload) => {

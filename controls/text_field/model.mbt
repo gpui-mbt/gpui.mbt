@@ -43,13 +43,13 @@ pub struct TextField {
   priv measurement : @text_layout.TextMeasurement
   priv focused : Bool
   priv scroll_offset : Double
-  priv revision : Int
+  priv revision : Int32
   priv history : FieldHistory
   priv composition : FieldComposition?
 }
 
 ///|
-const MAX_FIELD_UTF8_BYTES : Int = 4096
+const MAX_FIELD_UTF8_BYTES : Int32 = 4096
 
 ///|
 const MAX_FIELD_FONT_SIZE : Double = 32.0
@@ -98,7 +98,7 @@ fn validate_field_text(
 }
 
 ///|
-fn field_stops(measurement : @text_layout.TextMeasurement) -> Array[Int] {
+fn field_stops(measurement : @text_layout.TextMeasurement) -> Array[Int32] {
   let stops = []
   for caret in measurement.carets() {
     if caret.is_cursor_position() {
@@ -109,7 +109,7 @@ fn field_stops(measurement : @text_layout.TextMeasurement) -> Array[Int] {
 }
 
 ///|
-fn contains_stop(stops : Array[Int], target : Int) -> Bool {
+fn contains_stop(stops : Array[Int32], target : Int32) -> Bool {
   for stop in stops {
     if stop == target {
       return true
@@ -119,7 +119,7 @@ fn contains_stop(stops : Array[Int], target : Int) -> Bool {
 }
 
 ///|
-fn previous_stop(stops : Array[Int], target : Int) -> Int {
+fn previous_stop(stops : Array[Int32], target : Int32) -> Int32 {
   let mut result = stops[0]
   for stop in stops {
     if stop >= target {
@@ -131,7 +131,7 @@ fn previous_stop(stops : Array[Int], target : Int) -> Int {
 }
 
 ///|
-fn next_stop(stops : Array[Int], target : Int) -> Int {
+fn next_stop(stops : Array[Int32], target : Int32) -> Int32 {
   for stop in stops {
     if stop > target {
       return stop
@@ -141,7 +141,7 @@ fn next_stop(stops : Array[Int], target : Int) -> Int {
 }
 
 ///|
-fn first_stop_at_or_after(stops : Array[Int], target : Int) -> Int {
+fn first_stop_at_or_after(stops : Array[Int32], target : Int32) -> Int32 {
   for stop in stops {
     if stop >= target {
       return stop
@@ -384,7 +384,7 @@ fn clamp_field_scroll(field : TextField, value : Double) -> Double {
 }
 
 ///|
-fn field_scroll_for_head(field : TextField, head : Int) -> Double {
+fn field_scroll_for_head(field : TextField, head : Int32) -> Double {
   let caret = match field.measurement.caret_at(head) {
     Ok(value) => value
     Err(_) => return field.scroll_offset
@@ -407,7 +407,7 @@ fn field_scroll_for_head(field : TextField, head : Int) -> Double {
 }
 
 ///|
-fn bump_field_revision(revision : Int) -> Result[Int, TextFieldError] {
+fn bump_field_revision(revision : Int32) -> Result[Int32, TextFieldError] {
   if revision < 0 || revision >= @int.MAX_VALUE {
     Err(RevisionExhausted)
   } else {
@@ -909,8 +909,8 @@ pub fn TextField::with_bounds(
 ///|
 fn field_selection_at(
   field : TextField,
-  anchor : Int,
-  head : Int,
+  anchor : Int32,
+  head : Int32,
   focused : Bool,
 ) -> Result[TextField, TextFieldError] {
   let selection = match @text.TextSelection::new(anchor, head) {
@@ -1050,7 +1050,7 @@ fn is_field_shortcut(key : @primitives.Key, letter : String) -> Bool {
 }
 
 ///|
-fn nearest_field_stop(field : TextField, layout_x : Double) -> Int {
+fn nearest_field_stop(field : TextField, layout_x : Double) -> Int32 {
   let stops = field_stops(field.measurement)
   let mut result = stops[0]
   let mut best_distance = 1.0e300
@@ -1335,6 +1335,6 @@ pub fn TextField::scroll_offset(self : TextField) -> Double {
 }
 
 ///|
-pub fn TextField::revision(self : TextField) -> Int {
+pub fn TextField::revision(self : TextField) -> Int32 {
   self.revision
 }

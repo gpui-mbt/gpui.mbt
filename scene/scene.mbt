@@ -159,12 +159,12 @@ pub fn Scene::commands(self : Scene) -> Array[PaintCommand] {
 }
 
 ///|
-pub fn Scene::command_count(self : Scene) -> Int {
+pub fn Scene::command_count(self : Scene) -> Int32 {
   self.commands.length()
 }
 
 ///|
-pub fn Scene::command_at(self : Scene, index : Int) -> PaintCommand? {
+pub fn Scene::command_at(self : Scene, index : Int32) -> PaintCommand? {
   if index < 0 || index >= self.commands.length() {
     None
   } else {

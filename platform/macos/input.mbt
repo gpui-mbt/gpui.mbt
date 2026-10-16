@@ -1,7 +1,7 @@
 ///|
 pub fn Host::next_event(
   self : Host,
-  timeout_ms? : Int = 16,
+  timeout_ms~ : Int32 = 16,
 ) -> Result[@platform.Event?, @diagnostics.FrameworkError] {
   if timeout_ms < 0 || timeout_ms > 250 {
     return Err(error(@diagnostics.InvalidInput, "next_event"))
@@ -39,7 +39,7 @@ fn decode_scroll_event(
 }
 
 ///|
-fn key_from_code(code : Int, text : String) -> @primitives.Key {
+fn key_from_code(code : Int32, text : String) -> @primitives.Key {
   match code {
     36 | 76 => @primitives.Enter
     53 => @primitives.Escape

@@ -1,8 +1,8 @@
 ///|
 fn history_test_document(
   text : String,
-  anchor : Int,
-  head : Int,
+  anchor : Int32,
+  head : Int32,
 ) -> @text.TextDocument {
   @text.TextDocument::new(text)
   .unwrap()
@@ -36,12 +36,12 @@ fn history_test_record_group(
 }
 
 ///|
-fn history_test_symbol(index : Int) -> String {
+fn history_test_symbol(index : Int32) -> String {
   String::from_array([(0x21 + index).unsafe_to_char()])
 }
 
 ///|
-fn history_test_undo_depth(history : FieldHistory) -> Int {
+fn history_test_undo_depth(history : FieldHistory) -> Int32 {
   let mut current = history
   let mut depth = 0
   while current.can_undo() {

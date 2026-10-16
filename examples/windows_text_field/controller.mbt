@@ -38,8 +38,8 @@ fn restore_submitted_field(
 fn cut_after_write(
   previous : @text_field.TextField,
   candidate : @text_field.TextField,
-  epoch_before : Int?,
-  epoch_after : Int?,
+  epoch_before : Int32?,
+  epoch_after : Int32?,
   focus_before : Bool,
   focus_after : Bool,
   write : Result[Unit, @diagnostics.FrameworkError],
@@ -62,9 +62,9 @@ fn cut_after_write(
 ///|
 fn paste_if_current(
   field : @text_field.TextField,
-  revision : Int,
-  epoch_before : Int?,
-  epoch_after : Int?,
+  revision : Int32,
+  epoch_before : Int32?,
+  epoch_after : Int32?,
   focus_before : Bool,
   focus_after : Bool,
   text : String,
@@ -114,14 +114,17 @@ struct NativeFieldComposition {
 
 ///|
 struct WindowsTextOwner {
-  owner_generation : Int
-  epoch : Int
+  owner_generation : Int32
+  epoch : Int32
   sequence : Int64
   composition : NativeFieldComposition?
 }
 
 ///|
-fn windows_text_owner(owner_generation : Int, epoch : Int) -> WindowsTextOwner {
+fn windows_text_owner(
+  owner_generation : Int32,
+  epoch : Int32,
+) -> WindowsTextOwner {
   { owner_generation, epoch, sequence: 0L, composition: None, }
 }
 
@@ -157,7 +160,7 @@ fn windows_resolves_preedit(
 ///|
 fn windows_text_owner_after_update(
   owner : WindowsTextOwner,
-  epoch : Int,
+  epoch : Int32,
 ) -> WindowsTextOwner {
   if owner.epoch == epoch {
     owner
@@ -250,8 +253,8 @@ fn windows_append_result(
 fn windows_update_mark(
   owner : WindowsTextOwner,
   text : String,
-  cursor_utf16 : Int?,
-  attributes : Array[Int],
+  cursor_utf16 : Int32?,
+  attributes : Array[Int32],
   replacement : @text.TextRange,
   measure_fn : (@text.TextDocument) -> Result[
     @text_layout.TextMeasurement,
@@ -319,7 +322,7 @@ fn windows_update_mark(
 fn windows_preview_transaction(
   original : @text_field.TextField,
   text : String,
-  cursor_utf16 : Int,
+  cursor_utf16 : Int32,
   measure_fn : (@text.TextDocument) -> Result[
     @text_layout.TextMeasurement,
     @text_field.TextFieldError,

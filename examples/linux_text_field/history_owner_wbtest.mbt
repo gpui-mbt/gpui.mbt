@@ -9,7 +9,7 @@ fn owner_history_selected(
 ///|
 fn owner_history_command(
   key : String,
-  repeat? : Bool = false,
+  repeat~ : Bool = false,
 ) -> @primitives.InputEvent {
   @primitives.KeyPressed(
     key=@primitives.Character(key),

@@ -3,7 +3,7 @@
 pub(all) struct TextSessionTarget {
   window : @platform.WindowId
   host_epoch : Int64
-  epoch : Int
+  epoch : Int32
   sequence : Int64
   owner_revision : Int64
 }
@@ -11,7 +11,7 @@ pub(all) struct TextSessionTarget {
 ///|
 pub(all) struct TextSessionStyle {
   range : @text.TextRange
-  style : Int
+  style : Int32
 }
 
 ///|
@@ -19,7 +19,7 @@ pub(all) enum TextSessionEvent {
   Preedit(
     text~ : String,
     fallback~ : String,
-    cursor_utf16~ : Int?,
+    cursor_utf16~ : Int32?,
     styles~ : Array[TextSessionStyle],
     replacement_range~ : @text.TextRange?
   )
@@ -28,12 +28,12 @@ pub(all) enum TextSessionEvent {
   Left
   Cancelled
   ForwardedPressed(
-    key_code~ : Int,
+    key_code~ : Int32,
     key~ : @primitives.Key?,
     modifiers~ : @primitives.Modifiers
   )
   ForwardedReleased(
-    key_code~ : Int,
+    key_code~ : Int32,
     key~ : @primitives.Key?,
     modifiers~ : @primitives.Modifiers
   )
@@ -74,7 +74,7 @@ pub fn TextSessionTarget::host_epoch(self : TextSessionTarget) -> Int64 {
 }
 
 ///|
-pub fn TextSessionTarget::epoch(self : TextSessionTarget) -> Int {
+pub fn TextSessionTarget::epoch(self : TextSessionTarget) -> Int32 {
   self.epoch
 }
 
@@ -94,7 +94,7 @@ pub fn TextSessionStyle::range(self : TextSessionStyle) -> @text.TextRange {
 }
 
 ///|
-pub fn TextSessionStyle::style(self : TextSessionStyle) -> Int {
+pub fn TextSessionStyle::style(self : TextSessionStyle) -> Int32 {
   self.style
 }
 
@@ -155,22 +155,22 @@ fn text_session_payload(
     _ => ()
   }
   let ack : Json = match acknowledged_sequence {
-    Some(value) => value.to_double().to_json()
+    Some(value) => Json(value.to_double())
     None => Json::null()
   }
   let json : Json = {
-    "text": document.text().to_json(),
-    "cursor": cursor.to_json(),
-    "anchor": anchor.to_json(),
-    "utf16_length": document.utf16_length().to_json(),
+    "text": Json(document.text()),
+    "cursor": Json(cursor),
+    "anchor": Json(anchor),
+    "utf16_length": Json(document.utf16_length()),
     "rect": {
-      "x": x.to_json(),
-      "y": y.to_json(),
-      "width": width.to_json(),
-      "height": height.to_json(),
+      "x": Json(x),
+      "y": Json(y),
+      "width": Json(width),
+      "height": Json(height),
     },
-    "owner_revision": owner_revision.to_double().to_json(),
-    "external_edit": external_edit.to_json(),
+    "owner_revision": Json(owner_revision.to_double()),
+    "external_edit": Json(external_edit),
     "acknowledged_sequence": ack,
   }
   Ok(@utf8.encode(json.stringify()))
@@ -212,7 +212,7 @@ pub fn Host::set_direct_keyboard_text(
 pub fn Host::direct_keyboard_text_epoch(
   self : Host,
   window : @platform.WindowId,
-) -> Result[Int, @diagnostics.FrameworkError] {
+) -> Result[Int32, @diagnostics.FrameworkError] {
   match self.check() {
     Err(value) => return Err(value)
     Ok(_) => ()
@@ -242,7 +242,7 @@ pub fn Host::direct_keyboard_text_epoch(
 pub fn Host::update_direct_keyboard_text(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
+  epoch : Int32,
   document : @text.TextDocument,
   caret_rect : @primitives.Rect,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
@@ -281,8 +281,8 @@ pub fn Host::begin_text_session(
   window : @platform.WindowId,
   document : @text.TextDocument,
   caret_rect : @primitives.Rect,
-  owner_revision? : Int64 = 0L,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  owner_revision~ : Int64 = 0L,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   match self.check() {
     Err(value) => return Err(value)
     Ok(_) => ()
@@ -324,13 +324,13 @@ pub fn Host::begin_text_session(
 pub fn Host::update_text_session(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
+  epoch : Int32,
   document : @text.TextDocument,
   caret_rect : @primitives.Rect,
-  external_edit? : Bool = true,
-  acknowledged_sequence? : Int64? = None,
-  owner_revision? : Int64 = 0L,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  external_edit~ : Bool = true,
+  acknowledged_sequence~ : Int64? = None,
+  owner_revision~ : Int64 = 0L,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   if epoch <= 0 {
     return Err(error(@diagnostics.InvalidInput, "update_text_session"))
   }
@@ -371,8 +371,8 @@ pub fn Host::update_text_session(
 pub fn Host::cancel_text_session(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  epoch : Int32,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   if epoch <= 0 {
     return Err(error(@diagnostics.InvalidInput, "cancel_text_session"))
   }
@@ -405,7 +405,7 @@ pub fn Host::cancel_text_session(
 pub fn Host::end_text_session(
   self : Host,
   window : @platform.WindowId,
-  epoch : Int,
+  epoch : Int32,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   if epoch <= 0 {
     return Err(error(@diagnostics.InvalidInput, "end_text_session"))
@@ -426,7 +426,7 @@ pub fn Host::end_text_session(
 /// the only event source; the native side blocks the next input until batch ACK.
 pub fn Host::next_editor_event(
   self : Host,
-  timeout_ms? : Int = 16,
+  timeout_ms~ : Int32 = 16,
 ) -> Result[EditorEvent?, @diagnostics.FrameworkError] {
   if timeout_ms < 0 || timeout_ms > 250 {
     return Err(error(@diagnostics.InvalidInput, "next_editor_event"))
@@ -465,7 +465,7 @@ pub fn Host::next_editor_event(
 pub fn Host::testing_post_key(
   self : Host,
   window : @platform.WindowId,
-  key_code : Int,
+  key_code : Int32,
   characters : String,
   characters_ignoring_modifiers : String,
   modifiers : @primitives.Modifiers,
@@ -486,8 +486,8 @@ pub fn Host::testing_post_key(
     (if modifiers.alt() { 4 } else { 0 }) |
     (if modifiers.meta() { 8 } else { 0 })
   let payload : Json = {
-    "characters": characters.to_json(),
-    "ignoring": characters_ignoring_modifiers.to_json(),
+    "characters": Json(characters),
+    "ignoring": Json(characters_ignoring_modifiers),
   }
   let bytes = @utf8.encode(payload.stringify())
   status(
@@ -932,7 +932,7 @@ fn valid_session_text(text : String) -> Bool {
 
 ///|
 /// Reject a cursor/style endpoint in the middle of a UTF-16 surrogate pair.
-fn valid_utf16_boundary(text : String, offset : Int) -> Bool {
+fn valid_utf16_boundary(text : String, offset : Int32) -> Bool {
   if offset < 0 || offset > text.length() {
     return false
   }
@@ -951,7 +951,7 @@ fn valid_utf16_boundary(text : String, offset : Int) -> Bool {
 }
 
 ///|
-fn decode_modifiers(value : Int) -> @primitives.Modifiers {
+fn decode_modifiers(value : Int32) -> @primitives.Modifiers {
   @primitives.Modifiers::new(
     shift=(value & 1) != 0,
     control=(value & 2) != 0,

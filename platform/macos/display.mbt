@@ -13,8 +13,8 @@ pub(all) struct DisplayInfo {
   visible_width_points : Double
   visible_height_points : Double
   backing_scale_factor : Double
-  mode_width_px : Int
-  mode_height_px : Int
+  mode_width_px : Int32
+  mode_height_px : Int32
   refresh_rate_hz : Double?
   is_primary : Bool
   is_window_monitor : Bool
@@ -24,10 +24,10 @@ pub(all) struct DisplayInfo {
 pub extend DisplayInfo with Eq::{not_equal, equal}
 
 ///|
-const DISPLAY_SNAPSHOT_CAPACITY : Int = 16
+const DISPLAY_SNAPSHOT_CAPACITY : Int32 = 16
 
 ///|
-const DISPLAY_INFO_FIELDS : Int = 14
+const DISPLAY_INFO_FIELDS : Int32 = 14
 
 ///|
 fn exact_display_int(value : Double) -> Bool {
@@ -59,7 +59,7 @@ fn display_decode_error(message : String) -> @diagnostics.FrameworkError {
 /// closed instead of returning a partial display list.
 fn decode_display_snapshot(
   records : FixedArray[Double],
-  count : Int,
+  count : Int32,
 ) -> Result[Array[DisplayInfo], @diagnostics.FrameworkError] {
   if count < 0 ||
     count > DISPLAY_SNAPSHOT_CAPACITY ||

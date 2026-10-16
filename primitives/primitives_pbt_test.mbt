@@ -2,7 +2,7 @@
 // Stable suite ID: geometry.rect.invariants
 test "property rect unions contain both inputs and scaling is reversible" {
   @quickcheck.check(
-    (values : (Int, Int, Int, Int, Int, Int)) => {
+    (values : (Int32, Int32, Int32, Int32, Int32, Int32)) => {
       let (x0, y0, w0, h0, x1, y1) = values
       let x = (x0 % 100000).to_double() / 16.0
       let y = (y0 % 100000).to_double() / 16.0
@@ -47,7 +47,7 @@ test "property rect unions contain both inputs and scaling is reversible" {
 // Stable suite ID: geometry.rect.translations
 test "property rectangle translations preserve dimensions and inverse" {
   @quickcheck.check(
-    (values : (Int, Int, Int, Int, Int, Int)) => {
+    (values : (Int32, Int32, Int32, Int32, Int32, Int32)) => {
       let (x0, y0, w0, h0, dx0, dy0) = values
       let x = (x0 % 100000).to_double() / 16.0
       let y = (y0 % 100000).to_double() / 16.0

@@ -6,8 +6,8 @@
 // font, grapheme-segmentation implementation, or formal proof.
 priv struct CompositionReferenceDocument {
   text : String
-  anchor : Int
-  head : Int
+  anchor : Int32
+  head : Int32
 } derive(Eq)
 
 ///|
@@ -20,8 +20,8 @@ priv struct CompositionReferenceEdit {
 priv struct CompositionReferenceOwner {
   original : CompositionReferenceDocument
   visible : Bool
-  marked_start : Int
-  marked_end : Int
+  marked_start : Int32
+  marked_end : Int32
 }
 
 ///|
@@ -31,13 +31,13 @@ priv struct CompositionReferenceState {
   redo : Array[CompositionReferenceEdit]
   owner : CompositionReferenceOwner?
   focused : Bool
-  revision : Int
+  revision : Int32
 }
 
 ///|
 priv enum CompositionReferenceOperation {
-  Preedit(String, Int, Int)
-  PreeditUtf8(String, Int, Int)
+  Preedit(String, Int32, Int32)
+  PreeditUtf8(String, Int32, Int32)
   Commit(String)
   Cancel
   Focus(Bool)
@@ -51,8 +51,8 @@ priv enum CompositionReferenceOperation {
 ///|
 fn composition_reference_start(
   text : String,
-  anchor : Int,
-  head : Int,
+  anchor : Int32,
+  head : Int32,
 ) -> CompositionReferenceState {
   {
     document: { text, anchor, head, },
@@ -67,7 +67,7 @@ fn composition_reference_start(
 ///|
 fn composition_reference_start_offset(
   document : CompositionReferenceDocument,
-) -> Int {
+) -> Int32 {
   if document.anchor < document.head {
     document.anchor
   } else {
@@ -78,7 +78,7 @@ fn composition_reference_start_offset(
 ///|
 fn composition_reference_end_offset(
   document : CompositionReferenceDocument,
-) -> Int {
+) -> Int32 {
   if document.anchor > document.head {
     document.anchor
   } else {
@@ -101,7 +101,7 @@ fn composition_reference_splice(
 }
 
 ///|
-fn composition_reference_utf8_bytes(text : String) -> Int {
+fn composition_reference_utf8_bytes(text : String) -> Int32 {
   let mut bytes = 0
   for scalar in text.iter() {
     let value = scalar.to_int()
@@ -120,7 +120,7 @@ fn composition_reference_utf8_bytes(text : String) -> Int {
 
 ///|
 // Walk Unicode scalars rather than calling the production byte adapter.
-fn composition_reference_utf16_at_byte(text : String, byte : Int) -> Int? {
+fn composition_reference_utf16_at_byte(text : String, byte : Int32) -> Int32? {
   let mut consumed_bytes = 0
   let mut consumed_units = 0
   if byte == 0 {
@@ -146,7 +146,7 @@ fn composition_reference_utf16_at_byte(text : String, byte : Int) -> Int? {
 }
 
 ///|
-fn composition_reference_scalar_boundary(text : String, offset : Int) -> Bool {
+fn composition_reference_scalar_boundary(text : String, offset : Int32) -> Bool {
   let mut units = 0
   if offset == 0 {
     return true
@@ -164,7 +164,7 @@ fn composition_reference_scalar_boundary(text : String, offset : Int) -> Bool {
 fn composition_reference_payload(
   undo : Array[CompositionReferenceEdit],
   redo : Array[CompositionReferenceEdit],
-) -> Int {
+) -> Int32 {
   let mut bytes = 0
   for entry in undo {
     bytes += composition_reference_utf8_bytes(entry.prior.text) +
@@ -521,8 +521,8 @@ fn composition_reference_history_matches(
 ///|
 fn composition_reference_range_matches(
   actual : @text.TextRange?,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Bool {
   match actual {
     Some(range) => range.start() == start && range.end() == end

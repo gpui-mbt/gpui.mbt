@@ -1,7 +1,7 @@
 ///|
 /// Invalid diagnostic sink capacity.
 pub(all) enum SinkConfigError {
-  CapacityOutOfRange(Int)
+  CapacityOutOfRange(Int32)
 }
 
 ///|
@@ -21,8 +21,8 @@ pub fn Diagnostic::error(self : Diagnostic) -> FrameworkError {
 /// serialize writes on that owner's event loop.
 pub struct DiagnosticSink {
   priv entries : Array[Diagnostic?]
-  priv mut oldest : Int
-  priv mut length : Int
+  priv mut oldest : Int32
+  priv mut length : Int32
   priv counts : Map[String, UInt64]
   priv mut total : UInt64
   priv mut dropped : UInt64
@@ -31,7 +31,7 @@ pub struct DiagnosticSink {
 ///|
 /// Create a sink with capacity from 1 through 256 records.
 pub fn DiagnosticSink::new(
-  capacity : Int,
+  capacity : Int32,
 ) -> Result[DiagnosticSink, SinkConfigError] {
   if capacity < 1 || capacity > 256 {
     Err(SinkConfigError::CapacityOutOfRange(capacity))

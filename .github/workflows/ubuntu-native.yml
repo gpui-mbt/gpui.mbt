@@ -17,8 +17,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: hustcer/setup-moonbit@1522f9aef02a8ca0187dfc00a41f5dd6b16750f7
         with:
-          version: 0.10.14+7d59c7ec9
-          core-version: 0.10.14+7d59c7ec9
+          version: 0.10.15+943464bfa
+          core-version: 0.10.15+943464bfa
       - name: Install Linux text measurement APIs and font fixtures
         run: |
           sudo apt-get update
@@ -39,13 +39,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: hustcer/setup-moonbit@1522f9aef02a8ca0187dfc00a41f5dd6b16750f7
         with:
-          version: 0.10.14+7d59c7ec9
-          core-version: 0.10.14+7d59c7ec9
+          version: 0.10.15+943464bfa
+          core-version: 0.10.15+943464bfa
       - name: Install native system APIs and CI compositor
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libgl1-mesa-dri adwaita-icon-theme wayland-utils weston libpango1.0-dev libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
-          dpkg-query -W libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libgl1-mesa-dri adwaita-icon-theme wayland-utils weston libpango1.0-dev libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
+          sudo apt-get install -y build-essential pkg-config libx11-dev libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libgl1-mesa-dri adwaita-icon-theme wayland-utils weston libpango1.0-dev libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
+          dpkg-query -W libx11-dev libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libgl1-mesa-dri adwaita-icon-theme wayland-utils weston libpango1.0-dev libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
           pkg-config --modversion pangoft2 fontconfig
           moon version --all
       - name: Native E2E and recovery-to-first-frame timing diagnostic
@@ -78,13 +78,13 @@ jobs:
           persist-credentials: false
       - uses: hustcer/setup-moonbit@1522f9aef02a8ca0187dfc00a41f5dd6b16750f7
         with:
-          version: 0.10.14+7d59c7ec9
-          core-version: 0.10.14+7d59c7ec9
+          version: 0.10.15+943464bfa
+          core-version: 0.10.15+943464bfa
       - name: Install the same native test dependencies as Ubuntu E2E
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libgl1-mesa-dri adwaita-icon-theme wayland-utils weston libpango1.0-dev libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
-          dpkg-query -W build-essential pkg-config libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libgl1-mesa-dri adwaita-icon-theme wayland-utils weston libpango1.0-dev libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
+          sudo apt-get install -y build-essential pkg-config libx11-dev libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libgl1-mesa-dri adwaita-icon-theme wayland-utils weston libpango1.0-dev libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
+          dpkg-query -W build-essential pkg-config libx11-dev libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libgl1-mesa-dri adwaita-icon-theme wayland-utils weston libpango1.0-dev libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
           pkg-config --modversion pangoft2 fontconfig wayland-protocols wayland-client egl
           moon version --all
       - name: Run the fixed paired scale 1 and scale 2 comparison

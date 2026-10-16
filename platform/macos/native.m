@@ -71,13 +71,15 @@ static id<MTLTexture> white_mask_texture;
 static int64_t next_token, result_token, host_epoch;
 static NSData *text_result;
 static int state; // 0 uninitialized/stopped, 1 running, 2 quiescing
-static BOOL overflow;
+static BOOL overflow, background_host;
+#ifdef GPUI_TESTING
 static NSData *frame_pixels;
 static NSUInteger frame_width, frame_height, frame_stride;
 static int64_t frame_window_token;
 static double frame_scale;
 static double test_scale_override;
 static NSPasteboard *test_clipboard;
+#endif
 static BOOL key_window_owns_view(GPWindow *w);
 static NSPasteboard *clipboard_pasteboard(void) {
 #ifdef GPUI_TESTING
@@ -1620,26 +1622,43 @@ static BOOL testing_select_input_source(GPWindow *w, NSString *target) {
   return NO;
 }
 #endif
+// LSUIElement bundles already have Accessory policy. AppKit returns NO when
+// asked to set that same policy, so request a transition only when needed.
+static BOOL ensure_background_policy(NSApplication *application) {
+  if (application.activationPolicy != NSApplicationActivationPolicyAccessory &&
+      ![application setActivationPolicy:NSApplicationActivationPolicyAccessory])
+    return NO;
+  return application.activationPolicy == NSApplicationActivationPolicyAccessory;
+}
+
 static int32_t native_call(int32_t op, int64_t token, double x, double y, const uint8_t *bytes, int32_t len) {
   if (![NSThread isMainThread]) return 18;
   if (len < 0 || len > 16*1024*1024 || (len && !bytes)) return 5;
   @autoreleasepool {
-    if (op == 1) {
+    if (op == 1 || op == 17) {
       if (state) return state == 2 ? 19 : 12;
       if (host_epoch >= GPUI_JSON_EXACT_MAX) return 13;
       int status = setup_gpu();
       if (status) { white_mask_texture=nil; pipeline=nil; queue=nil; device=nil; return status; }
       [NSApplication sharedApplication];
-      NSInteger activation_policy_before_start = NSApp.activationPolicy;
-      // AppKit can report no change when the process already has the desired
-      // policy (for example, after this host has been stopped and restarted).
-      // Treat an already-Regular policy as established, but verify the final
-      // state after any requested transition.
-      BOOL activation_policy_set_succeeded = activation_policy_before_start == NSApplicationActivationPolicyRegular ||
-        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-      if (!activation_policy_set_succeeded || NSApp.activationPolicy != NSApplicationActivationPolicyRegular) {
-        white_mask_texture=nil; pipeline=nil; queue=nil; device=nil;
-        return 14;
+      background_host = op == 17;
+      if (background_host) {
+        if (!ensure_background_policy(NSApp)) {
+          white_mask_texture=nil; pipeline=nil; queue=nil; device=nil; background_host=NO;
+          return 9;
+        }
+      } else {
+        NSInteger activation_policy_before_start = NSApp.activationPolicy;
+        // AppKit can report no change when the process already has the desired
+        // policy (for example, after this host has been stopped and restarted).
+        // Treat an already-Regular policy as established, but verify the final
+        // state after any requested transition.
+        BOOL activation_policy_set_succeeded = activation_policy_before_start == NSApplicationActivationPolicyRegular ||
+          [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+        if (!activation_policy_set_succeeded || NSApp.activationPolicy != NSApplicationActivationPolicyRegular) {
+          white_mask_texture=nil; pipeline=nil; queue=nil; device=nil;
+          return 14;
+        }
       }
       app_delegate = [GPApplicationDelegate new]; NSApp.delegate = app_delegate;
       windows = [NSMutableDictionary new]; events = [NSMutableArray new]; current=nil; overflow=NO;
@@ -1651,9 +1670,11 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
       if (!state) return 0;
       for (GPWindow *w in windows.allValues) destroy(w);
       events=nil; current=nil; text_result=nil; windows=nil; white_mask_texture=nil; pipeline=nil; queue=nil; device=nil;
+#ifdef GPUI_TESTING
       frame_pixels=nil; frame_width=frame_height=frame_stride=0; frame_window_token=0; frame_scale=0; test_scale_override=0;
       [test_clipboard releaseGlobally]; test_clipboard=nil;
-      NSApp.delegate=nil; app_delegate=nil; state=0;
+#endif
+      NSApp.delegate=nil; app_delegate=nil; background_host=NO; state=0;
       return 0;
     }
     if (!state) return 1;
@@ -1689,8 +1710,11 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
       w.window.contentView=view; w.window.delegate=w; w.window.title=title;
       windows[@(w.token)]=w; result_token=w.token;
       resize_surface(w); emit(w,1,0,0,0,0,0);
-      [w.window center]; [w.window makeKeyAndOrderFront:nil]; [w.window makeFirstResponder:view];
-      request_application_activation();
+      [w.window makeFirstResponder:view];
+      if (!background_host) {
+        [w.window center]; [w.window makeKeyAndOrderFront:nil];
+        request_application_activation();
+      }
       reconcile_window_focus(w);
       return 0;
     }
@@ -1760,6 +1784,9 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
     GPWindow *w=windows[@(token)];
     if (!w) return op == 8 && token > 0 && token <= next_token ? 0 : 10;
     switch (op) {
+      case 18:
+        if (!background_host) return 9;
+        [w.window orderBack:nil]; return 0;
       case 4: {
         NSString *title=[[NSString alloc] initWithBytes:bytes length:len encoding:NSUTF8StringEncoding];
         if (!title) return 17; w.window.title=title; return 0;
@@ -1782,8 +1809,8 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
       case 9: return present(w,bytes,len);
       case 16: return recover_renderer();
       case 15: resize_surface(w); current=@{@"width":@(w.window.contentView.bounds.size.width), @"height":@(w.window.contentView.bounds.size.height), @"scale":@(w.scale)}; return 0;
-      case 17: return set_direct_text(w, x != 0.0);
-      case 18: result_token = w.directEpoch; return w.directEpoch > 0 ? 0 : 5;
+      case 34: return set_direct_text(w, x != 0.0);
+      case 35: result_token = w.directEpoch; return w.directEpoch > 0 ? 0 : 5;
       case 19: return begin_text_session(w, bytes, len);
       case 20: return update_text_session(w, x, bytes, len);
       case 21: return cancel_text_session(w, x);

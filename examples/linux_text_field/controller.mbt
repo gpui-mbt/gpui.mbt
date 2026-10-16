@@ -74,9 +74,9 @@ fn cut_after_write(
 ///|
 fn paste_if_current(
   field : @text_field.TextField,
-  revision : Int,
-  epoch_before : Result[Int, @diagnostics.FrameworkError],
-  epoch_after : Result[Int, @diagnostics.FrameworkError],
+  revision : Int32,
+  epoch_before : Result[Int32, @diagnostics.FrameworkError],
+  epoch_after : Result[Int32, @diagnostics.FrameworkError],
   text : String,
 ) -> Result[@text_field.TextField, @text_field.TextFieldError] {
   let current = match (epoch_before, epoch_after) {

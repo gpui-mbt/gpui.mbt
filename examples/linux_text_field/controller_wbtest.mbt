@@ -21,8 +21,8 @@ fn controller_field() -> @text_field.TextField {
 // the same input and Pango hit-test callbacks used by the running example.
 fn controller_click_caret(
   field : @text_field.TextField,
-  offset : Int,
-  shift? : Bool = false,
+  offset : Int32,
+  shift~ : Bool = false,
 ) -> @text_field.TextField {
   let measurement = field.measurement()
   let caret = measurement.caret_at(offset).unwrap().strong()
@@ -61,7 +61,7 @@ fn controller_click_caret(
 ///|
 fn controller_assert_painted_caret(
   field : @text_field.TextField,
-  offset : Int,
+  offset : Int32,
 ) -> Unit raise {
   let measurement = field.measurement()
   let caret = measurement.caret_at(offset).unwrap().strong()

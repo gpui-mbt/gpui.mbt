@@ -20,7 +20,7 @@ fn element_point(x : Double, y : Double) -> @primitives.Point {
 }
 
 ///|
-fn element_color(red : Int, green : Int, blue : Int) -> @primitives.Color {
+fn element_color(red : Int32, green : Int32, blue : Int32) -> @primitives.Color {
   match @primitives.Color::rgba(red, green, blue, 255) {
     Ok(value) => value
     Err(_) => abort("valid color rejected")

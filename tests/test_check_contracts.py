@@ -656,6 +656,35 @@ class RuntimeDependencyTests(unittest.TestCase):
         self.assertTrue(any("forbidden runtime package edge" in error
                             for error in checker.validate_runtime_dependencies(self.root)))
 
+    def test_x11_is_a_native_leaf_without_a_wayland_dependency(self) -> None:
+        directory = self.root / "x11"
+        directory.mkdir()
+        manifest = directory / "moon.pkg"
+        valid = (
+            'import { "f4ah6o/gpui/platform", "f4ah6o/gpui/platform/linux_text", '
+            '"f4ah6o/gpui/platform/testing", "f4ah6o/gpui/text", '
+            '"f4ah6o/gpui/primitives", "f4ah6o/gpui/diagnostics", '
+            '"f4ah6o/gpui/scene" }\n'
+        )
+        manifest.write_text(valid, encoding="utf-8")
+        self.assertEqual(checker.validate_runtime_dependencies(self.root), [])
+        for dependency in ("ubuntu", "windows", "core", "accessibility"):
+            manifest.write_text(
+                f'import {{ "f4ah6o/gpui/{dependency}" }}\n', encoding="utf-8"
+            )
+            self.assertTrue(any(
+                "x11/: forbidden runtime package edge" in error
+                for error in checker.validate_runtime_dependencies(self.root)
+            ), msg=f"X11 must not depend on {dependency}")
+        manifest.write_text(valid, encoding="utf-8")
+        (self.root / "core/moon.pkg").write_text(
+            'import { "f4ah6o/gpui/x11" }\n', encoding="utf-8"
+        )
+        self.assertTrue(any(
+            "core/: forbidden runtime package edge" in error
+            for error in checker.validate_runtime_dependencies(self.root)
+        ))
+
     def test_native_edges_are_explicit_and_cannot_leak_into_core(self) -> None:
         for package, content in {
             "platform": 'import { "f4ah6o/gpui/primitives", "f4ah6o/gpui/diagnostics", "f4ah6o/gpui/scene" }',

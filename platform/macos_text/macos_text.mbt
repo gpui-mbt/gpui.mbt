@@ -2,7 +2,7 @@
 /// Errors from the bounded CoreText/AppKit text adapter. The public text
 /// capability remains unsupported; this provider is an explicit experimental
 /// dependency of the native single-line field.
-pub enum MacTextError {
+pub enum MacosTextError {
   InvalidFontFamily
   InvalidFontSize
   InvalidCoordinates
@@ -21,19 +21,19 @@ pub enum MacTextError {
 } derive(Eq)
 
 ///|
-pub extend MacTextError with Eq::{not_equal, equal}
+pub extend MacosTextError with Eq::{not_equal, equal}
 
 ///|
-pub let max_text_bytes : Int = 16384
+pub let max_text_bytes : Int32 = 16384
 
 ///|
-pub let max_font_family_bytes : Int = 256
+pub let max_font_family_bytes : Int32 = 256
 
 ///|
 pub let max_font_size_px : Double = 512.0
 
 ///|
-const MAX_SCENE_TEXT_BYTES : Int = 4096
+const MAX_SCENE_TEXT_BYTES : Int32 = 4096
 
 ///|
 const MAX_SCENE_FONT_SIZE_PX : Double = 32.0
@@ -45,54 +45,54 @@ const MAX_SCENE_BOUNDS_WIDTH : Double = 2048.0
 const MAX_SCENE_BOUNDS_HEIGHT : Double = 128.0
 
 ///|
-const ABI_VERSION : Int = 1
+const ABI_VERSION : Int32 = 1
 
 ///|
-const HEADER_DOUBLES : Int = 12
+const HEADER_DOUBLES : Int32 = 12
 
 ///|
-const CARET_DOUBLES : Int = 10
+const CARET_DOUBLES : Int32 = 10
 
 ///|
 const CANARY : Double = 123456789.125
 
 ///|
-extern "C" fn native_require_raster(abi : Int) -> Int = "gpui_macos_text_require_raster_v1"
+extern "C" fn native_require_raster(abi : Int32) -> Int32 = "gpui_macos_text_require_raster_v1"
 
 ///|
 #borrow(text, family, output)
 extern "C" fn native_measure(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   family : Bytes,
-  family_length : Int,
+  family_length : Int32,
   font_size_px : Double,
   output : FixedArray[Double],
-  output_capacity : Int,
-) -> Int = "gpui_macos_text_measure_v1"
+  output_capacity : Int32,
+) -> Int32 = "gpui_macos_text_measure_v1"
 
 ///|
 #borrow(text, family, output)
 extern "C" fn native_hit_test(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   family : Bytes,
-  family_length : Int,
+  family_length : Int32,
   font_size_px : Double,
   x_px : Double,
   y_px : Double,
   output : FixedArray[Double],
-  output_capacity : Int,
-) -> Int = "gpui_macos_text_hit_test_v1"
+  output_capacity : Int32,
+) -> Int32 = "gpui_macos_text_hit_test_v1"
 
 ///|
 #borrow(text)
 extern "C" fn native_admit(
-  abi : Int,
+  abi : Int32,
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   font_size_px : Double,
   origin_x : Double,
   origin_y : Double,
@@ -100,28 +100,28 @@ extern "C" fn native_admit(
   clip_y : Double,
   clip_width : Double,
   clip_height : Double,
-) -> Int = "gpui_macos_text_admit_v1"
+) -> Int32 = "gpui_macos_text_admit_v1"
 
 ///|
 #borrow(text, family, output)
 extern "C" fn native_fonts_json(
   text : Bytes,
-  text_length : Int,
+  text_length : Int32,
   family : Bytes,
-  family_length : Int,
+  family_length : Int32,
   font_size_px : Double,
   output : FixedArray[Byte],
-  output_capacity : Int,
-) -> Int = "gpui_macos_text_fonts_json_v1"
+  output_capacity : Int32,
+) -> Int32 = "gpui_macos_text_fonts_json_v1"
 
 ///|
 priv struct TextBoundary {
-  byte_offset : Int
-  utf16_offset : Int
+  byte_offset : Int32
+  utf16_offset : Int32
 }
 
 ///|
-fn scalar_utf8_width(scalar : Char) -> Int {
+fn scalar_utf8_width(scalar : Char) -> Int32 {
   let value = scalar.to_int()
   if value <= 0x7F {
     1
@@ -135,7 +135,7 @@ fn scalar_utf8_width(scalar : Char) -> Int {
 }
 
 ///|
-fn scalar_utf16_width(scalar : Char) -> Int {
+fn scalar_utf16_width(scalar : Char) -> Int32 {
   if scalar.to_int() > 0xFFFF {
     2
   } else {
@@ -167,7 +167,7 @@ fn contains_nul(bytes : Bytes) -> Bool {
 }
 
 ///|
-fn prepare_text(document : @text.TextDocument) -> Result[Bytes, MacTextError] {
+fn prepare_text(document : @text.TextDocument) -> Result[Bytes, MacosTextError] {
   let byte_length = match document.utf8_length() {
     Ok(value) => value
     Err(_) => return Err(InputTooLarge)
@@ -186,7 +186,7 @@ fn prepare_text(document : @text.TextDocument) -> Result[Bytes, MacTextError] {
 }
 
 ///|
-fn prepare_family(family : String) -> Result[Bytes, MacTextError] {
+fn prepare_family(family : String) -> Result[Bytes, MacosTextError] {
   if family.length() == 0 {
     return Err(InvalidFontFamily)
   }
@@ -213,7 +213,7 @@ fn valid_font_size(size : Double) -> Bool {
 }
 
 ///|
-fn status_error(status : Int) -> MacTextError {
+fn status_error(status : Int32) -> MacosTextError {
   match status {
     2 => UnsupportedInput
     3 => InputTooLarge
@@ -236,7 +236,7 @@ fn status_error(status : Int) -> MacTextError {
 ///|
 /// Admit CoreText's grayscale CoreGraphics bitmap path on this native target.
 /// It does not advertise the backend's global TextInput capability.
-pub fn require_grayscale_raster() -> Result[Unit, MacTextError] {
+pub fn require_grayscale_raster() -> Result[Unit, MacosTextError] {
   let status = native_require_raster(ABI_VERSION)
   if status == 0 {
     Ok(())
@@ -272,7 +272,7 @@ fn valid_scene_coordinates(values : Array[Double]) -> Bool {
 }
 
 ///|
-fn exact_nonnegative_int(value : Double, maximum : Int) -> Int? {
+fn exact_nonnegative_int(value : Double, maximum : Int32) -> Int32? {
   if value.is_nan() ||
     value.is_inf() ||
     value < 0.0 ||
@@ -290,8 +290,8 @@ fn exact_nonnegative_int(value : Double, maximum : Int) -> Int? {
 ///|
 fn output_rect(
   output : FixedArray[Double],
-  start : Int,
-) -> Result[@primitives.Rect, MacTextError] {
+  start : Int32,
+) -> Result[@primitives.Rect, MacosTextError] {
   match
     @primitives.Rect::new(
       output[start],
@@ -312,7 +312,7 @@ pub fn measure(
   document : @text.TextDocument,
   font_family : String,
   font_size_px : Double,
-) -> Result[@text_layout.TextMeasurement, MacTextError] {
+) -> Result[@text_layout.TextMeasurement, MacosTextError] {
   if !valid_font_size(font_size_px) {
     return Err(InvalidFontSize)
   }
@@ -420,7 +420,7 @@ pub fn hit_test(
   font_family : String,
   font_size_px : Double,
   point : @primitives.Point,
-) -> Result[@text_layout.TextHit, MacTextError] {
+) -> Result[@text_layout.TextHit, MacosTextError] {
   if !valid_font_size(font_size_px) {
     return Err(InvalidFontSize)
   }
@@ -505,7 +505,7 @@ pub fn admit_scene_text_run_at(
   font_size_px : Double,
   text_origin : @primitives.Point,
   bounds : @primitives.Rect,
-) -> Result[Unit, MacTextError] {
+) -> Result[Unit, MacosTextError] {
   if !valid_font_size(font_size_px) {
     return Err(InvalidFontSize)
   }
@@ -562,7 +562,7 @@ pub fn font_resolution_json(
   document : @text.TextDocument,
   font_family : String,
   font_size_px : Double,
-) -> Result[String, MacTextError] {
+) -> Result[String, MacosTextError] {
   if !valid_font_size(font_size_px) {
     return Err(InvalidFontSize)
   }

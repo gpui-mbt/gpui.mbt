@@ -140,7 +140,7 @@ pub fn FrameworkError::message(self : FrameworkError) -> String? {
 }
 
 ///|
-fn truncate_text(text : String, limit : Int) -> String {
+fn truncate_text(text : String, limit : Int32) -> String {
   let builder = StringBuilder()
   let mut previous : Char? = None
   let mut seen = 0

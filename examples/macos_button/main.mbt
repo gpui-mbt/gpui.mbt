@@ -12,9 +12,9 @@ const MAC_BUTTON_ACTION_Y : Double = 44.0
 
 ///|
 struct MacButtonInkStats {
-  count : Int
-  first_y : Int
-  last_y : Int
+  count : Int32
+  first_y : Int32
+  last_y : Int32
 }
 
 ///|
@@ -61,13 +61,21 @@ fn mac_button_session_failure(
         backend="appkit-metal",
         message="window is not currently presentable",
       )
+    StaleSession =>
+      @diagnostics.FrameworkError::new(
+        @diagnostics.InvalidInput,
+        operation,
+        subsystem="macos-button",
+        backend="appkit-metal",
+        message="stale Button session cannot update the current owner",
+      )
   }
 }
 
 ///|
 fn mac_button_open_session(
   host : @macos.Host,
-  session_number : Int,
+  session_number : Int32,
 ) -> Result[(@platform.WindowId, MacButtonSession), @diagnostics.FrameworkError] {
   let title = if session_number == 1 {
     "gpui.mbt reusable Button — macOS"
@@ -94,9 +102,9 @@ fn mac_button_pixel_matches(
   frame : @testing.FrameCapture,
   logical_x : Double,
   logical_y : Double,
-  red : Int,
-  green : Int,
-  blue : Int,
+  red : Int32,
+  green : Int32,
+  blue : Int32,
 ) -> Bool {
   let scale = frame.scale()
   let x = (logical_x * scale).to_int()
@@ -298,7 +306,7 @@ fn mac_button_check_activation_pixels(
 }
 
 ///|
-fn mac_button_e2e_failure(stage : Int) -> @diagnostics.FrameworkError {
+fn mac_button_e2e_failure(stage : Int32) -> @diagnostics.FrameworkError {
   mac_button_failure(
     "button_native_e2e",
     "bounded native smoke timed out at stage \{stage}",

@@ -19,7 +19,7 @@ fn frame(board : BoardDemo) -> BoardModel {
 }
 
 ///|
-fn test_lane(model : BoardModel, id : Int) -> Int {
+fn test_lane(model : BoardModel, id : Int32) -> Int32 {
   match find_task(model, id) {
     Some(task) => task.lane
     None => -1
@@ -35,7 +35,7 @@ fn test_point(x : Double, y : Double) -> @primitives.Point {
 }
 
 ///|
-fn repeat_text(count : Int) -> String {
+fn repeat_text(count : Int32) -> String {
   let builder = StringBuilder()
   for _ in 0..<count {
     builder.write_string("a")

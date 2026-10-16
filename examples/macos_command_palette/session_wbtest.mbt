@@ -1,8 +1,8 @@
 ///|
 fn mac_palette_test_key(
   key : @primitives.Key,
-  modifiers? : @primitives.Modifiers = @primitives.Modifiers::none(),
-  repeat? : Bool = false,
+  modifiers~ : @primitives.Modifiers = @primitives.Modifiers::none(),
+  repeat~ : Bool = false,
 ) -> @primitives.InputEvent {
   @primitives.KeyPressed(key~, modifiers~, repeat~)
 }

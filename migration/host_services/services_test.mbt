@@ -17,7 +17,7 @@ fn migration_test_bridge(
 }
 
 ///|
-fn migration_test_deep_value(depth : Int) -> @capability.Value {
+fn migration_test_deep_value(depth : Int32) -> @capability.Value {
   let mut value = @capability.StringValue("leaf")
   for _ in 0..<depth {
     value = @capability.ArrayValue([value])
@@ -26,7 +26,7 @@ fn migration_test_deep_value(depth : Int) -> @capability.Value {
 }
 
 ///|
-fn migration_test_large_text(length : Int) -> String {
+fn migration_test_large_text(length : Int32) -> String {
   let builder = StringBuilder()
   for _ in 0..<length {
     builder.write_char('x')

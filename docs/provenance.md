@@ -49,9 +49,11 @@ deviations. `independent_from_behavior` records an implementation that used
 publicly observable behavior/API as a reference but did not copy source. Keep
 records specific enough to review one source-to-destination relationship.
 Update the record when code moves or its implementation method changes. The
-current `records` list is empty: the M1 diagnostics/core code and reference-
-model tests are original implementations of gpui.mbt contracts; no upstream
-implementation source or test fixture was copied.
+M1 diagnostics/core code and reference-model tests are original implementations
+of gpui.mbt contracts; no upstream implementation source or test fixture was
+copied. The first `records` entry now documents the independently implemented
+[pointer-boundary adjustment](conformance-pointer.md), informed by executed
+comparisons against the pinned GPUI revision.
 
 For an upstream revision update, review the diff for the pinned source paths,
 explain which gpui.mbt contracts and tests change, decide whether each change is
@@ -76,7 +78,8 @@ for this model.
 
 M1 also adds the repository-owned `diagnostics/` and `core/` packages. Their
 implementations follow gpui.mbt contracts and do not adapt upstream source;
-the machine-readable `records` array therefore remains empty. The local
+those M1 changes introduced no source-derived records. The later pointer-boundary
+comparison adds an `independent_from_behavior` record. The local
 headless suite
 `moon test primitives diagnostics core testing/core_model --target native --deny-warn`
 passes 29 tests. That verifies only the named MoonBit packages and does not

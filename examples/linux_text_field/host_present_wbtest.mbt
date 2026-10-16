@@ -18,7 +18,7 @@ fn field_e2e_elapsed_ns(start : Int64, now : Int64) -> Int64? {
 }
 
 ///|
-fn field_e2e_remaining_timeout_ms(start : Int64, now : Int64) -> Int? {
+fn field_e2e_remaining_timeout_ms(start : Int64, now : Int64) -> Int32? {
   match field_e2e_elapsed_ns(start, now) {
     None => None
     Some(elapsed) =>
@@ -55,7 +55,7 @@ fn field_e2e_check_window(host : @native.Host) -> Unit raise {
 fn field_e2e_next_event(
   host : @native.Host,
   window : @platform.WindowId,
-  timeout_ms : Int,
+  timeout_ms : Int32,
   started_ns : Int64,
 ) -> @platform.Event? raise {
   field_e2e_check_window(host)
@@ -90,7 +90,7 @@ fn field_e2e_next_event(
 fn field_e2e_drain_events(
   host : @native.Host,
   window : @platform.WindowId,
-  first_timeout_ms : Int,
+  first_timeout_ms : Int32,
   started_ns : Int64,
 ) -> Unit raise {
   let mut event = field_e2e_next_event(

@@ -2,19 +2,19 @@
 /// Deterministic in-memory contract fixture. Its bytes are test data and do
 /// not represent a native host, compositor, or rendered Button scene.
 struct DeterministicFrameReadback {
-  width : Int
-  height : Int
+  width : Int32
+  height : Int32
   scale : Double
   pixels : Array[Byte]
-  metrics_calls : Ref[Int]
-  copy_calls : Ref[Int]
+  metrics_calls : Ref[Int32]
+  copy_calls : Ref[Int32]
 }
 
 ///|
 impl FrameReadback for DeterministicFrameReadback with fn frame_metrics(
   self,
   _window : @platform.WindowId,
-) -> Result[(Int, Int, Double), @diagnostics.FrameworkError] {
+) -> Result[(Int32, Int32, Double), @diagnostics.FrameworkError] {
   self.metrics_calls.val = self.metrics_calls.val + 1
   Ok((self.width, self.height, self.scale))
 }

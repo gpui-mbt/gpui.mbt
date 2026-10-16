@@ -3,9 +3,9 @@ fn mac_palette_pixel_matches(
   frame : @testing.FrameCapture,
   logical_x : Double,
   logical_y : Double,
-  red : Int,
-  green : Int,
-  blue : Int,
+  red : Int32,
+  green : Int32,
+  blue : Int32,
 ) -> Bool {
   let x = (logical_x * frame.scale()).to_int()
   let y = (logical_y * frame.scale()).to_int()
@@ -89,7 +89,7 @@ fn mac_palette_post_key(
   host : @macos.Host,
   window : @platform.WindowId,
   key : @primitives.Key,
-  modifiers? : @primitives.Modifiers = @primitives.Modifiers::none(),
+  modifiers~ : @primitives.Modifiers = @primitives.Modifiers::none(),
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   host.post_test_key(window, key, modifiers)
 }
@@ -101,8 +101,8 @@ fn mac_palette_e2e_advance(
   session : MacPaletteSession,
   frame : @testing.FrameCapture,
   comparison_frame : Ref[@testing.FrameCapture?],
-  stage : Int,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  stage : Int32,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   match stage {
     0 => {
       if frame.width() != (session.width * frame.scale()).to_int() ||
@@ -302,8 +302,8 @@ fn mac_palette_present(
   session : MacPaletteSession,
   e2e : Bool,
   comparison_frame : Ref[@testing.FrameCapture?],
-  stage : Int,
-) -> Result[Int, @diagnostics.FrameworkError] {
+  stage : Int32,
+) -> Result[Int32, @diagnostics.FrameworkError] {
   let snapshot = match session.scene() {
     Ok(value) => value
     Err(error) => return Err(error)

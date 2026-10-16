@@ -100,7 +100,7 @@ pub fn cancel() -> String {
 
 ///|
 #export_name("gpui_board_command")
-pub fn command(kind : String, id : Int, value : String) -> String {
+pub fn command(kind : String, id : Int32, value : String) -> String {
   invoke(board => board.command(kind, id, value))
 }
 

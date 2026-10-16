@@ -342,19 +342,19 @@ pub struct AccessibilityModel {
 ///|
 /// Limits are part of the portable contract so adapters can size their own
 /// bounded native maps without changing core semantics.
-pub let max_node_count : Int = 4096
+pub let max_node_count : Int32 = 4096
 
 ///|
-pub let max_tree_depth : Int = 256
+pub let max_tree_depth : Int32 = 256
 
 ///|
-pub let max_name_units : Int = 4096
+pub let max_name_units : Int32 = 4096
 
 ///|
-pub let max_snapshot_name_units : Int = 1_048_576
+pub let max_snapshot_name_units : Int32 = 1_048_576
 
 ///|
-pub let max_actions_per_node : Int = 1
+pub let max_actions_per_node : Int32 = 1
 
 ///|
 const MAX_UINT64 : UInt64 = 0xffff_ffff_ffff_ffff
@@ -746,7 +746,7 @@ fn add_children_in_preorder(nodes : Array[SemanticNode]) -> Unit {
 }
 
 ///|
-fn find_node_index_by_key(nodes : Array[SemanticNode], key : UInt64) -> Int {
+fn find_node_index_by_key(nodes : Array[SemanticNode], key : UInt64) -> Int32 {
   let mut index = 0
   while index < nodes.length() {
     if nodes[index].id.key == key {
@@ -758,7 +758,7 @@ fn find_node_index_by_key(nodes : Array[SemanticNode], key : UInt64) -> Int {
 }
 
 ///|
-fn find_node_index_by_id(nodes : Array[SemanticNode], id : NodeId) -> Int {
+fn find_node_index_by_id(nodes : Array[SemanticNode], id : NodeId) -> Int32 {
   let mut index = 0
   while index < nodes.length() {
     if nodes[index].id == id {

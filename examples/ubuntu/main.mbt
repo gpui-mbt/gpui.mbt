@@ -8,8 +8,8 @@ fn[T] required(result : Result[T, @diagnostics.FrameworkError]) -> T {
 
 ///|
 fn quad_scene(
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   scale : Double,
 ) -> @scene.SceneSnapshot {
   let viewport = match

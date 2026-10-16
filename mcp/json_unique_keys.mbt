@@ -20,20 +20,20 @@ pub fn validate_unique_json_keys(line : String) -> Bool {
 }
 
 ///|
-const MAX_UNIQUE_KEY_SCAN_CHARS : Int = 1_048_576
+const MAX_UNIQUE_KEY_SCAN_CHARS : Int32 = 1_048_576
 
 ///|
-const MAX_UNIQUE_KEY_SCAN_DEPTH : Int = 32
+const MAX_UNIQUE_KEY_SCAN_DEPTH : Int32 = 32
 
 ///|
-const MAX_UNIQUE_KEY_SCAN_NODES : Int = 10_000
+const MAX_UNIQUE_KEY_SCAN_NODES : Int32 = 10_000
 
 ///|
 fn scan_json_value(
   input : StringView,
-  index : Ref[Int],
-  depth : Int,
-  nodes : Ref[Int],
+  index : Ref[Int32],
+  depth : Int32,
+  nodes : Ref[Int32],
 ) -> Bool {
   nodes.val += 1
   if nodes.val > MAX_UNIQUE_KEY_SCAN_NODES {
@@ -52,9 +52,9 @@ fn scan_json_value(
 ///|
 fn scan_json_object(
   input : StringView,
-  index : Ref[Int],
-  depth : Int,
-  nodes : Ref[Int],
+  index : Ref[Int32],
+  depth : Int32,
+  nodes : Ref[Int32],
 ) -> Bool {
   if depth >= MAX_UNIQUE_KEY_SCAN_DEPTH {
     return false
@@ -102,9 +102,9 @@ fn scan_json_object(
 ///|
 fn scan_json_array(
   input : StringView,
-  index : Ref[Int],
-  depth : Int,
-  nodes : Ref[Int],
+  index : Ref[Int32],
+  depth : Int32,
+  nodes : Ref[Int32],
 ) -> Bool {
   if depth >= MAX_UNIQUE_KEY_SCAN_DEPTH {
     return false
@@ -136,7 +136,7 @@ fn scan_json_array(
 }
 
 ///|
-fn scan_json_key(input : StringView, index : Ref[Int]) -> String? {
+fn scan_json_key(input : StringView, index : Ref[Int32]) -> String? {
   skip_json_whitespace(input, index)
   if json_scan_code(input, index.val) != 34 {
     return None
@@ -157,7 +157,7 @@ fn scan_json_key(input : StringView, index : Ref[Int]) -> String? {
 }
 
 ///|
-fn scan_json_string(input : StringView, index : Ref[Int]) -> Bool {
+fn scan_json_string(input : StringView, index : Ref[Int32]) -> Bool {
   if json_scan_code(input, index.val) != 34 {
     return false
   }
@@ -181,7 +181,7 @@ fn scan_json_string(input : StringView, index : Ref[Int]) -> Bool {
 }
 
 ///|
-fn scan_json_atom(input : StringView, index : Ref[Int]) -> Bool {
+fn scan_json_atom(input : StringView, index : Ref[Int32]) -> Bool {
   let start = index.val
   while index.val < input.length() {
     match json_scan_code(input, index.val) {
@@ -193,7 +193,7 @@ fn scan_json_atom(input : StringView, index : Ref[Int]) -> Bool {
 }
 
 ///|
-fn skip_json_whitespace(input : StringView, index : Ref[Int]) -> Unit {
+fn skip_json_whitespace(input : StringView, index : Ref[Int32]) -> Unit {
   while index.val < input.length() {
     match json_scan_code(input, index.val) {
       9 | 10 | 13 | 32 => index.val += 1
@@ -203,7 +203,7 @@ fn skip_json_whitespace(input : StringView, index : Ref[Int]) -> Unit {
 }
 
 ///|
-fn json_scan_code(input : StringView, index : Int) -> Int {
+fn json_scan_code(input : StringView, index : Int32) -> Int32 {
   if index < 0 || index >= input.length() {
     -1
   } else {

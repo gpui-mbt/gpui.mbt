@@ -109,20 +109,26 @@ fn mixed_snapshot(
 
 ///|
 test "unsupported session is typed and failed start permits retry" {
-  let previous = @env.get_env_var("XDG_SESSION_TYPE")
-  @env.set_env_var("XDG_SESSION_TYPE", "x11")
+  let previous_display = @env.get_env_var("WAYLAND_DISPLAY")
+  let previous_socket = @env.get_env_var("WAYLAND_SOCKET")
+  @env.unset_env_var("WAYLAND_DISPLAY")
+  @env.unset_env_var("WAYLAND_SOCKET")
   for _i = 0; _i < 2; _i = _i + 1 {
     match Host::start() {
       Ok(host) => {
         ignore(host.stop())
-        fail("X11 must not initialize Wayland")
+        fail("missing Wayland connection hints must be unsupported")
       }
       Err(error) => assert_eq(error.code().label(), "unsupported_capability")
     }
   }
-  match previous {
-    Some(value) => @env.set_env_var("XDG_SESSION_TYPE", value)
-    None => @env.unset_env_var("XDG_SESSION_TYPE")
+  match previous_display {
+    Some(value) => @env.set_env_var("WAYLAND_DISPLAY", value)
+    None => @env.unset_env_var("WAYLAND_DISPLAY")
+  }
+  match previous_socket {
+    Some(value) => @env.set_env_var("WAYLAND_SOCKET", value)
+    None => @env.unset_env_var("WAYLAND_SOCKET")
   }
 }
 
@@ -421,10 +427,10 @@ fn[T] require_ok(result : Result[T, @diagnostics.FrameworkError]) -> T raise {
 ///|
 fn trace_ubuntu_e2e_stage(
   enabled : Bool,
-  stage : Int,
-  iteration : Int,
+  stage : Int32,
+  iteration : Int32,
   scale : Double,
-  window_generation : Int,
+  window_generation : Int32,
 ) -> Unit {
   // 1/2 bracket first present; 3/4 bracket dispatch polls; 5 means frame complete.
   if enabled {

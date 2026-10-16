@@ -173,7 +173,7 @@ pub fn EventIngress::close(self : EventIngress) -> Unit {
 }
 
 ///|
-pub fn EventIngress::pending_count(self : EventIngress) -> Int {
+pub fn EventIngress::pending_count(self : EventIngress) -> Int32 {
   self.events.length()
 }
 

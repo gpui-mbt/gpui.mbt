@@ -1,5 +1,5 @@
 ///|
-fn test_ascii_key_code(ascii : Int) -> Int? {
+fn test_ascii_key_code(ascii : Int32) -> Int32? {
   match ascii {
     65 | 97 => Some(0)
     66 | 98 => Some(11)
@@ -56,7 +56,7 @@ fn test_ascii_key_code(ascii : Int) -> Int? {
 ///|
 fn test_key_code(
   key : @primitives.Key,
-) -> Result[(Int, String), @diagnostics.FrameworkError] {
+) -> Result[(Int32, String), @diagnostics.FrameworkError] {
   match key {
     @primitives.Character(value) => {
       let bytes = @utf8.encode(value)

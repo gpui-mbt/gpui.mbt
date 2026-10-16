@@ -24,7 +24,7 @@ pub(open) trait Backend {
     (Double, Double, Double),
     @diagnostics.FrameworkError,
   ]
-  fn next_event(Self, timeout_ms? : Int) -> Result[
+  fn next_event(Self, timeout_ms? : Int32) -> Result[
     Event?,
     @diagnostics.FrameworkError,
   ]

@@ -19,9 +19,9 @@ enum MacFieldOwnerError {
 struct MacTextOwner {
   window : @platform.WindowId
   host_epoch : Int64
-  epoch : Int
+  epoch : Int32
   last_sequence : Int64
-  revision : Int
+  revision : Int32
   active : Bool
   entered : Bool
   forwarded_keys : Array[ForwardedKey]
@@ -29,7 +29,7 @@ struct MacTextOwner {
 
 ///|
 struct ForwardedKey {
-  key_code : Int
+  key_code : Int32
   key : @primitives.Key
   modifiers : @primitives.Modifiers
 }
@@ -38,23 +38,23 @@ struct ForwardedKey {
 struct MacBatchTransition {
   field : @text_field.TextField
   owner : MacTextOwner
-  commits : Int
+  commits : Int32
   external_edit : Bool
   action : @text_field.TextFieldAction?
 }
 
 ///|
 struct MacCommitLedger {
-  accepted : Int
-  pending : Int
+  accepted : Int32
+  pending : Int32
 }
 
 ///|
 fn mac_text_owner(
   window : @platform.WindowId,
   host_epoch : Int64,
-  epoch : Int,
-  revision : Int,
+  epoch : Int32,
+  revision : Int32,
 ) -> MacTextOwner {
   {
     window,
@@ -75,10 +75,10 @@ fn owner_batch_current(
   owner : MacTextOwner,
   window : @platform.WindowId,
   host_epoch : Int64,
-  epoch : Int,
+  epoch : Int32,
   sequence : Int64,
   owner_revision : Int64,
-  field_revision : Int,
+  field_revision : Int32,
 ) -> Bool {
   owner.active &&
   window == owner.window &&
@@ -108,7 +108,7 @@ fn mac_replacement_range_supported(
 }
 
 ///|
-fn mac_text_error(error : @macos_text.MacTextError) -> MacFieldOwnerError {
+fn mac_text_error(error : @macos_text.MacosTextError) -> MacFieldOwnerError {
   match error {
     @macos_text.UnsupportedBidi => UnsupportedBidi
     @macos_text.UnsupportedColor | @macos_text.UnsupportedGlyph =>
@@ -133,7 +133,7 @@ fn validate_mac_document(
 fn validate_field_replacement(
   field : @text_field.TextField,
   text : String,
-  composition_target? : Bool = false,
+  composition_target~ : Bool = false,
 ) -> Result[Unit, MacFieldOwnerError] {
   let base = if composition_target {
     field.committed_document()
@@ -174,7 +174,7 @@ fn mac_apply_preedit(
   field : @text_field.TextField,
   text : String,
   fallback : String,
-  cursor_utf16 : Int?,
+  cursor_utf16 : Int32?,
   styles : Array[@macos.TextSessionStyle],
   replacement_range : @text.TextRange?,
 ) -> Result[@text_field.TextField, MacFieldOwnerError] {
@@ -462,7 +462,10 @@ fn mac_commit_ledger() -> MacCommitLedger {
 }
 
 ///|
-fn mac_stage_commits(ledger : MacCommitLedger, count : Int) -> MacCommitLedger {
+fn mac_stage_commits(
+  ledger : MacCommitLedger,
+  count : Int32,
+) -> MacCommitLedger {
   { ..ledger, pending: ledger.pending + count, }
 }
 
@@ -715,7 +718,7 @@ fn mac_run_owner_sync_calls(
 fn mac_fence_owner(
   host : @macos.Host,
   owner : MacTextOwner,
-  revision : Int,
+  revision : Int32,
 ) -> Result[MacTextOwner, @diagnostics.FrameworkError] {
   match host.cancel_text_session(owner.window, owner.epoch) {
     Ok(epoch) => Ok(owner_rearmed(owner, epoch, revision))
@@ -820,7 +823,7 @@ fn mac_text_field_error_label(error : @text_field.TextFieldError) -> String {
 fn owner_ack(
   owner : MacTextOwner,
   sequence : Int64,
-  revision : Int,
+  revision : Int32,
 ) -> MacTextOwner {
   { ..owner, last_sequence: sequence, revision, }
 }
@@ -828,8 +831,8 @@ fn owner_ack(
 ///|
 fn owner_rearmed(
   owner : MacTextOwner,
-  epoch : Int,
-  revision : Int,
+  epoch : Int32,
+  revision : Int32,
 ) -> MacTextOwner {
   {
     ..owner,
@@ -889,7 +892,7 @@ fn mac_editor_command_key(
 }
 
 ///|
-fn forwarded_key_index(keys : Array[ForwardedKey], key_code : Int) -> Int? {
+fn forwarded_key_index(keys : Array[ForwardedKey], key_code : Int32) -> Int32? {
   for index, item in keys {
     if item.key_code == key_code {
       return Some(index)
@@ -901,7 +904,7 @@ fn forwarded_key_index(keys : Array[ForwardedKey], key_code : Int) -> Int? {
 ///|
 fn remove_forwarded_key(
   keys : Array[ForwardedKey],
-  key_code : Int,
+  key_code : Int32,
 ) -> Array[ForwardedKey] {
   let remaining = []
   for item in keys {
@@ -915,7 +918,7 @@ fn remove_forwarded_key(
 ///|
 fn mac_forwarded_press(
   owner : MacTextOwner,
-  key_code : Int,
+  key_code : Int32,
   key : @primitives.Key?,
   modifiers : @primitives.Modifiers,
 ) -> (MacTextOwner, @primitives.InputEvent?) {
@@ -944,7 +947,7 @@ fn mac_forwarded_press(
 ///|
 fn mac_forwarded_release(
   owner : MacTextOwner,
-  key_code : Int,
+  key_code : Int32,
 ) -> (MacTextOwner, @primitives.InputEvent?) {
   match forwarded_key_index(owner.forwarded_keys, key_code) {
     None => (owner, None)

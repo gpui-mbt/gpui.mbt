@@ -31,9 +31,9 @@ def valid_report() -> dict:
         for index, (group, outcome) in enumerate(zip(groups, outcomes))
     ]
     return {
-        "schema": 2,
+        "schema": 3,
         "module": "/tmp/turtles/module",
-        "turtles_version": "0.3.0",
+        "turtles_version": "0.4.7",
         "moon_version": "moon 0.10.14",
         "baseline_duration_ms": "200",
         "baseline_check_ms": "80",
@@ -58,7 +58,7 @@ def valid_report() -> dict:
 def valid_ratchet_summary() -> dict:
     return {
         "scope": "primitives/",
-        "turtles_version": "0.3.0",
+        "turtles_version": "0.4.7",
         "target": "moon-default",
         "test_scope": "module",
         "mutation_counts": {
@@ -82,7 +82,7 @@ def valid_ratchet_baseline() -> dict:
         "schema_version": 1,
         "kind": "turtles-mutation-ratchet",
         "scope": "primitives/",
-        "turtles_version": "0.3.0",
+        "turtles_version": "0.4.7",
         "target": "moon-default",
         "test_scope": "module",
         "source": {
@@ -160,8 +160,8 @@ class TurtlesReportAuditTests(unittest.TestCase):
 
     def test_rejects_wrong_schema_summary_and_operator_scope(self) -> None:
         wrong_schema = valid_report()
-        wrong_schema["schema"] = 3
-        with self.assertRaisesRegex(ValueError, "schema 2"):
+        wrong_schema["schema"] = 2
+        with self.assertRaisesRegex(ValueError, "schema 3"):
             checker.audit_report(wrong_schema, "sha")
 
         wrong_counts = valid_report()
@@ -302,7 +302,7 @@ class TurtlesReportAuditTests(unittest.TestCase):
 
     def test_ratchet_rejects_baseline_toolchain_or_scope_drift(self) -> None:
         baseline = valid_ratchet_baseline()
-        baseline["turtles_version"] = "0.4.0"
+        baseline["turtles_version"] = "0.5.0"
         with self.assertRaisesRegex(ValueError, "turtles_version"):
             checker.enforce_ratchet(valid_ratchet_summary(), baseline)
 

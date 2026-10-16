@@ -2,7 +2,7 @@
 // Stable suite ID: layout.flex-line.invariants
 test "property flex line preserves order and finite non-negative geometry" {
   @quickcheck.check(
-    (values : (Int, Int, Int, Int, Int, Int)) => {
+    (values : (Int32, Int32, Int32, Int32, Int32, Int32)) => {
       let (width0, basis0, basis1, grow0, grow1, gap0) = values
       let width = (width0 % 400).abs().to_double() + 20.0
       let basis_a = (basis0 % 120).abs().to_double()

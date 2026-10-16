@@ -25,7 +25,7 @@ fn protocol_test_register_echo(
   registry : @capability.Registry,
   id : String,
   schema : @capability.Schema,
-  executions : Ref[Int],
+  executions : Ref[Int32],
 ) -> Unit raise {
   let descriptor = match
     @capability.Descriptor::new(

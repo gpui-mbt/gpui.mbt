@@ -55,7 +55,7 @@ pub struct Descriptor {
   priv effect : EffectClass
   priv idempotent : Bool
   priv exposure : Exposure
-  priv version : Int
+  priv version : Int32
 }
 
 ///|
@@ -70,7 +70,7 @@ pub fn Descriptor::new(
   idempotent : Bool,
   exposure : Exposure,
   external_name : String?,
-  version : Int,
+  version : Int32,
 ) -> Result[Descriptor, @diagnostics.FrameworkError] {
   if id.length() == 0 {
     Err(
@@ -171,7 +171,7 @@ pub fn Descriptor::exposure(self : Descriptor) -> Exposure {
 }
 
 ///|
-pub fn Descriptor::version(self : Descriptor) -> Int {
+pub fn Descriptor::version(self : Descriptor) -> Int32 {
   self.version
 }
 

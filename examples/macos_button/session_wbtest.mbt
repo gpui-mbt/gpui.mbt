@@ -82,6 +82,38 @@ test "macOS AX mapping projects the existing shared Button snapshot" {
 }
 
 ///|
+test "macOS AX reads reject stale sources while detached snapshots stay readable" {
+  let demo = @fixture.ButtonDemo::new(640.0, 240.0).unwrap()
+  let binding = mac_button_test_ax_binding(demo, 900)
+  let (model, _) = demo.accessibility_source().unwrap()
+  assert_eq(demo.accessibility_snapshot().nodes().length(), 2)
+
+  ignore(
+    model
+    .publish([
+      @accessibility.NodeSpec::new(
+        999UL,
+        None,
+        @accessibility.Window,
+        "Replacement",
+        @primitives.Rect::new(0.0, 0.0, 640.0, 240.0).unwrap(),
+      ),
+    ])
+    .unwrap(),
+  )
+
+  // The copied tree remains an ordinary detached value, while the adapter's
+  // fresh-source path refuses to project it after the source revision moves.
+  assert_eq(demo.accessibility_snapshot().nodes().length(), 2)
+  assert_true(demo.accessibility_source() is Err(_))
+  assert_true(mac_button_accessibility_node(demo) is None)
+
+  let mut stale = MacButtonSession::new(640.0, 240.0, 1.0).unwrap()
+  stale = { ..stale, demo, accessibility_binding: binding, }
+  assert_true(mac_button_ax_current_node(stale) is None)
+}
+
+///|
 test "macOS AX projection is absent while the host session is suspended" {
   let session = MacButtonSession::new(640.0, 240.0, 1.0).unwrap()
   let (suspended, _) = session.sync_metrics(0.0, 240.0, 1.0)
@@ -90,6 +122,97 @@ test "macOS AX projection is absent while the host session is suspended" {
     Some(_) => assert_true(false)
     None => ()
   }
+}
+
+///|
+test "macOS stale host-session copies cannot dispatch or apply host events" {
+  let old = MacButtonSession::new(640.0, 240.0, 1.0).unwrap()
+  let binding = mac_button_test_ax_binding(old.demo(), 906)
+  let old = { ..old, accessibility_binding: binding, }
+  let (current, repaint) = old.sync_metrics(640.0, 240.0, 2.0)
+
+  // Scale-only changes leave the shared fixture revision current, so the
+  // separate host-session generation must reject the old copied value.
+  assert_true(repaint)
+  assert_true(old.demo().is_current())
+  assert_true(!mac_button_session_is_current(old))
+  assert_true(mac_button_session_is_current(current))
+  assert_true(mac_button_ax_current_node(old) is None)
+  assert_true(mac_button_ax_current_node(current) is Some(_))
+  assert_eq(
+    old.accessibility_binding.unwrap().transport_token,
+    current.accessibility_binding.unwrap().transport_token,
+  )
+  let (stale_dispatch, accepted) = old.dispatch_accessibility_token(
+    old.accessibility_binding.unwrap().transport_token,
+  )
+  assert_true(!accepted)
+  assert_eq(stale_dispatch.demo().activations(), 0)
+
+  let (stale_metrics, metrics_repaint) = old.sync_metrics(0.0, 0.0, 1.0)
+  assert_true(!metrics_repaint)
+  assert_true(stale_metrics.is_presentable())
+  assert_eq(stale_metrics.scale, 1.0)
+  assert_true(
+    old.handle_event(mac_button_test_event(1, @platform.Wake))
+    is Err(StaleSession),
+  )
+  assert_true(
+    old.handle_event(mac_button_test_key_down(2, @primitives.Tab, false))
+    is Err(StaleSession),
+  )
+  let point = @primitives.Point::new(48.0, 44.0).unwrap()
+  assert_true(
+    old.handle_event(
+      mac_button_test_event(
+        3,
+        @platform.Input(
+          @primitives.PointerButtonPressed(
+            position=point,
+            button=@primitives.Primary,
+            modifiers=@primitives.Modifiers::none(),
+          ),
+        ),
+      ),
+    )
+    is Err(StaleSession),
+  )
+  assert_true(
+    old.handle_event(mac_button_test_event(4, @platform.CloseRequested))
+    is Err(StaleSession),
+  )
+  assert_true(current.is_presentable())
+  assert_true(current.demo().is_current())
+  assert_eq(current.scale, 2.0)
+  assert_true(current.accessibility_binding is Some(_))
+}
+
+///|
+test "macOS stale fixture copies cannot apply input close or resize events" {
+  let old = MacButtonSession::new(640.0, 240.0, 1.0).unwrap()
+  let (current, _) = old
+    .handle_event(mac_button_test_key_down(1, @primitives.Tab, false))
+    .unwrap()
+
+  assert_true(!old.demo().is_current())
+  assert_true(!mac_button_session_is_current(old))
+  assert_true(mac_button_ax_current_node(old) is None)
+  assert_true(
+    old.handle_event(mac_button_test_key_down(2, @primitives.Space, false))
+    is Err(StaleSession),
+  )
+  assert_true(
+    old.handle_event(mac_button_test_event(3, @platform.CloseRequested))
+    is Err(StaleSession),
+  )
+  let (stale_metrics, repaint) = old.sync_metrics(0.0, 0.0, 1.0)
+  assert_true(!repaint)
+  assert_true(stale_metrics.is_presentable())
+
+  assert_true(current.demo().is_current())
+  assert_true(current.demo().button().is_focused())
+  assert_true(!current.demo().button().is_pressed())
+  assert_true(current.is_presentable())
 }
 
 ///|
