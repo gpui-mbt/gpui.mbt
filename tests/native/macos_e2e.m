@@ -559,8 +559,8 @@ static void native_text_session_bounds(GPWindow *w, NSString *snapshot) {
   assert(call_op(22, w.token, next_epoch, 0, nil) == 0);
 
   // Direct committed-text mirror rejects boolean ABI values without mutation.
-  assert(call_op(17, w.token, 1, 0, nil) == 0);
-  assert(call_op(18, w.token, 0, 0, nil) == 0);
+  assert(call_op(34, w.token, 1, 0, nil) == 0);
+  assert(call_op(35, w.token, 0, 0, nil) == 0);
   int direct_epoch = (int)api->integer(0);
   NSString *direct = session_payload(@"ready", 5, 5, 0, 0, 40, 30, NO);
   assert(call_op(28, w.token, direct_epoch, 0, direct) == 0);
@@ -571,7 +571,7 @@ static void native_text_session_bounds(GPWindow *w, NSString *snapshot) {
   [view insertText:@"bad" replacementRange:NSMakeRange(NSNotFound, 0)];
   assert([w.visibleText isEqualToString:@"readybad"]);
   assert(events.count > 0 && [events.lastObject[@"kind"] intValue] == 16);
-  assert(call_op(17, w.token, 0, 0, nil) == 0);
+  assert(call_op(34, w.token, 0, 0, nil) == 0);
   assert(!w.hasMarkedText && [w.visibleText isEqualToString:@"ready"]);
   for (NSDictionary *event in events) assert([event[@"kind"] intValue] != 16);
   NSString *focus_session = session_payload(@"ready", 5, 5, 14, 0, 40, 30, NO);

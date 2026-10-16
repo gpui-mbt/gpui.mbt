@@ -203,7 +203,7 @@ pub fn Host::set_direct_keyboard_text(
     Err(value) => return Err(value)
   }
   status(
-    call(17, token, if enabled { 1.0 } else { 0.0 }, 0.0, b"", 0),
+    call(34, token, if enabled { 1.0 } else { 0.0 }, 0.0, b"", 0),
     "set_direct_keyboard_text",
   )
 }
@@ -222,7 +222,7 @@ pub fn Host::direct_keyboard_text_epoch(
     Err(value) => return Err(value)
   }
   match
-    status(call(18, token, 0.0, 0.0, b"", 0), "direct_keyboard_text_epoch") {
+    status(call(35, token, 0.0, 0.0, b"", 0), "direct_keyboard_text_epoch") {
     Err(value) => Err(value)
     Ok(_) => {
       let epoch = integer(0).to_int()
