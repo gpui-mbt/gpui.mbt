@@ -46,8 +46,9 @@ auto cross stretch. Four unchanged controls agree before the addition, while
 32 cases expose the missing capability.
 
 Linux x86_64 comparison of engine implementation
-`5fd20cf8561aba22feab4e3628cc595ef2f46c7d` and public suite source
-`5cec1e4e3ca70b3574bee55802022f98bbedd653` records:
+`5fd20cf8561aba22feab4e3628cc595ef2f46c7d` and measured local suite snapshot
+`5cec1e4e3ca70b3574bee55802022f98bbedd653` records the results below. The identical
+suite source was published as `bdd9cfa7974dc184deddb9147f065d55134d6054`.
 
 - Focused comparison: 36 pass, zero mismatch.
 - Measured-width negative control: zero pass, 36 mismatch.
@@ -57,7 +58,7 @@ Linux x86_64 comparison of engine implementation
 - Nine supplemental subpixel exact-fit probes agree across authored gap snapping
   and line-break thresholds. They are separate from the authoritative 36 cases.
 
-The [independent corpus](https://github.com/gpui-mbt/gpui-conformance/blob/5cec1e4e3ca70b3574bee55802022f98bbedd653/axis_gap_scenarios.json)
+The [independent corpus](https://github.com/gpui-mbt/gpui-conformance/blob/bdd9cfa7974dc184deddb9147f065d55134d6054/axis_gap_scenarios.json)
 has SHA-256
 `1f834f0f9064cc7d433cfe6977d13a1ac3eaf5f688edcf05ea6c414e2012e95e`.
 These are local headless observations, not public CI or native-platform
