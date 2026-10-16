@@ -143,12 +143,16 @@ pub fn AlignItems::stretch() -> AlignItems {
 ///|
 /// Cross-axis placement of wrapped lines. Start and End are flex-relative,
 /// including under wrap-reverse; Center and End retain signed overflow space.
-/// Stretch is the default and retains safe physical-start overflow placement.
+/// Stretch is the default. Distributed modes preserve natural line sizes;
+/// they and Stretch use safe physical-start placement on overflow.
 pub enum AlignContent {
   Start
   Center
   End
   Stretch
+  SpaceBetween
+  SpaceAround
+  SpaceEvenly
 } derive(Eq)
 
 ///|
@@ -172,6 +176,27 @@ pub fn AlignContent::end() -> AlignContent {
 ///|
 pub fn AlignContent::stretch() -> AlignContent {
   Stretch
+}
+
+///|
+/// Distribute positive free cross space between wrapped lines. A fitting
+/// singleton stays at flex-start; overflow falls back to physical start.
+pub fn AlignContent::space_between() -> AlignContent {
+  SpaceBetween
+}
+
+///|
+/// Distribute positive free cross space with half-sized outer spaces.
+/// A fitting singleton is centered; overflow falls back to physical start.
+pub fn AlignContent::space_around() -> AlignContent {
+  SpaceAround
+}
+
+///|
+/// Distribute positive free cross space equally before, between, and after
+/// wrapped lines. A fitting singleton is centered; overflow uses physical start.
+pub fn AlignContent::space_evenly() -> AlignContent {
+  SpaceEvenly
 }
 
 ///|
@@ -1148,23 +1173,53 @@ fn place_wrapped_lines(
 ) -> Result[FlexLayout, LayoutError] {
   let line_offsets : Array[Double] = Array::make(lines.length(), 0.0)
   let cross_free = cross_extent - cross_total
+  let distributed = match container.align_content {
+    AlignContent::SpaceBetween
+    | AlignContent::SpaceAround
+    | AlignContent::SpaceEvenly => true
+    _ => false
+  }
+  let (leading, between_extra) = match container.align_content {
+    AlignContent::SpaceBetween =>
+      main_spacing(SpaceBetween, lines.length(), cross_free)
+    AlignContent::SpaceAround =>
+      main_spacing(SpaceAround, lines.length(), cross_free)
+    AlignContent::SpaceEvenly =>
+      main_spacing(SpaceEvenly, lines.length(), cross_free)
+    _ => (0.0, 0.0)
+  }
+  let line_gap = container.gap + between_extra
   if container.wrap is FlexWrap::WrapReverse {
     if container.align_content is AlignContent::End ||
       (
         container.align_content is AlignContent::Stretch &&
         exceeds_with_tolerance(cross_total, cross_extent)
-      ) {
-      // Flex-relative end and overflowing default stretch anchor the stack at
-      // physical start. Accumulate from that edge rather than subtracting the
-      // line sizes from their total: cancellation must not move this edge.
+      ) ||
+      (distributed && cross_free <= 0.0) {
+      // Flex-relative end, overflowing default stretch, and nonpositive
+      // distributed spacing anchor the stack at physical start. Accumulate
+      // from that edge: cancellation must not move the safe outer boundary.
       let mut cross_cursor = 0.0
       let mut index = lines.length() - 1
       while index >= 0 {
         let line_size = line_cross_sizes[index]
         line_offsets[index] = cross_cursor
-        cross_cursor += line_size + container.gap
+        cross_cursor += line_size + line_gap
         index -= 1
       }
+    } else if distributed && lines.length() > 1 {
+      // Build positive distributed spacing from the physical near edge too.
+      // Subtracting a very large first line from the far edge can erase the
+      // small lines and gaps that follow it. Anchor the opposite outer line
+      // independently so both boundaries survive that cancellation.
+      let mut cross_cursor = leading
+      let mut index = lines.length() - 1
+      while index >= 0 {
+        line_offsets[index] = cross_cursor
+        cross_cursor += line_cross_sizes[index] + line_gap
+        index -= 1
+      }
+      line_offsets[0] = cross_extent - leading - line_cross_sizes[0]
     } else {
       // Flex-relative start is anchored directly at the inner far edge.
       // The half-sum centers the stack without overflowing a full sum or
@@ -1172,14 +1227,14 @@ fn place_wrapped_lines(
       let mut cross_cursor = if container.align_content is AlignContent::Center {
         cross_extent / 2.0 + cross_total / 2.0
       } else {
-        cross_extent
+        cross_extent - leading
       }
       let mut index = 0
       while index < lines.length() {
         let line_size = line_cross_sizes[index]
         cross_cursor -= line_size
         line_offsets[index] = cross_cursor
-        cross_cursor -= container.gap
+        cross_cursor -= line_gap
         index += 1
       }
     }
@@ -1188,13 +1243,20 @@ fn place_wrapped_lines(
       AlignContent::Start | AlignContent::Stretch => 0.0
       AlignContent::Center => cross_free / 2.0
       AlignContent::End => cross_free
+      AlignContent::SpaceBetween
+      | AlignContent::SpaceAround
+      | AlignContent::SpaceEvenly => leading
     }
     let mut index = 0
     while index < lines.length() {
       let line_size = line_cross_sizes[index]
       line_offsets[index] = cross_cursor
-      cross_cursor += line_size + container.gap
+      cross_cursor += line_size + line_gap
       index += 1
+    }
+    if distributed && cross_free > 0.0 && lines.length() > 1 {
+      let last = lines.length() - 1
+      line_offsets[last] = cross_extent - leading - line_cross_sizes[last]
     }
   }
   let output : Array[LayoutBox] = []

@@ -247,11 +247,40 @@
       ],
       "method": "independent_from_behavior",
       "material_deviations": [
-        "Adds only Start, Center, End, and Stretch align-content for definite wrapped row/column containers; distributed modes remain unsupported.",
+        "This earlier slice adds Start, Center, End, and Stretch align-content for definite wrapped row/column containers; distributed modes are recorded separately below.",
         "The pinned public content_start/content_end methods are flex-relative, including wrap-reverse. Explicit modes retain signed overflow; default Stretch retains safe physical-start overflow.",
         "Observed through actual pinned GPUI headless execution of 36 independently authored cases: 15 baseline controls pass and 21 cases expose the earlier missing content-alignment capability.",
         "Builders, recursive tree placement, and device-scale style preparation preserve the field. NoWrap and the existing no-wrap recursive intrinsic-sizing approximation are unchanged.",
         "Original implementation and regression examples; no upstream implementation or test fixture was copied. MoonBit retains binary64 geometry, and no full CSS, native pixels, physical input, or IME compatibility is claimed."
+      ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": [
+        "crates/gpui/src/style.rs",
+        "crates/gpui/src/app/test_context.rs"
+      ],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares Apache-2.0; existing pinned package license evidence is unchanged."
+        }
+      ],
+      "destination_paths": [
+        "layout/layout.mbt",
+        "layout/content_distribution_test.mbt",
+        "docs/conformance-content-distribution.md"
+      ],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Adds SpaceBetween, SpaceAround, and SpaceEvenly wrapped-line content distribution for definite row/column containers. Positive free space changes inter-line spacing, not line sizes or existing main-axis item gaps.",
+        "All three distributed modes use the measured safe physical-start overflow fallback, including wrap-reverse. A fitting singleton stays at flex-start for between and is centered for around/evenly.",
+        "Observed through actual pinned GPUI headless execution of 42 independently authored cases: 20 baseline controls pass and 22 cases expose the previously absent capability. A separate three-case reverse singleton-overflow check confirms preserved within-line alignment.",
+        "Existing Start, Center, End, Stretch, NoWrap, tree builders, device-scale style copying, and no-wrap recursive intrinsic measurement remain unchanged. Independent near/far anchoring protects finite large-ratio distributed line edges.",
+        "Original implementation and regression cases; no upstream implementation or fixture was copied. MoonBit retains binary64 geometry. The headless evidence does not establish full CSS, native pixels, physical input, or IME parity."
       ]
     }
   ]
