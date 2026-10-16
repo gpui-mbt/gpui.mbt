@@ -1,0 +1,188 @@
+{
+  "kind": "MoonBit source/core verification, not actual Rust/browser candidate qualification",
+  "base_commit": "23530c0d91de0c60dd768b65b0f38c8d58becefd",
+  "product_and_test_sha256": {
+    "element/element.mbt": "c196bcdf471cf1f31cb02e5c4cc7aab72ac5a6a9f27bdb0af5321aae95f5f6f6",
+    "element/layout_bounds.mbt": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+    "element/layout_bounds_test.mbt": "a39be50010eafe2687482f72c62745bbae5a8cb1c96a9cf5002aed5457e8d059",
+    "element/layout_bounds_wbtest.mbt": "42256ffa3b0677e418392522a1c9a8ff554c41a377afc02660e840c7cd76b444",
+    "element/pkg.generated.mbti": "80b64420925b0c4cd4be2d6fedeab870838099d2ca30e9fc97ea0b2967213da8"
+  },
+  "commands": [
+    {
+      "command": [
+        "moon",
+        "version",
+        "--all"
+      ],
+      "started_at_utc": "2026-10-16T15:12:23.055464+00:00",
+      "finished_at_utc": "2026-10-16T15:12:23.069332+00:00",
+      "exit_code": 0,
+      "stdout": "moon 0.1.20261012 (748b63c 2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moon\nmoonc v0.10.15+943464bfa (2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moonc\nmoonrun 0.1.20261012 (748b63c 2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moonrun\n\nFeature flags enabled: rr_moon_mod,rr_moon_pkg\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "moon",
+        "fmt",
+        "--check"
+      ],
+      "started_at_utc": "2026-10-16T15:12:23.069382+00:00",
+      "finished_at_utc": "2026-10-16T15:12:23.668655+00:00",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "Finished. moon: ran 293 tasks, now up to date\n"
+    },
+    {
+      "command": [
+        "moon",
+        "check",
+        "--target",
+        "all",
+        "--deny-warn"
+      ],
+      "started_at_utc": "2026-10-16T15:12:23.668706+00:00",
+      "finished_at_utc": "2026-10-16T15:12:25.094142+00:00",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "Finished. moon: ran 317 tasks, now up to date\n"
+    },
+    {
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "all",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "started_at_utc": "2026-10-16T15:12:25.094199+00:00",
+      "finished_at_utc": "2026-10-16T15:12:25.552978+00:00",
+      "exit_code": 0,
+      "stdout": "Total tests: 123, passed: 123, failed: 0. [wasm]\nTotal tests: 123, passed: 123, failed: 0. [wasm-gc]\nTotal tests: 123, passed: 123, failed: 0. [js]\nTotal tests: 123, passed: 123, failed: 0. [native]\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "moon",
+        "test",
+        "core",
+        "primitives",
+        "layout",
+        "element",
+        "scene",
+        "controls/button",
+        "controls/command_palette",
+        "controls/text_field",
+        "capability",
+        "accessibility",
+        "--target",
+        "all",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "started_at_utc": "2026-10-16T15:12:25.553029+00:00",
+      "finished_at_utc": "2026-10-16T15:12:41.809465+00:00",
+      "exit_code": 0,
+      "stdout": "Total tests: 461, passed: 461, failed: 0. [wasm]\nTotal tests: 461, passed: 461, failed: 0. [wasm-gc]\nTotal tests: 461, passed: 461, failed: 0. [js]\nTotal tests: 460, passed: 460, failed: 0. [native]\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_*.py"
+      ],
+      "started_at_utc": "2026-10-16T15:12:41.809520+00:00",
+      "finished_at_utc": "2026-10-16T15:12:43.581988+00:00",
+      "exit_code": 0,
+      "stdout": "SYNTHETIC_CLIENT_STDOUT_ONLY\n",
+      "stderr": "..................................................................................................................................GPUI_UBUNTU_DIAGNOSTIC_STATUS=91; preserving benchmark exit=17\n.GPUI_UBUNTU_DIAGNOSTIC_STATUS=0; preserving benchmark exit=139\n..GPUI_UBUNTU_DIAGNOSTIC_START_FAILED=synthetic diagnostic launch failure; preserving benchmark exit=31\n.GPUI_UBUNTU_DIAGNOSTIC_STATUS=91; preserving benchmark exit=17\n...GPUI_WAYLAND_TRACE_FILE=/tmp/tmpd524q31k/trace.log bytes=31\n..GPUI_WAYLAND_TRACE_FILE=/tmp/tmpzpj8sp1_/trace.log bytes=64\n..Wayland diagnostic trace could not be saved: [Errno 17] File exists: '/tmp/tmpe9pz3ag8/not-a-directory'\n.\n----------------------------------------------------------------------\nRan 142 tests in 1.604s\n\nOK\n"
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/check_contracts.py"
+      ],
+      "started_at_utc": "2026-10-16T15:12:43.582053+00:00",
+      "finished_at_utc": "2026-10-16T15:12:43.684162+00:00",
+      "exit_code": 0,
+      "stdout": "Contract documents valid; production release evidence is pending.\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "started_at_utc": "2026-10-16T15:12:43.684216+00:00",
+      "finished_at_utc": "2026-10-16T15:12:43.689621+00:00",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "moon",
+        "test",
+        "primitives",
+        "diagnostics",
+        "core",
+        "layout",
+        "element",
+        "scene",
+        "text",
+        "text_layout",
+        "controls/button",
+        "controls/text_field",
+        "controls/command_palette",
+        "accessibility",
+        "capability",
+        "mcp",
+        "testing/core_model",
+        "examples/task_board",
+        "--target",
+        "all",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "started_at_utc": "2026-10-16T15:13:59.212278+00:00",
+      "finished_at_utc": "2026-10-16T15:14:13.827624+00:00",
+      "exit_code": 0,
+      "stdout": "Total tests: 565, passed: 565, failed: 0. [wasm]\nTotal tests: 565, passed: 565, failed: 0. [wasm-gc]\nTotal tests: 565, passed: 565, failed: 0. [js]\nTotal tests: 564, passed: 564, failed: 0. [native]\n",
+      "stderr": ""
+    }
+  ],
+  "all_commands_passed": true,
+  "not_run": [
+    "Rust builds",
+    "Browser or native input execution",
+    "Mac",
+    "Paired candidate comparison",
+    "Public writes"
+  ],
+  "implemented_identical_api_probe": {
+    "source": "pub fn layout_bounds_api_probe(tree : ElementTree, frame : Prepainted) -> Result[ElementTree, ElementError] { tree.with_layout_bounds(frame) }\n",
+    "command": [
+      "moon",
+      "check",
+      "element",
+      "--target",
+      "js"
+    ],
+    "source_snapshot": "_build/layout-bounds-controls-zxvsg8iu/source",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "Finished. moon: ran 6 tasks, now up to date\n"
+  }
+}

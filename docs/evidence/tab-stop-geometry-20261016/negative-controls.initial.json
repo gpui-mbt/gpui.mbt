@@ -1,0 +1,477 @@
+{
+  "kind": "compiled mutated-implementation controls and rejected API misuse, not an upstream execution oracle",
+  "source_copy": "_build/layout-bounds-controls-tjj7auff/source",
+  "source_copy_is_git_checkout": false,
+  "source_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+  "unmutated": {
+    "name": "unmutated",
+    "started_at_utc": "2026-10-16T15:10:24.849641+00:00",
+    "command": [
+      "moon",
+      "test",
+      "element",
+      "--target",
+      "js",
+      "--deny-warn",
+      "-j",
+      "2"
+    ],
+    "exit_code": 0,
+    "stdout": "Total tests: 123, passed: 123, failed: 0.\n",
+    "stderr": "",
+    "summaries": [
+      "Total tests: 123, passed: 123, failed: 0."
+    ]
+  },
+  "mutants": [
+    {
+      "name": "freeze-retained-bounds",
+      "started_at_utc": "2026-10-16T15:10:25.698149+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:59 (\"layout bounds refresh moves both ordinary button edges without replacing focus\") failed: element/layout_bounds_test.mbt:65:3-65:69@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:110 (\"layout bounds refresh covers one pixel card edges and immutable snapshots\") failed: element/layout_bounds_test.mbt:122:3-124:4@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:321 (\"layout bounds refresh accepts paint differences without copying backgrounds\") failed: element/layout_bounds_test.mbt:344:3-344:73@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:354 (\"layout bounds refresh preserves traversal and ownership guard ABA reset semantics\") failed: element/layout_bounds_test.mbt:370:3-372:4@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:422 (\"layout bounds refresh retains pending same-target guards and rejects stale acquisitions\") failed: element/layout_bounds_test.mbt:426:3-428:4@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 118, failed: 5.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 118, failed: 5."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "a1dbd25807e67e133996acf53ce28c9cd6c4ac8afa903ac39509a1a8f052b157",
+      "replacement_from": "bounds: fresh[index].bounds",
+      "replacement_to": "bounds: self.nodes[index].bounds",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "mint-fresh-tree-identity",
+      "started_at_utc": "2026-10-16T15:10:26.431824+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_wbtest.mbt:2 (\"layout bounds refresh allocates no focus identity even at exhaustion\") failed: Error\n    at $panic (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/_build/js/debug/test/element/element.whitebox_test.js:18:9)\n    at @moonbitlang/core/abort.abort (/workspace/shared/dsh-toolchain-home/.moon/lib/core/abort/abort.mbt:29:3)\n    at Result::unwrap (/workspace/shared/dsh-toolchain-home/.moon/lib/core/builtin/result.mbt:266:15)\n    at f (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/layout_bounds_wbtest.mbt:26:19)\n    at moonbit_test_driver_internal_js_catch (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_whitebox_test.mbt:399:11)\n    at _M0FP36f4ah6o4gpui7element42moonbit__test__driver__internal__js__catch (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/_build/js/debug/test/element/element.whitebox_test.js:750:6)\n    at moonbit_test_driver_internal_catch_error (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_whitebox_test.mbt:396:3)\n    at MoonBit_Test_Driver::run_test (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_whitebox_test.mbt:494:5)\n    at moonbit_test_driver_internal_do_execute (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_whitebox_test.mbt:667:10)\n    at _M0FP36f4ah6o4gpui7element40moonbit__test__driver__internal__execute (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_whitebox_test.mbt:568:5)\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:59 (\"layout bounds refresh moves both ordinary button edges without replacing focus\") failed: element/layout_bounds_test.mbt:69:3-69:46@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:110 (\"layout bounds refresh covers one pixel card edges and immutable snapshots\") failed: element/layout_bounds_test.mbt:134:3-134:49@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:321 (\"layout bounds refresh accepts paint differences without copying backgrounds\") failed: element/layout_bounds_test.mbt:346:3-346:54@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:354 (\"layout bounds refresh preserves traversal and ownership guard ABA reset semantics\") failed: element/layout_bounds_test.mbt:369:3-369:62@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:422 (\"layout bounds refresh retains pending same-target guards and rejects stale acquisitions\") failed: element/layout_bounds_test.mbt:426:3-428:4@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 117, failed: 6.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 117, failed: 6."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "84289f7922543a0ba7c24ec526840c27fbadde68421ee75d3a1371184c8ef25c",
+      "replacement_from": "Ok({ ..self, nodes, })",
+      "replacement_to": "ElementTree::new(nodes)",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "reacquire-same-focus-id",
+      "started_at_utc": "2026-10-16T15:10:27.121665+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_wbtest.mbt:2 (\"layout bounds refresh allocates no focus identity even at exhaustion\") failed: Error\n    at $panic (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/_build/js/debug/test/element/element.whitebox_test.js:18:9)\n    at @moonbitlang/core/abort.abort (/workspace/shared/dsh-toolchain-home/.moon/lib/core/abort/abort.mbt:29:3)\n    at Result::unwrap (/workspace/shared/dsh-toolchain-home/.moon/lib/core/builtin/result.mbt:266:15)\n    at f (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/layout_bounds_wbtest.mbt:26:19)\n    at moonbit_test_driver_internal_js_catch (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_whitebox_test.mbt:399:11)\n    at _M0FP36f4ah6o4gpui7element42moonbit__test__driver__internal__js__catch (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/_build/js/debug/test/element/element.whitebox_test.js:750:6)\n    at moonbit_test_driver_internal_catch_error (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_whitebox_test.mbt:396:3)\n    at MoonBit_Test_Driver::run_test (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_whitebox_test.mbt:494:5)\n    at moonbit_test_driver_internal_do_execute (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_whitebox_test.mbt:667:10)\n    at _M0FP36f4ah6o4gpui7element40moonbit__test__driver__internal__execute (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_whitebox_test.mbt:568:5)\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:59 (\"layout bounds refresh moves both ordinary button edges without replacing focus\") failed: element/layout_bounds_test.mbt:70:3-70:54@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:110 (\"layout bounds refresh covers one pixel card edges and immutable snapshots\") failed: element/layout_bounds_test.mbt:134:3-134:49@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:321 (\"layout bounds refresh accepts paint differences without copying backgrounds\") failed: element/layout_bounds_test.mbt:346:3-346:54@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:354 (\"layout bounds refresh preserves traversal and ownership guard ABA reset semantics\") failed: element/layout_bounds_test.mbt:369:3-369:62@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:422 (\"layout bounds refresh retains pending same-target guards and rejects stale acquisitions\") failed: element/layout_bounds_test.mbt:426:3-428:4@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 117, failed: 6.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 117, failed: 6."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "c006238a199a041c92356d0471e0dfd63c184444efb219f85c9a79cee714bc63",
+      "replacement_from": "Ok({ ..self, nodes, })",
+      "replacement_to": "let next : ElementTree = { ..self, nodes, }\n  match self.focused { None => Ok(next); Some(id) => next.with_focus(id) }",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "skip-positional-id",
+      "started_at_utc": "2026-10-16T15:10:27.828412+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:241 (\"layout bounds refresh rejects IDs preorder parents counts and viewport changes\") failed: element/layout_bounds_test.mbt:193:5-193:81@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 122, failed: 1.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 122, failed: 1."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "665b618f525d8f8aacecac3e5f5ce7da7a1eae4c23c978b4a3cea52ee69fbc3c",
+      "replacement_from": "if retained.id != next.id ||",
+      "replacement_to": "if false ||",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "skip-parent",
+      "started_at_utc": "2026-10-16T15:10:28.551842+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:241 (\"layout bounds refresh rejects IDs preorder parents counts and viewport changes\") failed: element/layout_bounds_test.mbt:193:5-193:81@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 122, failed: 1.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 122, failed: 1."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "741f7ec5423156a23a7e0229470e528da419fe670f2d82b3e2e5797f12bcd6f1",
+      "replacement_from": "      retained.parent != next.parent ||\n",
+      "replacement_to": "",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "skip-focusable",
+      "started_at_utc": "2026-10-16T15:10:29.279574+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:208 (\"layout bounds refresh atomically rejects every input metadata mismatch\") failed: element/layout_bounds_test.mbt:193:5-193:81@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 122, failed: 1.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 122, failed: 1."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "55153e4e672558cebb0723b5fc912b35e8746b686bf5e5300b6ab95d4ea5c02e",
+      "replacement_from": "      retained.focusable != next.focusable ||\n",
+      "replacement_to": "",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "skip-tab-index",
+      "started_at_utc": "2026-10-16T15:10:30.015193+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:208 (\"layout bounds refresh atomically rejects every input metadata mismatch\") failed: element/layout_bounds_test.mbt:193:5-193:81@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 122, failed: 1.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 122, failed: 1."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "468ee0872898e15915e0f927bb25cc47cf2dd826cd0df6e74a4a7906e3b3b176",
+      "replacement_from": "      retained.tab_index != next.tab_index ||\n",
+      "replacement_to": "",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "skip-tab-group-index",
+      "started_at_utc": "2026-10-16T15:10:30.691261+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:208 (\"layout bounds refresh atomically rejects every input metadata mismatch\") failed: element/layout_bounds_test.mbt:193:5-193:81@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 122, failed: 1.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 122, failed: 1."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "163f517ce3b47b01130ec676ed8a991279ec05aa6c46a00cbaf22a0831aa254c",
+      "replacement_from": "      retained.tab_group_index != next.tab_group_index ||\n",
+      "replacement_to": "",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "skip-tab-stop",
+      "started_at_utc": "2026-10-16T15:10:31.383566+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:208 (\"layout bounds refresh atomically rejects every input metadata mismatch\") failed: element/layout_bounds_test.mbt:193:5-193:81@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 122, failed: 1.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 122, failed: 1."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "abfdb152d77b4983a41a588eac14d9fd4b9c1e88a2b1d4d57a748f5f3e399c35",
+      "replacement_from": "      retained.tab_stop != next.tab_stop ||\n",
+      "replacement_to": "",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "skip-pointer-events",
+      "started_at_utc": "2026-10-16T15:10:32.070369+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:208 (\"layout bounds refresh atomically rejects every input metadata mismatch\") failed: element/layout_bounds_test.mbt:193:5-193:81@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 122, failed: 1.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 122, failed: 1."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "b4669358d81dcaed892c2f7f0d8d857c6cac849c43c6ac5d90c2562401f48cc6",
+      "replacement_from": "      retained.pointer_events != next.pointer_events {",
+      "replacement_to": "      false {",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "skip-root-viewport",
+      "started_at_utc": "2026-10-16T15:10:32.750367+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:241 (\"layout bounds refresh rejects IDs preorder parents counts and viewport changes\") failed: element/layout_bounds_test.mbt:193:5-193:81@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:455 (\"layout bounds refresh rejects a retained root origin change\") failed: element/layout_bounds_test.mbt:193:5-193:81@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 121, failed: 2.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 121, failed: 2."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "ddb98f4796a0b921baa6e30bfb8ce50733e3db1f1f96b328f72802795718f993",
+      "replacement_from": "  if self.nodes[0].bounds != prepainted.viewport_bounds {\n    return Err(LayoutBoundsMismatch)\n  }\n",
+      "replacement_to": "",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "allow-scroll",
+      "started_at_utc": "2026-10-16T15:10:33.429261+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Error: [0006]\n    \u256d\u2500[ /workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/element.mbt:17:3 ]\n    \u2502\n 17 \u2502   ScrollLayoutBoundsUnsupported\n    \u2502   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n    \u2502                 \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Error Warning (unused_constructor): Variant 'ScrollLayoutBoundsUnsupported' is never constructed\n\u2500\u2500\u2500\u2500\u256f\n",
+      "summaries": [],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "4d24e5a8f10e2c9a2060b0aac3c85260175c53f558cdd93a6842bddd22136d75",
+      "replacement_from": "    if retained.scroll_viewport is Some(_) || next.scroll_viewport is Some(_) {\n      return Err(ScrollLayoutBoundsUnsupported)\n    }\n",
+      "replacement_to": "",
+      "compiled_and_tests_failed": false
+    },
+    {
+      "name": "copy-fresh-background",
+      "started_at_utc": "2026-10-16T15:10:33.539552+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:321 (\"layout bounds refresh accepts paint differences without copying backgrounds\") failed: element/layout_bounds_test.mbt:342:3-342:75@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 122, failed: 1.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 122, failed: 1."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "c3176a794b5c3fefc14a27ef34f9a035c8062d8312cf0f18d359fea356e702cd",
+      "replacement_from": "bounds: fresh[index].bounds,",
+      "replacement_to": "bounds: fresh[index].bounds, background: fresh[index].background,",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "reject-paint-only-background-change",
+      "started_at_utc": "2026-10-16T15:10:34.222130+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:321 (\"layout bounds refresh accepts paint differences without copying backgrounds\") failed: Error\n    at $panic (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/_build/js/debug/test/element/element.blackbox_test.js:21:9)\n    at @moonbitlang/core/abort.abort (/workspace/shared/dsh-toolchain-home/.moon/lib/core/abort/abort.mbt:29:3)\n    at Result::unwrap (/workspace/shared/dsh-toolchain-home/.moon/lib/core/builtin/result.mbt:266:15)\n    at f (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/layout_bounds_test.mbt:341:19)\n    at moonbit_test_driver_internal_js_catch (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_blackbox_test.mbt:399:11)\n    at _M0FP36f4ah6o4gpui23element__blackbox__test42moonbit__test__driver__internal__js__catch (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/_build/js/debug/test/element/element.blackbox_test.js:1318:6)\n    at moonbit_test_driver_internal_catch_error (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_blackbox_test.mbt:396:3)\n    at MoonBit_Test_Driver::run_test (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_blackbox_test.mbt:607:5)\n    at moonbit_test_driver_internal_do_execute (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_blackbox_test.mbt:780:10)\n    at _M0FP36f4ah6o4gpui23element__blackbox__test40moonbit__test__driver__internal__execute (/workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/__generated_driver_for_blackbox_test.mbt:681:5)\nTotal tests: 123, passed: 122, failed: 1.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 122, failed: 1."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "ea01fde6fa6f5605983b4dd086a915a08c914face87d97feb8886a8129dc74e9",
+      "replacement_from": "    if retained.id != next.id ||",
+      "replacement_to": "    if retained.background != next.background { return Err(LayoutBoundsMismatch) }\n    if retained.id != next.id ||",
+      "compiled_and_tests_failed": true
+    },
+    {
+      "name": "mutate-before-validation",
+      "started_at_utc": "2026-10-16T15:10:34.947324+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--deny-warn",
+        "-j",
+        "2"
+      ],
+      "exit_code": 2,
+      "stdout": "[f4ah6o/gpui] test element/layout_bounds_test.mbt:110 (\"layout bounds refresh covers one pixel card edges and immutable snapshots\") failed: element/layout_bounds_test.mbt:121:3-121:38@f4ah6o/gpui FAILED: `34 != 33`\ndiff:\n-34 +33\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:208 (\"layout bounds refresh atomically rejects every input metadata mismatch\") failed: element/layout_bounds_test.mbt:198:5-198:76@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:241 (\"layout bounds refresh rejects IDs preorder parents counts and viewport changes\") failed: element/layout_bounds_test.mbt:198:5-198:76@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:301 (\"layout bounds refresh rejects scroll viewports in retained fresh or both trees\") failed: element/layout_bounds_test.mbt:198:5-198:76@f4ah6o/gpui FAILED: `false` is not true\n[f4ah6o/gpui] test element/layout_bounds_test.mbt:321 (\"layout bounds refresh accepts paint differences without copying backgrounds\") failed: element/layout_bounds_test.mbt:345:3-345:72@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 123, passed: 118, failed: 5.\n",
+      "stderr": "",
+      "summaries": [
+        "Total tests: 123, passed: 118, failed: 5."
+      ],
+      "source": "element/layout_bounds.mbt",
+      "original_sha256": "11fab52008524cfc5e05c9d3f670632e2919bf237894659e4475beed0bd67a43",
+      "mutated_sha256": "98b8dcdc5be2d220075631ea44c0d49e46919b5ba08966b5e9202adc8e3b8eb0",
+      "replacement_from": "  for index = 0; index < self.nodes.length(); index = index + 1 {",
+      "replacement_to": "  self.nodes[1] = { ..self.nodes[1], bounds: fresh[1].bounds, }\n  for index = 0; index < self.nodes.length(); index = index + 1 {",
+      "compiled_and_tests_failed": true
+    }
+  ],
+  "restored": {
+    "name": "restored",
+    "started_at_utc": "2026-10-16T15:10:35.627152+00:00",
+    "command": [
+      "moon",
+      "test",
+      "element",
+      "--target",
+      "js",
+      "--deny-warn",
+      "-j",
+      "2"
+    ],
+    "exit_code": 0,
+    "stdout": "Total tests: 123, passed: 123, failed: 0.\n",
+    "stderr": "",
+    "summaries": [
+      "Total tests: 123, passed: 123, failed: 0."
+    ]
+  },
+  "api_controls": [
+    {
+      "name": "arbitrary-rectangles",
+      "started_at_utc": "2026-10-16T15:10:36.419840+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--build-only"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Warning: [0001]\n   \u256d\u2500[ /workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/layout_bounds_external_probe_test.mbt:1:4 ]\n   \u2502\n 1 \u2502 fn rejected(tree : @element.ElementTree, rectangles : Array[@primitives.Rect]) -> Result[@element.ElementTree, @element.ElementError] { tree.with_layout_bounds(rectangles) }\n   \u2502    \u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500  \n   \u2502        \u2570\u2500\u2500\u2500\u2500\u2500 Warning (unused_value): Unused function 'rejected'\n\u2500\u2500\u2500\u256f\nError: [4014]\n   \u256d\u2500[ /workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/layout_bounds_external_probe_test.mbt:1:161 ]\n   \u2502\n 1 \u2502 fn rejected(tree : @element.ElementTree, rectangles : Array[@primitives.Rect]) -> Result[@element.ElementTree, @element.ElementError] { tree.with_layout_bounds(rectangles) }\n   \u2502                                                                                                                                                                 \u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500  \n   \u2502                                                                                                                                                                      \u2570\u2500\u2500\u2500\u2500\u2500\u2500 Expr Type Mismatch\n        has type : Array[@f4ah6o/gpui/primitives.Rect]\n        wanted   : @f4ah6o/gpui/element.Prepainted\n\u2500\u2500\u2500\u256f\n",
+      "summaries": [],
+      "source": "fn rejected(tree : @element.ElementTree, rectangles : Array[@primitives.Rect]) -> Result[@element.ElementTree, @element.ElementError] { tree.with_layout_bounds(rectangles) }\n",
+      "rejected_at_compile_time": true
+    },
+    {
+      "name": "fabricated-prepainted",
+      "started_at_utc": "2026-10-16T15:10:36.693585+00:00",
+      "command": [
+        "moon",
+        "test",
+        "element",
+        "--target",
+        "js",
+        "--build-only"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Warning: [0001]\n   \u256d\u2500[ /workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/layout_bounds_external_probe_test.mbt:1:4 ]\n   \u2502\n 1 \u2502 fn rejected(tree : @element.ElementTree, viewport : @primitives.Size, bounds : @primitives.Rect) -> @element.Prepainted { { tree, viewport, viewport_bounds: bounds, overflow: false } }\n   \u2502    \u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500  \n   \u2502        \u2570\u2500\u2500\u2500\u2500\u2500 Warning (unused_value): Unused function 'rejected'\n\u2500\u2500\u2500\u256f\nError: [4036]\n   \u256d\u2500[ /workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/layout_bounds_external_probe_test.mbt:1:123 ]\n   \u2502\n 1 \u2502 fn rejected(tree : @element.ElementTree, viewport : @primitives.Size, bounds : @primitives.Rect) -> @element.Prepainted { { tree, viewport, viewport_bounds: bounds, overflow: false } }\n   \u2502                                                                                                                           \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n   \u2502                                                                                                                                                         \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Cannot create values of the read-only type: @f4ah6o/gpui/element.Prepainted.\n\u2500\u2500\u2500\u256f\nError: [4033]\n   \u256d\u2500[ /workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-tjj7auff/source/element/layout_bounds_external_probe_test.mbt:1:123 ]\n   \u2502\n 1 \u2502 fn rejected(tree : @element.ElementTree, viewport : @primitives.Size, bounds : @primitives.Rect) -> @element.Prepainted { { tree, viewport, viewport_bounds: bounds, overflow: false } }\n   \u2502                                                                                                                           \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n   \u2502                                                                                                                                                         \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 There is no record definition with the fields: tree, viewport, viewport_bounds, overflow.\n\u2500\u2500\u2500\u256f\n",
+      "summaries": [],
+      "source": "fn rejected(tree : @element.ElementTree, viewport : @primitives.Size, bounds : @primitives.Rect) -> @element.Prepainted { { tree, viewport, viewport_bounds: bounds, overflow: false } }\n",
+      "rejected_at_compile_time": true
+    }
+  ],
+  "all_compiled_mutants_detected": false,
+  "all_api_misuse_rejected": true,
+  "restored_passed": true
+}

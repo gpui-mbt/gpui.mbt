@@ -1,0 +1,56 @@
+{
+  "kind": "Expected-success hit-target assertion: actual runtime failure against exact unchanged core, pass after bounded refresh. The earlier diagnostic witness separately passes by checking a known mismatch.",
+  "recorded_at_utc": "2026-10-16T15:13:07.725746+00:00",
+  "baseline_commit": "23530c0d91de0c60dd768b65b0f38c8d58becefd",
+  "baseline_tree": "e2cf5764e9b25504de6468403b3c6572e651f782",
+  "baseline_snapshot": "_build/unchanged-layout-success-kue9x41a/source",
+  "baseline_product_sha256": {
+    "element/element.mbt": "06540838025d65e95bc318fa4f05f95ed6821603c891cbf70373f0b66abcc895",
+    "element/lifecycle.mbt": "f23e92badc3c0447a8cb0141484c3501d30c5b8c4bb7d5d13fcecc07a29b32f5"
+  },
+  "unchanged_expected_success": {
+    "source": "///|\n// Source/core contracts, not execution of the unchanged Rust/browser example.\n// Measurements that motivate the 2px ordinary-button and 1px card probes are\n// recorded separately in docs/evidence/tab-stop-geometry-20261016/README.md.\nfn bounds_frame(first_width : Double) -> @element.Prepainted {\n  let row = @layout.FlexTreeStyle::new(@layout.FlowDirection::row())\n    .with_gap(12.0)\n    .unwrap()\n  // The first gap plus this 4px spacer gives the observed x=16px origin.\n  let row = @element.Element::root(1, row)\n    .with_child(\n      @element.Element::new(viewport_item(90, 4, 40)).with_pointer_events(false),\n    )\n    .with_child(\n      @element.Element::new(viewport_item(2, first_width, 40))\n      .with_focusable(true)\n      .with_tab_stop(true)\n      .with_tab_index(1),\n    )\n    .with_child(\n      @element.Element::new(viewport_item(3, 756.0 - first_width, 40))\n      .with_focusable(true)\n      .with_tab_stop(true)\n      .with_tab_index(2),\n    )\n  viewport_prepaint(row, 800, 40)\n}\n\n///|\ntest \"expected success current geometry hits newly covered ordinary-button edge\" {\n  let retained = owner_test_focus(bounds_frame(378).tree(), 2)\n  let fresh = bounds_frame(380)\n  assert_true(fresh.tree().hit_test(element_point(395, 20)) == Some(2))\n  let current = retained\n  assert_true(current.hit_test(element_point(395, 20)) == Some(2))\n}\n",
+    "command": [
+      "moon",
+      "test",
+      "element/layout_bounds_success_probe_test.mbt",
+      "--target",
+      "js",
+      "--deny-warn"
+    ],
+    "exit_code": 2,
+    "stdout": "[f4ah6o/gpui] test element/layout_bounds_success_probe_test.mbt:30 (\"expected success current geometry hits newly covered ordinary-button edge\") failed: element/layout_bounds_success_probe_test.mbt:35:3-35:67@f4ah6o/gpui FAILED: `false` is not true\nTotal tests: 1, passed: 0, failed: 1.\n",
+    "stderr": ""
+  },
+  "assertion_condition": "current.hit_test(element_point(395, 20)) == Some(2)",
+  "implemented_initial_probe_compile_error": {
+    "source": "///|\n// Source/core contracts, not execution of the unchanged Rust/browser example.\n// Measurements that motivate the 2px ordinary-button and 1px card probes are\n// recorded separately in docs/evidence/tab-stop-geometry-20261016/README.md.\nfn bounds_frame(first_width : Double) -> @element.Prepainted {\n  let row = @layout.FlexTreeStyle::new(@layout.FlowDirection::row())\n    .with_gap(12.0)\n    .unwrap()\n  // The first gap plus this 4px spacer gives the observed x=16px origin.\n  let row = @element.Element::root(1, row)\n    .with_child(\n      @element.Element::new(viewport_item(90, 4, 40)).with_pointer_events(false),\n    )\n    .with_child(\n      @element.Element::new(viewport_item(2, first_width, 40))\n      .with_focusable(true)\n      .with_tab_stop(true)\n      .with_tab_index(1),\n    )\n    .with_child(\n      @element.Element::new(viewport_item(3, 756.0 - first_width, 40))\n      .with_focusable(true)\n      .with_tab_stop(true)\n      .with_tab_index(2),\n    )\n  viewport_prepaint(row, 800, 40)\n}\n\n///|\ntest \"expected success current geometry hits newly covered ordinary-button edge\" {\n  let retained = owner_test_focus(bounds_frame(378).tree(), 2)\n  let fresh = bounds_frame(380)\n  assert_true(fresh.tree().hit_test(element_point(395, 20)) == Some(2))\n  let current = retained.with_layout_bounds(fresh).unwrap()\n  assert_true(current.hit_test(element_point(395, 20)) == Some(2))\n}\n",
+    "source_snapshot": "_build/layout-bounds-controls-zxvsg8iu/source",
+    "command": [
+      "moon",
+      "test",
+      "element/layout_bounds_success_probe_test.mbt",
+      "--target",
+      "js",
+      "--deny-warn"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "Error: [4051]\n   \u256d\u2500[ /workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-zxvsg8iu/source/element/layout_bounds_success_probe_test.mbt:5:4 ]\n   \u2502\n 5 \u2502 fn bounds_frame(first_width : Double) -> @element.Prepainted {\n   \u2502    \u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500  \n   \u2502          \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500 The toplevel identifier bounds_frame is declared twice: it was previously defined at /workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-zxvsg8iu/source/element/layout_bounds_test.mbt:5:4.\n\u2500\u2500\u2500\u256f\nError: [0001]\n   \u256d\u2500[ /workspace/shared/gpui-tab-stop-geometry-20261016/_build/layout-bounds-controls-zxvsg8iu/source/element/layout_bounds_test.mbt:5:4 ]\n   \u2502\n 5 \u2502 fn bounds_frame(first_width : Double) -> @element.Prepainted {\n   \u2502    \u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500  \n   \u2502          \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Error Warning (unused_value): Unused function 'bounds_frame'\n\u2500\u2500\u2500\u256f\n"
+  },
+  "implemented_expected_success": {
+    "source": "///|\n// Source/core contracts, not execution of the unchanged Rust/browser example.\n// Measurements that motivate the 2px ordinary-button and 1px card probes are\n// recorded separately in docs/evidence/tab-stop-geometry-20261016/README.md.\nfn bounds_success_frame(first_width : Double) -> @element.Prepainted {\n  let row = @layout.FlexTreeStyle::new(@layout.FlowDirection::row())\n    .with_gap(12.0)\n    .unwrap()\n  // The first gap plus this 4px spacer gives the observed x=16px origin.\n  let row = @element.Element::root(1, row)\n    .with_child(\n      @element.Element::new(viewport_item(90, 4, 40)).with_pointer_events(false),\n    )\n    .with_child(\n      @element.Element::new(viewport_item(2, first_width, 40))\n      .with_focusable(true)\n      .with_tab_stop(true)\n      .with_tab_index(1),\n    )\n    .with_child(\n      @element.Element::new(viewport_item(3, 756.0 - first_width, 40))\n      .with_focusable(true)\n      .with_tab_stop(true)\n      .with_tab_index(2),\n    )\n  viewport_prepaint(row, 800, 40)\n}\n\n///|\ntest \"expected success current geometry hits newly covered ordinary-button edge\" {\n  let retained = owner_test_focus(bounds_success_frame(378).tree(), 2)\n  let fresh = bounds_success_frame(380)\n  assert_true(fresh.tree().hit_test(element_point(395, 20)) == Some(2))\n  let current = retained.with_layout_bounds(fresh).unwrap()\n  assert_true(current.hit_test(element_point(395, 20)) == Some(2))\n}\n",
+    "source_snapshot": "_build/layout-bounds-controls-zxvsg8iu/source",
+    "command": [
+      "moon",
+      "test",
+      "element/layout_bounds_success_probe_test.mbt",
+      "--target",
+      "js",
+      "--deny-warn"
+    ],
+    "exit_code": 0,
+    "stdout": "Total tests: 1, passed: 1, failed: 0.\n",
+    "stderr": ""
+  }
+}

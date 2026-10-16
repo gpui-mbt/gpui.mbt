@@ -1,0 +1,51 @@
+{
+  "recorded_at_utc": "2026-10-16T15:05:10.564674+00:00",
+  "base_commit": "23530c0d91de0c60dd768b65b0f38c8d58becefd",
+  "base_tree": "e2cf5764e9b25504de6468403b3c6572e651f782",
+  "note": "Product files unchanged when commands ran. Only source-derived baseline test and temporary API probe were added. Compiler diagnostics are escaped JSON strings, retained verbatim.",
+  "behavior_probe": {
+    "command": [
+      "moon",
+      "test",
+      "element/layout_bounds_test.mbt",
+      "--target",
+      "js",
+      "--deny-warn"
+    ],
+    "exit_code": 0,
+    "stdout": "Total tests: 1, passed: 1, failed: 0.\n",
+    "stderr": ""
+  },
+  "baseline_product_sha256": {
+    "element/element.mbt": "06540838025d65e95bc318fa4f05f95ed6821603c891cbf70373f0b66abcc895",
+    "element/lifecycle.mbt": "f23e92badc3c0447a8cb0141484c3501d30c5b8c4bb7d5d13fcecc07a29b32f5",
+    "element/pkg.generated.mbti": "2e11b9380f9fd9946b9cb859a4e477d060023b5ed00d49d7039525f36c839dc2"
+  },
+  "api_probe_initial_command_error": {
+    "source": "pub fn layout_bounds_api_probe(tree : ElementTree, frame : Prepainted) -> Result[ElementTree, ElementError] { tree.with_layout_bounds(frame) }\n",
+    "command": [
+      "moon",
+      "check",
+      "--package",
+      "f4ah6o/gpui/element",
+      "--target",
+      "js"
+    ],
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "error: unexpected argument '--package' found\n\n  tip: a similar argument exists: '--package-path'\n\nUsage: moon check <--package-path <PACKAGE_DIR>|PATH>\n\nFor more information, try '--help'.\n"
+  },
+  "api_probe": {
+    "source": "pub fn layout_bounds_api_probe(tree : ElementTree, frame : Prepainted) -> Result[ElementTree, ElementError] { tree.with_layout_bounds(frame) }\n",
+    "command": [
+      "moon",
+      "check",
+      "element",
+      "--target",
+      "js"
+    ],
+    "exit_code": 255,
+    "stdout": "",
+    "stderr": "Error: [4015]\n   \u256d\u2500[ /workspace/shared/gpui-tab-stop-geometry-20261016/element/layout_bounds_api_probe.mbt:1:116 ]\n   \u2502\n 1 \u2502 pub fn layout_bounds_api_probe(tree : ElementTree, frame : Prepainted) -> Result[ElementTree, ElementError] { tree.with_layout_bounds(frame) }\n   \u2502                                                                                                                    \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n   \u2502                                                                                                                             \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Type ElementTree has no method with_layout_bounds.\n\u2500\u2500\u2500\u256f\nFailed with 0 warnings, 1 errors.\nError: failed to run check for target Js\n\nCaused by:\n    failed when checking project\n"
+  }
+}

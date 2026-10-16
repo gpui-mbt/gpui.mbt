@@ -13,6 +13,8 @@ pub enum ElementError {
   TreeTooDeep
   LayoutFailure(@layout.TreeLayoutError)
   GeometryFailure
+  LayoutBoundsMismatch
+  ScrollLayoutBoundsUnsupported
 } derive(Eq)
 
 ///|
