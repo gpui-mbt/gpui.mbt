@@ -1,0 +1,195 @@
+{
+  "kind": "independent compiled mutated-implementation controls, not an upstream oracle",
+  "target": "js",
+  "command": [
+    "moon",
+    "test",
+    "element",
+    "--target",
+    "js",
+    "--deny-warn",
+    "-j",
+    "2"
+  ],
+  "source_copy": "/tmp/gpui-tab-group-controls-cx8r7hni/source",
+  "source_copy_is_git_checkout": false,
+  "unmutated": {
+    "name": "unmutated",
+    "started_at": "2026-10-16T14:35:58Z",
+    "ended_at": "2026-10-16T14:35:59Z",
+    "exit_code": 0,
+    "summary": [
+      "Total tests: 110, passed: 110, failed: 0."
+    ],
+    "log": "control-unmutated.log",
+    "log_sha256": "22eb3891e0fa2719cf9d0aa9d41e94e495e0420c9189080de91e11348afc2626"
+  },
+  "controls": [
+    {
+      "name": "flatten-group-paths",
+      "started_at": "2026-10-16T14:35:59Z",
+      "ended_at": "2026-10-16T14:35:59Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 99, failed: 11."
+      ],
+      "log": "control-flatten-group-paths.log",
+      "log_sha256": "bd6b561ec9981a31512b1ebe8771dd34ecacc0108c35ddbe711a4ebb8abd7685",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "56ef25cf5f7a5a97921164e308704e42ef9bc26d933f00435d6aa66107fa19a7",
+      "mutated_source_sha256": "fd37d9656604d79645bf22f598c00a7aca60974b93363775611a4b3ddad2aeb5",
+      "replacement_from": "paths.push(path)",
+      "replacement_to": "paths.push([node.tab_index])",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "omit-groups-own-prefix",
+      "started_at": "2026-10-16T14:35:59Z",
+      "ended_at": "2026-10-16T14:36:00Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 106, failed: 4."
+      ],
+      "log": "control-omit-groups-own-prefix.log",
+      "log_sha256": "d585687070a946e5ff4112b164d1a6480c8e86d89d466d9329485e18b07958a0",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "56ef25cf5f7a5a97921164e308704e42ef9bc26d933f00435d6aa66107fa19a7",
+      "mutated_source_sha256": "175813720ebcc019e370c126645bf8f03dd19040cc46a79bf55ad3b08ade94be",
+      "replacement_from": "    path.push(node.tab_index)",
+      "replacement_to": "    if node.tab_group_index is Some(_) {\n      let _ = path.pop()\n    }\n    path.push(node.tab_index)",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "reverse-signed-component",
+      "started_at": "2026-10-16T14:36:00Z",
+      "ended_at": "2026-10-16T14:36:01Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 95, failed: 15."
+      ],
+      "log": "control-reverse-signed-component.log",
+      "log_sha256": "621bc95a5d5ca3d2c024129f2aa97674bb1c356376729e52856259b0ce4b2e60",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "56ef25cf5f7a5a97921164e308704e42ef9bc26d933f00435d6aa66107fa19a7",
+      "mutated_source_sha256": "88407b87493ae9f10e51d26acab3a5fa6c2cb9e5869ca90859df351acfa4ecd0",
+      "replacement_from": "left_path[index] < right_path[index]",
+      "replacement_to": "left_path[index] > right_path[index]",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "reverse-equal-path-preorder",
+      "started_at": "2026-10-16T14:36:01Z",
+      "ended_at": "2026-10-16T14:36:01Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 104, failed: 6."
+      ],
+      "log": "control-reverse-equal-path-preorder.log",
+      "log_sha256": "410d5e561b855fcc780deef6a671dc0a3f92ce2834980f81e3f5014aa4eff639",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "56ef25cf5f7a5a97921164e308704e42ef9bc26d933f00435d6aa66107fa19a7",
+      "mutated_source_sha256": "4405aad2cbe5667782f6a6c515271e4d04f7aaa3be8b175a2dde1175fa39edf1",
+      "replacement_from": "    left < right",
+      "replacement_to": "    left > right",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "reverse-proper-prefix",
+      "started_at": "2026-10-16T14:36:01Z",
+      "ended_at": "2026-10-16T14:36:02Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 108, failed: 2."
+      ],
+      "log": "control-reverse-proper-prefix.log",
+      "log_sha256": "1b6f60c677cf1410c44081711a0fdef71a63977330ce62c9157c29f0a50ff03d",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "56ef25cf5f7a5a97921164e308704e42ef9bc26d933f00435d6aa66107fa19a7",
+      "mutated_source_sha256": "40c8425f0730fbf6cdcf9a15c9bf0a987463a1598fe0ff252de9d69b01f72670",
+      "replacement_from": "left_path.length() < right_path.length()",
+      "replacement_to": "left_path.length() > right_path.length()",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "conflate-group-and-handle-index",
+      "started_at": "2026-10-16T14:36:02Z",
+      "ended_at": "2026-10-16T14:36:03Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 103, failed: 7."
+      ],
+      "log": "control-conflate-group-and-handle-index.log",
+      "log_sha256": "1e14d7ba0e223fa33f811a7b0665bcd78e8c8a24ba430d7e7cb719ec794626cf",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "56ef25cf5f7a5a97921164e308704e42ef9bc26d933f00435d6aa66107fa19a7",
+      "mutated_source_sha256": "aaed1b45f831b96fd00bf5d9d08ede726f906e6fd25312638c253400ff41b15b",
+      "replacement_from": "Some(index) => prefix.push(index)",
+      "replacement_to": "Some(_) => prefix.push(node.tab_index)",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "retain-closed-group-prefix",
+      "started_at": "2026-10-16T14:36:03Z",
+      "ended_at": "2026-10-16T14:36:04Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 102, failed: 8."
+      ],
+      "log": "control-retain-closed-group-prefix.log",
+      "log_sha256": "48c0a75356bf9986fc8f4e36a31795fbdc2bc570cd165d15b247a8f22c70d122",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "56ef25cf5f7a5a97921164e308704e42ef9bc26d933f00435d6aa66107fa19a7",
+      "mutated_source_sha256": "cedf343c578b3f2f2575ec7381a4718ce8b4848ea086a2556d9dde637a8ae38c",
+      "replacement_from": "        let _ = prefix.pop()",
+      "replacement_to": "        let _ = prefix.length()",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "drop-group-in-prepaint",
+      "started_at": "2026-10-16T14:36:04Z",
+      "ended_at": "2026-10-16T14:36:04Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 109, failed: 1."
+      ],
+      "log": "control-drop-group-in-prepaint.log",
+      "log_sha256": "e8c63e38556c87807b8a6c0e665c60872110c2dcdb18067119c609a1d5e6f3b3",
+      "source": "element/lifecycle.mbt",
+      "source_sha256": "f23e92badc3c0447a8cb0141484c3501d30c5b8c4bb7d5d13fcecc07a29b32f5",
+      "mutated_source_sha256": "66ac65e9c517f4c6c726ae5f5513e251fb1d3b80a6ca680e1f35fb1863ccfbaa",
+      "replacement_from": ".with_tab_group_index(element.tab_group_index)",
+      "replacement_to": ".with_tab_group_index(None)",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "drop-group-in-scroll-reconstruction",
+      "started_at": "2026-10-16T14:36:04Z",
+      "ended_at": "2026-10-16T14:36:05Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 109, failed: 1."
+      ],
+      "log": "control-drop-group-in-scroll-reconstruction.log",
+      "log_sha256": "e61df90a52245c8666fcf65005a35a10c74404780cd6dbfa4a9f128e67c6b700",
+      "source": "element/scroll_viewport.mbt",
+      "source_sha256": "e92d43964ca259138f47f4a0833270c2f05594ac21785591d38221e6ccb65a69",
+      "mutated_source_sha256": "2051b7b0aca95aa9c58e884d3cb9aa06dc96289dec14cc8f6cd89f18ef9fed7b",
+      "replacement_from": "tab_group_index: original.tab_group_index",
+      "replacement_to": "tab_group_index: None",
+      "compiled_and_assertions_failed": true
+    }
+  ],
+  "restored": {
+    "name": "restored",
+    "started_at": "2026-10-16T14:36:05Z",
+    "ended_at": "2026-10-16T14:36:06Z",
+    "exit_code": 0,
+    "summary": [
+      "Total tests: 110, passed: 110, failed: 0."
+    ],
+    "log": "control-restored.log",
+    "log_sha256": "e3ef8cd9134150a8c2f3552f2c976a247b49cbea6af208a318c6697924218084"
+  },
+  "all_compiled_controls_detected": true,
+  "restored_passed": true
+}

@@ -37,7 +37,7 @@ pub fn InputModality::allows_hover(self : InputModality) -> Bool {
 }
 
 ///|
-/// Signed flat tab order, independent of whether this node is a tab stop.
+/// Signed handle index, independent of group prefixes and tab-stop eligibility.
 pub fn ElementNode::tab_index(self : ElementNode) -> Int32 {
   self.tab_index
 }
@@ -59,6 +59,34 @@ pub fn ElementNode::with_tab_index(
     bounds: self.bounds,
     focusable: self.focusable,
     tab_index: index,
+    tab_group_index: self.tab_group_index,
+    tab_stop: self.tab_stop,
+    pointer_events: self.pointer_events,
+    background: self.background,
+    scroll_viewport: self.scroll_viewport,
+  }
+}
+
+///|
+/// An optional signed group prefix, independent of this node's handle index.
+pub fn ElementNode::tab_group_index(self : ElementNode) -> Int32? {
+  self.tab_group_index
+}
+
+///|
+/// Set or clear the group prefix for this node and its descendants. A group's
+/// own handle is inside the prefix. This never makes a node focusable/a stop.
+pub fn ElementNode::with_tab_group_index(
+  self : ElementNode,
+  index : Int32?,
+) -> ElementNode {
+  {
+    id: self.id,
+    parent: self.parent,
+    bounds: self.bounds,
+    focusable: self.focusable,
+    tab_index: self.tab_index,
+    tab_group_index: index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     background: self.background,
@@ -78,6 +106,7 @@ pub fn ElementNode::with_tab_stop(
     bounds: self.bounds,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: enabled,
     pointer_events: self.pointer_events,
     background: self.background,
@@ -108,6 +137,32 @@ pub fn Element::with_tab_index(self : Element, index : Int32) -> Element {
     background: self.background,
     focusable: self.focusable,
     tab_index: index,
+    tab_group_index: self.tab_group_index,
+    tab_stop: self.tab_stop,
+    pointer_events: self.pointer_events,
+    scroll_offset: self.scroll_offset,
+  }
+}
+
+///|
+pub fn Element::tab_group_index(self : Element) -> Int32? {
+  self.tab_group_index
+}
+
+///|
+/// Preserve a separately configured group prefix through layout and prepaint.
+/// None removes only this prefix, leaving tab_index and eligibility unchanged.
+pub fn Element::with_tab_group_index(self : Element, index : Int32?) -> Element {
+  {
+    id: self.id,
+    item: self.item,
+    is_root: self.is_root,
+    children_style: self.children_style,
+    children: copy_elements(self.children),
+    background: self.background,
+    focusable: self.focusable,
+    tab_index: self.tab_index,
+    tab_group_index: index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
@@ -125,6 +180,7 @@ pub fn Element::with_tab_stop(self : Element, enabled : Bool) -> Element {
     background: self.background,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: enabled,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
@@ -149,8 +205,9 @@ pub fn ElementTree::is_focus_visible(
 }
 
 ///|
-/// Move to the next live focusable tab stop, ordered by signed tab_index and
-/// stable tree preorder. Non-stops remain ordering anchors when focused.
+/// Move to the next live focusable tab stop, ordered lexicographically by
+/// signed group prefixes then handle index, with stable tree preorder ties.
+/// Groups do not trap focus. Focused non-stops remain ordering anchors.
 /// Wrap at the end; with no focus choose the first stop. With no stops or an
 /// already-focused destination, return the existing acquisition unchanged.
 /// Unlike explicit with_focus, this only acquires a different destination.
@@ -169,14 +226,96 @@ pub fn ElementTree::focus_prev(
 }
 
 ///|
-// Compare keys directly, avoiding signed subtraction overflow at Int extremes.
-fn tab_precedes(
-  nodes : Array[ElementNode],
-  left : Int32,
-  right : Int32,
-) -> Bool {
-  nodes[left].tab_index < nodes[right].tab_index ||
-  (nodes[left].tab_index == nodes[right].tab_index && left < right)
+priv struct TabPrefix {
+  parent : Int32?
+  index : Int32
+}
+
+///|
+priv struct TabKey {
+  prefix : Int32?
+  index : Int32
+}
+
+///|
+priv struct TabOrder {
+  keys : Array[TabKey]
+  prefixes : Array[TabPrefix]
+  left_path : Array[Int32]
+  right_path : Array[Int32]
+}
+
+///|
+// Shared immutable prefix links avoid copying an entire path per node. Direct
+// ElementTree inputs need not obey the declarative lifecycle's depth limit.
+fn tab_order(nodes : Array[ElementNode]) -> TabOrder {
+  let ancestors : Array[(UInt64, Int32?)] = []
+  let prefixes : Array[TabPrefix] = []
+  let keys : Array[TabKey] = []
+  for node in nodes {
+    while ancestors.length() > 0 &&
+          Some(ancestors[ancestors.length() - 1].0) != node.parent {
+      let _ = ancestors.pop()
+    }
+    let inherited = if ancestors.length() > 0 {
+      ancestors[ancestors.length() - 1].1
+    } else {
+      None
+    }
+    let prefix = match node.tab_group_index {
+      None => inherited
+      Some(index) => {
+        let slot = prefixes.length()
+        prefixes.push({ parent: inherited, index, })
+        Some(slot)
+      }
+    }
+    keys.push({ prefix, index: node.tab_index, })
+    ancestors.push((node.id, prefix))
+  }
+  { keys, prefixes, left_path: [], right_path: [], }
+}
+
+///|
+// Paths are built backwards into two reusable scratch buffers, so comparisons
+// need only O(group depth) scratch storage instead of O(nodes * depth) keys.
+fn tab_path(order : TabOrder, index : Int32, scratch : Array[Int32]) -> Unit {
+  scratch.clear()
+  let key = order.keys[index]
+  scratch.push(key.index)
+  let mut current = key.prefix
+  while current is Some(_) {
+    match current {
+      None => ()
+      Some(slot) => {
+        let prefix = order.prefixes[slot]
+        scratch.push(prefix.index)
+        current = prefix.parent
+      }
+    }
+  }
+}
+
+///|
+// Compare components directly; subtraction would overflow at signed extremes.
+fn tab_precedes(order : TabOrder, left : Int32, right : Int32) -> Bool {
+  tab_path(order, left, order.left_path)
+  tab_path(order, right, order.right_path)
+  let mut left_index = order.left_path.length() - 1
+  let mut right_index = order.right_path.length() - 1
+  while left_index >= 0 &&
+        right_index >= 0 &&
+        order.left_path[left_index] == order.right_path[right_index] {
+    left_index -= 1
+    right_index -= 1
+  }
+  if left_index >= 0 && right_index >= 0 {
+    order.left_path[left_index] < order.right_path[right_index]
+  } else if left_index != right_index {
+    left_index < right_index
+  } else {
+    left < right
+  }
 }
 
 ///|
@@ -188,12 +327,22 @@ fn ElementTree::traverse_focus(
   backward : Bool,
 ) -> Result[ElementTree, ElementError] {
   let mut anchor : Int32? = None
+  let mut stops = 0
+  let mut only_stop : Int32? = None
   for index = 0; index < self.nodes.length(); index = index + 1 {
     let node = self.nodes[index]
     if node.focusable && self.focused == Some(node.id) {
       anchor = Some(index)
     }
+    if node.focusable && node.tab_stop {
+      stops += 1
+      only_stop = Some(index)
+    }
   }
+  if stops == 0 || (stops == 1 && only_stop == anchor) {
+    return Ok(self)
+  }
+  let order = tab_order(self.nodes)
   let mut adjacent : Int32? = None
   let mut wrap : Int32? = None
   for index = 0; index < self.nodes.length(); index = index + 1 {
@@ -201,9 +350,9 @@ fn ElementTree::traverse_focus(
     if node.focusable && node.tab_stop {
       let preferred = fn(candidate : Int32, existing : Int32) {
         if backward {
-          tab_precedes(self.nodes, existing, candidate)
+          tab_precedes(order, existing, candidate)
         } else {
-          tab_precedes(self.nodes, candidate, existing)
+          tab_precedes(order, candidate, existing)
         }
       }
       match wrap {
@@ -214,9 +363,9 @@ fn ElementTree::traverse_focus(
         None => true
         Some(current) =>
           if backward {
-            tab_precedes(self.nodes, index, current)
+            tab_precedes(order, index, current)
           } else {
-            tab_precedes(self.nodes, current, index)
+            tab_precedes(order, current, index)
           }
       }
       if on_requested_side {

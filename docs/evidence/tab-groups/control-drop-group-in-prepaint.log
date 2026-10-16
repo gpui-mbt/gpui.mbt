@@ -1,0 +1,6 @@
+start=2026-10-16T14:41:31Z
+command=moon test element --target js --deny-warn -j 2
+[f4ah6o/gpui] test element/tab_groups_test.mbt:251 ("declarative group metadata survives every builder prepaint scroll reconstruction and device scale") failed: element/tab_groups_test.mbt:302:5-302:58@f4ah6o/gpui FAILED: `false` is not true
+Total tests: 112, passed: 111, failed: 1.
+exit_status=2
+end=2026-10-16T14:41:32Z

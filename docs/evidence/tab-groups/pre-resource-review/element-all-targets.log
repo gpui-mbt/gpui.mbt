@@ -1,0 +1,7 @@
+start=2026-10-16T14:34:28Z
+Total tests: 110, passed: 110, failed: 0. [wasm]
+Total tests: 110, passed: 110, failed: 0. [wasm-gc]
+Total tests: 110, passed: 110, failed: 0. [js]
+Total tests: 110, passed: 110, failed: 0. [native]
+exit_status=0
+end=2026-10-16T14:34:31Z

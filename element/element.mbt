@@ -13,6 +13,8 @@ pub enum ElementError {
   TreeTooDeep
   LayoutFailure(@layout.TreeLayoutError)
   GeometryFailure
+  LayoutBoundsMismatch
+  ScrollLayoutBoundsUnsupported
 } derive(Eq)
 
 ///|
@@ -64,6 +66,7 @@ pub struct ElementNode {
   bounds : @primitives.Rect
   focusable : Bool
   tab_index : Int32
+  tab_group_index : Int32?
   tab_stop : Bool
   pointer_events : Bool
   background : @primitives.Color?
@@ -82,6 +85,7 @@ pub fn ElementNode::new(
     bounds,
     focusable: false,
     tab_index: 0,
+    tab_group_index: None,
     tab_stop: false,
     pointer_events: true,
     background: None,
@@ -140,6 +144,7 @@ pub fn ElementNode::with_focusable(
     bounds: self.bounds,
     focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     background: self.background,
@@ -158,6 +163,7 @@ pub fn ElementNode::with_pointer_events(
     bounds: self.bounds,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: enabled,
     background: self.background,
@@ -176,6 +182,7 @@ pub fn ElementNode::with_background(
     bounds: self.bounds,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     background: color,

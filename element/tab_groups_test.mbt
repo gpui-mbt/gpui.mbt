@@ -1,0 +1,384 @@
+///|
+// Independently authored source-derived contracts. These are not observations
+// of the unchanged Rust example running in a browser.
+fn group_node(
+  id : UInt64,
+  parent : UInt64?,
+  index : Int32,
+  stop : Bool,
+) -> @element.ElementNode {
+  @element.ElementNode::new(id, parent, element_rect(0, 0, 20, 20))
+  .with_focusable(true)
+  .with_tab_index(index)
+  .with_tab_stop(stop)
+}
+
+///|
+fn tab_stop_example_tree() -> @element.ElementTree {
+  unwrap_tree([
+    group_node(1, None, 0, false),
+    group_node(10, Some(1), 1, true),
+    group_node(11, Some(1), 2, true),
+    group_node(12, Some(1), 3, true),
+    group_node(13, Some(1), 0, false),
+    group_node(14, Some(1), 2, true),
+    group_node(30, Some(1), 0, false).with_focusable(false),
+    group_node(20, Some(30), 4, true),
+    group_node(21, Some(30), 5, true),
+    group_node(100, Some(1), 6, false).with_tab_group_index(Some(6)),
+    group_node(101, Some(100), 1, true),
+    group_node(102, Some(100), 2, true),
+    group_node(103, Some(100), 3, true),
+    group_node(200, Some(1), 7, false).with_tab_group_index(Some(7)),
+    group_node(201, Some(200), 1, true),
+    group_node(202, Some(200), 2, true),
+    group_node(203, Some(200), 3, true),
+  ])
+}
+
+///|
+test "tab_stop example has all twelve group-prefixed destinations and wraps both ways" {
+  let tree = owner_test_focus(tab_stop_example_tree(), 1)
+  assert_true(
+    tab_walk(tree, 14, false) ==
+    [10, 11, 14, 12, 20, 21, 101, 102, 103, 201, 202, 203, 10, 11],
+  )
+  assert_true(
+    tab_walk(tree, 14, true) ==
+    [203, 202, 201, 103, 102, 101, 21, 20, 12, 14, 11, 10, 203, 202],
+  )
+  assert_true(tree.focused() == Some(1))
+  assert_true(tab_walk(tree.clear_focus(), 2, false) == [10, 11])
+  assert_true(tab_walk(tree.clear_focus(), 2, true) == [203, 202])
+}
+
+///|
+test "group containers are non-stop anchors inside their own prefix and never trap focus" {
+  let tree = tab_stop_example_tree()
+  let anchors : Array[UInt64] = [1, 13]
+  for id in anchors {
+    let focused = owner_test_focus(tree, id)
+    assert_true(tab_step(focused, false).focused() == Some(10))
+    assert_true(tab_step(focused, true).focused() == Some(203))
+  }
+  let first_group = owner_test_focus(tree, 100)
+  assert_true(tab_step(first_group, false).focused() == Some(201))
+  assert_true(tab_step(first_group, true).focused() == Some(103))
+  let second_group = owner_test_focus(tree, 200)
+  assert_true(tab_step(second_group, false).focused() == Some(10))
+  assert_true(tab_step(second_group, true).focused() == Some(203))
+  assert_true(
+    tab_step(owner_test_focus(tree, 103), false).focused() == Some(201),
+  )
+  assert_true(
+    tab_step(owner_test_focus(tree, 201), true).focused() == Some(103),
+  )
+}
+
+///|
+test "nested signed group paths outrank preorder and ordinary ancestor indices" {
+  let tree = unwrap_tree([
+    group_node(1, None, 500, false)
+    .with_tab_group_index(Some(2))
+    .with_focusable(false),
+    group_node(2, Some(1), 3, true),
+    group_node(3, Some(1), -999, false).with_focusable(false),
+    group_node(4, Some(3), 800, false)
+    .with_tab_group_index(Some(-1))
+    .with_focusable(false),
+    group_node(5, Some(4), 5, true),
+    group_node(6, Some(3), 4, true),
+    group_node(7, None, -200, true),
+  ])
+  // [2,-1,5] precedes [2,3], even though its node occurs later. The
+  // non-group ancestors contribute neither 500, -999 nor 800 to these keys.
+  assert_true(tab_walk(tree, 6, false) == [7, 5, 2, 6, 7, 5])
+  assert_true(tab_walk(tree, 6, true) == [6, 2, 5, 7, 6, 2])
+  assert_true(viewport_node(tree, 1).tab_group_index() == Some(2))
+  assert_false(viewport_node(tree, 1).is_focusable())
+}
+
+///|
+test "proper path prefixes precede longer negative suffixes and groups include their own handle" {
+  let tree = unwrap_tree([
+    group_node(1, None, 6, true).with_tab_group_index(Some(6)),
+    group_node(2, Some(1), 1, true),
+    group_node(3, None, 6, true),
+    group_node(4, None, -1, true).with_tab_group_index(Some(6)),
+  ])
+  // [6] < [6,-1] < [6,1] < [6,6]. A grouped node does not get [6].
+  assert_true(tab_walk(tree, 5, false) == [3, 4, 2, 1, 3])
+  assert_true(tab_walk(tree, 5, true) == [1, 2, 4, 3, 1])
+}
+
+///|
+test "equal complete paths use preorder across sibling groups and ordinary ancestors" {
+  let tree = unwrap_tree([
+    group_node(40, None, 0, false).with_tab_group_index(Some(2)),
+    group_node(90, Some(40), 3, true),
+    group_node(10, Some(40), 123, false).with_focusable(false),
+    group_node(60, Some(10), 3, true),
+    group_node(20, None, 0, false).with_tab_group_index(Some(2)),
+    group_node(70, Some(20), 3, true),
+    group_node(30, Some(20), 3, true),
+  ])
+  assert_true(tab_walk(tree, 5, false) == [90, 60, 70, 30, 90])
+  assert_true(tab_walk(tree, 5, true) == [30, 70, 60, 90, 30])
+}
+
+///|
+test "signed extremes compare directly at every path depth" {
+  let tree = unwrap_tree([
+    group_node(1, None, 0, false).with_tab_group_index(Some(2147483647)),
+    group_node(2, Some(1), -2147483648, true),
+    group_node(3, None, 0, false).with_tab_group_index(Some(-2147483648)),
+    group_node(4, Some(3), 2147483647, true),
+    group_node(5, Some(3), -2147483648, true),
+    group_node(6, Some(3), 0, false).with_tab_group_index(Some(2147483647)),
+    group_node(7, Some(6), 2147483647, true),
+    group_node(8, Some(6), -2147483648, true),
+    group_node(9, Some(3), 0, false).with_tab_group_index(Some(-2147483648)),
+    group_node(10, Some(9), 2147483647, true),
+    group_node(11, Some(9), -2147483648, true),
+  ])
+  assert_true(tab_walk(tree, 9, false) == [5, 11, 10, 4, 8, 7, 2, 5, 11])
+  assert_true(tab_walk(tree, 9, true) == [2, 7, 8, 4, 10, 11, 5, 2, 7])
+}
+
+///|
+test "group metadata defaults clears independently and survives all node builders" {
+  let original = group_node(1, None, 9, false)
+  assert_true(original.tab_group_index() is None)
+  let grouped = original.with_tab_group_index(Some(-6))
+  assert_true(grouped.tab_group_index() == Some(-6))
+  assert_eq(grouped.tab_index(), 9)
+  assert_false(grouped.is_tab_stop())
+  let changed = grouped
+    .with_tab_index(4)
+    .with_focusable(false)
+    .with_tab_stop(true)
+    .with_pointer_events(false)
+    .with_background(Some(element_color(3, 4, 5)))
+  assert_true(changed.tab_group_index() == Some(-6))
+  assert_eq(changed.tab_index(), 4)
+  assert_true(changed.is_tab_stop())
+  assert_false(changed.is_focusable())
+  assert_false(changed.accepts_pointer_events())
+  assert_true(changed.background() == Some(element_color(3, 4, 5)))
+  assert_true(changed.bounds() == grouped.bounds())
+  let cleared = changed.with_tab_group_index(None)
+  assert_true(cleared.tab_group_index() is None)
+  assert_eq(cleared.tab_index(), 4)
+  assert_true(cleared.is_tab_stop())
+  assert_true(grouped.tab_group_index() == Some(-6))
+  assert_true(original.tab_group_index() is None)
+}
+
+///|
+test "separate group and handle indices allow tracked handles without conflation" {
+  let grouped = group_node(1, None, -20, true).with_tab_group_index(Some(7))
+  let tree = unwrap_tree([
+    grouped,
+    group_node(2, Some(1), 0, true),
+    group_node(3, None, 6, true),
+    group_node(4, None, 8, true),
+  ])
+  assert_true(tab_walk(tree, 5, false) == [3, 1, 2, 4, 3])
+  let changed_handle = grouped.with_tab_index(9)
+  assert_true(changed_handle.tab_group_index() == Some(7))
+  assert_true(
+    tab_walk(
+      unwrap_tree([
+        changed_handle,
+        group_node(2, Some(1), 0, true),
+        group_node(3, None, 6, true),
+        group_node(4, None, 8, true),
+      ]),
+      5,
+      false,
+    ) ==
+    [3, 2, 1, 4, 3],
+  )
+}
+
+///|
+test "grouped no-stop and singleton traversal preserve acquisitions and explicit focus remains distinct" {
+  let no_stops = owner_test_focus(
+    unwrap_tree([
+      group_node(1, None, -3, false).with_tab_group_index(Some(5)),
+      group_node(2, Some(1), 1, true).with_focusable(false),
+    ]),
+    1,
+  )
+  let owner = no_stops.focus_owner()
+  assert_true(tab_step(no_stops, false).focus_owner() == owner)
+  assert_true(tab_step(no_stops, true).focus_owner() == owner)
+  let singleton = unwrap_tree([
+    group_node(1, None, 9, false).with_tab_group_index(Some(5)),
+    group_node(2, Some(1), 1, true),
+  ])
+  let focused = tab_step(singleton, false)
+  let owner = owner_test_capture(focused)
+  assert_true(tab_step(focused, false).focus_owner() == Some(owner))
+  assert_true(tab_step(focused, true).focus_owner() == Some(owner))
+  assert_true(owner_test_focus(focused, 2).focus_owner() != Some(owner))
+  assert_true(singleton.focused() is None)
+}
+
+///|
+test "removing a group removes all its destinations without changing surviving ownership" {
+  let tree = tab_stop_example_tree()
+  let focused = owner_test_focus(tree, 102)
+  let owner = owner_test_capture(focused)
+  let removed = owner_test_remove(focused, 100)
+  assert_true(removed.focused() is None)
+  assert_true(removed.with_focus_owner(owner) is Err(UnknownElement))
+  assert_true(
+    tab_walk(removed, 10, false) == [10, 11, 14, 12, 20, 21, 201, 202, 203, 10],
+  )
+  let surviving = owner_test_remove(focused, 200)
+  assert_true(surviving.focus_owner() == Some(owner))
+  assert_true(
+    tab_step(owner_test_focus(surviving, 103), false).focused() == Some(10),
+  )
+  assert_true(tab_walk(focused, 3, false) == [103, 201, 202])
+  let rebuilt = unwrap_tree(focused.nodes())
+  assert_true(rebuilt.with_focus_owner(owner) is Err(UnknownElement))
+  assert_true(viewport_node(rebuilt, 100).tab_group_index() == Some(6))
+}
+
+///|
+test "declarative group metadata survives every builder prepaint scroll reconstruction and device scale" {
+  let column = @layout.FlexTreeStyle::new(@layout.FlowDirection::column())
+  let base = @element.Element::root(1, column)
+  let child_base = @element.Element::new(viewport_item(2, 100, 40))
+  assert_true(base.tab_group_index() is None)
+  assert_true(child_base.tab_group_index() is None)
+  let child = child_base
+    .with_tab_group_index(Some(-4))
+    .with_tab_index(10)
+    .with_tab_stop(true)
+    .with_focusable(true)
+    .with_pointer_events(false)
+    .with_background(Some(element_color(1, 2, 3)))
+    .with_scroll_offset(element_point(0, 0))
+    .with_children_style(column)
+    .with_child(
+      @element.Element::new(viewport_item(3, 130, 40))
+      .with_focusable(true)
+      .with_tab_stop(true)
+      .with_tab_index(2),
+    )
+  let root = base
+    .with_tab_group_index(Some(6))
+    .with_tab_index(9)
+    .with_tab_stop(true)
+    .with_focusable(true)
+    .with_background(Some(element_color(4, 5, 6)))
+    .with_pointer_events(true)
+    .with_children_style(column)
+    .with_scroll_offset(element_point(0, 15))
+    .with_child(child)
+  assert_true(root.tab_group_index() == Some(6))
+  assert_true(child.tab_group_index() == Some(-4))
+  assert_true(root.with_tab_group_index(None).tab_group_index() is None)
+  assert_eq(root.with_tab_group_index(None).tab_index(), 9)
+  assert_true(base.tab_group_index() is None)
+  for scale in [None, Some(1.5)] {
+    let requested = match scale {
+      None => root.request_layout(lifecycle_size(40, 40))
+      Some(value) =>
+        root.request_layout_with_device_scale(lifecycle_size(40, 40), value)
+    }
+    let requested = match requested {
+      Ok(value) => value
+      Err(_) => abort("layout rejected")
+    }
+    let prepainted = match requested.prepaint() {
+      Ok(value) => value
+      Err(_) => abort("prepaint rejected")
+    }
+    let tree = prepainted.tree()
+    assert_true(tab_walk(tree, 4, false) == [3, 2, 1, 3])
+    assert_true(viewport_node(tree, 1).tab_group_index() == Some(6))
+    assert_true(viewport_node(tree, 2).tab_group_index() == Some(-4))
+    assert_true(viewport_node(tree, 3).tab_group_index() is None)
+    assert_eq(viewport_node(tree, 2).tab_index(), 10)
+    assert_true(viewport_node(tree, 2).bounds().top() < 0)
+    assert_true(tree.scroll_viewport(1) is Some(_))
+    assert_true(tree.scroll_viewport(2) is Some(_))
+    let copied = viewport_node(tree, 2)
+      .with_tab_group_index(Some(-5))
+      .with_tab_index(11)
+      .with_tab_stop(false)
+      .with_focusable(true)
+      .with_pointer_events(true)
+      .with_background(None)
+    assert_true(copied.tab_group_index() == Some(-5))
+    let copied_tree = unwrap_tree([
+      viewport_node(tree, 1),
+      copied,
+      viewport_node(tree, 3),
+    ])
+    assert_true(
+      viewport_of(copied_tree, 2).offset() == viewport_of(tree, 2).offset(),
+    )
+    assert_true(
+      viewport_of(copied_tree, 2).bounds() == viewport_of(tree, 2).bounds(),
+    )
+    assert_true(
+      viewport_of(copied_tree, 2).max_offset() ==
+      viewport_of(tree, 2).max_offset(),
+    )
+    let focused = tab_step(tree, false)
+    let owner = owner_test_capture(focused)
+    let second = match requested.prepaint() {
+      Ok(value) => value
+      Err(_) => abort("second prepaint rejected")
+    }
+    assert_true(second.tree().with_focus_owner(owner) is Err(UnknownElement))
+    assert_true(prepainted.tree().focused() is None)
+  }
+}
+
+///|
+test "clearing one group prefix restores flat ordering without changing descendants or prior snapshots" {
+  let group = group_node(1, None, 9, false).with_tab_group_index(Some(6))
+  let child = group_node(2, Some(1), 1, true)
+  let sibling = group_node(3, None, 2, true)
+  let original = unwrap_tree([group, child, sibling])
+  let cleared = unwrap_tree([group.with_tab_group_index(None), child, sibling])
+  assert_true(tab_walk(original, 3, false) == [3, 2, 3])
+  assert_true(tab_walk(cleared, 3, false) == [2, 3, 2])
+  assert_true(viewport_node(original, 1).tab_group_index() == Some(6))
+  assert_true(viewport_node(cleared, 1).tab_group_index() is None)
+  assert_eq(viewport_node(cleared, 1).tab_index(), 9)
+  assert_true(viewport_node(cleared, 2).is_tab_stop())
+}
+
+///|
+test "direct deeply grouped trees traverse iteratively without a new depth rejection" {
+  let depth = 1024
+  let nodes : Array[@element.ElementNode] = []
+  for index = 0; index < depth; index = index + 1 {
+    let id = index.to_uint64() + 1
+    let parent = if index == 0 { None } else { Some(index.to_uint64()) }
+    nodes.push(group_node(id, parent, 9, false).with_tab_group_index(Some(2)))
+  }
+  let leaf_id = depth.to_uint64() + 1
+  nodes.push(group_node(leaf_id, Some(depth.to_uint64()), 5, true))
+  nodes.push(group_node(2000, None, 1, true))
+  nodes.push(group_node(2001, None, 3, true))
+  let tree = unwrap_tree(nodes)
+  assert_true(tab_walk(tree, 4, false) == [2000, leaf_id, 2001, 2000])
+  assert_true(tab_walk(tree, 4, true) == [2001, leaf_id, 2000, 2001])
+  assert_true(tree.focused() is None)
+  // No-stop traversal of the same unbounded direct hierarchy keeps its owner.
+  let no_stops : Array[@element.ElementNode] = []
+  for node in nodes {
+    no_stops.push(node.with_tab_stop(false))
+  }
+  let focused = owner_test_focus(unwrap_tree(no_stops), leaf_id)
+  assert_true(tab_step(focused, false).focus_owner() == focused.focus_owner())
+  assert_true(tab_step(focused, true).focus_owner() == focused.focus_owner())
+}

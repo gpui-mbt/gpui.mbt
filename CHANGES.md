@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add optional signed tab-group prefixes independently of handle tab indices,
+  with global lexicographic traversal, stable preorder ties, preserved focus
+  ownership, and linear shared-prefix storage. (`docs/conformance-tab-groups.md`)
+
 - Add independent physical horizontal and vertical flex gaps to direct containers
   and recursive styles, including builder resets, intrinsic sizing, and device-scale
   snapping. (`docs/conformance-axis-gaps.md`)

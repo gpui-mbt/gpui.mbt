@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T14:42:43Z",
+  "base_revision": "a99e111a37c0ac98bd847e9ea493c78589207875",
+  "base_tree": "29449e394c0faf2b25beb2a1b6a4bce2806b3231",
+  "source_files": [
+    {
+      "path": "element/element.mbt",
+      "sha256": "06540838025d65e95bc318fa4f05f95ed6821603c891cbf70373f0b66abcc895"
+    },
+    {
+      "path": "element/focus_traversal.mbt",
+      "sha256": "b303ac90906fcc89557772b49fabed5941426a134a4800158c872d6791228379"
+    },
+    {
+      "path": "element/lifecycle.mbt",
+      "sha256": "f23e92badc3c0447a8cb0141484c3501d30c5b8c4bb7d5d13fcecc07a29b32f5"
+    },
+    {
+      "path": "element/scroll_viewport.mbt",
+      "sha256": "e92d43964ca259138f47f4a0833270c2f05594ac21785591d38221e6ccb65a69"
+    },
+    {
+      "path": "element/pkg.generated.mbti",
+      "sha256": "2e11b9380f9fd9946b9cb859a4e477d060023b5ed00d49d7039525f36c839dc2"
+    },
+    {
+      "path": "element/tab_groups_test.mbt",
+      "sha256": "16d5bef426f0e35c282011599989c3f2142cba028c95df3e9a22db2bb051ea8d"
+    },
+    {
+      "path": "element/tab_groups_wbtest.mbt",
+      "sha256": "0ebc7c1bc8423344bf05d1e320141dd13ac8ad5c20019df5f0a07a5d67235a9a"
+    }
+  ],
+  "unchanged_main": {
+    "product_source_unchanged": true,
+    "api_probe_exit": 1,
+    "order_probe_exit": 2,
+    "expected_second_destination": 11,
+    "actual_second_destination": 101,
+    "initial_numeric_literal_compile_failure_retained_separately": true
+  },
+  "implemented_probes": {
+    "identical_api_probe_exit": 0,
+    "order_probe_with_only_group_prefix_added_exit": 0
+  },
+  "element_tests": {
+    "command": "moon test element --target all --deny-warn -j 2",
+    "wasm": 112,
+    "wasm-gc": 112,
+    "js": 112,
+    "native": 112,
+    "failed": 0,
+    "new_tests": 17
+  },
+  "portable_regressions": {
+    "command": "moon test primitives diagnostics core layout element scene text text_layout controls/button controls/text_field controls/command_palette accessibility capability mcp testing/core_model examples/task_board --target all --deny-warn -j 2",
+    "wasm": 554,
+    "wasm-gc": 554,
+    "js": 554,
+    "native": 553,
+    "failed": 0
+  },
+  "static_checks": {
+    "moon_fmt_check": 0,
+    "moon_check_all_deny_warn": 0,
+    "contracts": 0,
+    "git_diff_check": 0,
+    "generated_element_interface": "moon info --target all --package f4ah6o/gpui/element",
+    "git_diff_check_scope": "Full staged/base diff including all retained evidence; exact raw diagnostic output is encoded in JSON containers and display logs are explicitly normalized.",
+    "staged_raw_log_whitespace_observation_exit": 2,
+    "full_staged_diff_check_exit": 0
+  },
+  "python_regressions": {
+    "command": "python3 -m unittest discover -s tests -p 'test_*.py'",
+    "passed": 142,
+    "failed": 0
+  },
+  "compiled_negative_controls": {
+    "manifest": "negative-controls.json",
+    "count": 9,
+    "all_compiled_and_assertions_failed": true,
+    "restored_passed": 112,
+    "isolated_non_git_copy": true
+  },
+  "source_provenance_manifest": {
+    "path": "source-provenance.json",
+    "sha256": "baf349a213c9bf7dc323ae185aec37d4caf749aa11bd0ea71d5fddd7be32db58"
+  },
+  "logs": [
+    {
+      "path": "docs/evidence/tab-groups/control-conflate-group-and-handle-index.log",
+      "sha256": "0ad0a3e3413d5110d663c792467a358d2d7a57fc894d0bae9e1ede7342c8a60f"
+    },
+    {
+      "path": "docs/evidence/tab-groups/control-drop-group-in-prepaint.log",
+      "sha256": "32de8bf24706ce79bf541aa6460b4f9363b46bdb14080d369dff6bfcc526e9e5"
+    },
+    {
+      "path": "docs/evidence/tab-groups/control-drop-group-in-scroll-reconstruction.log",
+      "sha256": "a15f8289cb0fdf5881ab08ac4f84b2ab741214ac6ab39c4e093aa49292c9c78c"
+    },
+    {
+      "path": "docs/evidence/tab-groups/control-flatten-group-paths.log",
+      "sha256": "fef56f9033932dd944797b4f4678c27ae7de6210207b44ca78708513094dff1c"
+    },
+    {
+      "path": "docs/evidence/tab-groups/control-omit-groups-own-prefix.log",
+      "sha256": "241e6a55490765d6ba54937b506b194c1b1fb34b79e50c0e676e73485804bfde"
+    },
+    {
+      "path": "docs/evidence/tab-groups/control-restored.log",
+      "sha256": "a5fecffe0b741931dfa78d8e896811e6bded843b219c0ddd9971e89f22caa0a0"
+    },
+    {
+      "path": "docs/evidence/tab-groups/control-retain-closed-group-prefix.log",
+      "sha256": "b61243bceeac1df1ab0cd9a4a22d0c0a1fe31d6e53f0664e52f1edd1fa8ccfd8"
+    },
+    {
+      "path": "docs/evidence/tab-groups/control-reverse-equal-path-preorder.log",
+      "sha256": "2ca866a7e07ac98f316f7fb77bae5b01dc40f83f36d20b9484462c3de5beb3a9"
+    },
+    {
+      "path": "docs/evidence/tab-groups/control-reverse-proper-prefix.log",
+      "sha256": "5251dbdfaf03d311a81ba0580ab3caef4d2833988e6c04dfbd20522ae52f127f"
+    },
+    {
+      "path": "docs/evidence/tab-groups/control-reverse-signed-component.log",
+      "sha256": "75f6122a6e1fa8ac594102ec75be13b09c98fae7ad7aa5f51bb15eb5f3d0f0f5"
+    },
+    {
+      "path": "docs/evidence/tab-groups/control-unmutated.log",
+      "sha256": "4dfac368deb0301b67f44f3996b8b9ddd910a69bbd5f3ab9b658837b1de355d9"
+    },
+    {
+      "path": "docs/evidence/tab-groups/element-all-targets.log",
+      "sha256": "129eddbe799ad82c15c57d7037b5cc848428aa500315c48ae7cd94b4be168d43"
+    },
+    {
+      "path": "docs/evidence/tab-groups/implemented-api-probe.log",
+      "sha256": "dbd4f8fc5cb8e424dda7b2c65eddcdbb1b98c5527e9e743c0e12d8aa7c9c6605"
+    },
+    {
+      "path": "docs/evidence/tab-groups/implemented-order-probe.log",
+      "sha256": "ae3d6a7ca49fae73c3fd75dff105752bdad5d785e4d78ce0cb038dfd37434cd3"
+    },
+    {
+      "path": "docs/evidence/tab-groups/interface.log",
+      "sha256": "74ff5a513a4978f2152a6a904ffa940c3f1439897fa8ddc1f377fa69a2e5f118"
+    },
+    {
+      "path": "docs/evidence/tab-groups/negative-controls-run.log",
+      "sha256": "6ead6bb87415488ef2520536dcf83f1a8585a0565e8700dd4fe8e0e9f97462b3"
+    },
+    {
+      "path": "docs/evidence/tab-groups/portable-regressions-all-targets.log",
+      "sha256": "fd6f22c466ededb3ce17d0c0da91f44cf1c1f055c104127e73ae82b043c4e65a"
+    },
+    {
+      "path": "docs/evidence/tab-groups/python-regressions.log",
+      "sha256": "5924e34f3c7ead33cdc33c288420bb1d455da4120c3633ceb36a49a6af16b0cd"
+    },
+    {
+      "path": "docs/evidence/tab-groups/static-checks.log",
+      "sha256": "74324443faaca9221249b589515ee16f1b10b74339201cf9feb7a1f404da1c02"
+    },
+    {
+      "path": "docs/evidence/tab-groups/toolchain.txt",
+      "sha256": "1234eec8c06ac3c9834935f04902d01143cffcdd6d96e0ed41d79943ca836a11"
+    },
+    {
+      "path": "docs/evidence/tab-groups/unchanged-main-api-probe.log",
+      "sha256": "6503699b0bcdb5806f5f3606f0c5915ad4c4f800cbf591318b227b06a64d48a0",
+      "raw_container": "docs/evidence/tab-groups/unchanged-main-api-probe.raw.json",
+      "raw_decoded_sha256": "e6fe0271ee7685a214c78feed149adf99cb369b81b19d2fa4ff788183fda527b"
+    },
+    {
+      "path": "docs/evidence/tab-groups/unchanged-main-order-probe-initial-compile-error.log",
+      "sha256": "b8eee2cbd815e596266ae8cc309a228ec764394276b92b7d8e1cec7414e00212",
+      "raw_container": "docs/evidence/tab-groups/unchanged-main-order-probe-initial-compile-error.raw.json",
+      "raw_decoded_sha256": "9038c061e1fe558414e6eaf561ca7c837d1ef0a6419998aaf8f51fd030c4412b"
+    },
+    {
+      "path": "docs/evidence/tab-groups/unchanged-main-order-probe.log",
+      "sha256": "ccda6a071ee7813cb787b082d7999fd4cabdb219619ccfa974a8fa2eb658f0c1"
+    },
+    {
+      "path": "docs/evidence/tab-groups/precommit-document-validation.log",
+      "sha256": "2098ab895f3daa0a5764df4a4e79cd3c0f02158fcfad7349a06934c6a68cec3b"
+    },
+    {
+      "path": "docs/evidence/tab-groups/staged-raw-log-whitespace-observation.log",
+      "sha256": "720b5928418ac72807007e12c9d792e259d8acc3b300b8537070c0c607464376",
+      "raw_container": "docs/evidence/tab-groups/staged-raw-log-whitespace-observation.raw.json",
+      "raw_decoded_sha256": "88437ecaaeae1b09da2d75efb322890c39bb0328a8f2055373edd9d152cb965b"
+    },
+    {
+      "path": "docs/evidence/tab-groups/source-document-whitespace-check.log",
+      "sha256": "87d441535e7add0305fd723b703d9c978ae008bf1262ba31ff0b6a34113bb17a"
+    },
+    {
+      "path": "docs/evidence/tab-groups/full-staged-whitespace-check.log",
+      "sha256": "13124a2ae5bd9243a8d75d03079b80f5171475bdd68dd281118cfd4027fe68fa"
+    }
+  ],
+  "boundaries": [
+    "No Rust build or browser run was performed as part of core verification.",
+    "Actual unchanged-Rust/browser baseline and paired runtime correspondence remain separate and pending.",
+    "No native-window, GPU-pixel or physical-input parity is established.",
+    "No public writes, other checkout edits or source cleanup/reset/stash were performed."
+  ],
+  "resource_bounds": {
+    "construction_time": "O(n)",
+    "peak_temporary_space": "O(n + d)",
+    "comparison_time_worst_case": "O(n * d)",
+    "direct_tree_depth_rejection_added": false,
+    "early_return_before_keys": [
+      "No eligible stops",
+      "Sole eligible stop is already focused"
+    ],
+    "deep_iterative_test_depth": 1024
+  },
+  "previous_checkpoint": {
+    "path": "pre-resource-review/verification.json",
+    "source_status": "Earlier copied-path implementation, preserved for provenance; not final-source test evidence."
+  },
+  "raw_log_packaging": {
+    "original_manifest": "docs/evidence/tab-groups/verification.before-log-containers.json",
+    "original_manifest_sha256": "e764dca6827d4034aa370b90459948cb8b50471c07e5992abb64bcaafe58011e",
+    "container_index": "docs/evidence/tab-groups/raw-log-containers.json",
+    "raw_bytes_preserved": true,
+    "display_logs_explicitly_normalized": true
+  }
+}

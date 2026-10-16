@@ -1,0 +1,195 @@
+{
+  "kind": "independent compiled mutated-implementation controls, not an upstream oracle",
+  "target": "js",
+  "command": [
+    "moon",
+    "test",
+    "element",
+    "--target",
+    "js",
+    "--deny-warn",
+    "-j",
+    "2"
+  ],
+  "source_copy": "/tmp/gpui-tab-group-controls-xlb3o4xy/source",
+  "source_copy_is_git_checkout": false,
+  "unmutated": {
+    "name": "unmutated",
+    "started_at": "2026-10-16T14:41:26Z",
+    "ended_at": "2026-10-16T14:41:27Z",
+    "exit_code": 0,
+    "summary": [
+      "Total tests: 112, passed: 112, failed: 0."
+    ],
+    "log": "control-unmutated.log",
+    "log_sha256": "4dfac368deb0301b67f44f3996b8b9ddd910a69bbd5f3ab9b658837b1de355d9"
+  },
+  "controls": [
+    {
+      "name": "flatten-group-paths",
+      "started_at": "2026-10-16T14:41:27Z",
+      "ended_at": "2026-10-16T14:41:27Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 112, passed: 99, failed: 13."
+      ],
+      "log": "control-flatten-group-paths.log",
+      "log_sha256": "fef56f9033932dd944797b4f4678c27ae7de6210207b44ca78708513094dff1c",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "b303ac90906fcc89557772b49fabed5941426a134a4800158c872d6791228379",
+      "mutated_source_sha256": "6d2f798c6a9b7531e64b74c34dd4db42df8400942cf436d230d52713d2956866",
+      "replacement_from": "  tab_path(order, left, order.left_path)\n  tab_path(order, right, order.right_path)",
+      "replacement_to": "  tab_path(order, left, order.left_path)\n  tab_path(order, right, order.right_path)\n  order.left_path.clear()\n  order.left_path.push(order.keys[left].index)\n  order.right_path.clear()\n  order.right_path.push(order.keys[right].index)",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "omit-groups-own-prefix",
+      "started_at": "2026-10-16T14:41:27Z",
+      "ended_at": "2026-10-16T14:41:28Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 112, passed: 107, failed: 5."
+      ],
+      "log": "control-omit-groups-own-prefix.log",
+      "log_sha256": "241e6a55490765d6ba54937b506b194c1b1fb34b79e50c0e676e73485804bfde",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "b303ac90906fcc89557772b49fabed5941426a134a4800158c872d6791228379",
+      "mutated_source_sha256": "1b11d713e44c8a894201e973351848a64838ac604d671c7cec2e6519d3992a57",
+      "replacement_from": "keys.push({ prefix, index: node.tab_index, })",
+      "replacement_to": "keys.push({ prefix: inherited, index: node.tab_index, })",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "reverse-signed-component",
+      "started_at": "2026-10-16T14:41:28Z",
+      "ended_at": "2026-10-16T14:41:29Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 112, passed: 94, failed: 18."
+      ],
+      "log": "control-reverse-signed-component.log",
+      "log_sha256": "75f6122a6e1fa8ac594102ec75be13b09c98fae7ad7aa5f51bb15eb5f3d0f0f5",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "b303ac90906fcc89557772b49fabed5941426a134a4800158c872d6791228379",
+      "mutated_source_sha256": "c68195d743a30c5d318d81ff40838c4a648d98974ef82bba1731a1053ee0f3db",
+      "replacement_from": "order.left_path[left_index] < order.right_path[right_index]",
+      "replacement_to": "order.left_path[left_index] > order.right_path[right_index]",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "reverse-equal-path-preorder",
+      "started_at": "2026-10-16T14:41:29Z",
+      "ended_at": "2026-10-16T14:41:29Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 112, passed: 106, failed: 6."
+      ],
+      "log": "control-reverse-equal-path-preorder.log",
+      "log_sha256": "2ca866a7e07ac98f316f7fb77bae5b01dc40f83f36d20b9484462c3de5beb3a9",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "b303ac90906fcc89557772b49fabed5941426a134a4800158c872d6791228379",
+      "mutated_source_sha256": "2cd33912937dd059053a90b52b95083076e3b8ed2648e951bd919021e496887c",
+      "replacement_from": "    left < right",
+      "replacement_to": "    left > right",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "reverse-proper-prefix",
+      "started_at": "2026-10-16T14:41:29Z",
+      "ended_at": "2026-10-16T14:41:30Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 112, passed: 110, failed: 2."
+      ],
+      "log": "control-reverse-proper-prefix.log",
+      "log_sha256": "5251dbdfaf03d311a81ba0580ab3caef4d2833988e6c04dfbd20522ae52f127f",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "b303ac90906fcc89557772b49fabed5941426a134a4800158c872d6791228379",
+      "mutated_source_sha256": "eb3be6f1f1551dcf13fdecf266a2823bf952b9f940c6b1f596846aca57386361",
+      "replacement_from": "    left_index < right_index",
+      "replacement_to": "    left_index > right_index",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "conflate-group-and-handle-index",
+      "started_at": "2026-10-16T14:41:30Z",
+      "ended_at": "2026-10-16T14:41:31Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 112, passed: 103, failed: 9."
+      ],
+      "log": "control-conflate-group-and-handle-index.log",
+      "log_sha256": "0ad0a3e3413d5110d663c792467a358d2d7a57fc894d0bae9e1ede7342c8a60f",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "b303ac90906fcc89557772b49fabed5941426a134a4800158c872d6791228379",
+      "mutated_source_sha256": "e292c58b9168b648cf040e792923602e326af867a3874ccb64e8d6ff79fcf80e",
+      "replacement_from": "Some(index) => {\n        let slot = prefixes.length()\n        prefixes.push({ parent: inherited, index, })",
+      "replacement_to": "Some(_) => {\n        let slot = prefixes.length()\n        prefixes.push({ parent: inherited, index: node.tab_index, })",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "retain-closed-group-prefix",
+      "started_at": "2026-10-16T14:41:31Z",
+      "ended_at": "2026-10-16T14:41:31Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 112, passed: 102, failed: 10."
+      ],
+      "log": "control-retain-closed-group-prefix.log",
+      "log_sha256": "b61243bceeac1df1ab0cd9a4a22d0c0a1fe31d6e53f0664e52f1edd1fa8ccfd8",
+      "source": "element/focus_traversal.mbt",
+      "source_sha256": "b303ac90906fcc89557772b49fabed5941426a134a4800158c872d6791228379",
+      "mutated_source_sha256": "e7f5d69c976420db47f634ddbb12f7ab81070ca30f1db423d414de7cc2c814f6",
+      "replacement_from": "    let inherited = if ancestors.length() > 0 {\n      ancestors[ancestors.length() - 1].1\n    } else {\n      None\n    }",
+      "replacement_to": "    let inherited = if prefixes.length() > 0 {\n      Some(prefixes.length() - 1)\n    } else {\n      None\n    }",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "drop-group-in-prepaint",
+      "started_at": "2026-10-16T14:41:31Z",
+      "ended_at": "2026-10-16T14:41:32Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 112, passed: 111, failed: 1."
+      ],
+      "log": "control-drop-group-in-prepaint.log",
+      "log_sha256": "32de8bf24706ce79bf541aa6460b4f9363b46bdb14080d369dff6bfcc526e9e5",
+      "source": "element/lifecycle.mbt",
+      "source_sha256": "f23e92badc3c0447a8cb0141484c3501d30c5b8c4bb7d5d13fcecc07a29b32f5",
+      "mutated_source_sha256": "66ac65e9c517f4c6c726ae5f5513e251fb1d3b80a6ca680e1f35fb1863ccfbaa",
+      "replacement_from": ".with_tab_group_index(element.tab_group_index)",
+      "replacement_to": ".with_tab_group_index(None)",
+      "compiled_and_assertions_failed": true
+    },
+    {
+      "name": "drop-group-in-scroll-reconstruction",
+      "started_at": "2026-10-16T14:41:32Z",
+      "ended_at": "2026-10-16T14:41:33Z",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 112, passed: 111, failed: 1."
+      ],
+      "log": "control-drop-group-in-scroll-reconstruction.log",
+      "log_sha256": "a15f8289cb0fdf5881ab08ac4f84b2ab741214ac6ab39c4e093aa49292c9c78c",
+      "source": "element/scroll_viewport.mbt",
+      "source_sha256": "e92d43964ca259138f47f4a0833270c2f05594ac21785591d38221e6ccb65a69",
+      "mutated_source_sha256": "2051b7b0aca95aa9c58e884d3cb9aa06dc96289dec14cc8f6cd89f18ef9fed7b",
+      "replacement_from": "tab_group_index: original.tab_group_index",
+      "replacement_to": "tab_group_index: None",
+      "compiled_and_assertions_failed": true
+    }
+  ],
+  "restored": {
+    "name": "restored",
+    "started_at": "2026-10-16T14:41:33Z",
+    "ended_at": "2026-10-16T14:41:33Z",
+    "exit_code": 0,
+    "summary": [
+      "Total tests: 112, passed: 112, failed: 0."
+    ],
+    "log": "control-restored.log",
+    "log_sha256": "a5fecffe0b741931dfa78d8e896811e6bded843b219c0ddd9971e89f22caa0a0"
+  },
+  "all_compiled_controls_detected": true,
+  "restored_passed": true
+}

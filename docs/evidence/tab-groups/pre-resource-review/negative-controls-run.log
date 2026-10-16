@@ -1,0 +1,74 @@
+{
+  "unmutated": [
+    "Total tests: 110, passed: 110, failed: 0."
+  ],
+  "controls": [
+    {
+      "name": "flatten-group-paths",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 99, failed: 11."
+      ]
+    },
+    {
+      "name": "omit-groups-own-prefix",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 106, failed: 4."
+      ]
+    },
+    {
+      "name": "reverse-signed-component",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 95, failed: 15."
+      ]
+    },
+    {
+      "name": "reverse-equal-path-preorder",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 104, failed: 6."
+      ]
+    },
+    {
+      "name": "reverse-proper-prefix",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 108, failed: 2."
+      ]
+    },
+    {
+      "name": "conflate-group-and-handle-index",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 103, failed: 7."
+      ]
+    },
+    {
+      "name": "retain-closed-group-prefix",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 102, failed: 8."
+      ]
+    },
+    {
+      "name": "drop-group-in-prepaint",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 109, failed: 1."
+      ]
+    },
+    {
+      "name": "drop-group-in-scroll-reconstruction",
+      "exit_code": 2,
+      "summary": [
+        "Total tests: 110, passed: 109, failed: 1."
+      ]
+    }
+  ],
+  "restored": [
+    "Total tests: 110, passed: 110, failed: 0."
+  ],
+  "work_preserved_at": "/tmp/gpui-tab-group-controls-cx8r7hni/source"
+}

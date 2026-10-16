@@ -1,0 +1,271 @@
+{
+  "status": "partial_discovery_independently_audited",
+  "qualification": "Initial failure preserved. No click extension, full source-profile verification, candidate, pair, native, or parity qualification.",
+  "run_id": 38919267792,
+  "artifact_id": 12054297704,
+  "artifact_sha256": "4f607c244fb609218852165378d9f38c4bf7b34e353725513425e1a065c5b4c3",
+  "report_sha256": "02fa048cf1892b7cdd03939faf2360569e1e15337c52b52110b39bc4a4e9c3aa",
+  "lab_revision": "79b09d1133d650a94c91991ed6c42c03e618d0ff",
+  "lab_tree": "ae5899e1ebb4a1839e61194a7f85b26b2abc745a",
+  "observed": {
+    "operations": 53,
+    "events": 80,
+    "startup_events": 1,
+    "capture_states": 27,
+    "original_png_samples": 54,
+    "failure_png": true
+  },
+  "source": {
+    "id": "tab_stop",
+    "source": "crates/gpui/examples/tab_stop.rs",
+    "source_blob": "cc7c34a9979ce4027578ec2c358f503d944ee26f",
+    "source_sha256": "be187a56c091ee0b609fa396cae4a13b49dcf98ff9e602d8caed3126de3f6a8e",
+    "upstream_revision": "5a5fbe79917971a4d52a96b6ddb04da198a5012e",
+    "compatibility_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+    "compatibility_source_blob": "cc7c34a9979ce4027578ec2c358f503d944ee26f",
+    "width": 800,
+    "height": 600,
+    "dpr": 1,
+    "status": "rust_oracle_only",
+    "candidate": "not_implemented",
+    "observation": "Unchanged WASM with trusted browser inputs and original full-viewport PNGs; discovery records observed border geometry without predeclaring conformance.",
+    "unverified": [
+      "MoonBit counterpart/comparison",
+      "fixed unobserved layout dimensions",
+      "full-image or text parity",
+      "native parity",
+      "other browsers/GPUs/viewports/DPRs",
+      "touch/IME"
+    ]
+  },
+  "audit_path": "/workspace/shared/gpui-tab-stop-example-20261016/_build/tab-stop-public-ci-64c7c744/initial-artifact-audit.json",
+  "audit_sha256": "f98d862a4c17d4635227f346d2dfb1b36ffc2aa09f049e8be2689967851e4f0d",
+  "artifact_root": "/workspace/shared/gpui-tab-stop-example-20261016/_build/tab-stop-public-ci-64c7c744/baseline-artifact/tab-stop-oracle-evidence",
+  "actual_result_status": "failed",
+  "actual_failure_verbatim": "AssertionError [ERR_ASSERTION]: Source row gap3\n\n8 !== 12\n\n    at sourceGeometry (file:///home/runner/work/gpui-conformance/gpui-conformance/web/tests/tab-stop-comparator.mjs:156:10)\n    at file:///home/runner/work/gpui-conformance/gpui-conformance/web/tests/tab-stop-oracle-browser.mjs:137:30",
+  "selected_measurements": {
+    "initial": {
+      "cards": [
+        {
+          "start": 54,
+          "length": 33
+        },
+        {
+          "start": 99,
+          "length": 33
+        },
+        {
+          "start": 144,
+          "length": 34
+        },
+        {
+          "start": 190,
+          "length": 33
+        },
+        {
+          "start": 235,
+          "length": 33
+        }
+      ],
+      "ordinary": [
+        {
+          "start": 16,
+          "length": 378
+        },
+        {
+          "start": 406,
+          "length": 378
+        }
+      ],
+      "gap": 12
+    },
+    "forward_el1": {
+      "cards": [
+        {
+          "start": 54,
+          "length": 33
+        },
+        {
+          "start": 99,
+          "length": 33
+        },
+        {
+          "start": 144,
+          "length": 34
+        },
+        {
+          "start": 190,
+          "length": 33
+        },
+        {
+          "start": 235,
+          "length": 33
+        }
+      ],
+      "ordinary": [
+        {
+          "start": 16,
+          "length": 380
+        },
+        {
+          "start": 408,
+          "length": 376
+        }
+      ],
+      "gap": 12
+    },
+    "forward_el2": {
+      "cards": [
+        {
+          "start": 54,
+          "length": 33
+        },
+        {
+          "start": 99,
+          "length": 33
+        },
+        {
+          "start": 144,
+          "length": 34
+        },
+        {
+          "start": 190,
+          "length": 33
+        },
+        {
+          "start": 235,
+          "length": 33
+        }
+      ],
+      "ordinary": [
+        {
+          "start": 16,
+          "length": 376
+        },
+        {
+          "start": 404,
+          "length": 380
+        }
+      ],
+      "gap": 12
+    },
+    "forward_item0": {
+      "cards": [
+        {
+          "start": 54,
+          "length": 34
+        },
+        {
+          "start": 100,
+          "length": 33
+        },
+        {
+          "start": 145,
+          "length": 33
+        },
+        {
+          "start": 190,
+          "length": 33
+        },
+        {
+          "start": 235,
+          "length": 33
+        }
+      ],
+      "ordinary": [
+        {
+          "start": 16,
+          "length": 378
+        },
+        {
+          "start": 406,
+          "length": 378
+        }
+      ],
+      "gap": 12
+    },
+    "forward_item1": {
+      "cards": [
+        {
+          "start": 54,
+          "length": 33
+        },
+        {
+          "start": 99,
+          "length": 34
+        },
+        {
+          "start": 145,
+          "length": 33
+        },
+        {
+          "start": 190,
+          "length": 33
+        },
+        {
+          "start": 235,
+          "length": 33
+        }
+      ],
+      "ordinary": [
+        {
+          "start": 16,
+          "length": 378
+        },
+        {
+          "start": 406,
+          "length": 378
+        }
+      ],
+      "gap": 12
+    },
+    "forward_item4": {
+      "cards": [
+        {
+          "start": 54,
+          "length": 33
+        },
+        {
+          "start": 99,
+          "length": 33
+        },
+        {
+          "start": 144,
+          "length": 33
+        },
+        {
+          "start": 189,
+          "length": 33
+        },
+        {
+          "start": 234,
+          "length": 34
+        }
+      ],
+      "ordinary": [
+        {
+          "start": 16,
+          "length": 378
+        },
+        {
+          "start": 406,
+          "length": 378
+        }
+      ],
+      "gap": 12
+    }
+  },
+  "independent_file_sha256": {
+    "tab-stop-rust-result-dpr1.json": "02fa048cf1892b7cdd03939faf2360569e1e15337c52b52110b39bc4a4e9c3aa",
+    "tab-stop-input-rust_unchanged-source_tab_stop.rs.bin": "be187a56c091ee0b609fa396cae4a13b49dcf98ff9e602d8caed3126de3f6a8e",
+    "tab-stop-rust-asset-rust_tab_stop_bg.wasm.bin": "2a295cbebc521b8d11e94352b86cf3e6b417df8d83f7130e57d9583fe6140a4d",
+    "tab-stop-rust-initial-sample-2-dpr1.png": "7880d8e0358a7479e32a389126813b70dd9dc8262e0c994892497b7e50ee39f6",
+    "tab-stop-rust-forward_el1-sample-2-dpr1.png": "85ace96a5ae42b4e1535d36b930546bb1847791122b618debbe7937aa0e0b31d",
+    "tab-stop-rust-forward_el2-sample-2-dpr1.png": "4f2e99bd60d6e59975e2fb52d9525ec8c8263a667bbd39403ffecd615bbe7db1",
+    "tab-stop-rust-forward_item0-sample-2-dpr1.png": "5a2f9ad920637df6f8dfef0a611803f1a08ff611adb240352b32e406f52cb537",
+    "tab-stop-rust-forward_item1-sample-2-dpr1.png": "a7a8bba1eee99758135154adbf3795768399a0fdd4566e1fab275f2e08a33f8a",
+    "tab-stop-rust-forward_item4-sample-2-dpr1.png": "1a20600d85eff9a10ec6216de833ca7782ce80f5b6266acfd376a0c30580c419"
+  },
+  "recorded_at_utc": "2026-10-16T15:12:23.024331+00:00",
+  "boundary_membership": "Inferred from actual paint measurements, not observed pointer delivery. The click extension did not execute in the failed initial run."
+}
