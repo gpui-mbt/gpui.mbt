@@ -1,12 +1,14 @@
-# Browser demos: Weekboard and interaction lab
+# Browser demos: Weekboard, interaction lab and layout playground
 
-The JavaScript browser slice has two entry points, both backed by portable
-MoonBit application state and `SceneSnapshot` v1 data:
+The JavaScript browser slice has three entry points backed by portable
+MoonBit application state. Weekboard and the interaction lab use `SceneSnapshot`
+v1 data; the layout playground paints the layout engine's returned rectangles:
 
 | Page | Purpose |
 | --- | --- |
 | [`index.html`](../examples/browser/site/index.html) | **Weekboard**, a small website-launch task board with real task titles, lane moves, filtering, history, scrolling, and responsive layout. |
 | [`proof.html`](../examples/browser/site/proof.html) | The retained **interaction lab** for the GUI/direct/MCP counter, browser services, fixed ARIA proxies, legacy DOM island, and lifecycle proofs. |
+| [`layout.html`](../examples/browser/site/layout.html) | **GPUI Layout Playground**, live MoonBit flex controls with separately labelled historical GPUI and before-fix coordinate measurements. |
 
 A JavaScript host owns each canvas, Canvas 2D context, browser callbacks,
 device-pixel-ratio measurement, wheel translation, and animation-frame
@@ -112,6 +114,88 @@ retained interaction-lab Chromium smoke. These are local results; hosted
 execution is reported separately by this change's PR checks.
 The hosted runs recorded below belong to earlier interaction-lab revisions.
 
+## GPUI Layout Playground
+
+`/layout.html` retains both existing demos and uses a third JS leaf adapter,
+[`examples/browser_layout`](../examples/browser_layout/adapter.mbt). The portable
+[`examples/layout_playground`](../examples/layout_playground/model.mbt) package
+owns the typed configuration, atomic validation, preset selection, actual
+`layout.layout_flex` execution and coordinate comparison. The JS host supplies
+native labelled HTML controls, Canvas 2D painting of returned bounds, a numeric
+table and resize/DPR handling. It does not use CSS flex to compute demo geometry.
+The canvas fits logical rectangles to each view; recorded views share a scale.
+Exact point values are available in the table even for zero-size children.
+
+Controls cover main-axis extent (20–200 pt), cross-axis extent (10–100 pt),
+shared item/line gap (0–40 pt), row/column flow, nowrap/wrap/wrap-reverse,
+start/center/end/space-between placement, each child's basis/min/max (0–200 pt) and grow/shrink
+factors (0–4). Blank max is unbounded; zero is a real zero maximum. Invalid,
+nonfinite or reversed min/max edits do not change the last valid model. Presets
+are immutable: selecting/resetting a case restores every input. No persistence
+or network runtime is required.
+
+The original 29 full-rectangle presets and recorded coordinates are excerpts of
+[`gpui-conformance@cdd3cdadf605`](https://github.com/gpui-mbt/gpui-conformance/blob/cdd3cdadf605346ed2b90a59d461697582b8751c/results/flex-limits-macos-arm64-20261015.json).
+[`evidence.json`](../examples/layout_playground/evidence.json) retains the input,
+upstream/baseline/candidate bounds, baseline status, source-file SHA-256 and
+separate executed suite / upstream / baseline / candidate revisions. The
+publication revision is not relabelled as the executed suite revision. Its
+published summary records 29 new plus 72 preserved headless cases; those are
+historical macOS measurements, not this browser's test count.
+
+The generated MoonBit presets are checked against that excerpt offline:
+
+```sh
+node scripts/generate_layout_playground.mjs --check
+# With the comparison repository checked out at the source_revision in evidence.json:
+node scripts/generate_layout_playground.mjs --check --verify-source ../gpui-conformance
+```
+
+To change the excerpt deliberately, first verify its pinned source and retain
+the actual inputs/observations; then regenerate with
+`node scripts/generate_layout_playground.mjs` and run the tests. Generation uses
+the pinned toolchain's `moonfmt` (`MOONFMT_BIN` can override its executable).
+
+For five additional two-child cases, [projection_evidence.json](../examples/layout_playground/projection_evidence.json)
+pins the committed conformance scenarios and published results notes. The
+[space-between note](https://github.com/gpui-mbt/gpui-conformance/blob/6144541eeeb995ede20ec2fcf2340f620760ffc9/JUSTIFY_BETWEEN_RESULTS.md)
+reports main-axis origins of 0/80 for rows/columns and 0/68 for overflow.
+The [wrap note](https://github.com/gpui-mbt/gpui-conformance/blob/6144541eeeb995ede20ec2fcf2340f620760ffc9/FLEX_WRAP_RESULTS.md)
+reports line origins 0/0 for decimal exact fit and 0/10 for overflow. Those
+decimal cases explicitly do **not** certify complete bounds because upstream
+device-scale snapping differs from MoonBit logical doubles. The additional
+cases compare origin projections only, never invented GPUI or before-fix
+rectangles. No raw execution artifact is revalidated by the Playground.
+
+A **live full-bounds match** compares all rectangle coordinates within 0.0001 pt
+for the selected original 29 presets. An **origin-only match** compares the
+named two coordinates and no others. Any different inputs
+show **Custom · not compared**, with no delta or GPUI compatibility claim.
+Returning every input to its preset value restores comparison eligibility.
+Both historical canvases retain the original inputs while live inputs change.
+No upstream GPUI or old-engine code executes in the browser. Raw archived
+executables/logs are not revalidated here, so an index excerpt and a live match
+do not qualify a new conformance-suite execution.
+
+The scope is a definite two-child container with at most two lines, including
+wrap and wrap-reverse. The bounded `FlexContainer::with_gap` API uses the same
+gap for both items and lines; independent row/column gaps, align-content,
+intrinsic text sizing, full CSS/binary32 parity and native/backend parity
+remain out of scope. GPUI's device
+pixel snapping can differ from MoonBit's continuous logical coordinates.
+
+`vp run browser:layout:evidence` checks generated presets and metadata integrity.
+Portable MoonBit tests compare all 29 full-bounds inputs plus five origin projections,
+and cover invalid atomic edits, reset, gap/direction, wrapping/reversal,
+space-between, cross-axis extent and zero/unbounded maxima. `vp run browser:layout:smoke`
+serves the production artifact below `/gpui.mbt/` and checks all 29 cases via
+real controls, grow/shrink/gap/extent/min/max/wrap/cross edits, five origin projections, saved-view isolation,
+keyboard input, zero deltas, overflow, canvas pixels, 320–1440px widths, touch,
+DPR 2 and round-trip navigation to both retained demos. Browser CI runs it
+before packaging the same three-page Pages artifact and uploads screenshots
+and status/failure diagnostics. Touch is emulated Chromium coverage, not a
+qualification of mobile Safari or native input.
+
 ## Browser development toolchain
 
 Browser development and production packaging use Vite+ through the `vp` CLI. The committed `pnpm-lock.yaml` is the dependency-resolution source of truth.
@@ -119,7 +203,7 @@ Browser development and production packaging use Vite+ through the `vp` CLI. The
 `mbt:` import, starts `moon build --watch` in development, and forwards
 MoonBit source maps into Vite.
 
-The Vite config builds both MoonBit JS entry packages before Vite resolves
+The Vite config builds all three MoonBit JS entry packages before Vite resolves
 the first module. This keeps both `vp dev` and `vp build` valid from a clean
 checkout; the MoonBit plugin then owns the normal dev watch/reload path.
 
@@ -132,8 +216,8 @@ vp dev
 ```
 
 The development server opens Weekboard at `/`; the interaction lab is at
-`/proof.html`. MoonBit edits rebuild through the plugin and Vite refreshes the
-affected browser module.
+`/proof.html`; the layout playground is at `/layout.html`. MoonBit edits rebuild
+through the plugin and Vite refreshes the affected browser module.
 
 `vp check` is also part of CI. Its format phase is disabled so Vite+ does not
 reformat the repository's existing Markdown/document corpus; `moon fmt --check`
@@ -146,7 +230,7 @@ Build the production artifact with:
 vp build
 ```
 
-The static output for both pages is written to `_build/browser-site`. Vite uses a
+The static output for all three pages is written to `_build/browser-site`. Vite uses a
 relative base so the same output can be served locally or from the repository's
 GitHub Pages path.
 
@@ -158,6 +242,8 @@ vp build
 vp run browser:canvas:test
 vp run browser:services:test
 vp run browser:board:smoke
+vp run browser:layout:evidence
+vp run browser:layout:smoke
 vp run browser:smoke
 ```
 
@@ -167,7 +253,7 @@ plugins is pinned to the matching `@voidzero-dev/vite-plus-core@1.0.0`.
 
 The CI workflow also runs formatting and MoonBit checks/tests across all
 configured targets, installs the pinned Vite+ toolchain, builds through
-`vp build`, installs Chromium, runs both smoke tests, then uploads and deploys
+`vp build`, installs Chromium, runs all three smoke tests, then uploads and deploys
 that same verified static artifact with GitHub Pages Actions. Pull requests run
 verification and package the artifact but do not deploy. Pushes to `main` and
 manual runs started from `main` deploy the artifact.

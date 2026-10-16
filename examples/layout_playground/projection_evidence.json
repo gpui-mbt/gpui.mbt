@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "source_repository": "gpui-mbt/gpui-conformance",
+  "source_revision": "6144541eeeb995ede20ec2fcf2340f620760ffc9",
+  "source_blobs": {
+    "justify_between_scenarios.json": "dd452c404046ff78606a329a4dd73b45ff220b0c",
+    "flex_wrap_scenarios.json": "d68d44b9a8b36267d13a6420e7d2f00097149a3a",
+    "JUSTIFY_BETWEEN_RESULTS.md": "5375d96f03e4848ee68b80dccaff44b25a0cb4f2",
+    "FLEX_WRAP_RESULTS.md": "bbf9237818d50389936f37a365495cd1a11a633c"
+  },
+  "scope": "Coordinate origins cited in published results, not complete upstream rectangles or a new GPUI execution.",
+  "cases": [
+    {
+      "id": "justify-between-row-gap",
+      "projection": "main-origins",
+      "recorded_origins": [
+        0,
+        80
+      ],
+      "source_document": "JUSTIFY_BETWEEN_RESULTS.md",
+      "source_scenarios": "justify_between_scenarios.json",
+      "input": {
+        "id": "justify-between-row-gap",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 30,
+        "gap": 8,
+        "children": [
+          [
+            20,
+            10
+          ],
+          [
+            20,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          0,
+          0
+        ],
+        "justify": "space-between"
+      }
+    },
+    {
+      "id": "justify-between-column-gap",
+      "projection": "main-origins",
+      "recorded_origins": [
+        0,
+        80
+      ],
+      "source_document": "JUSTIFY_BETWEEN_RESULTS.md",
+      "source_scenarios": "justify_between_scenarios.json",
+      "input": {
+        "id": "justify-between-column-gap",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 30,
+        "height": 100,
+        "gap": 8,
+        "children": [
+          [
+            10,
+            20
+          ],
+          [
+            10,
+            20
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          0,
+          0
+        ],
+        "direction": "column",
+        "justify": "space-between"
+      }
+    },
+    {
+      "id": "justify-between-negative-overflow-fallback",
+      "projection": "main-origins",
+      "recorded_origins": [
+        0,
+        68
+      ],
+      "source_document": "JUSTIFY_BETWEEN_RESULTS.md",
+      "source_scenarios": "justify_between_scenarios.json",
+      "input": {
+        "id": "justify-between-negative-overflow-fallback",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100,
+        "height": 30,
+        "gap": 8,
+        "children": [
+          [
+            60,
+            10
+          ],
+          [
+            60,
+            10
+          ]
+        ],
+        "grow": [
+          0,
+          0
+        ],
+        "shrink": [
+          0,
+          0
+        ],
+        "justify": "space-between"
+      }
+    },
+    {
+      "id": "wrap-decimal-exact-fit",
+      "projection": "line-origins",
+      "recorded_origins": [
+        0,
+        0
+      ],
+      "source_document": "FLEX_WRAP_RESULTS.md",
+      "source_scenarios": "flex_wrap_scenarios.json",
+      "input": {
+        "id": "wrap-decimal-exact-fit",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100.3,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            50.1,
+            10
+          ],
+          [
+            50.2,
+            10
+          ]
+        ],
+        "shrink": [
+          0,
+          0
+        ],
+        "layout_observation": "line_origins",
+        "wrap": "wrap"
+      }
+    },
+    {
+      "id": "wrap-decimal-overflow-above-fit",
+      "projection": "line-origins",
+      "recorded_origins": [
+        0,
+        10
+      ],
+      "source_document": "FLEX_WRAP_RESULTS.md",
+      "source_scenarios": "flex_wrap_scenarios.json",
+      "input": {
+        "id": "wrap-decimal-overflow-above-fit",
+        "kind": "layout",
+        "layer": "headless-layout",
+        "width": 100.3,
+        "height": 20,
+        "gap": 0,
+        "children": [
+          [
+            50.1,
+            10
+          ],
+          [
+            50.8,
+            10
+          ]
+        ],
+        "shrink": [
+          0,
+          0
+        ],
+        "layout_observation": "line_origins",
+        "wrap": "wrap"
+      }
+    }
+  ]
+}
