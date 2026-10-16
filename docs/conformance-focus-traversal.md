@@ -1,5 +1,9 @@
 # Flat focus traversal and explicit input modality
 
+This document records the original flat slice. The later
+[signed tab-group extension](conformance-tab-groups.md) adds independently
+configured group prefixes while preserving these flat/no-group guarantees.
+
 This bounded portable element capability supports the focus-order and modality
 parts of GPUI's `focus_visible.rs` example. Its current evidence is source
 inspection and MoonBit core tests. Actual Rust/browser paired execution is
@@ -143,10 +147,12 @@ The new record in [upstream.json](upstream.json) preserves all earlier records.
 
 ## Limits
 
-This adds flat traversal, separate input-state transitions, and style queries.
-It does not add tab groups, keymaps/action dispatch, focus scrolling, native
-accessibility, automatic host event integration, retained-tree reconciliation,
-pointer capture, Touch, or full GPUI/CSS focus semantics. It does not change
+This original slice added flat traversal, separate input-state transitions, and
+style queries. Tab groups are now covered by the separate
+[group extension](conformance-tab-groups.md). Keymaps/action dispatch, focus
+scrolling, native accessibility, automatic host event integration, retained-tree reconciliation,
+pointer capture, Touch, and full GPUI/CSS focus semantics remain outside scope.
+It does not change
 layout algorithms, scroll behavior, or independent-axis gaps. No native-window,
 physical-input, GPU-pixel, or browser comparison claim follows from this core
 verification.

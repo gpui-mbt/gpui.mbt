@@ -1,0 +1,21 @@
+Normalized display log: trailing diagnostic-gutter spaces removed.
+Exact raw bytes: unchanged-main-api-probe.raw.json
+Decoded raw SHA256: e6fe0271ee7685a214c78feed149adf99cb369b81b19d2fa4ff788183fda527b
+
+start=2026-10-16T14:30:46Z
+Error: [4015]
+   ╭─[ /workspace/shared/gpui-tab-stop-core-20261016/element/tab_group_api_probe_test.mbt:8:24 ]
+   │
+ 8 │     .with_tab_index(9).with_tab_group_index(Some(6))
+   │                        ──────────┬─────────
+   │                                  ╰─────────── Type @f4ah6o/gpui/element.ElementNode has no method with_tab_group_index.
+───╯
+Error: [4015]
+    ╭─[ /workspace/shared/gpui-tab-stop-core-20261016/element/tab_group_api_probe_test.mbt:13:24 ]
+    │
+ 13 │     .with_tab_index(9).with_tab_group_index(Some(6))
+    │                        ──────────┬─────────
+    │                                  ╰─────────── Type @f4ah6o/gpui/element.Element has no method with_tab_group_index.
+────╯
+exit_status=1
+end=2026-10-16T14:30:46Z

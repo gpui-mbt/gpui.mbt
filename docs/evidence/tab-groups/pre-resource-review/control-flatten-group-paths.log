@@ -1,0 +1,16 @@
+start=2026-10-16T14:35:59Z
+command=moon test element --target js --deny-warn -j 2
+[f4ah6o/gpui] test element/tab_groups_wbtest.mbt:2 ("group path construction owns each key and unwinds closed ancestor groups") failed: element/tab_groups_wbtest.mbt:20:3-20:78@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_wbtest.mbt:29 ("group builder defensively copies children and traversal owns input node arrays") failed: element/tab_groups_wbtest.mbt:66:3-66:41@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:40 ("tab_stop example has all twelve group-prefixed destinations and wraps both ways") failed: element/tab_groups_test.mbt:42:3-45:4@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:56 ("group containers are non-stop anchors inside their own prefix and never trap focus") failed: element/tab_groups_test.mbt:62:5-62:64@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:79 ("nested signed group paths outrank preorder and ordinary ancestor indices") failed: element/tab_groups_test.mbt:95:3-95:62@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:102 ("proper path prefixes precede longer negative suffixes and groups include their own handle") failed: element/tab_groups_test.mbt:110:3-110:59@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:130 ("signed extremes compare directly at every path depth") failed: element/tab_groups_test.mbt:144:3-144:74@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:178 ("separate group and handle indices allow tracked handles without conflation") failed: element/tab_groups_test.mbt:186:3-186:59@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:229 ("removing a group removes all its destinations without changing surviving ownership") failed: element/tab_groups_test.mbt:236:3-238:4@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:251 ("declarative group metadata survives every builder prepaint scroll reconstruction and device scale") failed: element/tab_groups_test.mbt:302:5-302:58@f4ah6o/gpui FAILED: `false` is not true
+[f4ah6o/gpui] test element/tab_groups_test.mbt:345 ("clearing one group prefix restores flat ordering without changing descendants or prior snapshots") failed: element/tab_groups_test.mbt:351:3-351:57@f4ah6o/gpui FAILED: `false` is not true
+Total tests: 110, passed: 99, failed: 11.
+exit_status=2
+end=2026-10-16T14:35:59Z

@@ -26,9 +26,11 @@ pub struct Element {
   background : @primitives.Color?
   focusable : Bool
   tab_index : Int32
+  tab_group_index : Int32?
   tab_stop : Bool
   pointer_events : Bool
   priv scroll_offset : @primitives.Point?
+  priv uniform_list : UniformList?
 }
 
 ///|
@@ -47,9 +49,11 @@ pub fn Element::root(
     background: None,
     focusable: false,
     tab_index: 0,
+    tab_group_index: None,
     tab_stop: false,
     pointer_events: true,
     scroll_offset: None,
+    uniform_list: None,
   }
 }
 
@@ -65,9 +69,11 @@ pub fn Element::new(item : @layout.FlexItem) -> Element {
     background: None,
     focusable: false,
     tab_index: 0,
+    tab_group_index: None,
     tab_stop: false,
     pointer_events: true,
     scroll_offset: None,
+    uniform_list: None,
   }
 }
 
@@ -86,9 +92,11 @@ pub fn Element::with_children_style(
     background: self.background,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -106,9 +114,11 @@ pub fn Element::with_child(self : Element, child : Element) -> Element {
     background: self.background,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -126,9 +136,11 @@ pub fn Element::with_background(
     background: color,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -143,9 +155,11 @@ pub fn Element::with_focusable(self : Element, focusable : Bool) -> Element {
     background: self.background,
     focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -160,9 +174,11 @@ pub fn Element::with_pointer_events(self : Element, enabled : Bool) -> Element {
     background: self.background,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: enabled,
     scroll_offset: self.scroll_offset,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -286,7 +302,37 @@ fn Element::request_layout_internal(
       Some(style) =>
         match flatten_layout_tree(self) {
           Err(error) => Err(error)
-          Ok((placements, nodes)) =>
+          Ok((placements, nodes)) => {
+            match validate_uniform_lists(placements) {
+              Err(error) => return Err(error)
+              Ok(_) => ()
+            }
+            for placement in placements {
+              match placement.element.uniform_list {
+                None => ()
+                Some(list) => {
+                  match scale_factor {
+                    Some(scale) if !scroll_finite(scale) || scale <= 0.0 =>
+                      return match
+                        @layout.layout_flex_tree_with_device_scale(
+                          self.id,
+                          viewport,
+                          style,
+                          nodes,
+                          scale,
+                        ) {
+                        Err(error) => Err(LayoutFailure(error))
+                        Ok(_) => Err(GeometryFailure)
+                      }
+                    _ => ()
+                  }
+                  match measure_uniform_prototype(list, scale_factor) {
+                    Err(error) => return Err(error)
+                    Ok(_) => ()
+                  }
+                }
+              }
+            }
             match scale_factor {
               None =>
                 match
@@ -309,6 +355,7 @@ fn Element::request_layout_internal(
                     Ok({ placements, viewport, layout, scale_factor, })
                 }
             }
+          }
         }
     }
   }
@@ -348,6 +395,7 @@ pub fn RequestedLayout::prepaint(
           .with_background(element.background)
           .with_focusable(element.focusable)
           .with_tab_index(element.tab_index)
+          .with_tab_group_index(element.tab_group_index)
           .with_tab_stop(element.tab_stop)
           .with_pointer_events(element.pointer_events)
         nodes.push(node)
@@ -367,15 +415,19 @@ pub fn RequestedLayout::prepaint(
       match resolve_scroll_nodes(nodes, self.placements, self.scale_factor) {
         Err(error) => Err(error)
         Ok(resolved) =>
-          match ElementTree::new(resolved) {
+          match expand_uniform_rows(resolved, self.scale_factor) {
             Err(error) => Err(error)
-            Ok(tree) =>
-              Ok({
-                tree,
-                viewport: self.viewport,
-                viewport_bounds: root_bounds,
-                overflow: self.layout.overflow(),
-              })
+            Ok(expanded) =>
+              match ElementTree::new(expanded) {
+                Err(error) => Err(error)
+                Ok(tree) =>
+                  Ok({
+                    tree,
+                    viewport: self.viewport,
+                    viewport_bounds: root_bounds,
+                    overflow: self.layout.overflow(),
+                  })
+              }
           }
       }
   }

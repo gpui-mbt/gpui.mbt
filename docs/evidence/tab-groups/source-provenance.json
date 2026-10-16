@@ -1,0 +1,326 @@
+{
+  "schema_version": 1,
+  "verified_on": "2026-10-16",
+  "compatibility_pin": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+  "separate_browser_suite_pin": "5a5fbe79917971a4d52a96b6ddb04da198a5012e",
+  "base_revision": "a99e111a37c0ac98bd847e9ea493c78589207875",
+  "base_tree": "29449e394c0faf2b25beb2a1b6a4bce2806b3231",
+  "upstream_repository": "https://github.com/zed-industries/zed",
+  "method": "independent_from_behavior",
+  "capture_method": "Read exact objects with git show <pin>:<path> and git ls-tree in two clean, read-only source checkouts. SHA-256 is computed over raw Git blob bytes. No build, test, checkout or source mutation is part of this capture.",
+  "files": [
+    {
+      "path": "crates/gpui/examples/tab_stop.rs",
+      "browser_pin_blob": "cc7c34a9979ce4027578ec2c358f503d944ee26f",
+      "compatibility_pin_blob": "cc7c34a9979ce4027578ec2c358f503d944ee26f",
+      "browser_pin_sha256": "be187a56c091ee0b609fa396cae4a13b49dcf98ff9e602d8caed3126de3f6a8e",
+      "compatibility_pin_sha256": "be187a56c091ee0b609fa396cae4a13b49dcf98ff9e602d8caed3126de3f6a8e",
+      "browser_pin_byte_count": 7349,
+      "compatibility_pin_byte_count": 7349,
+      "full_file_identical": true
+    },
+    {
+      "path": "crates/gpui/src/tab_stop.rs",
+      "browser_pin_blob": "9e529d8c3de30cd5a31eaf78f7f324a800e4828d",
+      "compatibility_pin_blob": "bde651ae5c4572dbe5a795c91082dc8d8cc58b7e",
+      "browser_pin_sha256": "0c14aec0196ad632601015e166dfcd3df72228292646120bbc3857c3631cd680",
+      "compatibility_pin_sha256": "7f742d6d6b7e5cd6fc634f2764fc3937e1cdebcf086d4b7c166379724edd1881",
+      "browser_pin_byte_count": 19049,
+      "compatibility_pin_byte_count": 18973,
+      "full_file_identical": false
+    },
+    {
+      "path": "crates/gpui/src/window.rs",
+      "browser_pin_blob": "33fa14bfea6ebad50743d6d4014955d1055ef772",
+      "compatibility_pin_blob": "259a451ab16b7ec1900ba7b9a9ca9a7e197e5d94",
+      "browser_pin_sha256": "d85123a09e45761a3a60e196157caa5ceee0e61a9b4adfde484052a31eb4b64a",
+      "compatibility_pin_sha256": "2fe230dc311a9dc9b0475e2b5bbe3fbd6b4f54251e38c2b1a977d806fa3ae3e0",
+      "browser_pin_byte_count": 385691,
+      "compatibility_pin_byte_count": 370539,
+      "full_file_identical": false
+    },
+    {
+      "path": "crates/gpui/src/elements/div.rs",
+      "browser_pin_blob": "5d3b03b057bcac09f987a4587598a08a06872361",
+      "compatibility_pin_blob": "fc292f2a81e2ee0c16da4974f7953cdcfcd2c902",
+      "browser_pin_sha256": "2b42be05756f49e6ff496fcbdc91c79f6b8ebf2f148ed356a8bf24f417375bb1",
+      "compatibility_pin_sha256": "f320948b8f90e36b7100ac3e0e061235d1e9422aeb323918e313f7d69980cfa9",
+      "browser_pin_byte_count": 228209,
+      "compatibility_pin_byte_count": 225044,
+      "full_file_identical": false
+    },
+    {
+      "path": "crates/gpui/Cargo.toml",
+      "browser_pin_blob": "f6616c8c74318a1ea75536d3f45e90ac6cadc6a0",
+      "compatibility_pin_blob": "1957084c876333bb58ec118869503cb09a8f3d92",
+      "browser_pin_sha256": "a50e210fa0b66b6a0e8e5c62f31023a132f30c0a496cb28da3f0a37051cdb6cd",
+      "compatibility_pin_sha256": "16f92649589714375c652c90bae60e65fc878a616bf268b6e4d005842b0e4c0b",
+      "browser_pin_byte_count": 7471,
+      "compatibility_pin_byte_count": 7212,
+      "full_file_identical": false
+    },
+    {
+      "path": "crates/gpui/LICENSE-APACHE",
+      "browser_pin_blob": "1cd601d0a3affae83854be02a0afdec3b7a9ec4d",
+      "compatibility_pin_blob": "1cd601d0a3affae83854be02a0afdec3b7a9ec4d",
+      "browser_pin_sha256": "9cff568488e9d56aae60f162404acdb15d8533a0202cf01f6eb0843b264f20ff",
+      "compatibility_pin_sha256": "9cff568488e9d56aae60f162404acdb15d8533a0202cf01f6eb0843b264f20ff",
+      "browser_pin_byte_count": 20,
+      "compatibility_pin_byte_count": 20,
+      "full_file_identical": true
+    },
+    {
+      "path": "LICENSE-APACHE",
+      "browser_pin_blob": "461a0fe5ba20a096c281a2686da08fef79f534a3",
+      "compatibility_pin_blob": "461a0fe5ba20a096c281a2686da08fef79f534a3",
+      "browser_pin_sha256": "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a",
+      "compatibility_pin_sha256": "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a",
+      "browser_pin_byte_count": 10768,
+      "compatibility_pin_byte_count": 10768,
+      "full_file_identical": true
+    },
+    {
+      "path": "LICENSE-GPL",
+      "browser_pin_blob": "cb82534a8de43d8e4b43c47486063bcd22411908",
+      "compatibility_pin_blob": "cb82534a8de43d8e4b43c47486063bcd22411908",
+      "browser_pin_sha256": "0aa0322ea494da441088e4d9144c6720bf99d9e2e1eefcd29d1f58b19b5c4246",
+      "compatibility_pin_sha256": "0aa0322ea494da441088e4d9144c6720bf99d9e2e1eefcd29d1f58b19b5c4246",
+      "browser_pin_byte_count": 34357,
+      "compatibility_pin_byte_count": 34357,
+      "full_file_identical": true
+    }
+  ],
+  "scoped_equivalence": [
+    {
+      "scope": "tab_stop.rs production before #[cfg(test)]",
+      "path": "crates/gpui/src/tab_stop.rs",
+      "extraction": "Inclusive 1-based LF-preserving line range from the exact Git blob; no whitespace normalization.",
+      "browser_pin_lines": [
+        1,
+        314
+      ],
+      "compatibility_pin_lines": [
+        1,
+        314
+      ],
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/crates/gpui/src/tab_stop.rs#L1-L314",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/src/tab_stop.rs#L1-L314",
+      "browser_pin_sha256": "741c19f765ee98a82a36986ced9600c258bafbc22745d13dc2017b1943a3f1de",
+      "compatibility_pin_sha256": "741c19f765ee98a82a36986ced9600c258bafbc22745d13dc2017b1943a3f1de",
+      "byte_count": 9308,
+      "identical": true,
+      "behavior": "Signed isize path components, lexicographic order with insertion-history ties, group prefix push/pop, non-stop anchors, destination filtering and whole-map forward/reverse wrapping."
+    },
+    {
+      "scope": "signed path order and insertion-order tie break",
+      "path": "crates/gpui/src/tab_stop.rs",
+      "extraction": "Inclusive 1-based LF-preserving line range from the exact Git blob; no whitespace normalization.",
+      "browser_pin_lines": [
+        34,
+        64
+      ],
+      "compatibility_pin_lines": [
+        34,
+        64
+      ],
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/crates/gpui/src/tab_stop.rs#L34-L64",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/src/tab_stop.rs#L34-L64",
+      "browser_pin_sha256": "9388f3d7f35d9ccedd547c79e60d4ace2128356727016ccc6a0aaff3c79f9333",
+      "compatibility_pin_sha256": "9388f3d7f35d9ccedd547c79e60d4ace2128356727016ccc6a0aaff3c79f9333",
+      "byte_count": 950,
+      "identical": true,
+      "behavior": "TabStopPath derives lexicographic Ord; TabStopNode compares the complete path then node_insertion_index. A shorter exact prefix sorts before the longer path."
+    },
+    {
+      "scope": "handle registration and group prefix push/pop",
+      "path": "crates/gpui/src/tab_stop.rs",
+      "extraction": "Inclusive 1-based LF-preserving line range from the exact Git blob; no whitespace normalization.",
+      "browser_pin_lines": [
+        77,
+        101
+      ],
+      "compatibility_pin_lines": [
+        77,
+        101
+      ],
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/crates/gpui/src/tab_stop.rs#L77-L101",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/src/tab_stop.rs#L77-L101",
+      "browser_pin_sha256": "595450ea9a9ea1ee8334ee9f328eea39493a41349fcac94927b8ed62d0c06aa8",
+      "compatibility_pin_sha256": "595450ea9a9ea1ee8334ee9f328eea39493a41349fcac94927b8ed62d0c06aa8",
+      "byte_count": 893,
+      "identical": true,
+      "behavior": "insert appends the focus handle tab_index to current_path; begin_group pushes its index and end_group removes it."
+    },
+    {
+      "scope": "forward/reverse destinations and global wrap",
+      "path": "crates/gpui/src/tab_stop.rs",
+      "extraction": "Inclusive 1-based LF-preserving line range from the exact Git blob; no whitespace normalization.",
+      "browser_pin_lines": [
+        111,
+        183
+      ],
+      "compatibility_pin_lines": [
+        111,
+        183
+      ],
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/crates/gpui/src/tab_stop.rs#L111-L183",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/src/tab_stop.rs#L111-L183",
+      "browser_pin_sha256": "0dcf2299fc166bcb4608d968029f6ccbeaf10f5e7c75d31d30b28f5da9e04f95",
+      "compatibility_pin_sha256": "0dcf2299fc166bcb4608d968029f6ccbeaf10f5e7c75d31d30b28f5da9e04f95",
+      "byte_count": 2206,
+      "identical": true,
+      "behavior": "Non-stop focus handles remain anchors but are skipped as destinations; next and previous traverse the complete map and wrap globally. A group does not trap focus."
+    },
+    {
+      "scope": "div tab_stop, tab_index and tab_group public builders",
+      "path": "crates/gpui/src/elements/div.rs",
+      "extraction": "Inclusive 1-based LF-preserving line range from the exact Git blob; no whitespace normalization.",
+      "browser_pin_lines": [
+        794,
+        826
+      ],
+      "compatibility_pin_lines": [
+        794,
+        826
+      ],
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/crates/gpui/src/elements/div.rs#L794-L826",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/src/elements/div.rs#L794-L826",
+      "browser_pin_sha256": "5522414c8a570f97d4f51a18f7903ab5440f137d25e18a82637bd7b2b6a5162c",
+      "compatibility_pin_sha256": "5522414c8a570f97d4f51a18f7903ab5440f137d25e18a82637bd7b2b6a5162c",
+      "byte_count": 1635,
+      "identical": true,
+      "behavior": "Upstream tab_index also enables focusability and tab_stop; tab_group uses the same optional tab_index as its group index, defaulting it to zero when absent."
+    },
+    {
+      "scope": "div begins group before registering its own tracked handle",
+      "path": "crates/gpui/src/elements/div.rs",
+      "extraction": "Inclusive 1-based LF-preserving line range from the exact Git blob; no whitespace normalization.",
+      "browser_pin_lines": [
+        2539,
+        2561
+      ],
+      "compatibility_pin_lines": [
+        2539,
+        2561
+      ],
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/crates/gpui/src/elements/div.rs#L2539-L2561",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/src/elements/div.rs#L2539-L2561",
+      "browser_pin_sha256": "676f98425d2656dd1641ee450e22ef385a4a2fcee2b01e1584e30ed70533f15d",
+      "compatibility_pin_sha256": "676f98425d2656dd1641ee450e22ef385a4a2fcee2b01e1584e30ed70533f15d",
+      "byte_count": 1670,
+      "identical": true,
+      "behavior": "The active group index is selected before with_tab_group; the tracked handle is inserted inside that wrapper. The container path therefore includes its own group prefix before its handle index."
+    },
+    {
+      "scope": "window optional group index registration wrapper",
+      "path": "crates/gpui/src/window.rs",
+      "extraction": "Inclusive 1-based LF-preserving line range from the exact Git blob; no whitespace normalization.",
+      "browser_pin_lines": [
+        4497,
+        4508
+      ],
+      "compatibility_pin_lines": [
+        4349,
+        4360
+      ],
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/crates/gpui/src/window.rs#L4497-L4508",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/src/window.rs#L4349-L4360",
+      "browser_pin_sha256": "e3db2b5846e510bb11f5aa5926274342d491a402dd751d093824647c38c76ea6",
+      "compatibility_pin_sha256": "e3db2b5846e510bb11f5aa5926274342d491a402dd751d093824647c38c76ea6",
+      "byte_count": 437,
+      "identical": true,
+      "behavior": "Some(index) begins a group, runs the closure, then ends the group; None directly runs the closure without adding a path component."
+    },
+    {
+      "scope": "tab_stop example grouped child indices",
+      "path": "crates/gpui/examples/tab_stop.rs",
+      "extraction": "Inclusive 1-based LF-preserving line range from the exact Git blob; no whitespace normalization.",
+      "browser_pin_lines": [
+        139,
+        182
+      ],
+      "compatibility_pin_lines": [
+        139,
+        182
+      ],
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/crates/gpui/examples/tab_stop.rs#L139-L182",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/examples/tab_stop.rs#L139-L182",
+      "browser_pin_sha256": "ea962609aea68bd411916c95b45fbbe768aaab86c0f67efd00875ba672205573",
+      "compatibility_pin_sha256": "ea962609aea68bd411916c95b45fbbe768aaab86c0f67efd00875ba672205573",
+      "byte_count": 1586,
+      "identical": true,
+      "behavior": "The example uses two non-stop group containers indexed six and seven, each containing tab stops indexed one through three; it is a behavior reference, not a copied fixture."
+    }
+  ],
+  "license_expression": "Apache-2.0",
+  "license_evidence": [
+    {
+      "path": "crates/gpui/Cargo.toml",
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/crates/gpui/Cargo.toml#L1-L10",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml#L1-L10",
+      "evidence": "The owning gpui package declares license = Apache-2.0 at line 9 at both pins. Full Cargo.toml blobs differ; the declaration is independently verified at each pin."
+    },
+    {
+      "path": "crates/gpui/LICENSE-APACHE",
+      "git_mode": "120000",
+      "symlink_target": "../../LICENSE-APACHE",
+      "blob": "1cd601d0a3affae83854be02a0afdec3b7a9ec4d",
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/crates/gpui/LICENSE-APACHE",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/LICENSE-APACHE",
+      "evidence": "The same Git symlink object at both pins resolves to the root Apache license text."
+    },
+    {
+      "path": "LICENSE-APACHE",
+      "sha256": "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a",
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/LICENSE-APACHE",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/LICENSE-APACHE",
+      "evidence": "The resolved license text is byte-identical at both pins and identifies the Apache License, Version 2.0 and Zed Industries copyright."
+    },
+    {
+      "path": "LICENSE-GPL",
+      "browser_pin_url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/LICENSE-GPL",
+      "compatibility_pin_url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/LICENSE-GPL",
+      "evidence": "A root GPL license also exists. This does not extend the GPUI package Apache finding to unrelated Zed paths."
+    }
+  ],
+  "notice_audit": {
+    "scope": "Root NOTICE, NOTICE.md, NOTICE.txt and tracked files named NOTICE* beneath crates/gpui at both pins.",
+    "package_notice_found": false,
+    "root_notice_found": false,
+    "finding": "No matching NOTICE file was found in the inspected scope; unrelated repository paths were not licensed or audited by inference."
+  },
+  "destination_paths": [
+    "element/element.mbt",
+    "element/lifecycle.mbt",
+    "element/scroll_viewport.mbt",
+    "element/focus_traversal.mbt",
+    "element/tab_groups_test.mbt",
+    "element/tab_groups_wbtest.mbt",
+    "docs/conformance-tab-groups.md"
+  ],
+  "bounded_core_contract": {
+    "status": "Independently authored implementation is core-tested; unchanged-main gaps and executed commands are retained separately in docs/evidence/tab-groups.",
+    "api": "with_tab_group_index(Int32?) with tab_group_index() query; None adds no group prefix. The signed Int32 value is separate from tab_index and tab_stop.",
+    "ordering": "Ancestor active group indices, including the node own group when present, followed by that focusable node own tab_index; ascending signed lexicographic comparison, shorter exact prefix first, stable preorder for equal full paths. Reverse traversal reverses the complete order.",
+    "container_own_handle": "A focusable group node participates with its own group prefix before its handle index. Descendants retain that prefix until their subtree ends. This is ordering, not a guarantee to enter every group from every anchor index.",
+    "eligibility": "Only live focusable tab stops are destinations; focusable non-stops remain anchors. Global wrap is preserved and groups do not trap focus.",
+    "preserved_contracts": [
+      "Immutable snapshots and builder/layout/prepaint/scroll metadata preservation.",
+      "Existing focus owner lineage, acquisition and no-op traversal identity semantics.",
+      "Existing explicit input modality and route-only dispatch; no automatic Tab/Shift-Tab keymap interpretation."
+    ],
+    "material_api_deviation": "Upstream tab_group() reuses interactivity.tab_index as the group index and may default that field to zero. The bounded MoonBit API separates optional group index from handle tab_index and does not make it focusable or a tab stop.",
+    "resource_bounds": "Private immutable shared group-prefix links and key heads use O(n) construction time and storage. Two reusable reverse-path buffers take O(d) scratch; candidate comparisons are O(n*d) worst-case time. No-stop and already-focused singleton traversal return before key allocation. Deep direct ElementTree inputs gain no new arbitrary depth rejection; 1024-group iterative regressions cover traversal and linear key storage."
+  },
+  "evidence_boundary": {
+    "source_equivalence": "Verified only for the full files marked identical and exact inclusive scopes above; no whole-file equality claim for tab_stop.rs, div.rs, window.rs or Cargo.toml.",
+    "unchanged_main_baseline": "Executed before product edits at exact base a99e111a37c0ac98bd847e9ea493c78589207875/tree29449e394c0faf2b25beb2a1b6a4bce2806b3231: missing-API probe exit1, corrected flat-order behavioral probe exit2 with ID101 instead of ID11 on second Tab. Initial invalid-literal compile attempt is retained separately and not counted as behavioral evidence.",
+    "implementation_and_core_tests": "112/112 element tests per JS/native/wasm/wasm-gc target; portable 554/554 JS/wasm/wasm-gc and 553/553 native; nine compiled mutation controls detected and restored source 112/112; all-target check, formatting, generated interface, contracts and 142 Python regressions pass. Exact logs and source identities are separate in verification.json. Initial copied-path implementation and its earlier results are retained under pre-resource-review and are not attributed to the final implementation.",
+    "rust_browser_correspondence": "Pending separate CI baseline and paired runtime execution. Source agreement or passing core tests alone cannot establish runtime parity.",
+    "excluded": [
+      "Copied upstream implementation or fixtures.",
+      "Automatic keymaps, focus traps, native accessibility and general GPUI/CSS behavior.",
+      "Native-window/GPU pixel or physical-input parity."
+    ]
+  }
+}

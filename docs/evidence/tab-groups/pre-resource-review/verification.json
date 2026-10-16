@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T14:38:13Z",
+  "base_revision": "a99e111a37c0ac98bd847e9ea493c78589207875",
+  "base_tree": "29449e394c0faf2b25beb2a1b6a4bce2806b3231",
+  "source_files": [
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/element.mbt.txt",
+      "sha256": "06540838025d65e95bc318fa4f05f95ed6821603c891cbf70373f0b66abcc895"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/focus_traversal.mbt.txt",
+      "sha256": "56ef25cf5f7a5a97921164e308704e42ef9bc26d933f00435d6aa66107fa19a7"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/lifecycle.mbt.txt",
+      "sha256": "f23e92badc3c0447a8cb0141484c3501d30c5b8c4bb7d5d13fcecc07a29b32f5"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/scroll_viewport.mbt.txt",
+      "sha256": "e92d43964ca259138f47f4a0833270c2f05594ac21785591d38221e6ccb65a69"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/pkg.generated.mbti.txt",
+      "sha256": "2e11b9380f9fd9946b9cb859a4e477d060023b5ed00d49d7039525f36c839dc2"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/tab_groups_test.mbt.txt",
+      "sha256": "12107641160ee4b9fcdc20dd44392e385052140c46d133e200adde43567c6d7a"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/tab_groups_wbtest.mbt.txt",
+      "sha256": "8f1f536f824907ce617e4f6958e1fc3a5b86fc53036a948e70c8535f0497590e"
+    }
+  ],
+  "unchanged_main": {
+    "product_source_unchanged": true,
+    "api_probe_exit": 1,
+    "order_probe_exit": 2,
+    "expected_second_destination": 11,
+    "actual_second_destination": 101,
+    "initial_numeric_literal_compile_failure_retained_separately": true
+  },
+  "implemented_probes": {
+    "identical_api_probe_exit": 0,
+    "order_probe_with_only_group_prefix_added_exit": 0
+  },
+  "element_tests": {
+    "command": "moon test element --target all --deny-warn -j 2",
+    "wasm": 110,
+    "wasm-gc": 110,
+    "js": 110,
+    "native": 110,
+    "failed": 0,
+    "new_tests": 15
+  },
+  "portable_regressions": {
+    "command": "moon test primitives diagnostics core layout element scene text text_layout controls/button controls/text_field controls/command_palette accessibility capability mcp testing/core_model examples/task_board --target all --deny-warn -j 2",
+    "wasm": 552,
+    "wasm-gc": 552,
+    "js": 552,
+    "native": 551,
+    "failed": 0
+  },
+  "static_checks": {
+    "moon_fmt_check": 0,
+    "moon_check_all_deny_warn": 0,
+    "contracts": 0,
+    "git_diff_check": 0,
+    "generated_element_interface": "moon info --target all --package f4ah6o/gpui/element"
+  },
+  "python_regressions": {
+    "command": "python3 -m unittest discover -s tests -p 'test_*.py'",
+    "passed": 142,
+    "failed": 0
+  },
+  "compiled_negative_controls": {
+    "manifest": "negative-controls.json",
+    "count": 9,
+    "all_compiled_and_assertions_failed": true,
+    "restored_passed": 110,
+    "isolated_non_git_copy": true
+  },
+  "source_provenance_manifest": {
+    "path": "docs/evidence/tab-groups/pre-resource-review/source-provenance.json",
+    "sha256": "78c3d464f1c18aa7e1325e49ee6821fbca676b771a63602b3d3a37321ba1cc5d"
+  },
+  "logs": [
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/control-conflate-group-and-handle-index.log",
+      "sha256": "1e14d7ba0e223fa33f811a7b0665bcd78e8c8a24ba430d7e7cb719ec794626cf"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/control-drop-group-in-prepaint.log",
+      "sha256": "e8c63e38556c87807b8a6c0e665c60872110c2dcdb18067119c609a1d5e6f3b3"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/control-drop-group-in-scroll-reconstruction.log",
+      "sha256": "e61df90a52245c8666fcf65005a35a10c74404780cd6dbfa4a9f128e67c6b700"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/control-flatten-group-paths.log",
+      "sha256": "bd6b561ec9981a31512b1ebe8771dd34ecacc0108c35ddbe711a4ebb8abd7685"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/control-omit-groups-own-prefix.log",
+      "sha256": "d585687070a946e5ff4112b164d1a6480c8e86d89d466d9329485e18b07958a0"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/control-restored.log",
+      "sha256": "e3ef8cd9134150a8c2f3552f2c976a247b49cbea6af208a318c6697924218084"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/control-retain-closed-group-prefix.log",
+      "sha256": "48c0a75356bf9986fc8f4e36a31795fbdc2bc570cd165d15b247a8f22c70d122"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/control-reverse-equal-path-preorder.log",
+      "sha256": "410d5e561b855fcc780deef6a671dc0a3f92ce2834980f81e3f5014aa4eff639"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/control-reverse-proper-prefix.log",
+      "sha256": "1b6f60c677cf1410c44081711a0fdef71a63977330ce62c9157c29f0a50ff03d"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/control-reverse-signed-component.log",
+      "sha256": "621bc95a5d5ca3d2c024129f2aa97674bb1c356376729e52856259b0ce4b2e60"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/control-unmutated.log",
+      "sha256": "22eb3891e0fa2719cf9d0aa9d41e94e495e0420c9189080de91e11348afc2626"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/element-all-targets.log",
+      "sha256": "703316d1da0a6a5f9de5c86e54b6e329682ccf803c22f8fa2910218f9296842d"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/implemented-api-probe.log",
+      "sha256": "05eff9821b61fb05dc9a4d6100b7b2304d6e8a6f4d97caa815678002d2306bea"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/implemented-order-probe.log",
+      "sha256": "afa65feb57120586d3287f52e43869f8b630982adc5bbdb012c43d103c86eda3"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/interface.log",
+      "sha256": "a20d2666d1b6f30a4b78d293607193dad03b1d3864ff2fffc88b6b91672a59f1"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/negative-controls-run.log",
+      "sha256": "6584f5b5edfb06e92a42e0b37542ecb4e1e0bb64051e466cbc24ec85ec695dfb"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/portable-regressions-all-targets.log",
+      "sha256": "b01bc90282359303c70f9eb9d45a2fab6a593ddaa7175d634c040b2dd84cfbde"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/python-regressions.log",
+      "sha256": "bcac9d3d0491653516f69db061f2ea21f1221881eeb11e5712e33db5662b1f0c"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/static-checks.log",
+      "sha256": "1ff98fb4f282f13b9acb25c32010781ad1c39d6b59d69183aaea795f29950270"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/toolchain.txt",
+      "sha256": "1234eec8c06ac3c9834935f04902d01143cffcdd6d96e0ed41d79943ca836a11"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/unchanged-main-api-probe.log",
+      "sha256": "6503699b0bcdb5806f5f3606f0c5915ad4c4f800cbf591318b227b06a64d48a0",
+      "raw_container": "docs/evidence/tab-groups/pre-resource-review/unchanged-main-api-probe.raw.json",
+      "raw_decoded_sha256": "e6fe0271ee7685a214c78feed149adf99cb369b81b19d2fa4ff788183fda527b"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/unchanged-main-order-probe-initial-compile-error.log",
+      "sha256": "b8eee2cbd815e596266ae8cc309a228ec764394276b92b7d8e1cec7414e00212",
+      "raw_container": "docs/evidence/tab-groups/pre-resource-review/unchanged-main-order-probe-initial-compile-error.raw.json",
+      "raw_decoded_sha256": "9038c061e1fe558414e6eaf561ca7c837d1ef0a6419998aaf8f51fd030c4412b"
+    },
+    {
+      "path": "docs/evidence/tab-groups/pre-resource-review/unchanged-main-order-probe.log",
+      "sha256": "ccda6a071ee7813cb787b082d7999fd4cabdb219619ccfa974a8fa2eb658f0c1"
+    }
+  ],
+  "boundaries": [
+    "No Rust build or browser run was performed as part of core verification.",
+    "Actual unchanged-Rust/browser baseline and paired runtime correspondence remain separate and pending.",
+    "No native-window, GPU-pixel or physical-input parity is established.",
+    "No public writes, other checkout edits or source cleanup/reset/stash were performed."
+  ],
+  "raw_log_packaging": {
+    "original_manifest": "docs/evidence/tab-groups/pre-resource-review/verification.before-log-containers.json",
+    "original_manifest_sha256": "1d9a2025d663dd6fd8b41ffb7ef33ccc5675223329d5bd6737b6338e7d20c4cf",
+    "container_index": "docs/evidence/tab-groups/raw-log-containers.json",
+    "raw_bytes_preserved": true,
+    "display_logs_explicitly_normalized": true
+  }
+}

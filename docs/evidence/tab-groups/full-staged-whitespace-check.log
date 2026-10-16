@@ -1,0 +1,4 @@
+start=2026-10-16T14:46:09Z
+command=git diff --cached --check
+exit_status=0
+end=2026-10-16T14:46:09Z

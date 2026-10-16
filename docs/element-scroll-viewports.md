@@ -19,7 +19,9 @@ state, then render/prepaint again. Reading updates does not mutate the live
 tree, its geometry, or its focus owner. All eligible scroll ancestors receive
 the **same** delta and clamp independently. This is not residual-delta
 consumption. A diagonal event uses its dominant axis; equal magnitudes choose
-Y. Non-finite deltas reject the entire update, even outside any hit target.
+Y. The separate [`UniformList`](uniform-list.md) surface uses nonzero Y or
+X-as-Y fallback without changing this ordinary two-axis policy. Non-finite
+deltas reject the entire update, even outside any hit target.
 Finite extreme deltas saturate safely at the corresponding limit.
 
 ## Geometry and clipping

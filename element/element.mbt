@@ -13,6 +13,9 @@ pub enum ElementError {
   TreeTooDeep
   LayoutFailure(@layout.TreeLayoutError)
   GeometryFailure
+  LayoutBoundsMismatch
+  ScrollLayoutBoundsUnsupported
+  UniformListFailure(UniformListError)
 } derive(Eq)
 
 ///|
@@ -64,10 +67,12 @@ pub struct ElementNode {
   bounds : @primitives.Rect
   focusable : Bool
   tab_index : Int32
+  tab_group_index : Int32?
   tab_stop : Bool
   pointer_events : Bool
   background : @primitives.Color?
   priv scroll_viewport : ScrollViewport?
+  priv uniform_list : UniformListLayout?
 }
 
 ///|
@@ -82,10 +87,12 @@ pub fn ElementNode::new(
     bounds,
     focusable: false,
     tab_index: 0,
+    tab_group_index: None,
     tab_stop: false,
     pointer_events: true,
     background: None,
     scroll_viewport: None,
+    uniform_list: None,
   }
 }
 
@@ -140,10 +147,12 @@ pub fn ElementNode::with_focusable(
     bounds: self.bounds,
     focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     background: self.background,
     scroll_viewport: self.scroll_viewport,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -158,10 +167,12 @@ pub fn ElementNode::with_pointer_events(
     bounds: self.bounds,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: enabled,
     background: self.background,
     scroll_viewport: self.scroll_viewport,
+    uniform_list: self.uniform_list,
   }
 }
 
@@ -176,10 +187,12 @@ pub fn ElementNode::with_background(
     bounds: self.bounds,
     focusable: self.focusable,
     tab_index: self.tab_index,
+    tab_group_index: self.tab_group_index,
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     background: color,
     scroll_viewport: self.scroll_viewport,
+    uniform_list: self.uniform_list,
   }
 }
 

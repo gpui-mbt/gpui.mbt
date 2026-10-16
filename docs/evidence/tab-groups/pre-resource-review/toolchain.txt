@@ -1,0 +1,10 @@
+start=2026-10-16T14:34:27Z
+moon 0.1.20261012 (748b63c 2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moon
+moonc v0.10.15+943464bfa (2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moonc
+moonrun 0.1.20261012 (748b63c 2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moonrun
+
+Feature flags enabled: rr_moon_mod,rr_moon_pkg
+Linux fe8dd30ac5de 6.18.44 #1 SMP Sat Sep 26 20:02:31 UTC 2026 x86_64 GNU/Linux
+Python 3.12.14
+v24.19.0
+end=2026-10-16T14:34:28Z

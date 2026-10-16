@@ -389,6 +389,42 @@
         "The real unchanged-main baseline at 89a11dd7d4cfc4acfa7b8efea52bbf88ac00ccbf fails compilation for missing APIs. Source-derived core regressions and four independent mutation controls pass; actual Rust/browser paired execution is separate and pending, not established by those tests.",
         "Tab groups, keymaps, native accessibility, captured-hitbox hover exceptions, Touch, full GPUI/CSS semantics, native pixels and physical input remain outside scope. Existing layout, scroll and independent-axis gap behavior are unchanged."
       ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "d9afb21688e04f89d9e94d96d33eb530aef90886",
+      "upstream_paths": [
+        "crates/gpui/examples/tab_stop.rs",
+        "crates/gpui/src/tab_stop.rs",
+        "crates/gpui/src/window.rs",
+        "crates/gpui/src/elements/div.rs"
+      ],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/d9afb21688e04f89d9e94d96d33eb530aef90886/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares Apache-2.0 at both inspected pins; its LICENSE-APACHE symlink resolves to the same root Apache License 2.0 text. Exact source and license hashes are in docs/evidence/tab-groups/source-provenance.json."
+        }
+      ],
+      "destination_paths": [
+        "element/element.mbt",
+        "element/lifecycle.mbt",
+        "element/scroll_viewport.mbt",
+        "element/focus_traversal.mbt",
+        "element/tab_groups_test.mbt",
+        "element/tab_groups_wbtest.mbt",
+        "docs/conformance-tab-groups.md"
+      ],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "An independently authored bounded tab-group extension is implemented and core-tested. Optional signed Int32 tab_group_index metadata, configured by with_tab_group_index(Int32?), is separate from existing tab_index and tab_stop metadata. Unlike upstream tab_group(), setting it does not implicitly enable focusability, tab-stop membership or alter the handle index.",
+        "Each focusable node is ordered by the complete active group-index prefix, including a group configured on that same node, followed by its own tab_index. Full paths compare lexicographically with stable tree-preorder ties; signed negatives are ordinary ordering values. Non-stop nodes remain anchors, and traversal skips them as destinations and wraps globally without a group focus trap.",
+        "Group metadata survives immutable builders, layout/prepaint and scroll translation; existing owner/acquisition, immutable snapshot, modality and route-only/keymap contracts remain unchanged. This slice does not introduce automatic Tab/Shift-Tab dispatch, new keymaps or broad retained-tree reconciliation.",
+        "The separate browser-suite pin 5a5fbe79917971a4d52a96b6ddb04da198a5012e has the same tab_stop.rs example blob cc7c34a9979ce4027578ec2c358f503d944ee26f and byte-identical tab_stop.rs production code, scoped div group-before-own-handle registration, public group builders and Window::with_tab_group wrapper. Whole div.rs/window.rs files differ; the repository compatibility pin remains unchanged.",
+        "Source inspection verifies the selected contract and license context. Separate retained unchanged-main probes show the missing group API and second-Tab flat-order mismatch; implemented core checks and nine compiled mutation controls are recorded in docs/conformance-tab-groups.md. Full Rust/browser correspondence remains pending and is not established by core tests.",
+        "No upstream implementation, test bodies, examples, screenshots or assets are copied into runtime or test fixtures. Native accessibility, GPU/native-window pixels, physical keyboard input, general CSS/GPUI parity and focus trapping are outside this slice."
+      ]
     }
   ]
 }

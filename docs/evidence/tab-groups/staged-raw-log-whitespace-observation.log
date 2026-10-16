@@ -1,0 +1,23 @@
+Normalized display log: trailing diagnostic-gutter spaces removed.
+Exact raw bytes: staged-raw-log-whitespace-observation.raw.json
+Decoded raw SHA256: 88437ecaaeae1b09da2d75efb322890c39bb0328a8f2055373edd9d152cb965b
+
+start=2026-10-16T14:44:02Z
+docs/evidence/tab-groups/pre-resource-review/unchanged-main-api-probe.log:6: trailing whitespace.
++   │                        ──────────┬─────────
+docs/evidence/tab-groups/pre-resource-review/unchanged-main-api-probe.log:13: trailing whitespace.
++    │                        ──────────┬─────────
+docs/evidence/tab-groups/pre-resource-review/unchanged-main-order-probe-initial-compile-error.log:13: trailing whitespace.
++    │                     ─┬─
+docs/evidence/tab-groups/pre-resource-review/unchanged-main-order-probe-initial-compile-error.log:22: trailing whitespace.
++    │                        ─┬
+docs/evidence/tab-groups/unchanged-main-api-probe.log:6: trailing whitespace.
++   │                        ──────────┬─────────
+docs/evidence/tab-groups/unchanged-main-api-probe.log:13: trailing whitespace.
++    │                        ──────────┬─────────
+docs/evidence/tab-groups/unchanged-main-order-probe-initial-compile-error.log:13: trailing whitespace.
++    │                     ─┬─
+docs/evidence/tab-groups/unchanged-main-order-probe-initial-compile-error.log:22: trailing whitespace.
++    │                        ─┬
+exit_status=2
+end=2026-10-16T14:44:02Z

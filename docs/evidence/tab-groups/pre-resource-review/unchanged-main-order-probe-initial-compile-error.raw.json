@@ -1,0 +1,7 @@
+{
+  "kind": "Exact raw UTF-8 diagnostic log in a JSON-escaped text container",
+  "original_filename": "unchanged-main-order-probe-initial-compile-error.log",
+  "decoded_byte_count": 1136,
+  "decoded_sha256": "9038c061e1fe558414e6eaf561ca7c837d1ef0a6419998aaf8f51fd030c4412b",
+  "raw_text": "start=2026-10-16T14:30:46Z\na99e111a37c0ac98bd847e9ea493c78589207875\n29449e394c0faf2b25beb2a1b6a4bce2806b3231\nmoon 0.1.20261012 (748b63c 2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moon\nmoonc v0.10.15+943464bfa (2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moonc\nmoonrun 0.1.20261012 (748b63c 2026-10-12) /workspace/shared/dsh-toolchain-home/.moon/bin/moonrun\n\nFeature flags enabled: rr_moon_mod,rr_moon_pkg\nError: [4014]\n    ╭─[ /workspace/shared/gpui-tab-stop-core-20261016/element/tab_group_baseline_probe_test.mbt:39:21 ]\n    │\n 39 │   assert_eq(actual, 11U64)\n    │                     ─┬─  \n    │                      ╰─── Expr Type Mismatch\n        has type : UInt\n        wanted   : UInt64\n────╯\nError: [3002]\n    ╭─[ /workspace/shared/gpui-tab-stop-core-20261016/element/tab_group_baseline_probe_test.mbt:39:24 ]\n    │\n 39 │   assert_eq(actual, 11U64)\n    │                        ─┬  \n    │                         ╰── Parse error, unexpected token integer, you may expect `,` or `)`.\n────╯\nexit_status=1\nend=2026-10-16T14:30:46Z\n"
+}

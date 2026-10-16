@@ -4,12 +4,15 @@ Status: public API inventory and executable **headless** comparison. This audit
 adds no native host capability, changes no control semantics, and promotes no
 platform support tier. The four-platform product gate remains separate.
 
-Audit baseline: GPUI `a99e111a37c0ac98bd847e9ea493c78589207875`, Yami-kumo
-`21d85061e7445c479b483bcffa12679f7730d89a`. The [four-platform plan][plan]
-contains the original GP-00/01/02/03 packets. Those are scope and dependency
-references, not runtime evidence. In particular, an unmerged focus change must
-not be treated as a public API in this baseline. Re-run this inventory and the
-fixtures against the final integration head.
+Original audit baseline: GPUI `a99e111a37c0ac98bd847e9ea493c78589207875`,
+legacy Yami-kumo `21d85061e7445c479b483bcffa12679f7730d89a`. The API inventory
+below is reconciled with integration main
+`b55bcc13cc3dd9e7e9e0855aab5e2aee72befe78`, including merged PRs #95, #97 and
+#98. The paired Button fixtures keep the pinned legacy Yami dependency; their
+GPUI input is the exact candidate checkout, not the historical GPUI baseline.
+The [four-platform plan][plan] contains the original GP-00/01/02/03 packets.
+Those are scope and dependency references, not runtime evidence. Final-head CI
+records the actual integration candidate and independently executes the fixtures.
 
 ## Evidence vocabulary
 
@@ -31,7 +34,7 @@ No OS text-input or accessibility implementation belongs in the Yami adapter.
 The Web DOM branch belongs above scene lowering; existing Canvas rendering is
 not a semantic DOM reconstruction source.
 
-## Existing public API mapping
+## Integration-head public API mapping
 
 “Yami call site” names existing native integration and the intended new shared
 consumer. New TextField/Dialog entries are requirements, not claims that these
@@ -43,8 +46,8 @@ Yami components are already implemented.
 | Button pointer/key state; `native/components/button.mbt` and new Button adapter | `controls/button.Button::new/handle_input/with_enabled/with_loading/with_focus/with_bounds/cancel_press` | Existing Yami `ButtonInteraction` is not equivalent. Apply the versioned decision below, keeping legacy behavior. | Paired `headless-button-public-api-{js,native,wasm,wasm-gc}`; all use actual models. |
 | Button label/flat paint; native `NativeText`/`NativeButton` | `text_layout.TextMeasurement`, `scene.SceneItem::text_run`, Button paint helpers | Yami owns theme and semantic view intent. CoreText/Pango/DirectWrite measurement and native raster admission stay in GPUI. | Existing source-specific text/renderer profiles; this audit runs no pixels. |
 | Row/column/container sizing; native `layout_item`, `NativeAppShell` | `layout.FlexItem`, `FlexContainer`, `layout_flex_tree`, `layout_flex_tree_with_device_scale`; `element.Element` layout bridge | Reuse the deterministic layout engine; do not introduce a Yami native flex engine. DOM layout needs its own semantic/layout acceptance. | Portable layout and separate conformance fixtures. |
-| Hit testing, capture/bubble routing and focused dispatch; native sample input owner | `element.ElementNode/ElementTree`, `hit_test`, `dispatch_pointer`, `dispatch_input`, `without_subtree`, `FocusOwner` | IDs/owner lineage, cancel on removal or invalidation and focus synchronization remain explicit. No window pointer-leave event exists in `InputEvent`. | Portable element tests; window delivery separately qualified. |
-| Flat tab traversal, focus-visible and restoration; new Button/Dialog | `ElementTree::focus_next/focus_prev/is_focus_visible/restore_focus`, `InputModality` | Already present at baseline; do not rebuild flat traversal. Modal scopes, background suppression and disappearance fallback remain **GP-03-FOCUS**. Later public focus work must be reconciled independently. | [Bounded focus traversal](conformance-focus-traversal.md), portable ownership tests. |
+| Hit testing, capture/bubble routing and focused dispatch; native sample input owner | `element.ElementNode/ElementTree`, `hit_test`, `dispatch_pointer`, `dispatch_input`, `without_subtree`, `FocusOwner`, `ElementTree::with_layout_bounds(Prepainted)` | Same-topology, non-scroll bounds refresh preserves exact focus ownership; it is not general reconciliation. IDs/owner lineage, cancellation and focus synchronization remain explicit. No window pointer-leave event exists in `InputEvent`. | [Retained input geometry](element-layout-bounds.md), portable element tests; window delivery separately qualified. |
+| Grouped tab traversal, focus-visible and restoration; new Button/Dialog | `ElementTree::focus_next/focus_prev/is_focus_visible/restore_focus`, `InputModality`, `Element::with_tab_group_index`, `ElementNode::with_tab_group_index` | Reuse existing flat traversal and merged signed nested group-prefix ordering. Groups are ordering metadata, not modal scopes; background suppression and disappearance fallback remain **GP-03-FOCUS**. | [Bounded focus traversal](conformance-focus-traversal.md), [tab groups](conformance-tab-groups.md), portable ownership tests. |
 | Text values, directional ranges, composition; new TextField | `text.TextDocument`, `TextSelection`, `TextRange`, `TextComposition`; strict `utf8_offset/utf16_offset` | UTF-16 is current. Immutable branches do not enforce live owner/session freshness. **GP-01-SESSION** owns that missing shared host boundary. | Existing UTF-16/UTF-8 scalar-boundary and composition suites. |
 | Bounded editing, history and composition presentation; new TextField | `controls/text_field.TextField::handle_input/update_composition/update_composition_utf8/commit_composition/cancel_composition`, `revision`, `committed_document`, `caret_rect` | Reuse existing field transactions, undo/redo, cursor-stop admission and failure rollback. It is a bounded single-line LTR field, not general grapheme/bidi/multiline support. **GP-01-SESSION**, **GP-01-GEOMETRY**. | Portable field tests; backend-specific measurement and presentation separately tested. |
 | Measured caret/hit geometry; new TextField native adapter | `text_layout.TextMeasurement/CaretGeometry/TextHit`, Linux Pango, Windows DirectWrite and macOS CoreText packages | Returned coordinates/UTF-16 offsets remain explicit. No public universal shaping/segmentation engine; capability-gate unsupported layouts. **GP-01-GEOMETRY**. | Headless native measurement is distinct from rendered caret or candidate-window evidence. |
@@ -58,6 +61,32 @@ Source entrypoints and generated public API inventories:
 [text layout](../text_layout/pkg.generated.mbti),
 [platform](../platform/pkg.generated.mbti),
 [accessibility](../accessibility/pkg.generated.mbti).
+
+### Other merged core surfaces to reuse
+
+The integration main also provides these bounded public contracts. They do not
+add a shared Yami widget or change the Button oracle in this audit.
+
+- [Typed drag sessions](drag-session.md): `DragSession[T]`, `DragSource[T]` and
+  `DropTarget[T]` own the strict move-activation and one-shot typed drop channel.
+  Reuse them for a future drag adapter instead of adding another gesture owner.
+  Numeric-ID reuse still requires explicit lifecycle cancellation; this is not
+  an opaque incarnation token. Existing `DragGesture` behavior is unchanged.
+- [Uniform lists](uniform-list.md): `UniformList`, `UniformListIdSpace` and
+  `UniformListRange` use ordinary core layout for measured equal-height rows;
+  `ElementTree::uniform_list` exposes the materialized layout. The bounded
+  `UniformListClickSession` must reconcile every successfully published fresh
+  frame and cancel when the logical list/model is replaced. It does not replace
+  Button, drag or focus ownership. Variable-height rows, arbitrary nested list
+  shapes, selection/navigation and generic reconciliation are not implied.
+- [Retained bounds refresh](element-layout-bounds.md) copies only bounds and
+  retains the exact `FocusOwner`; topology, input metadata and viewport must
+  match and scroll trees are rejected. The separate `Button::with_bounds`
+  gesture-cancellation contract remains unchanged.
+
+These mappings identify reusable APIs, not new runtime qualification by this
+audit. Consult each surface's own exact-source evidence before making parity or
+host-support claims.
 
 ## Three OS host gaps
 
@@ -90,8 +119,9 @@ unsupported; these are two different facts.
   experimental routes, not blank-slate editor projects. macOS needs its missing
   native text client. Keep each OS result independent.
 - **GP-03-FOCUS**: build modal scoping/background suppression and robust focus
-  return around existing generational focus and flat traversal. Do not duplicate
-  flat traversal or infer safe return from a recycled integer ID.
+  return around existing generational focus and traversal, including signed
+  nested group-prefix ordering. Do not duplicate these owners, treat ordering
+  groups as modal traps, or infer safe return from a recycled integer ID.
 - **GP-03-SEMANTICS / GP-03-AX**: extend only fields/actions needed by Button,
   TextField and Dialog; bind external actions to the current window/layout/owner
   and same domain handler. Keep model, external API and screen-reader tests
