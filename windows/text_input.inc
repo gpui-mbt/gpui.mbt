@@ -867,6 +867,16 @@ static void gpui_text_session_reset_host(gpui_windows_host *host) {
   host->editor_error = 0;
 }
 
+/* CI-only state switch for the WndProc shortcut regression. It deliberately
+ * avoids allocating a document or an IME context; command shortcuts are handled
+ * before either is needed. */
+static void gpui_windows_test_set_text_session_state(int32_t armed,
+                                                     int32_t composing) {
+  g_gpui_text_session.armed = armed ? TRUE : FALSE;
+  g_gpui_text_session.window_id = armed ? g_host.window_id : 0;
+  g_gpui_text_session.composing = composing ? TRUE : FALSE;
+}
+
 static void gpui_text_session_shutdown(gpui_windows_host *host) {
   if (!host)
     return;
@@ -1554,18 +1564,6 @@ static BOOL gpui_text_session_handle_ime_char(gpui_windows_host *host,
   return TRUE;
 }
 
-static void gpui_text_session_keydown(gpui_windows_host *host,
-                                      WPARAM virtual_key, LPARAM lparam) {
-  if (!host || virtual_key < 'A' || virtual_key > 'Z')
-    return;
-  int32_t mods = modifiers_from_message(host, 0);
-  if (!(mods & (2 | 4 | 8)) || ((mods & 2) && (mods & 4)))
-    return; /* Ctrl+Alt is AltGr: let WM_CHAR carry text. */
-  BOOL repeat = (((uintptr_t)lparam >> 30) & 1u) != 0;
-  emit_event(host, 15, (double)(virtual_key + ('a' - 'A')),
-             repeat ? 1.0 : 0.0, 0, mods);
-}
-
 static int32_t gpui_text_session_start_record(gpui_windows_host *host) {
   gpui_text_session_state *session = &g_gpui_text_session;
   int32_t start = session->anchor_utf16;
@@ -1731,8 +1729,6 @@ static BOOL gpui_text_session_wndproc(gpui_windows_host *host, HWND hwnd,
     *result = 0;
     return TRUE;
   }
-  if (message == WM_KEYDOWN || message == WM_SYSKEYDOWN)
-    gpui_text_session_keydown(host, wparam, lparam);
   if (!g_gpui_text_session.armed || g_gpui_text_session.window_id !=
                                          host->window_id)
     return FALSE;
@@ -1740,7 +1736,7 @@ static BOOL gpui_text_session_wndproc(gpui_windows_host *host, HWND hwnd,
       (message == WM_KEYDOWN || message == WM_SYSKEYDOWN ||
        message == WM_KEYUP || message == WM_SYSKEYUP)) {
     BOOL command_shortcut =
-        (wparam >= 'A' && wparam <= 'Z') && (mods & (2 | 4 | 8)) &&
+        shortcut_key_candidate(wparam) && (mods & (2 | 4 | 8)) &&
         !((mods & 2) && (mods & 4));
     if (command_shortcut || wparam == VK_ESCAPE)
       return FALSE;

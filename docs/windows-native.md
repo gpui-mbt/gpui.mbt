@@ -115,10 +115,13 @@ back to Microsoft's WARP software driver when hardware device creation fails.
 - Basic pointer movement, mouse buttons, vertical/horizontal wheel, focus,
   common navigation keys, committed `WM_CHAR` text events, and arrow/hand/text
   cursors. Printable shortcut chords with Control/Alt/Meta also produce a
-  `Character` key-down so applications can distinguish `Ctrl+K` from committed
-  text; plain typing still arrives only through `WM_CHAR`. C0 control characters
-  are not committed as text. Wheel deltas are attached only after their event
-  slot is accepted, so queue or sequence exhaustion leaves earlier input records
+  single `Character` key-down so applications can distinguish `Ctrl+K` from
+  committed text; plain typing still arrives only through `WM_CHAR`. The
+  shortcut character is translated through the active keyboard layout, so
+  punctuation follows the user's layout instead of a fixed US mapping, and
+  Ctrl+Alt (AltGr) is left to `WM_CHAR`. C0 control characters are not
+  committed as text. Wheel deltas are attached only after their event slot is
+  accepted, so queue or sequence exhaustion leaves earlier input records
   intact. Key labels are not a source of committed text. The public
   `TextInput` capability remains unadvertised; the bounded field example uses
   the existing committed-text event path directly.

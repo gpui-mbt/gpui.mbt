@@ -103,6 +103,10 @@ typedef HWND(WINAPI *fn_set_capture)(HWND);
 typedef BOOL(WINAPI *fn_release_capture)(void);
 typedef BOOL(WINAPI *fn_track_mouse_event)(LPTRACKMOUSEEVENT);
 typedef SHORT(WINAPI *fn_get_key_state)(int);
+typedef HKL(WINAPI *fn_get_keyboard_layout)(DWORD);
+typedef UINT(WINAPI *fn_map_virtual_key_ex_w)(UINT, UINT, HKL);
+typedef HKL(WINAPI *fn_load_keyboard_layout_w)(LPCWSTR, UINT);
+typedef BOOL(WINAPI *fn_unload_keyboard_layout)(HKL);
 typedef HCURSOR(WINAPI *fn_load_cursor_w)(HINSTANCE, LPCWSTR);
 typedef HCURSOR(WINAPI *fn_set_cursor)(HCURSOR);
 typedef HDC(WINAPI *fn_get_dc)(HWND);
@@ -170,6 +174,10 @@ typedef struct gpui_windows_api {
   fn_release_capture release_capture;
   fn_track_mouse_event track_mouse_event;
   fn_get_key_state get_key_state;
+  fn_get_keyboard_layout get_keyboard_layout;
+  fn_map_virtual_key_ex_w map_virtual_key_ex_w;
+  fn_load_keyboard_layout_w load_keyboard_layout_w;
+  fn_unload_keyboard_layout unload_keyboard_layout;
   fn_load_cursor_w load_cursor_w;
   fn_set_cursor set_cursor;
   fn_get_dc get_dc;
@@ -287,6 +295,7 @@ typedef struct gpui_windows_host {
   int64_t test_present_count;
   int32_t test_text_mask_width;
   int32_t test_text_mask_height;
+  int32_t test_shortcut_modifiers;
   double readback_rgba[12];
 } gpui_windows_host;
 
@@ -551,6 +560,14 @@ static int32_t api_init(gpui_windows_host *host) {
   GPUI_LOAD(user32, track_mouse_event, fn_track_mouse_event,
             "TrackMouseEvent");
   GPUI_LOAD(user32, get_key_state, fn_get_key_state, "GetKeyState");
+  GPUI_LOAD(user32, get_keyboard_layout, fn_get_keyboard_layout,
+            "GetKeyboardLayout");
+  GPUI_LOAD(user32, map_virtual_key_ex_w, fn_map_virtual_key_ex_w,
+            "MapVirtualKeyExW");
+  GPUI_LOAD(user32, load_keyboard_layout_w, fn_load_keyboard_layout_w,
+            "LoadKeyboardLayoutW");
+  GPUI_LOAD(user32, unload_keyboard_layout, fn_unload_keyboard_layout,
+            "UnloadKeyboardLayout");
   GPUI_LOAD(user32, load_cursor_w, fn_load_cursor_w, "LoadCursorW");
   GPUI_LOAD(user32, set_cursor, fn_set_cursor, "SetCursor");
   GPUI_LOAD(user32, get_dc, fn_get_dc, "GetDC");
@@ -1514,7 +1531,8 @@ static int32_t modifiers_from_message(gpui_windows_host *host, WPARAM wparam) {
   return (((wparam & MK_SHIFT) || (shift & 0x8000)) ? 1 : 0) |
          (((wparam & MK_CONTROL) || (control & 0x8000)) ? 2 : 0) |
          ((alt & 0x8000) ? 4 : 0) |
-         (((meta_left | meta_right) & 0x8000) ? 8 : 0);
+         (((meta_left | meta_right) & 0x8000) ? 8 : 0) |
+         (host->test_shortcut_modifiers & 15);
 }
 
 static int32_t key_symbol_from_vk(WPARAM key) {
@@ -1566,37 +1584,56 @@ static void emit_character(gpui_windows_host *host, uint32_t scalar,
   emit_event(host, 16, (double)scalar, 0, 0, mods);
 }
 
-static int32_t character_from_vk(WPARAM key) {
-  if (key >= 'A' && key <= 'Z')
-    return (int32_t)('a' + (key - 'A'));
-  if (key >= '0' && key <= '9')
-    return (int32_t)key;
-  switch (key) {
-  case VK_OEM_1:
-    return ';';
-  case VK_OEM_PLUS:
-    return '=';
-  case VK_OEM_COMMA:
-    return ',';
-  case VK_OEM_MINUS:
-    return '-';
-  case VK_OEM_PERIOD:
-    return '.';
-  case VK_OEM_2:
-    return '/';
-  case VK_OEM_3:
-    return '`';
-  case VK_OEM_4:
-    return '[';
-  case VK_OEM_5:
-    return '\\';
-  case VK_OEM_6:
-    return ']';
-  case VK_OEM_7:
-    return '\'';
-  default:
+static BOOL shortcut_key_candidate(WPARAM key) {
+  return (key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9') ||
+         (key >= VK_OEM_1 && key <= VK_OEM_7) || key == VK_OEM_8 ||
+         key == VK_OEM_102;
+}
+
+/* Map the virtual key through the supplied keyboard layout. The low word is the
+ * unshifted character; a dead key reports the high bit and is not a shortcut. */
+static int32_t shortcut_character_for_layout(gpui_windows_host *host, HKL layout,
+                                             WPARAM key) {
+  if (!host || !layout || !host->api.map_virtual_key_ex_w)
     return 0;
+  UINT value =
+      host->api.map_virtual_key_ex_w((UINT)key, MAPVK_VK_TO_CHAR, layout);
+  if (value == 0 || (value & 0x80000000u) != 0)
+    return 0;
+  int32_t character = (int32_t)(value & 0xFFFFu);
+  if (character >= 'A' && character <= 'Z')
+    character += 'a' - 'A';
+  if (character < 0x20 || character == 0x7f)
+    return 0;
+  if (character > 0x10ffff || (character >= 0xd800 && character <= 0xdfff))
+    return 0;
+  return character;
+}
+
+/* Single shortcut emission path. It is called once from WndProc after the text
+ * session has declined the key, so an armed or composing session cannot produce
+ * a second Character key-down. */
+static void emit_shortcut_keydown(gpui_windows_host *host, WPARAM key,
+                                  LPARAM lparam, int32_t mods) {
+  if (!shortcut_key_candidate(key))
+    return;
+  if (!(mods & (2 | 4 | 8)) || ((mods & 2) && (mods & 4)))
+    return; /* no shortcut modifier, or Ctrl+Alt is AltGr. */
+  HKL layout =
+      host->api.get_keyboard_layout ? host->api.get_keyboard_layout(0) : NULL;
+  int32_t character = shortcut_character_for_layout(host, layout, key);
+  if (character == 0 && !host->api.map_virtual_key_ex_w) {
+    /* Layout translation is unavailable in this host. Preserve only the
+     * layout-independent letter/digit fallback; do not guess punctuation. */
+    if (key >= 'A' && key <= 'Z')
+      character = (int32_t)('a' + (key - 'A'));
+    else if (key >= '0' && key <= '9')
+      character = (int32_t)('0' + (key - '0'));
   }
+  if (character == 0)
+    return;
+  int32_t repeat = gpui_windows_key_repeat_from_lparam((uintptr_t)lparam);
+  emit_event(host, 15, (double)character, (double)repeat, 0, mods);
 }
 
 static UINT mouse_button_bit(UINT message, WPARAM wparam) {
@@ -1823,17 +1860,11 @@ static LRESULT CALLBACK gpui_window_proc(HWND hwnd, UINT message,
         host->events[at][7] = (double)gpui_windows_key_repeat_from_lparam(
             (uintptr_t)lparam);
       }
-    } else if ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN) &&
-               (mods & (2 | 4 | 8)) != 0) {
-      /* Printable shortcut chords carry a Character key-down so applications
+    } else if (message == WM_KEYDOWN || message == WM_SYSKEYDOWN) {
+      /* Printable shortcut chords carry one Character key-down so applications
        * can distinguish Ctrl+K from committed WM_CHAR text. Plain typing keeps
        * using WM_CHAR only, avoiding duplicate insertion. */
-      int32_t character = character_from_vk(wparam);
-      if (character != 0)
-        emit_event(host, 11, (double)character,
-                   (double)gpui_windows_key_repeat_from_lparam(
-                       (uintptr_t)lparam),
-                   0, mods);
+      emit_shortcut_keydown(host, wparam, lparam, mods);
     }
     if (message == WM_SYSKEYDOWN || message == WM_SYSKEYUP)
       return host->api.def_window_proc_w(hwnd, message, wparam, lparam);
@@ -3546,6 +3577,76 @@ int32_t gpui_windows_test_post_click(int32_t token, int32_t window, double x,
   return GPUI_WINDOWS_OK;
 }
 
+/* CI-only WndProc regression for shortcut emission. State 0 is unarmed, 1 is
+ * an armed non-composing session, and 2 is an armed composing session. The
+ * hook returns INVALID unless the real WndProc path emitted exactly one event. */
+int32_t gpui_windows_test_shortcut_wndproc(int32_t token, int32_t window,
+                                           int32_t virtual_key,
+                                           int32_t repeat, int32_t state,
+                                           double *event_data) {
+  int32_t status = check_window(token, window);
+  if (status != GPUI_WINDOWS_OK)
+    return status;
+  if (!native_e2e_enabled())
+    return GPUI_WINDOWS_UNSUPPORTED;
+  if (!event_data || virtual_key < 0 || virtual_key > 0xffff || state < 0 ||
+      state > 2)
+    return GPUI_WINDOWS_INVALID;
+  if (g_host.event_count >= GPUI_EVENT_CAPACITY)
+    return GPUI_WINDOWS_RESOURCE;
+  int32_t before = g_host.event_count;
+  int32_t previous_mods = g_host.test_shortcut_modifiers;
+  g_host.test_shortcut_modifiers = 2; /* Control */
+  if (state == 0)
+    gpui_windows_test_set_text_session_state(0, 0);
+  else if (state == 1)
+    gpui_windows_test_set_text_session_state(1, 0);
+  else
+    gpui_windows_test_set_text_session_state(1, 1);
+  LPARAM lparam = repeat ? (LPARAM)((uintptr_t)1 << 30) : 0;
+  (void)g_host.api.send_message_w(g_host.hwnd, WM_KEYDOWN,
+                                  (WPARAM)virtual_key, lparam);
+  g_host.test_shortcut_modifiers = previous_mods;
+  gpui_windows_test_set_text_session_state(0, 0);
+  if (g_host.event_count != before + 1)
+    return GPUI_WINDOWS_INVALID;
+  int32_t at = (g_host.event_read + before) % GPUI_EVENT_CAPACITY;
+  memcpy(event_data, g_host.events[at], sizeof(g_host.events[at]));
+  return GPUI_WINDOWS_OK;
+}
+
+/* CI-only layout probe. Loads US and French layouts explicitly so the result
+ * does not depend on the runner's active layout. */
+int32_t gpui_windows_test_shortcut_layout(int32_t token, int32_t virtual_key,
+                                          double *output) {
+  int32_t status = check_host(token, TRUE);
+  if (status != GPUI_WINDOWS_OK)
+    return status;
+  if (!native_e2e_enabled())
+    return GPUI_WINDOWS_UNSUPPORTED;
+  if (!output || virtual_key < 0 || virtual_key > 0xffff)
+    return GPUI_WINDOWS_INVALID;
+  if (!g_host.api.load_keyboard_layout_w ||
+      !g_host.api.unload_keyboard_layout || !g_host.api.map_virtual_key_ex_w)
+    return GPUI_WINDOWS_UNSUPPORTED;
+  HKL us = g_host.api.load_keyboard_layout_w(L"00000409", KLF_NOTELLSHELL);
+  HKL fr = g_host.api.load_keyboard_layout_w(L"0000040C", KLF_NOTELLSHELL);
+  if (!us || !fr) {
+    if (us)
+      (void)g_host.api.unload_keyboard_layout(us);
+    if (fr)
+      (void)g_host.api.unload_keyboard_layout(fr);
+    return GPUI_WINDOWS_UNSUPPORTED;
+  }
+  output[0] =
+      (double)shortcut_character_for_layout(&g_host, us, (WPARAM)virtual_key);
+  output[1] =
+      (double)shortcut_character_for_layout(&g_host, fr, (WPARAM)virtual_key);
+  (void)g_host.api.unload_keyboard_layout(us);
+  (void)g_host.api.unload_keyboard_layout(fr);
+  return GPUI_WINDOWS_OK;
+}
+
 /* Test-only independent-process probes pump sent ownership messages while
  * awaiting a bounded challenge handshake. */
 #include "clipboard_interop_test.inc"
@@ -3910,6 +4011,25 @@ int32_t gpui_windows_test_post_click(int32_t host, int32_t window, double x,
   (void)window;
   (void)x;
   (void)y;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_shortcut_wndproc(int32_t host, int32_t window,
+                                           int32_t virtual_key,
+                                           int32_t repeat, int32_t state,
+                                           double *event_data) {
+  (void)host;
+  (void)window;
+  (void)virtual_key;
+  (void)repeat;
+  (void)state;
+  (void)event_data;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_shortcut_layout(int32_t host, int32_t virtual_key,
+                                          double *output) {
+  (void)host;
+  (void)virtual_key;
+  (void)output;
   return GPUI_WINDOWS_UNSUPPORTED;
 }
 

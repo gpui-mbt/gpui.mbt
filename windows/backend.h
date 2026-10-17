@@ -146,6 +146,13 @@ int32_t gpui_windows_test_post_key(int32_t host, int32_t window, int32_t kind,
                                    int32_t value, int32_t modifiers);
 int32_t gpui_windows_test_post_click(int32_t host, int32_t window, double x,
                                      double y);
+/* CI-only WndProc shortcut regression and keyboard-layout probe. */
+int32_t gpui_windows_test_shortcut_wndproc(int32_t host, int32_t window,
+                                           int32_t virtual_key,
+                                           int32_t repeat, int32_t state,
+                                           double *event_data);
+int32_t gpui_windows_test_shortcut_layout(int32_t host, int32_t virtual_key,
+                                          double *output);
 /* CI-only synthetic staging through the production IMM composition helpers. */
 int32_t gpui_windows_test_text_session_staging(int32_t *failed_stage,
                                               double *repeat_event);

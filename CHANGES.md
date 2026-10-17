@@ -12,9 +12,11 @@
 
 ### Changed
 
-- Windows printable shortcut chords with Control/Alt/Meta now produce a
+- Windows printable shortcut chords with Control/Alt/Meta now produce one
   `Character` key-down event in addition to committed `WM_CHAR` text, so
-  applications can implement Ctrl-based commands.
+  applications can implement Ctrl-based commands. The event is emitted from a
+  single WndProc path and the character is translated through the active
+  keyboard layout.
 
 ### Fixed
 

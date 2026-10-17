@@ -112,6 +112,16 @@ Invoke-CheckedCommand -Program $moon -Arguments @(
 Invoke-CheckedCommand -Program $moon -Arguments @(
   "test", "--package", "f4ah6o/gpui/windows", "--target", "native",
   "--deny-warn", "--no-parallelize", "--filter",
+  "Windows shortcut WndProc emits exactly one event"
+) -LogName "windows-shortcut-wndproc.log"
+Invoke-CheckedCommand -Program $moon -Arguments @(
+  "test", "--package", "f4ah6o/gpui/windows", "--target", "native",
+  "--deny-warn", "--no-parallelize", "--filter",
+  "Windows shortcut punctuation follows the keyboard layout"
+) -LogName "windows-shortcut-layout.log"
+Invoke-CheckedCommand -Program $moon -Arguments @(
+  "test", "--package", "f4ah6o/gpui/windows", "--target", "native",
+  "--deny-warn", "--no-parallelize", "--filter",
   "Windows D3D11 HWND renders and reads back first frame"
 ) -LogName "windows-e2e.log"
 Invoke-CheckedCommand -Program $moon -Arguments @(
