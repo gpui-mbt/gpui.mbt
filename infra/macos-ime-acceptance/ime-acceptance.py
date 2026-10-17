@@ -1310,7 +1310,9 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90,
         report["cleanup"] = cleanup
         if cleanup and cleanup.get("acknowledged") is True:
             report["gates"]["source_restoration"] = "PASS"
-        if process.returncode not in (None, 0):
+        elif report["gates"]["source_restoration"] == "UNRUN":
+            report["gates"]["source_restoration"] = "FAIL"
+        if process.poll() != 0:
             report["gates"]["normal_cleanup"] = "FAIL"
         try:
             app.close()
