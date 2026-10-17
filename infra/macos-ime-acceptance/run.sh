@@ -44,6 +44,7 @@ if [[ ! -x "$APP/Contents/MacOS/GpuiTextField" ]]; then
   echo 'FAIL: no fresh test-hook GpuiTextField.app was produced.' >&2
   exit 1
 fi
+export PYTHONDONTWRITEBYTECODE=1
 export GPUI_FIELD_MACOS_IME_DISPATCH_TRACE=1
 python3 infra/macos-ime-acceptance/ime-acceptance.py \
   --repo "$ROOT_DIR" \
