@@ -36,6 +36,7 @@ for argument in "$@"; do
   previous="$argument"
 done
 package="${!#}"
+if [[ "${MOON_NO_EXECUTABLE:-}" == 1 ]]; then exit 0; fi
 executable="${EXECUTABLE_NAME:-$(basename "$package")}.exe"
 output="$target/native/debug/build/$package/$executable"
 mkdir -p "$(dirname "$output")"
@@ -81,6 +82,12 @@ fi
         self.assertEqual(result.returncode, 0, result.stderr)
         binary = self.app / "build/Fixture.app/Contents/MacOS/Fixture"
         self.assertEqual(binary.read_text().strip(), str(self.app / "src/app"))
+
+    def test_successful_build_without_an_executable_rejects_stale_output(self):
+        self.assertEqual(self.build().returncode, 0)
+        result = self.build(MOON_NO_EXECUTABLE="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("expected exactly one built executable", result.stderr)
 
     def test_bundle_name_is_xml_escaped(self):
         name = 'Research & Planning <test> "v1"'

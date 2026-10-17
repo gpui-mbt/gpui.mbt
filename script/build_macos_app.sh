@@ -171,6 +171,12 @@ done
 xcrun clang "${CLANG_ARGS[@]}" "${SOURCES[@]}" "${FRAMEWORK_ARGS[@]}" -o "$APP_LIBRARY"
 
 cd "$ROOT"
+# A package can stop being executable while Moon leaves its previous binary
+# in the cache. Require this build to produce the executable being packaged.
+if [[ -d "$MOON_TARGET_DIR/native/debug/build" ]]; then
+  find "$MOON_TARGET_DIR/native/debug/build" -type f -name '*.exe' \
+    -not -path '*.dSYM/*' -delete
+fi
 moon build --target native --deny-warn --target-dir "$MOON_TARGET_DIR" "$PACKAGE_ROOT"
 EXECUTABLES=()
 while IFS= read -r -d '' executable; do
