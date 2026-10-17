@@ -1,0 +1,41 @@
+name: macOS Kotoeri harness static contracts
+
+on:
+  pull_request:
+    paths:
+      - 'infra/macos-desktop/**'
+      - 'platform/macos/native.m'
+      - '.github/workflows/macos-ime-contracts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Python parser and independent gate contracts
+        run: |
+          python3 -m py_compile infra/macos-desktop/ime-acceptance.py infra/macos-desktop/profile.py infra/macos-desktop/trace_contract.py
+          python3 -m unittest discover -s infra/macos-desktop/tests -p 'test_*.py'
+          bash -n infra/macos-desktop/run.sh
+      - name: CI is not a logged-in Kotoeri desktop
+        run: echo "Native Kotoeri and ScreenCaptureKit acceptance = UNRUN"
+
+  appkit-test-hook-build:
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: hustcer/setup-moonbit@1522f9aef02a8ca0187dfc00a41f5dd6b16750f7
+        with:
+          version: 0.10.15+943464bfa
+          core-version: 0.10.15+943464bfa
+      - name: Compile GPUI_TESTING trace into isolated macOS app
+        run: |
+          ./script/build_and_run.sh --demo text-field --test-hooks --build --target-dir "$RUNNER_TEMP/macos-kotoeri-build"
+      - name: No logged-in Japanese IME acceptance from CI
+        run: echo "Live IME/pixel/cleanup = UNRUN"
