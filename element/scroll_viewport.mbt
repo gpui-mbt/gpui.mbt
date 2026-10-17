@@ -281,6 +281,7 @@ fn resolve_scroll_nodes(
       scroll_viewport: viewport,
       uniform_list: uniform,
       deferred: original.deferred,
+      deferred_group: original.deferred_group,
       anchored_after: original.anchored_after,
       window_clip: original.window_clip,
     })

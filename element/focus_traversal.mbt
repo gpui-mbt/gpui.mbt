@@ -66,6 +66,7 @@ pub fn ElementNode::with_tab_index(
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
     deferred: self.deferred,
+    deferred_group: self.deferred_group,
     anchored_after: self.anchored_after,
     window_clip: self.window_clip,
   }
@@ -97,6 +98,7 @@ pub fn ElementNode::with_tab_group_index(
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
     deferred: self.deferred,
+    deferred_group: self.deferred_group,
     anchored_after: self.anchored_after,
     window_clip: self.window_clip,
   }
@@ -121,6 +123,7 @@ pub fn ElementNode::with_tab_stop(
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
     deferred: self.deferred,
+    deferred_group: self.deferred_group,
     anchored_after: self.anchored_after,
     window_clip: self.window_clip,
   }

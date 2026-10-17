@@ -83,6 +83,7 @@ pub struct ElementNode {
   priv scroll_viewport : ScrollViewport?
   priv uniform_list : UniformListLayout?
   priv deferred : Int32?
+  priv deferred_group : UInt64?
   priv anchored_after : UInt64?
   priv window_clip : @primitives.Rect?
 }
@@ -106,6 +107,7 @@ pub fn ElementNode::new(
     scroll_viewport: None,
     uniform_list: None,
     deferred: None,
+    deferred_group: None,
     anchored_after: None,
     window_clip: None,
   }
@@ -169,6 +171,7 @@ pub fn ElementNode::with_focusable(
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
     deferred: self.deferred,
+    deferred_group: self.deferred_group,
     anchored_after: self.anchored_after,
     window_clip: self.window_clip,
   }
@@ -192,6 +195,7 @@ pub fn ElementNode::with_pointer_events(
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
     deferred: self.deferred,
+    deferred_group: self.deferred_group,
     anchored_after: self.anchored_after,
     window_clip: self.window_clip,
   }
@@ -215,6 +219,7 @@ pub fn ElementNode::with_background(
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
     deferred: self.deferred,
+    deferred_group: self.deferred_group,
     anchored_after: self.anchored_after,
     window_clip: self.window_clip,
   }
@@ -323,8 +328,8 @@ pub fn DispatchOutcome::was_stopped(self : DispatchOutcome) -> Bool {
 
 ///|
 /// Headless element tree. Nodes retain structural preorder independently from
-/// paint order. Flat deferred subtrees paint after ordinary nodes, in ascending
-/// priority order with stable structural ties.
+/// paint order. Deferred groups paint after ordinary nodes, in ascending
+/// priority order with stable discovery ties. Nested groups are independent.
 pub struct ElementTree {
   priv nodes : Array[ElementNode]
   focused : UInt64?
@@ -351,16 +356,29 @@ pub fn ElementTree::new(
       Some(priority) if priority < 0 => return Err(InvalidDeferredPriority)
       _ => ()
     }
-    // Internally reassembled snapshots must retain an indivisible deferred
-    // subtree: descendants inherit its exact priority, not only its
-    // deferred classification. Public node-copy operations preserve it.
+    // Identity is independent of priority: equal-priority nested groups still
+    // detach from their parent's paint span. Only a group root may change it.
+    if (node.deferred is None) != (node.deferred_group is None) {
+      return Err(UnsupportedAnchoredComposition)
+    }
+    let group_root = node.deferred_group == Some(node.id)
+    let mut parent_found = false
     for previous = 0; previous < index; previous = previous + 1 {
       let parent = owned[previous]
-      if Some(parent.id) == node.parent &&
-        parent.deferred is Some(_) &&
-        node.deferred != parent.deferred {
-        return Err(UnsupportedAnchoredComposition)
+      if Some(parent.id) == node.parent {
+        parent_found = true
+        if group_root {
+          if parent.deferred_group is Some(_) && node.anchored_after is None {
+            return Err(UnsupportedAnchoredComposition)
+          }
+        } else if node.deferred != parent.deferred ||
+          node.deferred_group != parent.deferred_group {
+          return Err(UnsupportedAnchoredComposition)
+        }
       }
+    }
+    if !parent_found && node.deferred_group is Some(_) && !group_root {
+      return Err(UnsupportedAnchoredComposition)
     }
     has_attachment = has_attachment ||
       node.deferred is Some(_) ||
@@ -391,6 +409,8 @@ pub fn ElementTree::new(
           }
         }
         let mut ancestor = node.parent
+        let mut attachment_count = 0
+        let mut different_clip = false
         while ancestor is Some(_) {
           let current_id = ancestor.unwrap()
           ancestor = None
@@ -398,12 +418,28 @@ pub fn ElementTree::new(
             let candidate = owned[previous]
             if candidate.id == current_id {
               if candidate.anchored_after is Some(_) {
-                return Err(UnsupportedAnchoredComposition)
+                attachment_count += 1
+                if attachment_count >= 2 ||
+                  node.deferred is None ||
+                  candidate.deferred is None ||
+                  !group_root ||
+                  node.deferred_group == candidate.deferred_group {
+                  return Err(UnsupportedAnchoredComposition)
+                }
+              }
+              // Nested scheduling does not restore arbitrary ancestor clips.
+              // Only the full-window mask used by the real lifecycle is valid.
+              if candidate.window_clip is Some(_) &&
+                candidate.window_clip != node.window_clip {
+                different_clip = true
               }
               ancestor = candidate.parent
               break
             }
           }
+        }
+        if attachment_count > 0 && different_clip {
+          return Err(UnsupportedAnchoredComposition)
         }
         if !reference_found {
           return Err(InvalidAnchoredShape)

@@ -113,7 +113,7 @@ test "anchored measurement checks descendant element and layout item identity" {
 }
 
 ///|
-test "anchored node validation preserves attachment reference and rejects nesting" {
+test "anchored node validation preserves references and rejects malformed nested copies" {
   let reference = Element::new(
     @layout.FlexItem::new(
       2,
