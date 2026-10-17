@@ -22,6 +22,8 @@ pub enum ElementError {
   UnsupportedGridScroll
   InvalidAnchoredShape
   UnsupportedAnchoredComposition
+  DuplicatePaintBinding
+  PaintFailure(@scene.PaintError)
 } derive(Eq)
 
 ///|
@@ -871,6 +873,14 @@ pub fn ElementTree::clear_focus(self : ElementTree) -> ElementTree {
 /// Emit the deterministic headless scene for the currently supported element
 /// paint surface: background quads and balanced descendant scroll clips.
 pub fn ElementTree::to_scene(self : ElementTree) -> @scene.Scene {
+  self.paint_bound_commands([])
+}
+
+///|
+fn ElementTree::paint_bound_commands(
+  self : ElementTree,
+  paints : Array[@scene.PaintCommand],
+) -> @scene.Scene {
   let commands : Array[@scene.PaintCommand] = []
   let ancestors : Array[ElementNode] = []
   for paint_index in deferred_paint_indices(self.nodes) {
@@ -885,10 +895,19 @@ pub fn ElementTree::to_scene(self : ElementTree) -> @scene.Scene {
         _ => ()
       }
     }
-    match node.background {
-      None => ()
-      Some(color) =>
-        commands.push(@scene.PaintCommand::quad(node.id, node.bounds, color))
+    let mut bound = false
+    for command in paints {
+      if command.id() == node.id {
+        commands.push(command)
+        bound = true
+      }
+    }
+    if !bound {
+      match node.background {
+        None => ()
+        Some(color) =>
+          commands.push(@scene.PaintCommand::quad(node.id, node.bounds, color))
+      }
     }
     match node.window_clip {
       Some(bounds) =>
