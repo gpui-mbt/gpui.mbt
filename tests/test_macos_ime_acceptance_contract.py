@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -229,6 +230,17 @@ class LocalStaticTests(unittest.TestCase):
         for phase in ("awaiting_ack", "last_presented_batch_sequence", "source_restored"):
             self.assertIn(phase, trace if phase != "source_restored" else native)
         self.assertNotIn('@"text":', trace)
+
+    def test_shell_entrypoint_parses_under_bash(self):
+        outcome = subprocess.run(["bash", "-n", str(HERE / "run.sh")],
+                                 text=True, capture_output=True, check=False)
+        self.assertEqual(outcome.returncode, 0, outcome.stderr)
+
+    def test_immediate_preview_mode_cannot_claim_pixel_acceptance(self):
+        source = (HERE / "ime-acceptance.py").read_text(encoding="utf-8")
+        self.assertIn("if diagnostic_immediate_preview:", source)
+        self.assertIn('raise AcceptanceError(\n                "DIAGNOSTIC ONLY:', source)
+        self.assertIn('parser.add_argument("--diagnostic-immediate-preview", action="store_true"', source)
 
     def test_profile_refuses_non_arm64_os(self):
         with mock.patch.object(profile.platform, "system", return_value="Linux"):
