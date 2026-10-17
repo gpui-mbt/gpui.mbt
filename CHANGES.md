@@ -4,6 +4,11 @@
 
 ### Added
 
+- Add an opt-in live focus-scope session with checked revision admission, bounded
+  nested modal lifetimes, destructive suffix teardown, exact focus restoration,
+  scoped event/wheel routes, and explicit interaction cancellation hooks.
+  (`docs/focus-scopes.md`)
+
 - Add bounded explicit equal-fraction grid layout, opt-in mixed flex/grid trees,
   and deferred container queries with per-request one-shot prepaint, global
   generated-tree validation, physical overflow, and absolute device-edge

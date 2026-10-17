@@ -88,6 +88,24 @@ pub fn ElementTree::scroll_wheel(
   delta_x : Double,
   delta_y : Double,
 ) -> Result[Array[ScrollViewport], ScrollError] {
+  self.scroll_wheel_on_route(
+    position,
+    delta_x,
+    delta_y,
+    self.dispatch_pointer(position).bubble(),
+  )
+}
+
+///|
+// Scope controllers provide a truncated route; ordinary tree behavior remains
+// the complete bubble route above.
+fn ElementTree::scroll_wheel_on_route(
+  self : ElementTree,
+  position : @primitives.Point,
+  delta_x : Double,
+  delta_y : Double,
+  route : Array[UInt64],
+) -> Result[Array[ScrollViewport], ScrollError] {
   if !scroll_finite(delta_x) || !scroll_finite(delta_y) {
     Err(NonFiniteValue)
   } else {
@@ -97,7 +115,7 @@ pub fn ElementTree::scroll_wheel(
       (0.0, delta_y)
     }
     let updates : Array[ScrollViewport] = []
-    for id in self.dispatch_pointer(position).bubble() {
+    for id in route {
       match self.node(id) {
         Some(node) if node.pointer_events &&
           pointer_in_bounds(node.bounds, position) =>
