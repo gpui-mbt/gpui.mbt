@@ -29,6 +29,7 @@ pub fn Button::is_pressed(Self) -> Bool
 pub fn Button::label(Self) -> String
 pub fn Button::new(UInt64, @primitives.Rect, String) -> Result[Self, ButtonError]
 pub fn Button::paint_items(Self, UInt64) -> Result[Array[@scene.SceneItem], ButtonPaintError]
+pub fn Button::paint_items_with_palette(Self, UInt64, ButtonPaintPalette) -> Result[Array[@scene.SceneItem], ButtonPaintError]
 pub fn Button::with_bounds(Self, @primitives.Rect) -> Result[Self, ButtonError]
 pub fn Button::with_enabled(Self, Bool) -> Self
 pub fn Button::with_focus(Self, Bool) -> Self
@@ -62,6 +63,12 @@ pub(all) enum ButtonPaintError {
 } derive(Eq)
 pub fn ButtonPaintError::equal(Self, Self) -> Bool
 pub fn ButtonPaintError::not_equal(Self, Self) -> Bool
+
+pub struct ButtonPaintPalette {
+  // private fields
+}
+pub fn ButtonPaintPalette::new(normal_border~ : @primitives.Color, focused_border~ : @primitives.Color, disabled_border~ : @primitives.Color, normal_fill~ : @primitives.Color, hovered_fill~ : @primitives.Color, pressed_fill~ : @primitives.Color, loading_fill~ : @primitives.Color, disabled_fill~ : @primitives.Color, enabled_foreground~ : @primitives.Color, disabled_foreground~ : @primitives.Color) -> Self
+pub fn ButtonPaintPalette::standard() -> Self
 
 // Type aliases
 
