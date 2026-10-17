@@ -4,15 +4,87 @@
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.8.0 - 2026-10-17
+
+This pre-1.0 feature release includes the reusable native application APIs and
+portable layout, input, and paint additions since 0.7.2. Native hosts remain
+experimental; this release does not promote a platform support tier or satisfy
+the pending 1.0 production-readiness gates.
+
+### Added
+
+- Add a reusable portable native application runtime (`app/`) with a
+  `WindowView` trait, sampled `WindowMetrics`, close/exit policy, event
+  sequence checks, frame viewport/scale validation, bounded ticks, and
+  after-present/idle hooks. The runtime is generic over the shared
+  `platform.Backend` contract.
+- Add a deterministic `scene.SceneBuilder` with monotonic item IDs, reserved-ID
+  ranges, external item merging, clip-chain deduplication, border quads, and
+  measured horizontal/vertical text alignment.
+- Add `platform/macos_app/` helpers for reusable macOS applications: CoreText
+  measure/admit/hit callbacks for `TextField`, a bounded scene-label painter
+  cache, cursor state, and one-window startup over the shared app runtime.
+- Add `platform/testing` frame analysis helpers (logical-pixel comparison,
+  region diffs, ink counts) and a deterministic `ScriptedBackend`.
+- Add `TextFieldPaintPalette` and `TextField::paint_items_with_palette` while
+  preserving the existing default field scene byte-for-byte.
+- Add `script/build_macos_app.sh` for reusable macOS app-bundle builds, smoke
+  runs, frame artifact conversion, and PID/log handling.
+
 - Add immutable caller-supplied Button paint palettes with ten RGBA roles and
   an additive paint entry point, preserving default scenes, geometry, validation,
   and input behavior. (`docs/button-paint-palette.md`)
 
 - Add bounded measured anchored attachments with all eight anchors, explicit
-  Local/Window positions, SnapToWindow fitting, two-stage offset rounding,
-  priority-zero deferred painting/hits, viewport clips, and preserved structural
-  input identities. Unsupported compositions fail explicitly.
+  Local/Window positions, SnapToWindow fitting with an optional scalar margin,
+  two-stage offset rounding, stable nonnegative flat deferred priorities,
+  viewport clips, and preserved structural input identities. Priority defaults
+  to zero; nested deferred attachments and unsupported compositions fail
+  explicitly.
   (`docs/anchored-deferred.md`)
+
+- Add typed `DragSession[T]` source/target bindings with shared one-shot drop
+  consumption, explicit cancellation, detached snapshots, and validation that
+  preserves state on errors. The existing immutable `DragGesture` behavior is
+  unchanged. (`docs/drag-session.md`)
+
+- Add two-axis element scroll viewports with retained caller-owned offsets,
+  layout-derived limits, ancestor scene/hit clips, and bounded wheel updates.
+  Add same-topology, non-scroll `ElementTree::with_layout_bounds` refresh that
+  preserves the exact focus acquisition. (`docs/element-scroll-viewports.md`,
+  `docs/element-layout-bounds.md`)
+
+- Add explicit signed tab indices and tab stops, next/previous traversal,
+  keyboard/mouse input modality, focus-visible queries, and hover policy.
+  Hosts still choose when to traverse and update modality.
+  (`docs/conformance-focus-traversal.md`)
+
+- Add the headless `text_session` composition-owner seam with checked delivery
+  targets, explicit rearm/rebind/close, and stale/replayed ingress rejection.
+  This does not add a native IME route or qualify Japanese input.
+  (`docs/text-session.md`)
+
+- Add an experimental Linux/X11 native host implementing the shared backend
+  and frame-readback contracts, with bounded frame-readiness checks. This does
+  not establish a production X11 support tier. (`x11/`)
+
+- Add canonical floating-point solid/gradient paints, rounded quads and bounded
+  convex polygons, element paint bindings, and bounded reference rasterization.
+  Existing Quad/Text/TextRun serialization is unchanged. Native presenters
+  explicitly reject enhanced paint instead of dropping or substituting it.
+  (`docs/enhanced-paint.md`)
 
 - Add an opt-in live focus-scope session with checked revision admission, bounded
   nested modal lifetimes, destructive suffix teardown, exact focus restoration,
@@ -86,6 +158,27 @@
 ### Security
 
 ### Migration
+
+- Existing public function signatures remain available. New enum cases and
+  element metadata can require updates to exhaustive matches or code that
+  depends on record shapes; use the public constructors/builders and check
+  consumers against the updated generated interfaces.
+- Update pointer-edge expectations: hit bounds and scroll clips are half-open,
+  so right/bottom edges and zero-area nodes no longer receive hits.
+- Revalidate layout snapshots that relied on overflowing center/end items being
+  clamped to zero, full allocation by fractional flex factors, or pre-limit
+  flex distribution. The corrected behavior is documented in the conformance
+  guides linked above. Device-scale layout remains opt-in.
+- New tab-stop metadata defaults to disabled; hosts must opt in and explicitly
+  route traversal and input modality. Rebuilding an element tree still creates
+  a new focus lineage; use the bounded retained-geometry API only when its
+  same-topology, non-scroll checks succeed.
+- Enhanced paints are opt-in. Keep native frames within the legacy v1 subset
+  until a backend advertises and validates a broader implementation; the new
+  paint model does not imply Metal, D3D11, GLES, or browser GPU parity.
+- The reusable macOS app helpers provide bounded CoreText labels and TextField
+  callbacks. They do not add committed text input/IME, native menus, a general
+  accessibility tree, multi-window orchestration, or renderer recovery.
 
 ## 0.7.2 - 2026-10-13
 

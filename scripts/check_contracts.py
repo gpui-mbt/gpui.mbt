@@ -634,6 +634,9 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
 
     allowed_internal_edges = {
         "primitives": set(),
+        # Portable application runtime above platform/scene contracts. It owns
+        # no native handles and can be reused by every native backend.
+        "app": {"platform", "scene", "diagnostics", "primitives"},
         # Shared semantics stay independent from layout, capabilities, and OS leaves.
         "accessibility": {"primitives"},
         # Text editing semantics stay portable and depend only on core values.
@@ -661,7 +664,14 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         # Native text measurers are platform leaves. The frame-readback seam is
         # portable in shape and depends only on the shared platform contract.
         "platform/macos_text": {"text_layout", "text", "primitives"},
-        "platform/testing": {"platform", "diagnostics"},
+        # Reusable macOS app-layer helpers above the backend: CoreText scene
+        # labels, TextField callbacks, cursor state and one-window startup.
+        "platform/macos_app": {
+            "app", "controls/text_field", "diagnostics", "platform",
+            "platform/macos", "platform/macos_text", "primitives", "scene",
+            "text", "text_layout",
+        },
+        "platform/testing": {"platform", "diagnostics", "primitives", "scene"},
         "examples/native_macos": {"platform/macos", "platform", "primitives", "diagnostics", "scene"},
         "ubuntu": {
             "accessibility", "platform", "platform/linux_text", "platform/testing",

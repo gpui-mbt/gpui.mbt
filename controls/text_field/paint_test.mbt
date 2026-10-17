@@ -350,3 +350,66 @@ test "field element node retains bounds parent and focused keyboard route" {
   assert_true(route.capture() == [5UL, 17UL])
   assert_true(route.bubble() == [17UL, 5UL])
 }
+
+///|
+fn field_test_custom_palette() -> @text_field.TextFieldPaintPalette {
+  @text_field.TextFieldPaintPalette::new(
+    @primitives.Color::rgba(1, 2, 3, 255).unwrap(),
+    @primitives.Color::rgba(4, 5, 6, 255).unwrap(),
+    @primitives.Color::rgba(7, 8, 9, 255).unwrap(),
+    @primitives.Color::rgba(10, 11, 12, 255).unwrap(),
+    @primitives.Color::rgba(13, 14, 15, 90).unwrap(),
+    @primitives.Color::rgba(16, 17, 18, 70).unwrap(),
+    @primitives.Color::rgba(19, 20, 21, 255).unwrap(),
+  )
+}
+
+///|
+test "custom field palette preserves ids and geometry while changing colors" {
+  let bounds = field_test_rect(10.0, 20.0, 100.0, 28.0)
+  let selected = field_test_selection(field_test_create("abcd", bounds), 1, 3)
+  let field = field_test_focused(selected)
+  let (standard_clip, standard_items) = field_test_paint(field, 600UL, 90)
+  let palette = field_test_custom_palette()
+  let (custom_clip, custom_items) = match
+    field.paint_items_with_palette(600UL, 90, palette) {
+    Ok(value) => value
+    Err(_) => fail("custom palette should paint")
+  }
+  assert_eq(custom_clip.id(), standard_clip.id())
+  assert_true(custom_clip.rects() == standard_clip.rects())
+  assert_eq(custom_items.length(), standard_items.length())
+  for index in 0..<custom_items.length() {
+    assert_eq(custom_items[index].id(), standard_items[index].id())
+  }
+  let (_, _, background, _, _, _) = field_test_quad(custom_items, 0)
+  assert_true(field_test_color_is(background, 1, 2, 3, 255))
+  for index in 1..<=4 {
+    let (_, _, border, _, _, _) = field_test_quad(custom_items, index)
+    assert_true(field_test_color_is(border, 7, 8, 9, 255))
+  }
+  let (_, _, selection, _, _, _) = field_test_quad(custom_items, 5)
+  assert_true(field_test_color_is(selection, 13, 14, 15, 90))
+  match custom_items[6] {
+    @scene.TextRunItem(color~, ..) =>
+      assert_true(field_test_color_is(color, 10, 11, 12, 255))
+    _ => fail("custom palette should keep the text run")
+  }
+  let (_, _, caret, _, _, _) = field_test_quad(custom_items, 7)
+  assert_true(field_test_color_is(caret, 19, 20, 21, 255))
+}
+
+///|
+test "custom field palette uses the unfocused selection color" {
+  let bounds = field_test_rect(10.0, 20.0, 100.0, 28.0)
+  let field = field_test_selection(field_test_create("abcd", bounds), 1, 3)
+  let palette = field_test_custom_palette()
+  let (_, items) = match field.paint_items_with_palette(700UL, 91, palette) {
+    Ok(value) => value
+    Err(_) => fail("custom palette should paint an unfocused field")
+  }
+  let (_, _, border, _, _, _) = field_test_quad(items, 1)
+  assert_true(field_test_color_is(border, 4, 5, 6, 255))
+  let (_, _, selection, _, _, _) = field_test_quad(items, 5)
+  assert_true(field_test_color_is(selection, 16, 17, 18, 70))
+}

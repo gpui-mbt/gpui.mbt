@@ -2,7 +2,7 @@
 
 Status: M1 core plus M2 layout/element and M3 headless scene package boundaries are implemented; experimental macOS, Ubuntu/Wayland/GLES (including bounded grayscale text frames), and Windows native slices are present; the JS browser hosts Weekboard and the retained interaction lab with its in-process capability/MCP seam; a separate Node stdio fixture exercises the stateless MCP wire adapter; native and browser MCP endpoint topology remains planned.
 
-This is the dependency and package boundary for M1 through M5. The module is `f4ah6o/gpui` in [`moon.mod`](../moon.mod), with current runtime packages `primitives/`, `diagnostics/`, `core/`, `layout/`, `scene/`, `element/`, `text/`, `text_layout/`, `capability/`, and optional `mcp/`, plus native and example adapters. The lifecycle and entity semantics are in [product.md](product.md), while implementation evidence is tracked in [compatibility.md](compatibility.md).
+This is the dependency and package boundary for M1 through M5. The module is `f4ah6o/gpui` in [`moon.mod`](../moon.mod), with current runtime packages `primitives/`, `diagnostics/`, `core/`, `layout/`, `scene/`, `element/`, `text/`, `text_layout/`, `app/`, `capability/`, and optional `mcp/`, plus native and example adapters. The lifecycle and entity semantics are in [product.md](product.md), while implementation evidence is tracked in [compatibility.md](compatibility.md).
 
 ## Runtime dependency budget
 
@@ -58,6 +58,7 @@ The facade is a re-export surface; it must not contain a second implementation o
 |---|---|---|---|
 | `primitives/` | IDs-independent geometry, color, input, and event value types | MoonBit standard/core only | app-owned IDs, state, platform handles |
 | `diagnostics/` | shared error categories and structured diagnostic values | MoonBit standard/core, `primitives/` | concrete backend types and framework state ownership |
+| `app/` | reusable single-window `WindowView` runtime, sampled metrics, frame validation, close/exit policy, bounded ticks, after-present/idle hooks | `platform/`, `scene/`, `diagnostics/`, `primitives/` | native handles, concrete backend types, or demo state |
 | `core/` | app/entity/task IDs, App/Entity/Context, lifecycle, subscriptions, deterministic foreground scheduler | MoonBit standard/core, `diagnostics/`, `primitives/` | window, OS, GPU, renderer, or concrete backend types |
 | `examples/headless/` | consumer usage example and executable API example test | public `core/`, `diagnostics/`, and `primitives/` interfaces | runtime imports, native/platform APIs, private core types |
 | `examples/browser_app/` | host-neutral interaction-lab model, event processing, flex layout, hit testing, and portable scene fixture | `core/`, `diagnostics/`, `element/`, `layout/`, `platform/`, `primitives/`, `scene/`, `capability/`, `mcp/` | DOM, Canvas, JS references, browser or native handles |
@@ -214,7 +215,12 @@ for FFI, build, font-fixture, and dependency/license boundaries.
 
 ## Initial native package edges
 
-The first macOS slice adds checked edges `platform -> primitives/diagnostics/scene`,
+The reusable application layer adds `app -> platform/scene/diagnostics/primitives`
+and `platform/macos_app -> app/platform/platform/macos/platform/macos_text/
+controls/text_field/scene/text/text_layout/primitives/diagnostics`.
+`platform/testing` adds `primitives` and `scene` for deterministic frame and
+backend fixtures. The first macOS slice adds checked edges
+`platform -> primitives/diagnostics/scene`,
 `platform/macos -> platform/primitives/diagnostics/scene`, and
 `examples/native_macos -> platform/macos/platform/primitives/diagnostics/scene`.
 The portable Backend trait includes frame submission in this first slice; a
