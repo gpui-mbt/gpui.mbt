@@ -1,4 +1,12 @@
 ///|
+fn macos_app_coretext_available() -> Bool {
+  match @macos_text.require_grayscale_raster() {
+    Ok(_) => true
+    Err(_) => false
+  }
+}
+
+///|
 fn macos_app_rect(
   x : Double,
   y : Double,
@@ -15,6 +23,9 @@ fn macos_app_color() -> @primitives.Color {
 
 ///|
 test "macOS text field adapter measures, admits and hits CoreText geometry" {
+  if !macos_app_coretext_available() {
+    return
+  }
   let adapter = @macos_app.MacosTextFieldAdapter::new(16.0).unwrap()
   let document = @text.TextDocument::new("Hello").unwrap()
   let measurement = adapter.measure(document).unwrap()
@@ -35,6 +46,9 @@ test "macOS text field adapter measures, admits and hits CoreText geometry" {
 
 ///|
 test "macOS text painter caches bounded CoreText measurements" {
+  if !macos_app_coretext_available() {
+    return
+  }
   let painter = @macos_app.MacosTextPainter::new(2).unwrap()
   let first = painter.measure("Hello", 16.0).unwrap()
   assert_true(first.width() > 0.0)
@@ -53,6 +67,9 @@ test "macOS text painter caches bounded CoreText measurements" {
 
 ///|
 test "macOS text painter aligns CoreText labels in a scene builder" {
+  if !macos_app_coretext_available() {
+    return
+  }
   let painter = @macos_app.MacosTextPainter::new(16).unwrap()
   let builder = @scene.SceneBuilder::new(
     macos_app_rect(0.0, 0.0, 100.0, 40.0),
