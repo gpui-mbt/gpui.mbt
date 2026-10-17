@@ -4,6 +4,27 @@
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Deprecated
+
+### Removed
+
+### Security
+
+### Migration
+
+## 0.9.0 - 2026-10-18
+
+This pre-1.0 feature release adds reusable Windows application helpers and
+deterministic Windows input hooks. Native hosts remain experimental; this
+release does not promote a platform support tier or satisfy the pending 1.0
+production-readiness gates.
+
+### Added
+
 - Add `platform/windows_app` reusable Windows application helpers: bounded
   DirectWrite scene-label measurement, `TextField` measure/admit/hit callbacks,
   cursor state, window configuration, and a one-window `app.WindowView` runner.

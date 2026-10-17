@@ -1,0 +1,79 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/gpui/platform/windows_app"
+
+import {
+  "f4ah6o/gpui/app",
+  "f4ah6o/gpui/controls/text_field",
+  "f4ah6o/gpui/diagnostics",
+  "f4ah6o/gpui/platform",
+  "f4ah6o/gpui/platform/windows_text",
+  "f4ah6o/gpui/primitives",
+  "f4ah6o/gpui/scene",
+  "f4ah6o/gpui/text",
+  "f4ah6o/gpui/text_layout",
+  "f4ah6o/gpui/windows",
+}
+
+// Values
+pub fn[V : @app.WindowView] run_main_window(@windows.Host, WindowsWindowConfig, V, timeout_ms? : Int, max_ticks? : Int?, present_on_start? : Bool) -> Result[@app.WindowRunOutcome, @diagnostics.FrameworkError]
+
+// Errors
+
+// Types and methods
+pub struct CursorState {
+  // private fields
+}
+pub fn CursorState::apply(Self, @windows.Host, @platform.Cursor) -> Result[Bool, @diagnostics.FrameworkError]
+pub fn CursorState::current(Self) -> @platform.Cursor?
+pub fn CursorState::new() -> Self
+
+pub(all) struct TextMetrics {
+  width : Double
+  line_height : Double
+}
+pub fn TextMetrics::line_height(Self) -> Double
+pub fn TextMetrics::width(Self) -> Double
+
+pub struct WindowsTextFieldAdapter {
+  // private fields
+}
+pub fn WindowsTextFieldAdapter::admit(Self, @text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]
+pub fn WindowsTextFieldAdapter::font_size(Self) -> Double
+pub fn WindowsTextFieldAdapter::hit(Self, @text.TextDocument, @primitives.Point) -> Result[@text_layout.TextHit, @text_field.TextFieldError]
+pub fn WindowsTextFieldAdapter::measure(Self, @text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError]
+pub fn WindowsTextFieldAdapter::new(Double) -> Result[Self, @text_field.TextFieldError]
+
+pub(all) enum WindowsTextPaintError {
+  Text(@windows_text.WindowsTextError)
+  Scene(@scene.SceneBuilderError)
+  UnsupportedText
+  InvalidMetrics
+} derive(Eq)
+pub fn WindowsTextPaintError::equal(Self, Self) -> Bool
+pub fn WindowsTextPaintError::not_equal(Self, Self) -> Bool
+
+pub struct WindowsTextPainter {
+  // private fields
+}
+pub fn WindowsTextPainter::cache_entries(Self) -> Int
+pub fn WindowsTextPainter::cache_hits(Self) -> Int
+pub fn WindowsTextPainter::cache_misses(Self) -> Int
+pub fn WindowsTextPainter::label(Self, @scene.SceneBuilder, @primitives.Rect, String, Double, @primitives.Color, @scene.TextAlign, @scene.TextVerticalAlign, Int?) -> Result[Unit, WindowsTextPaintError]
+pub fn WindowsTextPainter::measure(Self, String, Double) -> Result[TextMetrics, WindowsTextPaintError]
+pub fn WindowsTextPainter::new(Int) -> Result[Self, WindowsTextPaintError]
+
+pub(all) struct WindowsWindowConfig {
+  title : String
+  width : Double
+  height : Double
+  require_text : Bool
+}
+pub fn WindowsWindowConfig::height(Self) -> Double
+pub fn WindowsWindowConfig::new(String, Double, Double, require_text? : Bool) -> Result[Self, @diagnostics.FrameworkError]
+pub fn WindowsWindowConfig::require_text(Self) -> Bool
+pub fn WindowsWindowConfig::title(Self) -> String
+pub fn WindowsWindowConfig::width(Self) -> Double
+
+// Type aliases
+
+// Traits
