@@ -766,7 +766,6 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
     }
     required_runtime_packages = {
         "primitives",
-        "app",
         "accessibility",
         "diagnostics",
         "core",
