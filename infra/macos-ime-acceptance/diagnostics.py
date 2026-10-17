@@ -124,6 +124,25 @@ def analyze_log(path):
     route_uptime = None if not return_begin else return_begin["data"].get("uptime_ms")
     end_uptime = next((r["data"].get("uptime_ms") for r in native
                        if r["data"].get("phase") == "key_up_done" and r["data"].get("key_code") == RETURN_KEY), None)
+    timeline = path.with_name("timeline.ndjson")
+    elapsed_return_to_failure_ms = None
+    if timeline.is_file() and return_begin and failures:
+        try:
+            moments = {
+                row["line"]: row["monotonic_ns"]
+                for row in (strict_json(line) for line in timeline.read_text().splitlines())
+                if type(row) is dict and type(row.get("line")) is int and
+                   type(row.get("monotonic_ns")) is int
+            }
+            end = next((row["line"] for row in failures if row["line"] in moments), None)
+            if end is not None and return_begin["line"] in moments:
+                elapsed = moments[end] - moments[return_begin["line"]]
+                if elapsed >= 0:
+                    elapsed_return_to_failure_ms = round(elapsed / 1_000_000, 3)
+                else:
+                    errors.append("non-monotonic Return-to-timeout line timestamps")
+        except (OSError, ValueError, TypeError, KeyError) as error:
+            errors.append("invalid timeline evidence: " + str(error))
     return {
         "schema_version": 1,
         "integrity": "FAIL" if errors or any(r["data"].get("phase") == "truncated" for r in native) else "PASS",
@@ -146,6 +165,7 @@ def analyze_log(path):
         "operation_iteration_limit": limit,
         "return_route_uptime_ms": route_uptime,
         "return_keyup_uptime_ms": end_uptime,
+        "elapsed_return_to_failure_ms": elapsed_return_to_failure_ms,
         "batch_enqueue_count": len(enqueued),
         "ack_count": len(acknowledged),
         "last_enqueue": enqueued[-1] if enqueued else None,
