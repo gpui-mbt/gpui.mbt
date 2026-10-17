@@ -2,11 +2,18 @@
 package "f4ah6o/gpui/platform/macos_text"
 
 import {
+  "f4ah6o/gpui/primitives",
   "f4ah6o/gpui/text",
   "f4ah6o/gpui/text_layout",
 }
 
 // Values
+pub fn admit_scene_text_run_at(@text.TextDocument, Double, @primitives.Point, @primitives.Rect) -> Result[Unit, MacosTextError]
+
+pub fn font_resolution_json(@text.TextDocument, String, Double) -> Result[String, MacosTextError]
+
+pub fn hit_test(@text.TextDocument, String, Double, @primitives.Point) -> Result[@text_layout.TextHit, MacosTextError]
+
 pub let max_font_family_bytes : Int
 
 pub let max_font_size_px : Double

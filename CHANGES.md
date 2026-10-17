@@ -306,7 +306,17 @@
 
 - Added portable `AppLifetime` tokens and app-owned capability registry creation/adoption. Stop now invalidates registered typed, GUI, and adapter handles and rejects cached or late results. See the [owner lifecycle contract](docs/capability-lifecycle.md).
 
-- Added the first macOS AppKit/Metal backend and MoonBit quad demo, with a portable backend interface, logical input/scale events, typed failures, native frame/lifecycle/input E2E, app-bundle build script, and macOS CI build/evidence workflows. See [issue 0006](issues/open/0006-macos-native-backend.md). Text/IME, accessibility, automatic renderer recovery, and production support gates remain pending.
+- Added the first macOS AppKit/Metal backend and MoonBit quad demo, with a portable backend interface, logical input/scale events, typed failures, native frame/lifecycle/input E2E, app-bundle build script and local native test matrix. See [issue 0006](issues/open/0006-macos-native-backend.md). The text field and IME remain bounded experiments; accessibility, automatic renderer recovery and production support gates remain pending.
+
+- Added a bounded experimental macOS single-line text field with shared
+  selection/edit/scroll/clipboard/undo state, CoreText geometry and grayscale
+  scene text. AppKit supplies committed text by default; a per-window Japanese
+  composition owner is opt-in with `GPUI_FIELD_MACOS_IME=1`. Model/provider
+  tests and a finite Kotoeri/pixel-evidence runner are available through the
+  local actrun matrix. The real desktop IME result is recorded per run in the
+  external actrun summary and retained artifacts; source presence alone is not
+  a pass. This does not promote a support tier or production gate. See the
+  [macOS guide](docs/macos-native.md#experimental-single-line-text-field).
 
 - Added macOS scroll-wheel delivery to the shared input event stream. Precise
   point deltas and coarse line/row deltas retain their AppKit units; physical
@@ -327,6 +337,7 @@
 
 ### Fixed
 
+- Fixed macOS app-bundle builds on Bash 3.2 when test hooks are omitted. ([issue 0006](issues/open/0006-macos-native-backend.md), [PR #46](https://github.com/gpui-mbt/gpui.mbt/pull/46))
 - Synchronize the macOS Button sample with the host's current logical size and
   backing scale before rendering, so queued resize events cannot submit a
   stale viewport. The adapter and native smoke cover resize bursts.

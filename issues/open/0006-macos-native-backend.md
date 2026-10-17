@@ -1,5 +1,16 @@
 # macOS native backend roadmap
 
+
+> Porting note (2026-10-16): The active macOS text-field integration is
+> [PR #89](https://github.com/gpui-mbt/gpui.mbt/pull/89). Historical source,
+> actrun scripts, and failed live-Kotoeri evidence remain on [PR #40](https://github.com/gpui-mbt/gpui.mbt/pull/40)
+> and its child [PR #45](https://github.com/gpui-mbt/gpui.mbt/pull/45).
+> References below to `infra/macos-desktop/` are historical acceptance
+> requirements, **not executable paths in PR #89**. The current native
+> slice provides `script/test_macos.sh --text-field` and a test-hook app
+> build; actual Apple Silicon/Kotoeri qualification needs the runner to be
+> rebound to the exact #89 source before it can be considered complete.
+
 Status: open
 Model: gpt-6-luna
 Parent: [0004-platform-rendering-and-native-boundaries.md](0004-platform-rendering-and-native-boundaries.md)
@@ -154,6 +165,48 @@ Add:
 - failure artifacts/logs
 - release-gate evidence hooks
 
+#### Scoped Bash 3.2 app-bundle build entrypoint fix — PR #46
+
+The macOS system Bash 3.2.57 raises an unbound-variable error when
+`set -u` expands an empty optional array. Keep the common clang arguments in
+a non-empty array, then append `-DGPUI_TESTING` only for the text-field test
+build. This packet is limited to `script/build_and_run.sh` and its mocked
+entrypoint regression test in `infra/macos-desktop/tests/test_build_entrypoint.py`.
+
+Acceptance:
+
+- Quad and text-field app bundles build without test hooks under `/bin/bash`
+  3.2; the text-field test build still passes `-DGPUI_TESTING`.
+- Quad rejects `--test-hooks` before invoking the compiler.
+- The regression test invokes the actual entrypoint with mocked tools and
+  checks compiler/build arguments and app-bundle output, including paths with
+  spaces. It does not claim native compilation, GUI behavior, rendering, or
+  IME evidence.
+- Warning-denied native checks, model tests, fresh quad and text-field builds,
+  quad app smoke, native E2E, and the scoped local ActRun fast workflow pass.
+
+Dependencies and limits:
+
+- PR #46 is the existing draft for this packet and is based on PR #40's
+  macOS-native backend. It must be reviewed and merged with that dependency;
+  this packet does not reimplement PR #40 or PR #45's evidence work.
+- The fix changes build-shell argument handling only. Japanese IME remains an
+  unresolved PR #40 gate; passing this packet's build and fast checks is not
+  Product Green and does not change the macOS support tier.
+
+Validation commands on the pinned macOS profile:
+
+1. `/bin/bash --version` and `/bin/bash -n script/build_and_run.sh`.
+2. `python3 -m unittest discover -s infra/macos-desktop/tests -p test_build_entrypoint.py -v`.
+3. `moon fmt --check`, then
+   `python3 infra/macos-desktop/actrun-feedback.py --root "$GPUI_MACOS_PROFILE_ROOT" --mode fast --run-dir "$RUN_DIR/fast"`.
+   The fast workflow runs repository and macOS runner tests, warning-denied
+   native/all-target checks, and text-field model tests; it is not the full
+   native or IME gate.
+4. Build fresh quad and text-field bundles without hooks, smoke the quad app,
+   and run `./script/test_macos.sh all --target-dir "$RUN_DIR/native-e2e"`
+   for native E2E, package tests, and the text-field test-hook build.
+
 Do not promote macOS above Tier 0/2 until the evidence required by
 `docs/platform.md` and issue 0005 exists. Tier 1 requires IME,
 accessibility, multi-DPI, multi-window, renderer recovery, performance, and
@@ -225,8 +278,35 @@ Native clipboard and cursor APIs are implemented, while clipboard/cursor smoke,
 real multi-display DPI movement, Japanese IME/text shaping, accessibility,
 menus, cross-thread command completion, full multi-window focus/display E2E,
 sustained resource-growth evidence, and performance evidence remain open. No
-support tier or release gate is promoted by source tests or workflow
+support tier or release gate is promoted by source tests or runner
 configuration alone.
+ HEAD
+
+## Implementation progress — 2026-10-06
+
+The experimental single-line macOS field now connects the shared immutable
+field model to CoreText geometry, monochrome scene text and per-window AppKit
+text sessions. Ordinary committed input uses resolved `insertText:` callbacks;
+composition is default-off and opt-in with `GPUI_FIELD_MACOS_IME=1`. The
+bounded owner covers selection/edit/scroll, clipboard, undo/redo, batch and
+revision fencing, accepted-frame rollback and candidate-rectangle updates.
+Unsupported multiline, bidi, color glyph, reconversion and unsupported marked
+styles return typed errors. This is not a general editor or global text-input
+capability.
+
+`moon check examples/macos_text_field --target native --deny-warn` passes
+locally, and the owner suite passes 17/17 on this Mac. The focused
+`script/test_macos.sh --text-field` path also runs provider tests and builds a
+test-hook app. The local actrun
+native matrix is the required path for the actual AppKit/Metal synthetic E2E
+and Kotoeri input/pixel proof:
+`python3 infra/macos-desktop/actrun-feedback.py --root "$GPUI_MACOS_PROFILE_ROOT" --mode native --run-dir "$RUN_DIR/native"`.
+Each external actrun run stores its own source/toolchain identity and runtime
+result. Source tests and runner configuration alone do not establish runtime
+success. Text field, Japanese IME, accessibility, multiscreen behavior,
+sustained resource growth and production release evidence remain open; no
+support tier or production gate is promoted.
+======
 
 ## Implementation progress — 2026-10-10
 
@@ -244,3 +324,4 @@ checks supported cursor selection and unsupported-tag handling. It does not
 touch the user's General Pasteboard. General Pasteboard exchange, visible
 cursor confirmation, real multi-display DPI movement, IME, accessibility,
 menus, and release/support gates remain open.
+

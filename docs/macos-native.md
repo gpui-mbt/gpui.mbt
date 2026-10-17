@@ -1,13 +1,14 @@
 # First macOS native slice
 
-The first native slice implements issue 0006 packets A/B and part of C/F/G.
+The first native slice implements issue 0006 packets A/B and parts of C/D/F/G.
 It runs a MoonBit executable against repository-owned AppKit, Core Animation,
-and Metal code. Platform support and production release gates remain pending.
+Metal and CoreText/CoreGraphics code. Platform support and production release
+gates remain pending.
 
 ## Build and run
 
-On macOS 13 or newer, install the pinned MoonBit toolchain from
-`.github/workflows/contracts.yml` and Xcode command-line tools, then run:
+On macOS 13 or newer, install the repository's pinned MoonBit toolchain and
+Xcode command-line tools, then run:
 
 ```sh
 ./script/build_and_run.sh          # launch the interactive quad demo
@@ -15,6 +16,8 @@ On macOS 13 or newer, install the pinned MoonBit toolchain from
 ./script/build_and_run.sh --smoke  # MoonBit lifecycle + frame smoke
 ./script/build_and_run.sh --test-hooks # build opt-in native E2E host hooks
 ./script/test_macos.sh             # native GPU/input/lifecycle E2E + smoke
+./script/test_macos.sh all --target-dir /private/tmp/gpui-macos-checks
+                                   # native E2E + smoke + field checks
 ```
 
 Moon runs the module pre-build configuration for native and LLVM builds, so
@@ -90,9 +93,9 @@ silently claiming success. Titles/scene/clipboard payloads are capped at 16 MiB;
 windows at 64, scene items at 65536, dimensions at 8192 logical points.
 
 Native runtime inventory: Apple AppKit (host/windows/input/services), QuartzCore
-(layer), Metal (device/queue/GPU presentation), CoreText (system font metrics and
-glyphs), and CoreGraphics (bounded grayscale masks), all owned by GPUI and
-upgraded with the host OS/SDK. No third-party library is added. Implementation,
+(layer), Metal (device/queue/GPU presentation), and CoreText/CoreGraphics text
+shaping and rasterization, owned by `platform/macos` and `platform/macos_text`
+and upgraded with the host OS/SDK. No third-party library is added. Implementation,
 shaders, and fixtures are independently authored from local contracts and Apple
 API documentation; no GPUI source or assets were adapted.
 
@@ -114,7 +117,8 @@ not physical hardware input. A test-only Metal blit also checks
 transform/clip/alpha/paint order and backing-pixel dimensions. Fault injection verifies DeviceLost reporting.
 The test source also removes device/queue/pipeline state, invokes explicit
 recovery and checks the following frame through pixel readback. Hosted execution
-of this path remains pending, so capability negotiation stays disabled. The
+is recorded per run in the external actrun artifacts; capability negotiation
+stays disabled pending release-tier evidence. Hosted recovery acceptance remains pending, so capability negotiation stays disabled. The
 display smoke enumerates the active AppKit screens through CoreGraphics without
 changing display configuration, checks copied frame/mode/scale data, and
 rejects stale-host, wrong-thread, and invalid-buffer calls. It does not simulate
@@ -136,10 +140,63 @@ input, General Pasteboard exchange, visible cursor confirmation, Japanese IME,
 accessibility, shaping beyond bounded system-sans single lines,
 cross-thread command completion, hosted automated renderer recovery, sustained
 resource growth and performance remain pending.
+The bounded text
+field's native CoreText/Metal and Japanese input checks are described below.
 
-Hosted macOS CI builds the app/E2E runner and executes headless tests. The
-manual `macos-native-e2e.yml` workflow requires a logged-in self-hosted desktop
-with label `gpui-native` and a Metal device. It archives revision/toolchain/logs
-and app artifacts; these are inputs to future release evidence, not sufficient
-Tier 1 evidence. A native test binary printing success does not update
-`docs/release-gates.json` automatically.
+## Experimental single-line text field
+
+`examples/macos_text_field/` is a bounded experimental control built on the
+shared immutable `controls/text_field` model. It supports directional
+selection, editing, horizontal scrolling, clipboard commands, undo/redo,
+accepted-frame rollback and caret-synchronized candidate geometry. CoreText
+provides copied measurement/hit values and monochrome scene rasterization;
+AppKit's resolved `insertText:` callback is the default committed-text path.
+The opt-in per-window composition owner is enabled with
+`GPUI_FIELD_MACOS_IME=1`. It does not advertise a global portable TextInput
+capability. Multiline text, bidi, color glyphs, reconversion ranges outside the
+current mark/selection and unsupported marked styles fail with typed errors.
+Interactive mode begins after a real native key-focus transition and keeps its
+accepted frame open while waiting; the finite acceptance run has a bounded
+focus wait and cleanup path.
+The example uses a fixed 18 px system sans font. The shared field and scene
+admission cap text at 4096 UTF-8 bytes, font size at 32 px, and logical bounds at
+2048 by 128 points. CoreText additionally caps a raster mask at 16384 by 2048
+pixels and 8 MiB per text run; the renderer caps retained cropped text masks at
+8 MiB total per frame. The native scene parser caps one scene at 16 MiB and
+65536 items. Its draw staging allocation is bounded by those items at 328
+bytes per item (about 20.5 MiB), and native window dimensions remain capped at
+8192 logical points. The 4096-point limit applies to candidate-caret
+rectangles, not windows.
+
+Run the field interactively with `./script/build_and_run.sh --demo text-field`.
+For deterministic source/provider checks and a test-hook app build, use
+`./script/test_macos.sh --text-field --target-dir <fresh-external-directory>`.
+The **historic** native GPU/Kotoeri actrun runner lives under
+`infra/macos-desktop/` on [source PR #40](https://github.com/gpui-mbt/gpui.mbt/pull/40),
+but is **not included in this ported PR #89 slice**. Therefore its
+`profile.py` and `actrun-feedback.py` commands are not runnable from this
+worktree, and its retained old-revision results must not certify the new
+integration. Only the checked-in native tests and test-hook build above can be
+run without that harness.
+
+For this source, rebind the harness and pin the exact candidate revision
+before attempting Kotoeri acceptance on an unlocked Apple Silicon Mac. A
+successful native build alone does not qualify composition/Return,
+Escape cancellation, the final blurred frame, or source restoration.
+
+The runner builds native checks and the text-field test-hooks app under the
+provided run directory. Its qualified host profile records macOS 26.5.2 arm64
+with Xcode 26.6 and SDK 26.5; each run retains the exact host and toolchain
+fingerprint. The runner requires a logged-in desktop with Kotoeri enabled,
+drives AppKit through app-owned key events, waits for accepted composition and
+commit frames, and retains screenshots, frame identity, source/binary identity
+and strict JSON evidence. For a saved profile, `profile.py ... doctor` checks
+readiness. `--mode quality` runs the broader approved matrix. Runtime outcomes
+are recorded in each external actrun summary and its retained artifacts; source
+configuration alone does not establish a pass. No support tier or production
+release gate changes here.
+
+The complete historical actrun quality matrix also lives on #40, not in this
+slice. To execute it against the port, first integrate its tooling with
+source-bound inputs and run a new exact-HEAD qualification; do not relabel an
+older matrix result as this slice's `quality` PASS.

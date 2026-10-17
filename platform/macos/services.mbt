@@ -68,10 +68,11 @@ pub fn Host::require_capability(
   match capability {
     @platform.NativeWindow
     | @platform.QuadFrames
-    | @platform.GrayscaleTextFrames
     | @platform.PointerKeyboard
     | @platform.Clipboard
     | @platform.Cursor => Ok(())
+    @platform.GrayscaleTextFrames =>
+      status(call(30, 0, 0.0, 0.0, b"", 0), "require_capability")
     _ => Err(error(@diagnostics.UnsupportedCapability, "require_capability"))
   }
 }

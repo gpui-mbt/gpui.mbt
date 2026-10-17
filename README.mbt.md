@@ -9,9 +9,12 @@ Build GPUI-style user interfaces in MoonBit.
 - **Application state** — `App`, typed `Entity[T]`, scoped updates, subscriptions, explicit notifications, deterministic queued work, and manually advanced timers.
 - **Layout and interaction** — deterministic row/column flex layout, recursive layout trees, an opt-in device-scale layout boundary, hit testing, capture/bubble pointer dispatch, stop-propagation, focus state, and portable [scroll state](element/scroll.mbt) and [drag gestures](element/drag.mbt).
 - **Scene data** — ordered quads and bounded plain-text items, rectangle clip chains, affine transforms, opacity, and canonical `SceneSnapshot` data. The browser uses its system font; experimental Ubuntu, Windows, and macOS renderers draw documented grayscale subsets. macOS uses CoreText system sans for bounded single-line text; this does not add an editor or IME.
+
 - **Linux text** — merged [PR #27](https://github.com/f4ah6o/gpui.mbt/pull/27) provides copied PangoFT2 measurement, caret, and hit-test geometry; Ubuntu's GLES host now also presents supported plain-text items through grayscale masks. This is not text input, an editor, or a general Linux support claim; see the [Linux text guide](docs/linux-text.md).
+- **macOS text field** — an experimental single-line CoreText field uses the shared selection, editing, scrolling, clipboard, undo/redo, and rollback model. AppKit supplies committed text by default; per-window Japanese composition is opt-in with `GPUI_FIELD_MACOS_IME=1`. See the [macOS text guide](docs/macos-native.md#experimental-single-line-text-field).
 - **Semantic capabilities** — one typed operation can be bound to GUI actions, direct MoonBit calls, and optional MCP dispatch with shared domain validation. A checked JavaScript stdio fixture exercises the pinned stateless MCP wire adapter.
 - **macOS** — an AppKit + Metal native host with windows, input, clipboard/cursors, scale/resize events, quad and bounded single-line grayscale text presentation, CoreText measurement, and an experimental renderer-recovery path.
+
 - **Ubuntu / Wayland** — a Wayland + EGL/OpenGL ES 2 native host with window lifecycle, input, clipboard/cursor services, scale handling, quad presentation, and bounded grayscale text frames.
 - **Windows** — an experimental one-window Win32/D3D11 hardware-or-WARP slice with basic input, quad presentation, bounded grayscale text, a focused single-line text field, and a native fixture that reuses the shared Button model. The private IMM32 text-session ingress is opt-in and default-off; real Japanese IME and Button physical-input qualification remain open. See the [Windows native guide](docs/windows-native.md) and [Button fixture guide](docs/windows-button.md).
 - **Browser** — Weekboard, a small website-launch task board using the shared MoonBit app/layout/event/scene model and a Canvas 2D host, plus the retained interaction lab for service and lifecycle proofs.
@@ -37,7 +40,7 @@ On macOS 13+ with Xcode command-line tools:
 ./script/build_and_run.sh
 ```
 
-The demo opens an AppKit window and renders with Metal. Click the quad or press Space to change it. See [the macOS guide](docs/macos-native.md) for build, smoke, and native-test commands.
+The default demo opens an AppKit window and renders with Metal. Click the quad or press Space to change it. Run `./script/build_and_run.sh --demo text-field` for the bounded single-line field. See [the macOS guide](docs/macos-native.md) for build, test, and actrun acceptance commands.
 
 The [macOS command-palette sample](examples/macos_command_palette/README.md)
 uses the shared picker and TextField with a bounded lower-ASCII keyDown adapter.

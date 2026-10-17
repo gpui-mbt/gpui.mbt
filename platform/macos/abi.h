@@ -14,7 +14,13 @@ typedef struct {
 // 7 request-close, 8 destroy, 9 present, 10 wake, 11 request-exit,
 // 12 cursor, 13 read clipboard, 14 write clipboard, 15 window metrics,
 // 16 explicit renderer recreation, 17 accessory/background start (hidden windows),
-// 18 order a background-host window behind others without activation.
+// 18 order a background-host window behind others without activation,
+// 19 begin editor session, 20 update/ACK session, 21 cancel and rearm editor
+// session, 22 end editor session, 23 read editor event, 24-27 test-only native
+// input/source/frame/candidate queries, 28 publish accepted direct text mirror,
+// 29 test dispatch receipt, 30 renderer grayscale text capability,
+// 31-32 test input-source select/restore, 33 test text-window focus/session state,
+// 34 toggle direct keyboard text, 35 query direct text epoch.
 // Integer fields: 0 result token, 1 event kind, 2 event token, 3 sequence,
 // 4 modifiers, 5 button/key, 6 repeat, 7 ABI version, 8 UTF-8 output length, 9 host epoch,
 // 100+i UTF-8 output byte i. Output remains owned by the shim until the next call.

@@ -2,7 +2,6 @@ import {
   "f4ah6o/gpui/primitives",
   "f4ah6o/gpui/text",
   "f4ah6o/gpui/text_layout",
-  "moonbitlang/core/int",
   "moonbitlang/core/encoding/utf8",
 }
 
@@ -12,8 +11,10 @@ options(
   "native-stub": [ "core_text.c" ],
   link: {
     "native": {
-      "cc-flags": "-O2 -std=c11 -Wall -Wextra",
-      "stub-cc-flags": "-std=c11 -Wall -Wextra",
+      "cc": "script/macos_text_cc.py",
+      "cc-flags": "-O2 -std=c11",
+      "stub-cc": "script/macos_text_cc.py",
+      "stub-cc-flags": "-O2 -std=c11",
     },
   },
 )

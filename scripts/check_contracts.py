@@ -655,14 +655,21 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         "layout": {"primitives"},
         "scene": {"primitives"},
         "platform": {"primitives", "diagnostics", "scene"},
-        "platform/macos": {"platform", "primitives", "diagnostics", "scene", "platform/testing"},
+        # Native AppKit editor batches carry validated UTF-16 ranges and style
+        # spans as portable values; editor ownership remains in the leaf.
+        "platform/macos": {"platform", "primitives", "diagnostics", "scene", "text", "platform/testing"},
         "platform/linux_text": {"text_layout", "text", "primitives"},
         "platform/windows_text": {"text", "text_layout", "primitives"},
-        # Native text measurers are platform leaves. The frame-readback seam is
-        # portable in shape and depends only on the shared platform contract.
+        # CoreText shaping and monochrome raster admission are native leaf
+        # services over portable text/layout/scene values; the frame-readback
+        # seam is portable in shape on the shared platform contract.
         "platform/macos_text": {"text_layout", "text", "primitives"},
         "platform/testing": {"platform", "diagnostics"},
         "examples/native_macos": {"platform/macos", "platform", "primitives", "diagnostics", "scene"},
+        "examples/macos_text_field": {
+            "platform/macos", "platform/macos_text", "platform", "controls/text_field",
+            "text", "text_layout", "element", "primitives", "scene", "diagnostics",
+        },
         "ubuntu": {
             "accessibility", "platform", "platform/linux_text", "platform/testing",
             "text", "primitives", "diagnostics", "scene",

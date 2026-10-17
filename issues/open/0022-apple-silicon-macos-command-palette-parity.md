@@ -12,8 +12,10 @@ This packet is **Apple Silicon / arm64 only**. Intel macOS is outside its scope.
 [PR #40](https://github.com/gpui-mbt/gpui.mbt/pull/40), inspected at current head
 `7232061f83769214843a2ccfa18f1e1a4d989031`, retains the experimental macOS
 field/provider, AppKit ownership, and default-off composition/IME path. The
-bounded scene-text renderer is separately available from merged #49. PR #40
-remains open; complete final-source live input acceptance remains a prerequisite. The
+bounded scene-text renderer is separately available from merged #49. PR #40 was
+archived on 2026-10-16 and continues as the draft slice
+[#89](https://github.com/gpui-mbt/gpui.mbt/pull/89). Complete final-source live
+input acceptance remains a prerequisite. The
 [latest #40 review](https://github.com/gpui-mbt/gpui.mbt/pull/40#pullrequestreview-5435161619)
 retains blur/final-frame and Busy-owner findings. The
 [latest #45 evidence](https://github.com/gpui-mbt/gpui.mbt/pull/45#issuecomment-6037836499)
@@ -48,7 +50,7 @@ an entire operating system being unfinished.
 | Work | Current shared input | May start independently | Completion dependency |
 | --- | --- | --- | --- |
 | Windows palette | Current main `008b3c73d50108d6ed1e6c02ad9e12e930e843ec` contains the shared palette and Button | Windows owner can compose and qualify the fixture on current main | Windows-owned input, presentation, IME and lifecycle qualification below |
-| Apple Silicon palette | Shared palette #41 and scene-text renderer #49 are merged; the macOS field/ownership/live-IME work remains in draft #40 | Palette integration and tests can continue against the merged shared pieces | Final compatible #40 field/AppKit ownership slice plus actual arm64 input/IME acceptance; #49 does not close these gates |
+| Apple Silicon palette | Shared palette #41 and scene-text renderer #49 are merged; the macOS field/ownership/live-IME work remains in the draft slice #89 (ported from the archived #40) | Palette integration and tests can continue against the merged shared pieces | Final compatible field/AppKit ownership slice (draft #89) plus actual arm64 input/IME acceptance; #49 does not close these gates |
 | Windows Button | Shared Button #47 is merged as `4ee7bd48482db16fd6757265d7d1f3decd352bd7` | Integrate and qualify from current main | [0025 Windows Button](0025-windows-button-integration.md); exact-source Windows input, pixels, lifecycle and UIA gates remain |
 | Apple Silicon Button | Shared Button #47 and bounded CoreText/Metal scene-text renderer #49 are merged | Button fixture can use the current main renderer without waiting for #40 | [0024 macOS Button](0024-apple-silicon-macos-button-integration.md); exact-source arm64 window/input/pixel acceptance remains |
 | Native accessibility | #48 defines the shared headless tree/action contract; #51 adds an Ubuntu fixture projection and owner-side dispatch/freshness fence | OS role/name/state/action/coordinate mapping can begin against `docs/accessibility.md` | macOS AX and Windows UIA adapters/clients remain separate, unimplemented acceptance gates |
@@ -102,8 +104,9 @@ release native-input, pixel, IME, or accessibility gates; a Linux pass does not
 qualify another OS. Pin each final integrated source and report its OS/toolchain,
 input, pixel, lifecycle, and accessibility evidence separately. The merged
 shared Button and headless accessibility foundation do not qualify macOS. Keep
-the open #40 palette-field/AppKit ownership and live-IME gates distinct from
-#49 scene-text support and from Button fixture acceptance. Report incompatible
+the #89 (sliced from the archived #40) palette-field/AppKit ownership and
+live-IME gates distinct from #49 scene-text support and from Button fixture
+acceptance. Report incompatible
 shared-contract findings to the Linux/shared coordinator instead of duplicating
 the model or widening platform claims.
 

@@ -1,5 +1,4 @@
 #include "macos_text.h"
-
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,523 +8,458 @@
 #include <CoreGraphics/CoreGraphics.h>
 #include <CoreText/CoreText.h>
 
-#define GPUI_MACOS_TEXT_ABI 1
-#define GPUI_MACOS_TEXT_MAX_BYTES 16384
-#define GPUI_MACOS_TEXT_MAX_FAMILY_BYTES 256
-#define GPUI_MACOS_TEXT_MAX_FONT_SIZE 512.0
-#define GPUI_MACOS_TEXT_MAX_SCENE_SIZE 32.0
-#define GPUI_MACOS_TEXT_MAX_MASK_WIDTH 16384
-#define GPUI_MACOS_TEXT_MAX_MASK_HEIGHT 2048
-#define GPUI_MACOS_TEXT_MAX_MASK_PIXELS (8 * 1024 * 1024)
-#define GPUI_MACOS_TEXT_HEADER_DOUBLES 12
-#define GPUI_MACOS_TEXT_CARET_DOUBLES 10
+#define ABI 1
+#define MAX_TEXT 16384
+#define MAX_FAMILY 256
+#define MAX_SCENE_TEXT 4096
+#define MAX_FONT_SIZE 512.0
+#define MAX_SCENE_SIZE 32.0
+#define MAX_SCENE_WIDTH 2048.0
+#define MAX_SCENE_HEIGHT 128.0
+#define HEADER 12
+#define CARET 10
 
-enum {
-  GPUI_TEXT_OK = 0,
-  GPUI_TEXT_BAD_ABI = 1,
-  GPUI_TEXT_UNSUPPORTED_INPUT = 2,
-  GPUI_TEXT_TOO_LARGE = 3,
-  GPUI_TEXT_SMALL_BUFFER = 4,
-  GPUI_TEXT_INVALID_RESULT = 6,
-  GPUI_TEXT_COLOR_GLYPH = 8,
-  GPUI_TEXT_UNSUPPORTED_PLATFORM = 9,
-  GPUI_TEXT_RASTER_UNAVAILABLE = 10,
-  GPUI_TEXT_BAD_FONT = 11,
-  GPUI_TEXT_BAD_SIZE = 12,
-  GPUI_TEXT_NATIVE_FAILURE = 13,
-  GPUI_TEXT_UNSUPPORTED_BIDI = 14,
-  GPUI_TEXT_UNSUPPORTED_MULTILINE = 15,
-  GPUI_TEXT_UNSUPPORTED_GLYPH = 16,
-  GPUI_TEXT_RESOURCE_LIMIT = 17,
-};
+enum { OK=0, BAD_ABI=1, UNSUPPORTED_INPUT=2, TOO_LARGE=3, SMALL_BUFFER=4,
+  INVALID_RESULT=6, BAD_COORDINATE=7, COLOR_GLYPH=8,
+  RASTER_UNAVAILABLE=10, BAD_FONT=11, BAD_SIZE=12, NATIVE_FAILURE=13,
+  UNSUPPORTED_BIDI=14, UNSUPPORTED_MULTILINE=15, UNSUPPORTED_GLYPH=16,
+  RESOURCE_LIMIT=17 };
 
-typedef struct {
-  int32_t byte_offset;
-  int32_t utf16_offset;
-  int cursor_position;
-} TextBoundary;
+typedef struct { int32_t byte; int32_t utf16; int cursor; } Boundary;
 
-typedef struct {
-  CFStringRef string;
-  CTFontRef font;
-  CTLineRef line;
-  TextBoundary *boundaries;
-  int32_t boundary_count;
-  int unknown_glyph_count;
-} TextLayout;
-
-static int utf8_scalar(const uint8_t *bytes, int32_t length, int32_t *at,
-                       uint32_t *scalar_out) {
-  if (*at >= length)
-    return 0;
-  const uint8_t lead = bytes[(*at)++];
-  if (lead < 0x80) {
-    *scalar_out = lead;
-    return 1;
-  }
-
-  int continuation_count;
-  uint32_t scalar;
-  if (lead >= 0xC2 && lead <= 0xDF) {
-    continuation_count = 1;
-    scalar = lead & 0x1F;
-  } else if (lead >= 0xE0 && lead <= 0xEF) {
-    continuation_count = 2;
-    scalar = lead & 0x0F;
-  } else if (lead >= 0xF0 && lead <= 0xF4) {
-    continuation_count = 3;
-    scalar = lead & 0x07;
-  } else {
-    return -1;
-  }
-  if (length - *at < continuation_count)
-    return -1;
-  for (int index = 0; index < continuation_count; index++) {
-    const uint8_t next = bytes[(*at)++];
-    if ((next & 0xC0) != 0x80)
-      return -1;
-    if (index == 0 &&
-        ((lead == 0xE0 && next < 0xA0) || (lead == 0xED && next >= 0xA0) ||
-         (lead == 0xF0 && next < 0x90) || (lead == 0xF4 && next >= 0x90)))
-      return -1;
-    scalar = (scalar << 6) | (next & 0x3F);
-  }
-  if (scalar > 0x10FFFF || (scalar >= 0xD800 && scalar <= 0xDFFF))
-    return -1;
-  *scalar_out = scalar;
-  return 1;
+static int finite_bounded(double value, double limit) {
+  return isfinite(value) && fabs(value) <= limit;
 }
 
-static int rejected_scalar(uint32_t scalar) {
-  if (scalar == '\n' || scalar == '\r' || scalar == 0x2028 ||
-      scalar == 0x2029)
-    return GPUI_TEXT_UNSUPPORTED_MULTILINE;
-  if ((scalar >= 0x202A && scalar <= 0x202E) ||
-      (scalar >= 0x2066 && scalar <= 0x2069) || scalar == 0x061C ||
-      scalar == 0x200E || scalar == 0x200F)
-    return GPUI_TEXT_UNSUPPORTED_BIDI;
-  if (scalar == 0 || scalar < 0x20 || (scalar >= 0x7F && scalar <= 0x9F))
-    return GPUI_TEXT_UNSUPPORTED_INPUT;
-  return GPUI_TEXT_OK;
+static int utf8_scalar(const uint8_t *s, int32_t length, int32_t *at, uint32_t *out) {
+  if (*at >= length) return 0;
+  uint8_t a=s[(*at)++];
+  if (a < 0x80) { *out=a; return 1; }
+  int count; uint32_t value;
+  if (a >= 0xC2 && a <= 0xDF) { count=1; value=a&0x1F; }
+  else if (a >= 0xE0 && a <= 0xEF) { count=2; value=a&0x0F; }
+  else if (a >= 0xF0 && a <= 0xF4) { count=3; value=a&0x07; }
+  else return -1;
+  if (length-*at < count) return -1;
+  for (int i=0;i<count;i++) {
+    uint8_t b=s[(*at)++];
+    if ((b&0xC0)!=0x80) return -1;
+    if (i==0 && ((a==0xE0 && b<0xA0) || (a==0xED && b>=0xA0) ||
+                 (a==0xF0 && b<0x90) || (a==0xF4 && b>=0x90))) return -1;
+    value=(value<<6)|(b&0x3F);
+  }
+  if (value>0x10FFFF || (value>=0xD800 && value<=0xDFFF)) return -1;
+  *out=value; return 1;
+}
+
+static int rejected_scalar(uint32_t cp) {
+  if (cp=='\n' || cp=='\r' || cp==0x2028 || cp==0x2029) return 15;
+  if ((cp>=0x202A && cp<=0x202E) || (cp>=0x2066 && cp<=0x2069) ||
+      cp==0x061C || cp==0x200E || cp==0x200F) return 14;
+  if (cp==0 || cp<0x20 || (cp>=0x7F && cp<=0x9F)) return 2;
+  return 0;
 }
 
 static int make_boundaries(const uint8_t *bytes, int32_t length,
-                           TextBoundary **boundaries_out,
-                           int32_t *count_out) {
-  if (length < 0 || length > GPUI_MACOS_TEXT_MAX_BYTES ||
-      (length > 0 && !bytes))
-    return GPUI_TEXT_TOO_LARGE;
-  TextBoundary *boundaries =
-      calloc((size_t)length + 1, sizeof(*boundaries));
-  if (!boundaries)
-    return GPUI_TEXT_RESOURCE_LIMIT;
-  int32_t at = 0;
-  int32_t count = 1;
-  int32_t utf16_offset = 0;
-  boundaries[0] = (TextBoundary){0, 0, 1};
-  while (at < length) {
-    uint32_t scalar = 0;
-    if (utf8_scalar(bytes, length, &at, &scalar) < 0) {
-      free(boundaries);
-      return GPUI_TEXT_UNSUPPORTED_INPUT;
-    }
-    const int error = rejected_scalar(scalar);
-    if (error) {
-      free(boundaries);
-      return error;
-    }
-    utf16_offset += scalar > 0xFFFF ? 2 : 1;
-    boundaries[count++] = (TextBoundary){at, utf16_offset, 0};
+                           Boundary **out, int32_t *count, int32_t *utf16_length) {
+  if (length<0 || length>MAX_TEXT || (length && !bytes)) return TOO_LARGE;
+  Boundary *items=calloc((size_t)length+1,sizeof(*items));
+  if (!items) return RESOURCE_LIMIT;
+  int32_t at=0, scalars=0, units=0;
+  items[0]=(Boundary){0,0,1};
+  while (at<length) {
+    int32_t start=at; uint32_t cp=0;
+    if (utf8_scalar(bytes,length,&at,&cp)<0) { free(items); return UNSUPPORTED_INPUT; }
+    int rejected=rejected_scalar(cp);
+    if (rejected) { free(items); return rejected; }
+    units += cp>0xFFFF ? 2 : 1;
+    items[++scalars]=(Boundary){at,units,0};
+    (void)start;
   }
-  boundaries[count - 1].cursor_position = 1;
-  *boundaries_out = boundaries;
-  *count_out = count;
-  return GPUI_TEXT_OK;
+  items[scalars].cursor=1;
+  *out=items; *count=scalars+1; *utf16_length=units;
+  return OK;
 }
 
-static CFStringRef create_cf_string(const uint8_t *bytes, int32_t length) {
-  const uint8_t *safe_bytes = length == 0 ? (const uint8_t *)"" : bytes;
-  return CFStringCreateWithBytes(kCFAllocatorDefault, safe_bytes,
-                                 (CFIndex)length, kCFStringEncodingUTF8,
-                                 false);
+static CFStringRef cf_string(const uint8_t *bytes, int32_t length) {
+  const uint8_t *safe=length==0 ? (const uint8_t *)"" : bytes;
+  return CFStringCreateWithBytes(kCFAllocatorDefault,safe,length,kCFStringEncodingUTF8,false);
 }
 
-static CTFontRef create_font(const uint8_t *family, int32_t family_length,
-                             double font_size_px) {
-  CFStringRef family_name = create_cf_string(family, family_length);
-  if (!family_name)
-    return NULL;
-  CTFontRef font = NULL;
-  if (family_length == 4 && memcmp(family, "sans", 4) == 0) {
-    font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem,
-                                         (CGFloat)font_size_px, NULL);
-  } else {
-    font = CTFontCreateWithName(family_name, (CGFloat)font_size_px, NULL);
-  }
-  CFRelease(family_name);
+static CTFontRef make_font(const uint8_t *family, int32_t family_len, double size) {
+  CFStringRef name=cf_string(family,family_len);
+  if (!name) return NULL;
+  CTFontRef font=NULL;
+  if (family_len==4 && memcmp(family,"sans",4)==0)
+    font=CTFontCreateUIFontForLanguage(kCTFontUIFontSystem,(CGFloat)size,NULL);
+  else
+    font=CTFontCreateWithName(name,(CGFloat)size,NULL);
+  CFRelease(name);
   return font;
 }
 
-static int inspect_line_glyphs(CTLineRef line, int *unknown_glyph_count_out) {
-  CFArrayRef runs = CTLineGetGlyphRuns(line);
-  int unknown_glyph_count = 0;
-  for (CFIndex run_index = 0; run_index < CFArrayGetCount(runs);
-       run_index++) {
-    CTRunRef run = (CTRunRef)CFArrayGetValueAtIndex(runs, run_index);
-    if (CTRunGetStatus(run) & kCTRunStatusRightToLeft)
-      return GPUI_TEXT_UNSUPPORTED_BIDI;
-    CFDictionaryRef attributes = CTRunGetAttributes(run);
-    CTFontRef font =
-        (CTFontRef)CFDictionaryGetValue(attributes, kCTFontAttributeName);
-    if (font && (CTFontGetSymbolicTraits(font) & kCTFontTraitColorGlyphs))
-      return GPUI_TEXT_COLOR_GLYPH;
-    const CFIndex glyph_count = CTRunGetGlyphCount(run);
-    if (glyph_count > GPUI_MACOS_TEXT_MAX_BYTES)
-      return GPUI_TEXT_RESOURCE_LIMIT;
-    int last_resort = 0;
+static int line_has_unsupported_glyphs(CTLineRef line, int *unknown) {
+  CFArrayRef runs=CTLineGetGlyphRuns(line);
+  *unknown=0;
+  for (CFIndex r=0;r<CFArrayGetCount(runs);r++) {
+    CTRunRef run=(CTRunRef)CFArrayGetValueAtIndex(runs,r);
+    if (CTRunGetStatus(run)&kCTRunStatusRightToLeft) return 14;
+    CFDictionaryRef attrs=CTRunGetAttributes(run);
+    CTFontRef font=(CTFontRef)CFDictionaryGetValue(attrs,kCTFontAttributeName);
+    if (font && (CTFontGetSymbolicTraits(font)&kCTFontTraitColorGlyphs)) return COLOR_GLYPH;
+    CFIndex count=CTRunGetGlyphCount(run);
+    if (count>MAX_TEXT) return RESOURCE_LIMIT;
+    int last_resort=0;
     if (font) {
-      CFStringRef postscript_name = CTFontCopyPostScriptName(font);
-      if (postscript_name &&
-          CFStringCompare(postscript_name, CFSTR("LastResort"), 0) ==
-              kCFCompareEqualTo)
-        last_resort = 1;
-      if (postscript_name)
-        CFRelease(postscript_name);
+      CFStringRef postscript=CTFontCopyPostScriptName(font);
+      if (postscript && CFStringCompare(postscript,CFSTR("LastResort"),0)==kCFCompareEqualTo) last_resort=1;
+      if (postscript) CFRelease(postscript);
     }
-    CGGlyph *glyphs =
-        glyph_count ? malloc((size_t)glyph_count * sizeof(*glyphs)) : NULL;
-    if (glyph_count && !glyphs)
-      return GPUI_TEXT_RESOURCE_LIMIT;
-    if (glyph_count)
-      CTRunGetGlyphs(run, CFRangeMake(0, 0), glyphs);
-    for (CFIndex index = 0; index < glyph_count; index++) {
-      if (last_resort || glyphs[index] == 0)
-        unknown_glyph_count++;
-    }
+    if (last_resort) *unknown += (int)count;
+    CGGlyph *glyphs=count ? malloc((size_t)count*sizeof(*glyphs)) : NULL;
+    if (count && !glyphs) return RESOURCE_LIMIT;
+    if (count) CTRunGetGlyphs(run,CFRangeMake(0,0),glyphs);
+    for (CFIndex i=0;i<count;i++) if (!last_resort&&glyphs[i]==0) (*unknown)++;
     free(glyphs);
   }
-  *unknown_glyph_count_out = unknown_glyph_count;
-  return GPUI_TEXT_OK;
+  return OK;
 }
 
-static void release_layout(TextLayout *layout) {
-  if (layout->line)
-    CFRelease(layout->line);
-  if (layout->font)
-    CFRelease(layout->font);
-  if (layout->string)
-    CFRelease(layout->string);
-  free(layout->boundaries);
-  memset(layout, 0, sizeof(*layout));
+static int create_line(const uint8_t *text, int32_t text_len,
+                       const uint8_t *family, int32_t family_len, double size,
+                       CFStringRef *string_out, CTFontRef *font_out, CTLineRef *line_out,
+                       Boundary **boundaries_out, int32_t *boundary_count_out,
+                       int32_t *utf16_length_out, int *unknown_out) {
+  if (!isfinite(size) || size<=0.0 || size>MAX_FONT_SIZE) return BAD_SIZE;
+  if (family_len<=0 || family_len>MAX_FAMILY || !family) return BAD_FONT;
+  Boundary *boundaries=NULL; int32_t boundary_count=0, units=0;
+  int status=make_boundaries(text,text_len,&boundaries,&boundary_count,&units);
+  if (status) return status;
+  CFStringRef string=cf_string(text,text_len);
+  CTFontRef font=make_font(family,family_len,size);
+  if (!string || !font) {
+    if (string) CFRelease(string); if (font) CFRelease(font); free(boundaries); return BAD_FONT;
+  }
+  const void *keys[]={kCTFontAttributeName,kCTForegroundColorFromContextAttributeName};
+  const void *values[]={font,kCFBooleanTrue};
+  CFDictionaryRef attrs=CFDictionaryCreate(kCFAllocatorDefault,keys,values,2,
+    &kCFTypeDictionaryKeyCallBacks,&kCFTypeDictionaryValueCallBacks);
+  CFAttributedStringRef attributed=attrs ? CFAttributedStringCreate(kCFAllocatorDefault,string,attrs) : NULL;
+  CTLineRef line=attributed ? CTLineCreateWithAttributedString(attributed) : NULL;
+  if (attrs) CFRelease(attrs); if (attributed) CFRelease(attributed);
+  if (!line) { CFRelease(string); CFRelease(font); free(boundaries); return NATIVE_FAILURE; }
+  int unknown=0;
+  status=line_has_unsupported_glyphs(line,&unknown);
+  if (status) { CFRelease(line); CFRelease(string); CFRelease(font); free(boundaries); return status; }
+  for (int32_t i=1;i<boundary_count-1;i++) {
+    CFRange composed=CFStringGetRangeOfComposedCharactersAtIndex(string,boundaries[i].utf16);
+    boundaries[i].cursor=(composed.location==boundaries[i].utf16);
+  }
+  *string_out=string; *font_out=font; *line_out=line;
+  *boundaries_out=boundaries; *boundary_count_out=boundary_count;
+  *utf16_length_out=units; *unknown_out=unknown;
+  return OK;
 }
 
-static int create_layout(const uint8_t *text, int32_t text_length,
-                         const uint8_t *font_family,
-                         int32_t font_family_length, double font_size_px,
-                         TextLayout *layout_out) {
-  memset(layout_out, 0, sizeof(*layout_out));
-  if (!isfinite(font_size_px) || font_size_px <= 0.0 ||
-      font_size_px > GPUI_MACOS_TEXT_MAX_FONT_SIZE)
-    return GPUI_TEXT_BAD_SIZE;
-  if (!font_family || font_family_length <= 0 ||
-      font_family_length > GPUI_MACOS_TEXT_MAX_FAMILY_BYTES)
-    return GPUI_TEXT_BAD_FONT;
-
-  int32_t boundary_count = 0;
-  int status = make_boundaries(text, text_length, &layout_out->boundaries,
-                               &boundary_count);
-  if (status)
-    return status;
-  layout_out->boundary_count = boundary_count;
-  layout_out->string = create_cf_string(text, text_length);
-  layout_out->font = create_font(font_family, font_family_length, font_size_px);
-  if (!layout_out->string || !layout_out->font) {
-    release_layout(layout_out);
-    return GPUI_TEXT_BAD_FONT;
-  }
-
-  const void *keys[] = {kCTFontAttributeName,
-                        kCTForegroundColorFromContextAttributeName};
-  const void *values[] = {layout_out->font, kCFBooleanTrue};
-  CFDictionaryRef attributes =
-      CFDictionaryCreate(kCFAllocatorDefault, keys, values, 2,
-                         &kCFTypeDictionaryKeyCallBacks,
-                         &kCFTypeDictionaryValueCallBacks);
-  CFAttributedStringRef attributed =
-      attributes ? CFAttributedStringCreate(kCFAllocatorDefault,
-                                            layout_out->string, attributes)
-                 : NULL;
-  if (attributes)
-    CFRelease(attributes);
-  layout_out->line = attributed ? CTLineCreateWithAttributedString(attributed)
-                                : NULL;
-  if (attributed)
-    CFRelease(attributed);
-  if (!layout_out->line) {
-    release_layout(layout_out);
-    return GPUI_TEXT_NATIVE_FAILURE;
-  }
-  status = inspect_line_glyphs(layout_out->line,
-                               &layout_out->unknown_glyph_count);
-  if (status) {
-    release_layout(layout_out);
-    return status;
-  }
-
-  for (int32_t index = 1; index < boundary_count - 1; index++) {
-    const CFRange grapheme = CFStringGetRangeOfComposedCharactersAtIndex(
-        layout_out->string,
-        (CFIndex)layout_out->boundaries[index].utf16_offset);
-    layout_out->boundaries[index].cursor_position =
-        grapheme.location ==
-        (CFIndex)layout_out->boundaries[index].utf16_offset;
-  }
-  return GPUI_TEXT_OK;
+static void release_line(CFStringRef string, CTFontRef font, CTLineRef line, Boundary *boundaries) {
+  if (line) CFRelease(line); if (font) CFRelease(font); if (string) CFRelease(string); free(boundaries);
 }
 
-static void layout_metrics(TextLayout *layout, double *width_out,
-                           double *ascent_out, double *descent_out,
-                           double *leading_out, CGRect *ink_rect_out) {
-  *width_out = CTLineGetTypographicBounds(
-      layout->line, ascent_out, descent_out, leading_out);
-  *ink_rect_out = CTLineGetImageBounds(layout->line, NULL);
-  if (*ascent_out + *descent_out + *leading_out <= 0.0) {
-    *ascent_out = CTFontGetAscent(layout->font);
-    *descent_out = CTFontGetDescent(layout->font);
-    *leading_out = CTFontGetLeading(layout->font);
+static void layout_metrics(CTLineRef line, CTFontRef font, double *width, double *ascent,
+                           double *descent, double *leading, CGRect *ink) {
+  *width=CTLineGetTypographicBounds(line,ascent,descent,leading);
+  *ink=CTLineGetImageBounds(line,NULL);
+  if (*ascent+*descent+*leading<=0) {
+    *ascent=CTFontGetAscent(font); *descent=CTFontGetDescent(font); *leading=CTFontGetLeading(font);
   }
-  if (*ascent_out + *descent_out + *leading_out <= 0.0)
-    *ascent_out = 1.0;
-  if (CGRectIsNull(*ink_rect_out))
-    *ink_rect_out = CGRectMake(0, 0, 0, 0);
+  if (*ascent+*descent+*leading<=0) *ascent=1;
+  if (CGRectIsNull(*ink)) *ink=CGRectMake(0,0,0,0);
 }
 
 int32_t gpui_macos_text_require_raster_v1(int32_t abi) {
-  if (abi != GPUI_MACOS_TEXT_ABI)
-    return GPUI_TEXT_BAD_ABI;
-  CGColorSpaceRef color_space = CGColorSpaceCreateDeviceGray();
-  if (!color_space)
-    return GPUI_TEXT_RASTER_UNAVAILABLE;
-  uint8_t pixel = 0;
-  CGContextRef context =
-      CGBitmapContextCreate(&pixel, 1, 1, 8, 1, color_space, kCGImageAlphaNone);
+  if (abi!=ABI) return BAD_ABI;
+  CGColorSpaceRef color_space=CGColorSpaceCreateDeviceGray();
+  if (!color_space) return RASTER_UNAVAILABLE;
   CGColorSpaceRelease(color_space);
-  if (!context)
-    return GPUI_TEXT_RASTER_UNAVAILABLE;
-  CGContextRelease(context);
-  CTFontRef font =
-      CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, 12.0, NULL);
-  if (!font)
-    return GPUI_TEXT_RASTER_UNAVAILABLE;
-  CFRelease(font);
-  return GPUI_TEXT_OK;
+  return OK;
 }
 
-int32_t gpui_macos_text_measure_v1(int32_t abi, const uint8_t *text,
-                                   int32_t text_length,
-                                   const uint8_t *font_family,
-                                   int32_t font_family_length,
-                                   double font_size_px, double *output,
-                                   int32_t output_capacity) {
-  if (abi != GPUI_MACOS_TEXT_ABI)
-    return GPUI_TEXT_BAD_ABI;
-  if (!output || output_capacity < GPUI_MACOS_TEXT_HEADER_DOUBLES)
-    return GPUI_TEXT_INVALID_RESULT;
-  TextLayout layout = {0};
-  const int status = create_layout(text, text_length, font_family,
-                                   font_family_length, font_size_px, &layout);
-  if (status)
-    return status;
-  const int64_t required_capacity =
-      (int64_t)GPUI_MACOS_TEXT_HEADER_DOUBLES +
-      (int64_t)GPUI_MACOS_TEXT_CARET_DOUBLES * layout.boundary_count;
-  if (required_capacity > output_capacity) {
-    release_layout(&layout);
-    return GPUI_TEXT_SMALL_BUFFER;
+int32_t gpui_macos_text_measure_v1(int32_t abi, const uint8_t *text, int32_t text_len,
+  const uint8_t *family, int32_t family_len, double size, double *out, int32_t cap) {
+  if (abi!=ABI) return BAD_ABI;
+  if (!out || cap<HEADER) return BAD_COORDINATE;
+  if (!isfinite(size) || size<=0.0 || size>MAX_FONT_SIZE) return BAD_SIZE;
+  CFStringRef string=NULL; CTFontRef font=NULL; CTLineRef line=NULL; Boundary *boundaries=NULL;
+  int32_t count=0,units=0; int unknown=0;
+  int status=create_line(text,text_len,family,family_len,size,&string,&font,&line,&boundaries,&count,&units,&unknown);
+  if (status) return status;
+  if ((int64_t)HEADER+(int64_t)CARET*count>cap) { release_line(string,font,line,boundaries); return SMALL_BUFFER; }
+  double width=0,ascent=0,descent=0,leading=0; CGRect ink;
+  layout_metrics(line,font,&width,&ascent,&descent,&leading,&ink);
+  double height=ascent+descent+leading;
+  if (!isfinite(width)||!isfinite(height)||width<0||height<0||height>1e6) {
+    release_line(string,font,line,boundaries); return INVALID_RESULT;
   }
+  out[0]=0; out[1]=0; out[2]=width; out[3]=height;
+  out[4]=CGRectGetMinX(ink); out[5]=ascent-CGRectGetMaxY(ink);
+  out[6]=CGRectGetWidth(ink); out[7]=CGRectGetHeight(ink);
+  out[8]=ascent; out[9]=1; out[10]=unknown; out[11]=count;
+  for (int32_t i=0;i<count;i++) {
+    double secondary=0;
+    double x=CTLineGetOffsetForStringIndex(line,boundaries[i].utf16,&secondary);
+    if (!isfinite(x)||!isfinite(secondary)) { release_line(string,font,line,boundaries); return INVALID_RESULT; }
+    if (fabs(x-secondary)>1.0/1024.0) { release_line(string,font,line,boundaries); return 14; }
+    int at=HEADER+i*CARET;
+    out[at]=(double)boundaries[i].byte; out[at+1]=boundaries[i].cursor?1:0;
+    out[at+2]=x; out[at+3]=0; out[at+4]=0; out[at+5]=height;
+    out[at+6]=x; out[at+7]=0; out[at+8]=0; out[at+9]=height;
+  }
+  release_line(string,font,line,boundaries); return OK;
+}
 
-  double width = 0.0;
-  double ascent = 0.0;
-  double descent = 0.0;
-  double leading = 0.0;
-  CGRect ink_rect = CGRectZero;
-  layout_metrics(&layout, &width, &ascent, &descent, &leading, &ink_rect);
-  const double height = ascent + descent + leading;
-  if (!isfinite(width) || !isfinite(height) || width < 0.0 || height < 0.0 ||
-      height > 1000000.0) {
-    release_layout(&layout);
-    return GPUI_TEXT_INVALID_RESULT;
+int32_t gpui_macos_text_hit_test_v1(int32_t abi, const uint8_t *text, int32_t text_len,
+  const uint8_t *family, int32_t family_len, double size, double x, double y,
+  double *out, int32_t cap) {
+  if (abi!=ABI) return BAD_ABI;
+  if (!out || cap<5 || !finite_bounded(x,1e20)||!finite_bounded(y,1e20)) return BAD_COORDINATE;
+  CFStringRef string=NULL; CTFontRef font=NULL; CTLineRef line=NULL; Boundary *boundaries=NULL;
+  int32_t count=0,units=0; int unknown=0;
+  int status=create_line(text,text_len,family,family_len,size,&string,&font,&line,&boundaries,&count,&units,&unknown);
+  if (status) return status;
+  double width=0,ascent=0,descent=0,leading=0; CGRect ink;
+  layout_metrics(line,font,&width,&ascent,&descent,&leading,&ink);
+  double height=ascent+descent+leading, best=INFINITY; int32_t selected=0;
+  for (int32_t i=0;i<count;i++) {
+    if (!boundaries[i].cursor) continue;
+    double secondary=0, caret=CTLineGetOffsetForStringIndex(line,boundaries[i].utf16,&secondary);
+    double distance=fabs(x-caret);
+    if (distance<best) { best=distance; selected=i; }
   }
-  output[0] = 0.0;
-  output[1] = 0.0;
-  output[2] = width;
-  output[3] = height;
-  output[4] = CGRectGetMinX(ink_rect);
-  output[5] = ascent - CGRectGetMaxY(ink_rect);
-  output[6] = CGRectGetWidth(ink_rect);
-  output[7] = CGRectGetHeight(ink_rect);
-  output[8] = ascent;
-  output[9] = 1.0;
-  output[10] = layout.unknown_glyph_count;
-  output[11] = layout.boundary_count;
-  for (int32_t index = 0; index < layout.boundary_count; index++) {
-    double secondary_offset = 0.0;
-    const double x = CTLineGetOffsetForStringIndex(
-        layout.line, (CFIndex)layout.boundaries[index].utf16_offset,
-        &secondary_offset);
-    if (!isfinite(x) || !isfinite(secondary_offset) ||
-        fabs(x - secondary_offset) > 1.0 / 1024.0) {
-      release_layout(&layout);
-      return GPUI_TEXT_UNSUPPORTED_BIDI;
+  out[0]=boundaries[selected].byte; out[1]=0; out[2]=boundaries[selected].byte;
+  out[3]=(x>=0 && x<=width && y>=0 && y<=height)?1:0; out[4]=1;
+  release_line(string,font,line,boundaries); return OK;
+}
+
+int32_t gpui_macos_text_admit_v1(int32_t abi, const uint8_t *text, int32_t text_len,
+  double size, double x, double y, double clip_x, double clip_y,
+  double clip_width, double clip_height) {
+  if (abi!=ABI) return BAD_ABI;
+  if (!isfinite(size)||size<=0||size>MAX_SCENE_SIZE) return BAD_SIZE;
+  if (!finite_bounded(x,1e9)||!finite_bounded(y,1e9)||
+      !finite_bounded(clip_x,1e9)||!finite_bounded(clip_y,1e9)||
+      !isfinite(clip_width)||!isfinite(clip_height)||clip_width<0||clip_height<0)
+    return BAD_COORDINATE;
+  if (clip_width>MAX_SCENE_WIDTH||clip_height>MAX_SCENE_HEIGHT||text_len>MAX_SCENE_TEXT)
+    return RESOURCE_LIMIT;
+  const uint8_t sans[]="sans";
+  CFStringRef string=NULL; CTFontRef font=NULL; CTLineRef line=NULL; Boundary *boundaries=NULL;
+  int32_t count=0,units=0; int unknown=0;
+  int status=create_line(text,text_len,sans,4,size,&string,&font,&line,&boundaries,&count,&units,&unknown);
+  if (status) return status;
+  if (unknown) { release_line(string,font,line,boundaries); return UNSUPPORTED_GLYPH; }
+  double width=0,ascent=0,descent=0,leading=0; CGRect ink;
+  layout_metrics(line,font,&width,&ascent,&descent,&leading,&ink);
+  if (!isfinite(width)||width>1048576.0||!isfinite(ascent+descent+leading)) status=RESOURCE_LIMIT;
+  release_line(string,font,line,boundaries);
+  if (status) return status;
+  double clip_right=clip_x+clip_width, clip_bottom=clip_y+clip_height;
+  if (!isfinite(clip_right)||!isfinite(clip_bottom)||
+      fabs(clip_right)>1e9||fabs(clip_bottom)>1e9||
+      (clip_width>0&&clip_right<=clip_x)||(clip_height>0&&clip_bottom<=clip_y))
+    return BAD_COORDINATE;
+  GpuiMacTextMask mask={0};
+  status=gpui_macos_text_raster_v1(text,text_len,size,2.0,&mask);
+  if (status) { gpui_macos_text_raster_free(&mask); return status; }
+  if (mask.width>16384||mask.height>2048||(int64_t)mask.width*mask.height>8*1024*1024)
+    status=RESOURCE_LIMIT;
+  double mask_left=x+mask.left, mask_top=y+mask.top;
+  double mask_right=mask_left+(double)mask.width/2.0;
+  double mask_bottom=mask_top+(double)mask.height/2.0;
+  if (!finite_bounded(mask_left,1e9)||!finite_bounded(mask_top,1e9)||
+      !finite_bounded(mask_right,1e9)||!finite_bounded(mask_bottom,1e9))
+    status=BAD_COORDINATE;
+  if (mask.width>0&&mask.height>0&&
+      (fmin(mask_right,clip_right)<=fmax(mask_left,clip_x)||
+       fmin(mask_bottom,clip_bottom)<=fmax(mask_top,clip_y)))
+    status=UNSUPPORTED_INPUT;
+  gpui_macos_text_raster_free(&mask);
+  return status;
+}
+
+int32_t gpui_macos_text_raster_v1(const uint8_t *text, int32_t text_len, double size,
+  double scale, GpuiMacTextMask *out) {
+  if (!out) return BAD_COORDINATE;
+  memset(out,0,sizeof(*out));
+  if (!isfinite(scale)||scale<1||scale>2) return BAD_COORDINATE;
+  const uint8_t sans[]="sans";
+  CFStringRef string=NULL; CTFontRef font=NULL; CTLineRef line=NULL; Boundary *boundaries=NULL;
+  int32_t count=0,units=0; int unknown=0;
+  int status=create_line(text,text_len,sans,4,size,&string,&font,&line,&boundaries,&count,&units,&unknown);
+  if (status) return status;
+  if (unknown) { release_line(string,font,line,boundaries); return UNSUPPORTED_GLYPH; }
+  double width=0,ascent=0,descent=0,leading=0; CGRect ink;
+  layout_metrics(line,font,&width,&ascent,&descent,&leading,&ink);
+  if (CGRectIsEmpty(ink)) { release_line(string,font,line,boundaries); return OK; }
+  double left=floor(CGRectGetMinX(ink)*scale)/scale;
+  double top=floor((ascent-CGRectGetMaxY(ink))*scale)/scale;
+  double right=ceil(CGRectGetMaxX(ink)*scale)/scale;
+  double bottom=ceil((ascent-CGRectGetMinY(ink))*scale)/scale;
+  int w=(int)ceil((right-left)*scale), h=(int)ceil((bottom-top)*scale);
+  if (w<=0||h<=0||w>16384||h>2048||(int64_t)w*h>8*1024*1024) {
+    release_line(string,font,line,boundaries); return RESOURCE_LIMIT;
+  }
+  uint8_t *pixels=calloc((size_t)w,(size_t)h);
+  CGColorSpaceRef gray=CGColorSpaceCreateDeviceGray();
+  CGContextRef context=gray?CGBitmapContextCreate(pixels,w,h,8,w,gray,kCGImageAlphaNone):NULL;
+  if (gray) CGColorSpaceRelease(gray);
+  if (!pixels||!context) { free(pixels); if(context)CGContextRelease(context); release_line(string,font,line,boundaries); return RASTER_UNAVAILABLE; }
+  CGContextSetAllowsAntialiasing(context,true); CGContextSetShouldAntialias(context,true);
+  CGContextSetGrayFillColor(context,1,1);
+  /* Make a top-left, logical-pixel mask while drawing the same CTLine/CTFont. */
+  CGContextTranslateCTM(context,0,h); CGContextScaleCTM(context,scale,-scale);
+  CGContextTranslateCTM(context,-left,-top);
+  CGContextSetTextMatrix(context,CGAffineTransformMakeScale(1.0,-1.0));
+  CGContextSetTextPosition(context,0,ascent);
+  CTLineDraw(line,context);
+  CGContextRelease(context);
+  out->pixels=pixels; out->width=w; out->height=h; out->stride=w; out->left=left; out->top=top;
+  release_line(string,font,line,boundaries); return OK;
+}
+
+void gpui_macos_text_raster_free(GpuiMacTextMask *mask) {
+  if (!mask) return; free(mask->pixels); memset(mask,0,sizeof(*mask));
+}
+
+static int append_bytes(const void *bytes, int32_t length, uint8_t *out, int32_t cap, int32_t *at) {
+  if (length<0 || *at>cap || length>cap-*at) return SMALL_BUFFER;
+  if (length) memcpy(out+*at,bytes,(size_t)length);
+  *at+=length; return OK;
+}
+
+static int append_json_string(CFStringRef string, uint8_t *out, int32_t cap, int32_t *at) {
+  if (!string) return append_bytes("null",4,out,cap,at);
+  CFIndex length=CFStringGetLength(string), max=CFStringGetMaximumSizeForEncoding(length,kCFStringEncodingUTF8);
+  if (max<0||max>65536) return RESOURCE_LIMIT;
+  uint8_t *utf8=malloc((size_t)max+1);
+  if (!utf8) return RESOURCE_LIMIT;
+  CFIndex used=0;
+  if (!CFStringGetBytes(string,CFRangeMake(0,length),kCFStringEncodingUTF8,0,false,utf8,max,&used)) {
+    free(utf8); return NATIVE_FAILURE;
+  }
+  int status=append_bytes("\"",1,out,cap,at);
+  static const char hex[]="0123456789abcdef";
+  for (CFIndex i=0;!status&&i<used;i++) {
+    uint8_t c=utf8[i];
+    if (c=='"'||c=='\\') {
+      uint8_t escaped[2]={'\\',c}; status=append_bytes(escaped,2,out,cap,at);
+    } else if (c<0x20) {
+      uint8_t escaped[6]={'\\','u','0','0',(uint8_t)hex[c>>4],(uint8_t)hex[c&15]};
+      status=append_bytes(escaped,6,out,cap,at);
+    } else {
+      status=append_bytes(&c,1,out,cap,at);
     }
-    const int32_t at = GPUI_MACOS_TEXT_HEADER_DOUBLES +
-                       index * GPUI_MACOS_TEXT_CARET_DOUBLES;
-    output[at] = (double)layout.boundaries[index].byte_offset;
-    output[at + 1] = layout.boundaries[index].cursor_position ? 1.0 : 0.0;
-    output[at + 2] = x;
-    output[at + 3] = 0.0;
-    output[at + 4] = 0.0;
-    output[at + 5] = height;
-    output[at + 6] = x;
-    output[at + 7] = 0.0;
-    output[at + 8] = 0.0;
-    output[at + 9] = height;
   }
-  release_layout(&layout);
-  return GPUI_TEXT_OK;
+  if (!status) status=append_bytes("\"",1,out,cap,at);
+  free(utf8); return status;
 }
 
-int32_t gpui_macos_text_raster_v1(const uint8_t *text, int32_t text_length,
-                                  double font_size_px, double scale,
-                                  GpuiMacosTextMask *output) {
-  if (!output)
-    return GPUI_TEXT_INVALID_RESULT;
-  memset(output, 0, sizeof(*output));
-  if (!isfinite(scale) || scale <= 0.0 || scale > 8.0)
-    return GPUI_TEXT_INVALID_RESULT;
-  const uint8_t system_sans[] = "sans";
-  TextLayout layout = {0};
-  int status = create_layout(text, text_length, system_sans, 4,
-                             font_size_px, &layout);
-  if (status)
-    return status;
-  if (font_size_px > GPUI_MACOS_TEXT_MAX_SCENE_SIZE) {
-    release_layout(&layout);
-    return GPUI_TEXT_RESOURCE_LIMIT;
+static const char *run_segment(CFStringRef text, CFRange range) {
+  int latin=0, japanese=0;
+  CFIndex end=range.location+range.length;
+  if (range.location<0 || range.length<0 || end>CFStringGetLength(text)) return "other";
+  for (CFIndex i=range.location;i<end;i++) {
+    uint32_t cp=CFStringGetCharacterAtIndex(text,i);
+    if ((cp>=0x3040&&cp<=0x30FF)||(cp>=0x3400&&cp<=0x9FFF)||
+        (cp>=0xF900&&cp<=0xFAFF)||(cp>=0xFF66&&cp<=0xFF9D)) japanese=1;
+    if ((cp>='A'&&cp<='Z')||(cp>='a'&&cp<='z')) latin=1;
   }
-  if (layout.unknown_glyph_count) {
-    release_layout(&layout);
-    return GPUI_TEXT_UNSUPPORTED_GLYPH;
-  }
-  double width = 0.0;
-  double ascent = 0.0;
-  double descent = 0.0;
-  double leading = 0.0;
-  CGRect ink_rect = CGRectZero;
-  layout_metrics(&layout, &width, &ascent, &descent, &leading, &ink_rect);
-  if (CGRectIsEmpty(ink_rect)) {
-    release_layout(&layout);
-    return GPUI_TEXT_OK;
-  }
-
-  const double left = floor(CGRectGetMinX(ink_rect) * scale) / scale;
-  const double top =
-      floor((ascent - CGRectGetMaxY(ink_rect)) * scale) / scale;
-  const double right = ceil(CGRectGetMaxX(ink_rect) * scale) / scale;
-  const double bottom =
-      ceil((ascent - CGRectGetMinY(ink_rect)) * scale) / scale;
-  const int32_t pixel_width = (int32_t)ceil((right - left) * scale);
-  const int32_t pixel_height = (int32_t)ceil((bottom - top) * scale);
-  if (pixel_width <= 0 || pixel_height <= 0 ||
-      pixel_width > GPUI_MACOS_TEXT_MAX_MASK_WIDTH ||
-      pixel_height > GPUI_MACOS_TEXT_MAX_MASK_HEIGHT ||
-      (int64_t)pixel_width * pixel_height >
-          GPUI_MACOS_TEXT_MAX_MASK_PIXELS) {
-    release_layout(&layout);
-    return GPUI_TEXT_RESOURCE_LIMIT;
-  }
-  uint8_t *pixels = calloc((size_t)pixel_width, (size_t)pixel_height);
-  CGColorSpaceRef gray = CGColorSpaceCreateDeviceGray();
-  CGContextRef context =
-      gray ? CGBitmapContextCreate(pixels, pixel_width, pixel_height, 8,
-                                   pixel_width, gray, kCGImageAlphaNone)
-           : NULL;
-  if (gray)
-    CGColorSpaceRelease(gray);
-  if (!pixels || !context) {
-    free(pixels);
-    if (context)
-      CGContextRelease(context);
-    release_layout(&layout);
-    return GPUI_TEXT_RASTER_UNAVAILABLE;
-  }
-  CGContextSetAllowsAntialiasing(context, true);
-  CGContextSetShouldAntialias(context, true);
-  CGContextSetGrayFillColor(context, 1.0, 1.0);
-  CGContextTranslateCTM(context, 0.0, pixel_height);
-  CGContextScaleCTM(context, scale, -scale);
-  CGContextTranslateCTM(context, -left, -top);
-  CGContextSetTextMatrix(context, CGAffineTransformMakeScale(1.0, -1.0));
-  CGContextSetTextPosition(context, 0.0, ascent);
-  CTLineDraw(layout.line, context);
-  CGContextRelease(context);
-  output->pixels = pixels;
-  output->width = pixel_width;
-  output->height = pixel_height;
-  output->stride = pixel_width;
-  output->left = left;
-  output->top = top;
-  release_layout(&layout);
-  return GPUI_TEXT_OK;
+  if (japanese) return "japanese";
+  if (latin) return "latin";
+  return "other";
 }
 
-void gpui_macos_text_raster_free(GpuiMacosTextMask *mask) {
-  if (!mask)
-    return;
-  free(mask->pixels);
-  memset(mask, 0, sizeof(*mask));
+int32_t gpui_macos_text_fonts_json_v1(const uint8_t *text, int32_t text_len,
+  const uint8_t *family, int32_t family_len, double size, uint8_t *out, int32_t cap) {
+  if (!out) return -BAD_COORDINATE;
+  if (cap<3) return -SMALL_BUFFER;
+  CFStringRef string=NULL; CTFontRef font=NULL; CTLineRef line=NULL; Boundary *boundaries=NULL;
+  int32_t count=0,units=0; int unknown=0;
+  int status=create_line(text,text_len,family,family_len,size,&string,&font,&line,&boundaries,&count,&units,&unknown);
+  if (status) return -status;
+  int32_t at=0;
+  const char prefix[]="{\"schema_version\":1,\"fonts\":[";
+  status=append_bytes(prefix,(int32_t)sizeof(prefix)-1,out,cap,&at);
+  CFArrayRef runs=CTLineGetGlyphRuns(line);
+  CFMutableSetRef seen=CFSetCreateMutable(kCFAllocatorDefault,0,&kCFTypeSetCallBacks);
+  if (!seen) status=RESOURCE_LIMIT;
+  int wrote=0;
+  for (CFIndex i=0;!status&&i<CFArrayGetCount(runs);i++) {
+    CTRunRef run=(CTRunRef)CFArrayGetValueAtIndex(runs,i);
+    CTFontRef run_font=(CTFontRef)CFDictionaryGetValue(CTRunGetAttributes(run),kCTFontAttributeName);
+    if (!run_font) continue;
+    const char *segment=run_segment(string,CTRunGetStringRange(run));
+    CFStringRef family_name=CTFontCopyFamilyName(run_font);
+    CFStringRef ps_name=CTFontCopyPostScriptName(run_font);
+    CFURLRef url=(CFURLRef)CTFontCopyAttribute(run_font,kCTFontURLAttribute);
+    CFStringRef url_text=url ? CFURLCopyFileSystemPath(url,kCFURLPOSIXPathStyle) : NULL;
+    if (!family_name||!ps_name||!url_text) status=NATIVE_FAILURE;
+    CFStringRef identity=NULL;
+    if (!status) {
+      CFStringRef segment_name=CFStringCreateWithCString(kCFAllocatorDefault,segment,kCFStringEncodingASCII);
+      identity=segment_name ? CFStringCreateWithFormat(kCFAllocatorDefault,NULL,
+        CFSTR("%@|%@|%@"),segment_name,ps_name,url_text) : NULL;
+      if (segment_name) CFRelease(segment_name);
+      if (!identity) status=RESOURCE_LIMIT;
+    }
+    if (!status&&CFSetContainsValue(seen,identity)) {
+      CFRelease(identity);
+      if (family_name) CFRelease(family_name); if (ps_name) CFRelease(ps_name);
+      if (url_text) CFRelease(url_text); if (url) CFRelease(url);
+      continue;
+    }
+    if (!status) CFSetAddValue(seen,identity);
+    if (identity) CFRelease(identity);
+    if (wrote&&!status) status=append_bytes(",",1,out,cap,&at);
+    const char a[]={"{\"segment\":\""};
+    if (!status) status=append_bytes(a,(int32_t)sizeof(a)-1,out,cap,&at);
+    if (!status) status=append_bytes(segment,(int32_t)strlen(segment),out,cap,&at);
+    if (!status) {
+      const char family_key[]="\",\"family\":";
+      status=append_bytes(family_key,(int32_t)sizeof(family_key)-1,out,cap,&at);
+    }
+    if (!status) status=append_json_string(family_name,out,cap,&at);
+    if (!status) {
+      const char b[]={",\"postscript_name\":"};
+      status=append_bytes(b,(int32_t)sizeof(b)-1,out,cap,&at);
+    }
+    if (!status) status=append_json_string(ps_name,out,cap,&at);
+    if (!status) {
+      const char c[]={",\"file_url\":"};
+      status=append_bytes(c,(int32_t)sizeof(c)-1,out,cap,&at);
+    }
+    if (!status) status=append_json_string(url_text,out,cap,&at);
+    if (!status) {
+      status=append_bytes("}",1,out,cap,&at);
+    }
+    if (family_name) CFRelease(family_name); if (ps_name) CFRelease(ps_name);
+    if (url_text) CFRelease(url_text); if (url) CFRelease(url);
+    if (!status) wrote++;
+  }
+  if (seen) CFRelease(seen);
+  if (!status) {
+    status=append_bytes("]}",2,out,cap,&at);
+  }
+  release_line(string,font,line,boundaries);
+  return status?-status:at;
 }
 
 #else
-
-enum { GPUI_TEXT_UNSUPPORTED_PLATFORM = 9 };
-
-int32_t gpui_macos_text_require_raster_v1(int32_t abi) {
-  (void)abi;
-  return GPUI_TEXT_UNSUPPORTED_PLATFORM;
-}
-
-int32_t gpui_macos_text_measure_v1(int32_t abi, const uint8_t *text,
-                                   int32_t text_length,
-                                   const uint8_t *font_family,
-                                   int32_t font_family_length,
-                                   double font_size_px, double *output,
-                                   int32_t output_capacity) {
-  (void)abi;
-  (void)text;
-  (void)text_length;
-  (void)font_family;
-  (void)font_family_length;
-  (void)font_size_px;
-  (void)output;
-  (void)output_capacity;
-  return GPUI_TEXT_UNSUPPORTED_PLATFORM;
-}
-
-int32_t gpui_macos_text_raster_v1(const uint8_t *text, int32_t text_length,
-                                  double font_size_px, double scale,
-                                  GpuiMacosTextMask *output) {
-  (void)text;
-  (void)text_length;
-  (void)font_size_px;
-  (void)scale;
-  if (output)
-    memset(output, 0, sizeof(*output));
-  return GPUI_TEXT_UNSUPPORTED_PLATFORM;
-}
-
-void gpui_macos_text_raster_free(GpuiMacosTextMask *mask) {
-  (void)mask;
-}
-
+enum { UNSUPPORTED=9 };
+int32_t gpui_macos_text_require_raster_v1(int32_t abi){(void)abi;return UNSUPPORTED;}
+int32_t gpui_macos_text_measure_v1(int32_t a,const uint8_t*t,int32_t tl,const uint8_t*f,int32_t fl,double s,double*o,int32_t c){(void)a;(void)t;(void)tl;(void)f;(void)fl;(void)s;(void)o;(void)c;return UNSUPPORTED;}
+int32_t gpui_macos_text_hit_test_v1(int32_t a,const uint8_t*t,int32_t tl,const uint8_t*f,int32_t fl,double s,double x,double y,double*o,int32_t c){(void)a;(void)t;(void)tl;(void)f;(void)fl;(void)s;(void)x;(void)y;(void)o;(void)c;return UNSUPPORTED;}
+int32_t gpui_macos_text_admit_v1(int32_t a,const uint8_t*t,int32_t tl,double s,double x,double y,double cx,double cy,double w,double h){(void)a;(void)t;(void)tl;(void)s;(void)x;(void)y;(void)cx;(void)cy;(void)w;(void)h;return UNSUPPORTED;}
+int32_t gpui_macos_text_raster_v1(const uint8_t*t,int32_t l,double s,double sc,GpuiMacTextMask*o){(void)t;(void)l;(void)s;(void)sc;(void)o;return UNSUPPORTED;}
+void gpui_macos_text_raster_free(GpuiMacTextMask*m){(void)m;}
+int32_t gpui_macos_text_fonts_json_v1(const uint8_t*t,int32_t l,const uint8_t*f,int32_t fl,double s,uint8_t*o,int32_t c){(void)t;(void)l;(void)f;(void)fl;(void)s;(void)o;(void)c;return -UNSUPPORTED;}
 #endif
