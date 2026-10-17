@@ -609,3 +609,58 @@ test "anchored reference removal and wrapper input mutation reject atomically" {
     @element.ElementTree::new(altered) is Err(@element.InvalidAnchoredShape),
   )
 }
+
+///|
+test "anchored deferred hit routes retain integrated focus scope truncation" {
+  let popup = anchor_popup(10, 80, 24, true)
+    .with_focusable(true)
+    .with_tab_stop(true)
+  let attachment = @element.Element::anchored_after(
+      20,
+      3,
+      popup,
+      @element.TopLeft,
+      @element.Window,
+      anchor_point(220, 180),
+    )
+    .unwrap()
+    .deferred()
+    .unwrap()
+  let frame = anchor_root(
+      anchor_parent().with_focusable(true).with_child(attachment),
+      80,
+      80,
+    )
+    .with_child(
+      anchor_popup(30, 120, 200, true).with_focusable(true).with_tab_stop(true),
+    )
+    .request_layout(anchor_size(640, 480))
+    .unwrap()
+    .prepaint()
+    .unwrap()
+  let tree = frame.tree()
+  let session = @element.FocusScopeSession::new(tree).unwrap()
+  let _ = session.open_scope(session.target(), 2, _ => Ok(())).unwrap()
+  let outcome = session
+    .dispatch_input_with(
+      session.target(),
+      @primitives.PointerMoved(position=anchor_point(250, 190)),
+      (_, _) => Ok(()),
+    )
+    .unwrap()
+  assert_true(outcome.target() == Some(10))
+  assert_eq(outcome.capture_visited(), [2, 20, 10])
+  assert_eq(outcome.bubble_visited(), [10, 20, 2])
+  let unrelated = @element.FocusScopeSession::new(tree).unwrap()
+  let _ = unrelated.open_scope(unrelated.target(), 30, _ => Ok(())).unwrap()
+  let blocked = unrelated
+    .dispatch_input_with(
+      unrelated.target(),
+      @primitives.PointerMoved(position=anchor_point(250, 190)),
+      (_, _) => Ok(()),
+    )
+    .unwrap()
+  assert_true(blocked.target() is None)
+  assert_eq(blocked.capture_visited(), [])
+  assert_eq(blocked.bubble_visited(), [])
+}
