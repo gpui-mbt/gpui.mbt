@@ -37,6 +37,17 @@ runtime dependency is needed at runtime. Non-native MoonBit targets and
 non-macOS native builds return `UnsupportedCapability`; portable tests do not
 load AppKit.
 
+## Reusable app-layer helpers
+
+`app/` provides the portable `WindowView`/`run_window` loop, `scene.SceneBuilder`
+provides deterministic scene composition, and `platform/macos_app/` provides
+CoreText scene labels, TextField measure/admit/hit callbacks, cursor state and a
+one-window startup helper. `script/build_macos_app.sh` packages a MoonBit package
+as a `.app` bundle and can run the opt-in synthetic smoke flow. See
+[Reusable native application runtime](app-runtime.md) for the API and limits.
+These helpers do not add committed text input/IME, native menus, or a general
+accessibility tree.
+
 ## Implemented boundary
 
 `platform.Backend` is the portable initial interface. `platform/macos.Host`

@@ -4,6 +4,8 @@ package "f4ah6o/gpui/platform/testing"
 import {
   "f4ah6o/gpui/diagnostics",
   "f4ah6o/gpui/platform",
+  "f4ah6o/gpui/primitives",
+  "f4ah6o/gpui/scene",
 }
 
 // Values
@@ -16,13 +18,52 @@ pub struct FrameCapture {
   // private fields
 }
 pub fn FrameCapture::height(Self) -> Int
+pub fn FrameCapture::ink_count(Self, @primitives.Rect, Int) -> Result[Int, @diagnostics.FrameworkError]
+pub fn FrameCapture::pixel_matches_logical(Self, Double, Double, Int, Int, Int, Int) -> Result[Bool, @diagnostics.FrameworkError]
 pub fn FrameCapture::pixel_rgba8(Self, Int, Int) -> Result[(Int, Int, Int, Int), @diagnostics.FrameworkError]
+pub fn FrameCapture::pixel_rgba8_logical(Self, Double, Double) -> Result[(Int, Int, Int, Int), @diagnostics.FrameworkError]
+pub fn FrameCapture::region_differs(Self, Self, @primitives.Rect) -> Result[Bool, @diagnostics.FrameworkError]
 pub fn FrameCapture::rgba8_top_left(Self) -> Bytes
 pub fn FrameCapture::scale(Self) -> Double
 pub fn FrameCapture::width(Self) -> Int
 pub fn FrameCapture::write_ppm(Self, String) -> Result[Unit, @diagnostics.FrameworkError]
 
+pub struct ScriptedBackend {
+  // private fields
+}
+pub fn ScriptedBackend::create_window(Self, String, Double, Double) -> Result[@platform.WindowId, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::destroy_count(Self) -> Int
+pub fn ScriptedBackend::destroy_window(Self, @platform.WindowId) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::enqueue(Self, @platform.EventKind, Double) -> Result[@platform.Event, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::enqueue_with_sequence(Self, @platform.EventKind, Double, Int64) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::fail_next_event(Self, @diagnostics.FrameworkError) -> Unit
+pub fn ScriptedBackend::last_present(Self) -> @scene.SceneSnapshot?
+pub fn ScriptedBackend::new(Double, Double, Double) -> Result[Self, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::next_event(Self, timeout_ms? : Int) -> Result[@platform.Event?, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::present(Self, @platform.WindowId, @scene.SceneSnapshot) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::present_count(Self) -> Int
+pub fn ScriptedBackend::presents(Self) -> Array[@scene.SceneSnapshot]
+pub fn ScriptedBackend::request_close(Self, @platform.WindowId) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::request_close_count(Self) -> Int
+pub fn ScriptedBackend::request_exit(Self) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::request_exit_count(Self) -> Int
+pub fn ScriptedBackend::require_capability(Self, @platform.Capability) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::set_destroy_emits_destroyed(Self, Bool) -> Unit
+pub fn ScriptedBackend::set_metrics(Self, Double, Double, Double) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::set_size(Self, @platform.WindowId, Double, Double) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::set_title(Self, @platform.WindowId, String) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::stop(Self) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::stop_count(Self) -> Int
+pub fn ScriptedBackend::wake(Self) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn ScriptedBackend::wake_count(Self) -> Int
+pub fn ScriptedBackend::window(Self) -> @platform.WindowId
+pub fn ScriptedBackend::window_metrics(Self, @platform.WindowId) -> Result[(Double, Double, Double), @diagnostics.FrameworkError]
+pub impl @platform.Backend for ScriptedBackend
+
 // Type aliases
+pub using @platform {type Event as ScriptedEvent}
+
+pub using @platform {type WindowId as ScriptedWindowId}
 
 // Traits
 pub(open) trait FrameReadback {

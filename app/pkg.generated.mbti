@@ -1,0 +1,64 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/gpui/app"
+
+import {
+  "f4ah6o/gpui/diagnostics",
+  "f4ah6o/gpui/platform",
+  "f4ah6o/gpui/primitives",
+  "f4ah6o/gpui/scene",
+}
+
+// Values
+pub fn[B : @platform.Backend, V : WindowView] run_window(B, @platform.WindowId, V, timeout_ms? : Int, max_ticks? : Int?, present_on_start? : Bool) -> Result[WindowRunOutcome, @diagnostics.FrameworkError]
+
+// Errors
+
+// Types and methods
+pub(all) struct EventOutcome {
+  repaint : Bool
+  close : Bool
+  exit : Bool
+}
+pub fn EventOutcome::close() -> Self
+pub fn EventOutcome::exit() -> Self
+pub fn EventOutcome::none() -> Self
+pub fn EventOutcome::repaint() -> Self
+
+pub(all) enum RunStopReason {
+  Destroyed
+  MaxTicks
+} derive(Eq)
+pub fn RunStopReason::equal(Self, Self) -> Bool
+pub fn RunStopReason::not_equal(Self, Self) -> Bool
+
+pub(all) struct WindowMetrics {
+  width : Double
+  height : Double
+  scale : Double
+}
+pub fn WindowMetrics::height(Self) -> Double
+pub fn WindowMetrics::logical_rect(Self) -> Result[@primitives.Rect, @diagnostics.FrameworkError]
+pub fn WindowMetrics::new(Double, Double, Double) -> Result[Self, @diagnostics.FrameworkError]
+pub fn WindowMetrics::scale(Self) -> Double
+pub fn WindowMetrics::width(Self) -> Double
+
+pub(all) struct WindowRunOutcome {
+  reason : RunStopReason
+  frames : Int
+  events : Int
+  last_sequence : Int64
+}
+pub fn WindowRunOutcome::events(Self) -> Int
+pub fn WindowRunOutcome::frames(Self) -> Int
+pub fn WindowRunOutcome::last_sequence(Self) -> Int64
+pub fn WindowRunOutcome::reason(Self) -> RunStopReason
+
+// Type aliases
+
+// Traits
+pub(open) trait WindowView {
+  fn handle_event(Self, @platform.Event, WindowMetrics) -> Result[EventOutcome, @diagnostics.FrameworkError]
+  fn scene(Self, WindowMetrics) -> Result[@scene.SceneSnapshot, @diagnostics.FrameworkError]
+  fn after_present(Self, WindowMetrics) -> Result[EventOutcome, @diagnostics.FrameworkError]
+  fn on_idle(Self, WindowMetrics) -> Result[EventOutcome, @diagnostics.FrameworkError]
+}

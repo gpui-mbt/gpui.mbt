@@ -10,6 +10,103 @@ pub enum TextFieldPaintError {
 pub extend TextFieldPaintError with Eq::{not_equal, equal}
 
 ///|
+/// Caller-supplied colors for the bounded field scene. The palette is copied
+/// into the paint call and never retained by the field.
+pub struct TextFieldPaintPalette {
+  priv background : @primitives.Color
+  priv border : @primitives.Color
+  priv focused_border : @primitives.Color
+  priv text : @primitives.Color
+  priv selection_focused : @primitives.Color
+  priv selection_unfocused : @primitives.Color
+  priv caret : @primitives.Color
+}
+
+///|
+pub fn TextFieldPaintPalette::new(
+  background : @primitives.Color,
+  border : @primitives.Color,
+  focused_border : @primitives.Color,
+  text : @primitives.Color,
+  selection_focused : @primitives.Color,
+  selection_unfocused : @primitives.Color,
+  caret : @primitives.Color,
+) -> TextFieldPaintPalette {
+  {
+    background,
+    border,
+    focused_border,
+    text,
+    selection_focused,
+    selection_unfocused,
+    caret,
+  }
+}
+
+///|
+/// Existing field colors used by the default painter.
+pub fn TextFieldPaintPalette::standard() -> TextFieldPaintPalette {
+  TextFieldPaintPalette::new(
+    @primitives.Color::rgba(255, 255, 255, 255).unwrap(),
+    @primitives.Color::rgba(130, 140, 150, 255).unwrap(),
+    @primitives.Color::rgba(55, 105, 220, 255).unwrap(),
+    @primitives.Color::rgba(20, 24, 30, 255).unwrap(),
+    @primitives.Color::rgba(65, 105, 225, 80).unwrap(),
+    @primitives.Color::rgba(140, 150, 160, 64).unwrap(),
+    @primitives.Color::rgba(20, 24, 30, 255).unwrap(),
+  )
+}
+
+///|
+pub fn TextFieldPaintPalette::background(
+  self : TextFieldPaintPalette,
+) -> @primitives.Color {
+  self.background
+}
+
+///|
+pub fn TextFieldPaintPalette::border(
+  self : TextFieldPaintPalette,
+) -> @primitives.Color {
+  self.border
+}
+
+///|
+pub fn TextFieldPaintPalette::focused_border(
+  self : TextFieldPaintPalette,
+) -> @primitives.Color {
+  self.focused_border
+}
+
+///|
+pub fn TextFieldPaintPalette::text(
+  self : TextFieldPaintPalette,
+) -> @primitives.Color {
+  self.text
+}
+
+///|
+pub fn TextFieldPaintPalette::selection_focused(
+  self : TextFieldPaintPalette,
+) -> @primitives.Color {
+  self.selection_focused
+}
+
+///|
+pub fn TextFieldPaintPalette::selection_unfocused(
+  self : TextFieldPaintPalette,
+) -> @primitives.Color {
+  self.selection_unfocused
+}
+
+///|
+pub fn TextFieldPaintPalette::caret(
+  self : TextFieldPaintPalette,
+) -> @primitives.Color {
+  self.caret
+}
+
+///|
 /// Build a hit-test/focus node; the owner keeps ElementTree focus in sync with
 /// field focus and arms native input before accepting a new logical target.
 pub fn TextField::element_node(
@@ -112,6 +209,22 @@ pub fn TextField::paint_items(
   item_id_base : UInt64,
   clip_chain_id : Int32,
 ) -> Result[(@scene.ClipChain, Array[@scene.SceneItem]), TextFieldPaintError] {
+  self.paint_items_with_palette(
+    item_id_base,
+    clip_chain_id,
+    TextFieldPaintPalette::standard(),
+  )
+}
+
+///|
+/// Paint the field with caller-supplied colors while preserving the default
+/// painter's item IDs, order, geometry and clip chains.
+pub fn TextField::paint_items_with_palette(
+  self : TextField,
+  item_id_base : UInt64,
+  clip_chain_id : Int32,
+  palette : TextFieldPaintPalette,
+) -> Result[(@scene.ClipChain, Array[@scene.SceneItem]), TextFieldPaintError] {
   let maximum_base : UInt64 = 18446744073709551608
   if item_id_base > maximum_base {
     return Err(InvalidItemId)
@@ -120,14 +233,12 @@ pub fn TextField::paint_items(
   let content = self.content_bounds()
   let clip = @scene.ClipChain::new(clip_chain_id, [content])
   let items : Array[@scene.SceneItem] = []
-  let white = @primitives.Color::rgba(255, 255, 255, 255).unwrap()
-  let black = @primitives.Color::rgba(20, 24, 30, 255).unwrap()
   let border = if self.is_focused() {
-    @primitives.Color::rgba(55, 105, 220, 255).unwrap()
+    palette.focused_border
   } else {
-    @primitives.Color::rgba(130, 140, 150, 255).unwrap()
+    palette.border
   }
-  match field_quad(item_id_base, bounds, white, None) {
+  match field_quad(item_id_base, bounds, palette.background, None) {
     Ok(item) => items.push(item)
     Err(error) => return Err(error)
   }
@@ -184,9 +295,9 @@ pub fn TextField::paint_items(
       Err(error) => return Err(error)
     }
     let color = if self.is_focused() {
-      @primitives.Color::rgba(65, 105, 225, 80).unwrap()
+      palette.selection_focused
     } else {
-      @primitives.Color::rgba(140, 150, 160, 64).unwrap()
+      palette.selection_unfocused
     }
     match field_quad(item_id_base + 5, rect, color, Some(clip_chain_id)) {
       Ok(item) => items.push(item)
@@ -205,7 +316,7 @@ pub fn TextField::paint_items(
       text_origin,
       self.document().text(),
       self.font_size(),
-      black,
+      palette.text,
       transform,
       1.0,
       Some(clip_chain_id),
@@ -224,7 +335,8 @@ pub fn TextField::paint_items(
       Ok(rect) => rect
       Err(error) => return Err(error)
     }
-    match field_quad(item_id_base + 7, rect, black, Some(clip_chain_id)) {
+    match
+      field_quad(item_id_base + 7, rect, palette.caret, Some(clip_chain_id)) {
       Ok(item) => items.push(item)
       Err(error) => return Err(error)
     }
