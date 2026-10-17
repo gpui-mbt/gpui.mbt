@@ -286,6 +286,76 @@ pub fn FocusOwner::equal(Self, Self) -> Bool
 pub fn FocusOwner::id(Self) -> UInt64
 pub fn FocusOwner::not_equal(Self, Self) -> Bool
 
+pub struct FocusScopeBoundary {
+  // private fields
+}
+pub fn FocusScopeBoundary::kind(Self) -> FocusScopeBoundaryKind
+pub fn FocusScopeBoundary::next_root(Self) -> UInt64?
+pub fn FocusScopeBoundary::previous_root(Self) -> UInt64?
+pub fn FocusScopeBoundary::removed_roots(Self) -> Array[UInt64]
+
+pub(all) enum FocusScopeBoundaryKind {
+  Opened
+  Removed
+  Replaced
+  Closed
+} derive(Eq)
+pub fn FocusScopeBoundaryKind::equal(Self, Self) -> Bool
+pub fn FocusScopeBoundaryKind::not_equal(Self, Self) -> Bool
+
+pub(all) enum FocusScopeError {
+  ForeignTarget
+  StaleTarget
+  ForeignHandle
+  StaleHandle
+  ClosedSession
+  IdentityExhausted
+  RevisionExhausted
+  InvalidRoot
+  InvalidInitialFocus
+  InvalidFallback
+  OutsideScope
+  StackLimit
+  ReentrantMutation
+  InteractionBoundaryRejected
+  Element(ElementError)
+  Scroll(ScrollError)
+} derive(Eq)
+pub fn FocusScopeError::equal(Self, Self) -> Bool
+pub fn FocusScopeError::not_equal(Self, Self) -> Bool
+
+pub struct FocusScopeHandle {
+  // private fields
+} derive(Eq)
+pub fn FocusScopeHandle::equal(Self, Self) -> Bool
+pub fn FocusScopeHandle::not_equal(Self, Self) -> Bool
+
+pub struct FocusScopeSession {
+  // private fields
+}
+pub fn FocusScopeSession::close(Self, FocusScopeTarget, (FocusScopeBoundary) -> Result[Unit, FocusScopeError]) -> Result[Unit, FocusScopeError]
+pub fn FocusScopeSession::close_scope(Self, FocusScopeTarget, FocusScopeHandle, (FocusScopeBoundary) -> Result[Unit, FocusScopeError], dismissal_key? : @primitives.Key) -> Result[Unit, FocusScopeError]
+pub fn FocusScopeSession::dispatch_input_with(Self, FocusScopeTarget, @primitives.InputEvent, (DispatchContext, @primitives.InputEvent) -> Result[Unit, ElementError]) -> Result[DispatchOutcome, FocusScopeError]
+pub fn FocusScopeSession::dispatch_target_with(Self, FocusScopeTarget, UInt64, (DispatchContext) -> Result[Unit, ElementError]) -> Result[DispatchOutcome, FocusScopeError]
+pub fn FocusScopeSession::focus_next(Self, FocusScopeTarget) -> Result[Unit, FocusScopeError]
+pub fn FocusScopeSession::focus_prev(Self, FocusScopeTarget) -> Result[Unit, FocusScopeError]
+pub fn FocusScopeSession::new(ElementTree) -> Result[Self, FocusScopeError]
+pub fn FocusScopeSession::open_scope(Self, FocusScopeTarget, UInt64, (FocusScopeBoundary) -> Result[Unit, FocusScopeError], initial? : UInt64, fallback? : UInt64) -> Result[FocusScopeHandle, FocusScopeError]
+pub fn FocusScopeSession::refresh_layout(Self, FocusScopeTarget, Prepainted) -> Result[Unit, FocusScopeError]
+pub fn FocusScopeSession::remove_subtree(Self, FocusScopeTarget, UInt64, (FocusScopeBoundary) -> Result[Unit, FocusScopeError]) -> Result[Unit, FocusScopeError]
+pub fn FocusScopeSession::replace_tree(Self, FocusScopeTarget, ElementTree, (FocusScopeBoundary) -> Result[Unit, FocusScopeError]) -> Result[Unit, FocusScopeError]
+pub fn FocusScopeSession::request_focus(Self, FocusScopeTarget, UInt64) -> Result[Unit, FocusScopeError]
+pub fn FocusScopeSession::scope_count(Self) -> Int
+pub fn FocusScopeSession::scroll_wheel(Self, FocusScopeTarget, @primitives.Point, Double, Double) -> Result[Array[ScrollViewport], FocusScopeError]
+pub fn FocusScopeSession::snapshot(Self) -> ElementTree
+pub fn FocusScopeSession::target(Self) -> FocusScopeTarget
+
+pub struct FocusScopeTarget {
+  // private fields
+} derive(Eq)
+pub fn FocusScopeTarget::equal(Self, Self) -> Bool
+pub fn FocusScopeTarget::not_equal(Self, Self) -> Bool
+
 pub(all) enum InputModality {
   Mouse
   Keyboard

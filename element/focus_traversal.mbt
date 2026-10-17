@@ -359,15 +359,30 @@ fn ElementTree::traverse_focus(
   self : ElementTree,
   backward : Bool,
 ) -> Result[ElementTree, ElementError] {
+  self.traverse_focus_within(backward, None)
+}
+
+///|
+// Filter destinations in the original tree so inherited group prefixes and
+// non-stop ordering anchors retain their existing meaning.
+fn ElementTree::traverse_focus_within(
+  self : ElementTree,
+  backward : Bool,
+  root : UInt64?,
+) -> Result[ElementTree, ElementError] {
   let mut anchor : Int32? = None
   let mut stops = 0
   let mut only_stop : Int32? = None
   for index = 0; index < self.nodes.length(); index = index + 1 {
     let node = self.nodes[index]
-    if node.focusable && self.focused == Some(node.id) {
+    if node.focusable &&
+      self.focused == Some(node.id) &&
+      (root is None || focus_scope_admits(self, root, node.id)) {
       anchor = Some(index)
     }
-    if node.focusable && node.tab_stop {
+    if node.focusable &&
+      node.tab_stop &&
+      (root is None || focus_scope_admits(self, root, node.id)) {
       stops += 1
       only_stop = Some(index)
     }
@@ -380,7 +395,9 @@ fn ElementTree::traverse_focus(
   let mut wrap : Int32? = None
   for index = 0; index < self.nodes.length(); index = index + 1 {
     let node = self.nodes[index]
-    if node.focusable && node.tab_stop {
+    if node.focusable &&
+      node.tab_stop &&
+      (root is None || focus_scope_admits(self, root, node.id)) {
       let preferred = fn(candidate : Int32, existing : Int32) {
         if backward {
           tab_precedes(order, existing, candidate)
