@@ -152,14 +152,16 @@ SOURCES=(
   "$GPUI_ROOT/platform/macos/accessibility.m"
   "$GPUI_ROOT/platform/macos_text/core_text.c"
 )
-for source in "${EXTRA_SOURCES[@]}"; do
+# Bash 3.2 treats an empty array as unset under nounset. The guarded expansion
+# keeps zero arguments empty and preserves every argument when the array is set.
+for source in ${EXTRA_SOURCES[@]+"${EXTRA_SOURCES[@]}"}; do
   SOURCES+=("$source")
 done
 
 FRAMEWORKS=(
   AppKit QuartzCore Metal CoreText CoreGraphics CoreFoundation
 )
-for framework in "${EXTRA_FRAMEWORKS[@]}"; do
+for framework in ${EXTRA_FRAMEWORKS[@]+"${EXTRA_FRAMEWORKS[@]}"}; do
   FRAMEWORKS+=("$framework")
 done
 
@@ -179,10 +181,12 @@ if [[ -d "$MOON_TARGET_DIR/native/debug/build" ]]; then
 fi
 moon build --target native --deny-warn --target-dir "$MOON_TARGET_DIR" "$PACKAGE_ROOT"
 EXECUTABLES=()
+EXECUTABLE_COUNT=0
 while IFS= read -r -d '' executable; do
   EXECUTABLES+=("$executable")
+  EXECUTABLE_COUNT=$((EXECUTABLE_COUNT + 1))
 done < <(find "$MOON_TARGET_DIR/native/debug/build" -type f -name '*.exe' -not -path '*.dSYM/*' -print0)
-[[ "${#EXECUTABLES[@]}" == 1 ]] || {
+[[ "$EXECUTABLE_COUNT" == 1 ]] || {
   echo "expected exactly one built executable for package $PACKAGE under $MOON_TARGET_DIR" >&2
   exit 1
 }
@@ -209,13 +213,13 @@ case "$MODE" in
     echo "$APP_BUNDLE"
     ;;
   run)
-    GPUI_MACOS_LIBRARY="$APP_LIBRARY" "$APP_BINARY" "${APP_ARGS[@]}" >"$LOG_FILE" 2>&1 &
+    GPUI_MACOS_LIBRARY="$APP_LIBRARY" "$APP_BINARY" ${APP_ARGS[@]+"${APP_ARGS[@]}"} >"$LOG_FILE" 2>&1 &
     APP_PID="$!"
     echo "$APP_PID" > "$PID_FILE"
     echo "Launched $APP_BUNDLE (pid $APP_PID); log: $LOG_FILE"
     ;;
   verify)
-    GPUI_MACOS_LIBRARY="$APP_LIBRARY" "$APP_BINARY" "${APP_ARGS[@]}" >"$LOG_FILE" 2>&1 &
+    GPUI_MACOS_LIBRARY="$APP_LIBRARY" "$APP_BINARY" ${APP_ARGS[@]+"${APP_ARGS[@]}"} >"$LOG_FILE" 2>&1 &
     APP_PID="$!"
     echo "$APP_PID" > "$PID_FILE"
     sleep 1
@@ -234,7 +238,7 @@ case "$MODE" in
     mkdir -p "$SMOKE_DIR"
     set +e
     GPUI_SMOKE_DIR="$SMOKE_DIR/" GPUI_NATIVE_E2E=1 GPUI_MACOS_LIBRARY="$APP_LIBRARY" \
-      "$APP_BINARY" --smoke "${APP_ARGS[@]}" >"$LOG_FILE" 2>&1
+      "$APP_BINARY" --smoke ${APP_ARGS[@]+"${APP_ARGS[@]}"} >"$LOG_FILE" 2>&1
     status=$?
     set -e
     for ppm in "$SMOKE_DIR"/*.ppm; do

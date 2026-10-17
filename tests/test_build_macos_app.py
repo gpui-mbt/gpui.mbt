@@ -1,6 +1,7 @@
 """Inert build-helper regressions. These do not compile or run a macOS app."""
 
 import importlib.util
+import json
 import os
 import plistlib
 import shutil
@@ -26,7 +27,11 @@ class MacosAppBuilderTest(unittest.TestCase):
         bins.mkdir()
         stubs = {
             "uname": '#!/bin/bash\nprintf "Darwin\\n"\n',
-            "xcrun": '#!/bin/bash\nprintf "inert library\\n" > "${!#}"\n',
+            "xcrun": '''#!/usr/bin/env python3
+import json, os, pathlib, sys
+pathlib.Path(os.environ["XCRUN_LOG"]).write_text(json.dumps(sys.argv[1:]))
+pathlib.Path(sys.argv[-1]).write_text("inert library\\n")
+''',
             "moon": '''#!/bin/bash
 set -euo pipefail
 target=""
@@ -41,6 +46,14 @@ executable="${EXECUTABLE_NAME:-$(basename "$package")}.exe"
 output="$target/native/debug/build/$package/$executable"
 mkdir -p "$(dirname "$output")"
 printf '%s\\n' "$package" > "$output"
+if [[ "${MAKE_RUNNABLE:-}" == 1 ]]; then
+  cat > "$output" <<'PY'
+#!/usr/bin/env python3
+import json, os, pathlib, sys
+pathlib.Path(os.environ["APP_ARGS_LOG"]).write_text(json.dumps(sys.argv[1:]))
+PY
+  chmod +x "$output"
+fi
 if [[ "${DUPLICATE_EXECUTABLE:-}" == 1 ]]; then
   mkdir -p "$target/native/debug/build/duplicate"
   cp "$output" "$target/native/debug/build/duplicate/$executable"
@@ -55,12 +68,17 @@ fi
         for package in ["src/app", "src/tools/app"]:
             (self.app / package).mkdir(parents=True)
         (self.app / "moon.work").write_text("members = []\n")
-        self.env = os.environ | {"PATH": str(bins) + ":" + os.environ["PATH"]}
+        self.env = os.environ | {
+            "PATH": str(bins) + ":" + os.environ["PATH"],
+            "XCRUN_LOG": str(self.root / "xcrun-args.json"),
+            "APP_ARGS_LOG": str(self.root / "app-args.json"),
+        }
 
-    def build(self, package="src/app", name="Fixture", **env):
+    def build(self, package="src/app", name="Fixture", mode="build", options=(), app_args=None, **env):
         return subprocess.run(
-            ["bash", str(self.script), "--root", str(self.app), "--name", name,
-             "--bundle-id", "org.example.fixture", "--package", package, "--build"],
+            ["/bin/bash", str(self.script), "--root", str(self.app), "--name", name,
+             "--bundle-id", "org.example.fixture", "--package", package,
+             *options, "--" + mode, *([] if app_args is None else ["--", *app_args])],
             env=self.env | env, capture_output=True, text=True,
         )
 
@@ -88,6 +106,31 @@ fi
         result = self.build(MOON_NO_EXECUTABLE="1")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("expected exactly one built executable", result.stderr)
+
+    def test_zero_one_multiple_native_options_preserve_argument_boundaries(self):
+        for sources, frameworks in [
+            ([], []),
+            (["/tmp/source one.m"], ["AudioToolbox"]),
+            (["/tmp/source one.m", "/tmp/source two.m"], ["AudioToolbox", "Test Framework"]),
+        ]:
+            with self.subTest(sources=sources, frameworks=frameworks):
+                options = [arg for source in sources for arg in ["--native-source", source]]
+                options += [arg for framework in frameworks for arg in ["--framework", framework]]
+                result = self.build(options=options)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                args = json.loads((self.root / "xcrun-args.json").read_text())
+                self.assertNotIn("", args)
+                self.assertEqual([arg for arg in args if arg in sources], sources)
+                selected = [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == "-framework"]
+                self.assertEqual(selected, ["AppKit", "QuartzCore", "Metal", "CoreText", "CoreGraphics", "CoreFoundation", *frameworks])
+
+    def test_smoke_preserves_zero_one_multiple_application_arguments(self):
+        for app_args in [[], ["one argument"], ["one argument", "", "two"]]:
+            with self.subTest(app_args=app_args):
+                result = self.build(mode="smoke", app_args=app_args, MAKE_RUNNABLE="1")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                actual = json.loads((self.root / "app-args.json").read_text())
+                self.assertEqual(actual, ["--smoke", *app_args])
 
     def test_bundle_name_is_xml_escaped(self):
         name = 'Research & Planning <test> "v1"'

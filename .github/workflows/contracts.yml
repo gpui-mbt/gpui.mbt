@@ -129,6 +129,8 @@ jobs:
           python3 -m unittest tests.test_accessibility_owner_id_allocator
           moon test --package f4ah6o/gpui/platform/macos --target native --deny-warn 2>&1 | tee _build/macos/headless.log
           moon test --package f4ah6o/gpui/platform/macos_app --target native --deny-warn 2>&1 | tee _build/macos/app-coretext.log
+          /bin/bash --version | tee _build/macos/system-bash.log
+          python3 -m unittest tests.test_build_macos_app -v 2>&1 | tee _build/macos/app-builder-contracts.log
           python3 scripts/test_macos_app_consumer.py --output _build/macos/app-consumer 2>&1 | tee _build/macos/app-consumer.log
           sh script/test_macos_background_policy.sh 2>&1 | tee _build/macos/background-policy.log
           ./script/build_and_run.sh --build 2>&1 | tee _build/macos/build.log

@@ -79,7 +79,7 @@ def main() -> None:
         workspace = Path(path)
         module = prepare_fixture(workspace)
         command = [
-            "bash", str(ROOT / "script/build_macos_app.sh"),
+            "/bin/bash", str(ROOT / "script/build_macos_app.sh"),
             "--root", str(workspace), "--name", APP_NAME,
             "--bundle-id", BUNDLE_ID, "--package", str(module),
             "--target-dir", str(output / "bundle"), "--build",
