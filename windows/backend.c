@@ -1558,7 +1558,45 @@ static void emit_character(gpui_windows_host *host, uint32_t scalar,
     InterlockedExchange(&host->error, GPUI_WINDOWS_INVALID);
     return;
   }
+  /* C0 controls are key-down concerns, not committed single-line text. This
+   * keeps Enter/Tab and Ctrl chords from inserting control characters after
+   * their KeyPressed event has already been delivered. */
+  if (scalar < 0x20 || scalar == 0x7f)
+    return;
   emit_event(host, 16, (double)scalar, 0, 0, mods);
+}
+
+static int32_t character_from_vk(WPARAM key) {
+  if (key >= 'A' && key <= 'Z')
+    return (int32_t)('a' + (key - 'A'));
+  if (key >= '0' && key <= '9')
+    return (int32_t)key;
+  switch (key) {
+  case VK_OEM_1:
+    return ';';
+  case VK_OEM_PLUS:
+    return '=';
+  case VK_OEM_COMMA:
+    return ',';
+  case VK_OEM_MINUS:
+    return '-';
+  case VK_OEM_PERIOD:
+    return '.';
+  case VK_OEM_2:
+    return '/';
+  case VK_OEM_3:
+    return '`';
+  case VK_OEM_4:
+    return '[';
+  case VK_OEM_5:
+    return '\\';
+  case VK_OEM_6:
+    return ']';
+  case VK_OEM_7:
+    return '\'';
+  default:
+    return 0;
+  }
 }
 
 static UINT mouse_button_bit(UINT message, WPARAM wparam) {
@@ -1771,13 +1809,13 @@ static LRESULT CALLBACK gpui_window_proc(HWND hwnd, UINT message,
   case WM_SYSKEYDOWN:
   case WM_KEYUP:
   case WM_SYSKEYUP: {
+    int32_t mods = modifiers_from_message(host, 0);
     int32_t symbol = key_symbol_from_vk(wparam);
     if (symbol != 0) {
       int32_t previous_event_count = host->event_count;
       emit_event(host,
                  (message == WM_KEYDOWN || message == WM_SYSKEYDOWN) ? 11 : 12,
-                 0, 0, symbol,
-                 modifiers_from_message(host, 0));
+                 0, 0, symbol, mods);
       if ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN) &&
           host->event_count > previous_event_count) {
         int32_t at = (host->event_read + host->event_count - 1) %
@@ -1785,6 +1823,17 @@ static LRESULT CALLBACK gpui_window_proc(HWND hwnd, UINT message,
         host->events[at][7] = (double)gpui_windows_key_repeat_from_lparam(
             (uintptr_t)lparam);
       }
+    } else if ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN) &&
+               (mods & (2 | 4 | 8)) != 0) {
+      /* Printable shortcut chords carry a Character key-down so applications
+       * can distinguish Ctrl+K from committed WM_CHAR text. Plain typing keeps
+       * using WM_CHAR only, avoiding duplicate insertion. */
+      int32_t character = character_from_vk(wparam);
+      if (character != 0)
+        emit_event(host, 11, (double)character,
+                   (double)gpui_windows_key_repeat_from_lparam(
+                       (uintptr_t)lparam),
+                   0, mods);
     }
     if (message == WM_SYSKEYDOWN || message == WM_SYSKEYUP)
       return host->api.def_window_proc_w(hwnd, message, wparam, lparam);
@@ -3428,6 +3477,75 @@ int32_t gpui_windows_test_wheel_enqueue(void) {
   return sequence_rejection_preserved ? GPUI_WINDOWS_OK : 4;
 }
 
+static BOOL test_special_key_symbol(int32_t value) {
+  switch (value) {
+  case 0xff0d:
+  case 0xff1b:
+  case 0xff08:
+  case 0xffff:
+  case 0xff09:
+  case 0x20:
+  case 0xff51:
+  case 0xff52:
+  case 0xff53:
+  case 0xff54:
+  case 0xff50:
+  case 0xff57:
+  case 0xff55:
+  case 0xff56:
+    return TRUE;
+  default:
+    return FALSE;
+  }
+}
+
+int32_t gpui_windows_test_post_key(int32_t token, int32_t window, int32_t kind,
+                                   int32_t value, int32_t modifiers) {
+  int32_t status = check_window(token, window);
+  if (status != GPUI_WINDOWS_OK)
+    return status;
+  if (!native_e2e_enabled())
+    return GPUI_WINDOWS_UNSUPPORTED;
+  if (modifiers < 0 || modifiers > 15)
+    return GPUI_WINDOWS_INVALID;
+  if (kind == 1) {
+    if (value < 0x20 || value > 0x10ffff || value == 0x7f ||
+        (value >= 0xd800 && value <= 0xdfff))
+      return GPUI_WINDOWS_INVALID;
+  } else if (kind == 0) {
+    if (!test_special_key_symbol(value))
+      return GPUI_WINDOWS_INVALID;
+  } else {
+    return GPUI_WINDOWS_INVALID;
+  }
+  int32_t before = g_host.event_count;
+  emit_event(&g_host, 11, kind == 1 ? (double)value : 0.0, 0.0,
+             kind == 0 ? value : 0, modifiers);
+  if (g_host.event_count <= before)
+    return GPUI_WINDOWS_RESOURCE;
+  return GPUI_WINDOWS_OK;
+}
+
+int32_t gpui_windows_test_post_click(int32_t token, int32_t window, double x,
+                                     double y) {
+  int32_t status = check_window(token, window);
+  if (status != GPUI_WINDOWS_OK)
+    return status;
+  if (!native_e2e_enabled())
+    return GPUI_WINDOWS_UNSUPPORTED;
+  if (!isfinite(x) || !isfinite(y))
+    return GPUI_WINDOWS_INVALID;
+  if (g_host.event_count > GPUI_EVENT_CAPACITY - 3)
+    return GPUI_WINDOWS_RESOURCE;
+  int32_t before = g_host.event_count;
+  emit_event(&g_host, 7, x, y, 0, 0);
+  emit_event(&g_host, 8, x, y, 0, 0);
+  emit_event(&g_host, 9, x, y, 0, 0);
+  if (g_host.event_count != before + 3)
+    return GPUI_WINDOWS_RESOURCE;
+  return GPUI_WINDOWS_OK;
+}
+
 /* Test-only independent-process probes pump sent ownership messages while
  * awaiting a bounded challenge handshake. */
 #include "clipboard_interop_test.inc"
@@ -3775,6 +3893,23 @@ int32_t gpui_windows_test_text_session_staging(int32_t *failed_stage,
   return GPUI_WINDOWS_UNSUPPORTED;
 }
 int32_t gpui_windows_test_wheel_enqueue(void) {
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_post_key(int32_t host, int32_t window, int32_t kind,
+                                   int32_t value, int32_t modifiers) {
+  (void)host;
+  (void)window;
+  (void)kind;
+  (void)value;
+  (void)modifiers;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_post_click(int32_t host, int32_t window, double x,
+                                     double y) {
+  (void)host;
+  (void)window;
+  (void)x;
+  (void)y;
   return GPUI_WINDOWS_UNSUPPORTED;
 }
 
