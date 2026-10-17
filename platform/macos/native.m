@@ -4,6 +4,9 @@
 #import <CommonCrypto/CommonDigest.h>
 #include <math.h>
 #include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "abi.h"
 #include "../macos_text/macos_text.h"
 
@@ -81,6 +84,40 @@ static double test_scale_override;
 static NSPasteboard *test_clipboard;
 #endif
 static BOOL key_window_owns_view(GPWindow *w);
+#ifdef GPUI_TESTING
+// Why not log composition text: this is a synthetic-only timing/ownership probe.
+static int64_t gpui_ime_trace_sequence;
+static void gpui_test_ime_trace(GPWindow *w, NSString *phase, NSDictionary *details) {
+  const char *enabled = getenv("GPUI_MACOS_IME_TRACE");
+  if (!enabled || strcmp(enabled, "1") != 0) return;
+  NSMutableDictionary *record = [@{
+    @"schema_version": @1,
+    @"sequence": @(++gpui_ime_trace_sequence),
+    @"monotonic_seconds": @([NSProcessInfo processInfo].systemUptime),
+    @"phase": phase ?: @"unknown",
+    @"window_id": @(w.token), @"host_epoch": @(host_epoch),
+    @"session_epoch": @(w.sessionEpoch),
+    @"session_active": @(w.sessionActive),
+    @"session_awaiting_ack": @(w.sessionAwaitingAck),
+    @"batch_delivered": @(w.batchDelivered),
+    @"awaiting_sequence": @(w.awaitingSequence),
+    @"last_batch_sequence": @(w.lastBatchSequence),
+    @"owner_revision": @(w.ownerRevision),
+    @"last_presented_batch_sequence": @(w.lastPresentedBatchSequence),
+    @"last_presented_owner_revision": @(w.lastPresentedOwnerRevision),
+    @"has_marked_text": @(w.hasMarkedText),
+    @"text_dispatch_active": @(w.textDispatchActive),
+    @"deferred_text_error": @(w.deferredTextError),
+    @"main_thread": @([NSThread isMainThread]),
+  } mutableCopy];
+  if (details) [record addEntriesFromDictionary:details];
+  NSData *data = [NSJSONSerialization dataWithJSONObject:record options:0 error:nil];
+  NSString *line = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
+  if (!line) return;
+  fprintf(stdout, "GPUI_MACOS_IME_DIAGNOSTIC_TRACE %s\n", line.UTF8String);
+  fflush(stdout);
+}
+#endif
 static NSPasteboard *clipboard_pasteboard(void) {
 #ifdef GPUI_TESTING
   if (test_clipboard) return test_clipboard;
@@ -189,6 +226,9 @@ static void discard_marked_input_state(GPWindow *w) {
   view.suppressTextCallbacks = NO;
 }
 static void fail_text_session(GPWindow *w, int error) {
+#ifdef GPUI_TESTING
+  gpui_test_ime_trace(w, @"session_failed", @{@"error": @(error)});
+#endif
   w.deferredTextError = error ? error : 17;
   w.sessionActive = NO;
   w.sessionAwaitingAck = NO;
@@ -231,6 +271,9 @@ static BOOL append_text_callback(GPWindow *w, NSDictionary *callback) {
     return NO;
   }
   [w.textCallbacks addObject:[callback copy]];
+#ifdef GPUI_TESTING
+  gpui_test_ime_trace(w, @"callback_enqueued", @{@"callback_kind": callback[@"kind"] ?: @"unknown"});
+#endif
   return YES;
 }
 static void flush_text_batch(GPWindow *w) {
@@ -268,6 +311,10 @@ static void flush_text_batch(GPWindow *w) {
   w.awaitingSequence = sequence;
   w.sessionAwaitingAck = YES;
   w.batchDelivered = NO;
+#ifdef GPUI_TESTING
+  gpui_test_ime_trace(w, @"batch_emitted", @{@"batch_sequence": @(sequence),
+    @"callback_count": @(callbacks.count)});
+#endif
 }
 static void flush_async_text_transactions(void) {
   if (!windows) return;
@@ -698,8 +745,14 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
   int64_t dispatch_id = take_testing_key_dispatch(self.owner, e, @"down");
   if (dispatch_id < 0) return;
 #endif
+#ifdef GPUI_TESTING
+  gpui_test_ime_trace(self.owner, @"key_down_entry",
+    @{@"key_code": @(e.keyCode), @"dispatch_id": @(dispatch_id)});
+#endif
   [self dispatchKeyDown:e];
 #ifdef GPUI_TESTING
+  gpui_test_ime_trace(self.owner, @"key_down_return",
+    @{@"key_code": @(e.keyCode), @"dispatch_id": @(dispatch_id)});
   complete_testing_key_dispatch(self.owner, dispatch_id, @"down");
 #endif
 }
@@ -709,6 +762,8 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
 #ifdef GPUI_TESTING
   int64_t dispatch_id = take_testing_key_dispatch(owner, e, @"up");
   if (dispatch_id < 0) return;
+  gpui_test_ime_trace(owner, @"key_up_entry",
+    @{@"key_code": @(e.keyCode), @"dispatch_id": @(dispatch_id)});
 #endif
   resize_surface(owner);
   if (owner.sessionActive) {
@@ -790,7 +845,17 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
         discard_marked_input_state(owner);
       }
     } else {
+#ifdef GPUI_TESTING
+      gpui_test_ime_trace(owner, @"input_interpret_begin",
+        @{@"key_code": @(event.keyCode), @"context_present": @(self.inputContext != nil),
+          @"selected_input_source": self.inputContext.selectedKeyboardInputSource ?: @""});
+#endif
       BOOL handled = [self.inputContext handleEvent:event];
+#ifdef GPUI_TESTING
+      gpui_test_ime_trace(owner, @"input_interpret_result",
+        @{@"key_code": @(event.keyCode), @"handled": @(handled),
+          @"fallback_invoked": @(!handled)});
+#endif
       if (!handled) [self interpretKeyEvents:@[event]];
     }
     self.dispatchKeyEvent = nil;
@@ -861,6 +926,10 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
 // the last accepted field state plus callbacks in the current AppKit dispatch.
 - (void)insertText:(id)value replacementRange:(NSRange)replacementRange {
   GPWindow *owner = self.owner;
+#ifdef GPUI_TESTING
+  gpui_test_ime_trace(owner, @"callback_entry",
+    @{@"callback_kind": @"insertText", @"suppress_callbacks": @(self.suppressTextCallbacks)});
+#endif
   if (!owner || owner.closing || self.suppressTextCallbacks) return;
   NSString *text = [value isKindOfClass:NSAttributedString.class] ? [value string] :
     ([value isKindOfClass:NSString.class] ? value : nil);
@@ -919,6 +988,10 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
 - (void)insertText:(id)value { [self insertText:value replacementRange:NSMakeRange(NSNotFound, 0)]; }
 - (void)setMarkedText:(id)value selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange {
   GPWindow *owner = self.owner;
+#ifdef GPUI_TESTING
+  gpui_test_ime_trace(owner, @"callback_entry",
+    @{@"callback_kind": @"setMarkedText", @"suppress_callbacks": @(self.suppressTextCallbacks)});
+#endif
   if (!owner || owner.closing || self.suppressTextCallbacks || (!owner.sessionActive && !owner.directText)) return;
   NSString *text = [value isKindOfClass:NSAttributedString.class] ? [value string] :
     ([value isKindOfClass:NSString.class] ? value : nil);
@@ -986,6 +1059,10 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
 }
 - (void)unmarkText {
   GPWindow *owner = self.owner;
+#ifdef GPUI_TESTING
+  gpui_test_ime_trace(owner, @"callback_entry",
+    @{@"callback_kind": @"unmarkText", @"suppress_callbacks": @(self.suppressTextCallbacks)});
+#endif
   if (!owner || self.suppressTextCallbacks || (!owner.sessionActive && !owner.directText) || !owner.hasMarkedText) return;
   owner.pendingUnmarkText = [owner.visibleText substringWithRange:owner.markedRange];
   owner.pendingUnmark = YES;
@@ -1074,8 +1151,15 @@ static void destroy(GPWindow *w) {
   // context even when app-side cleanup unwinds through window destruction.
   if (w.testingInputSourceSaved) {
     view.inputContext.selectedKeyboardInputSource = w.testingOriginalInputSource;
-    w.testingInputSourceSaved = NO;
-    w.testingOriginalInputSource = nil;
+    BOOL restored = w.testingOriginalInputSource ?
+      [view.inputContext.selectedKeyboardInputSource isEqualToString:w.testingOriginalInputSource] :
+      view.inputContext.selectedKeyboardInputSource == nil;
+    gpui_test_ime_trace(w, @"input_source_restored", @{@"restored": @(restored),
+      @"cleanup_fallback": @YES});
+    if (restored) {
+      w.testingInputSourceSaved = NO;
+      w.testingOriginalInputSource = nil;
+    }
   }
 #endif
   view.owner = nil;
@@ -1424,6 +1508,9 @@ static int present(GPWindow *w, const uint8_t *bytes, int32_t len) {
   for (NSUInteger i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) [hex appendFormat:@"%02x", digest[i]];
   w.completedFrameSHA256 = [hex copy];
   w.completedFrameRevision++;
+  gpui_test_ime_trace(w, @"frame_presented",
+    @{@"frame_revision": @(w.completedFrameRevision),
+      @"frame_sha256": w.completedFrameSHA256});
 #endif
   return 0;
 }
@@ -1503,6 +1590,10 @@ static int update_text_session(GPWindow *w, double epoch_value, const uint8_t *b
     if (ack) {
       w.lastPresentedBatchSequence = ack;
       w.lastPresentedOwnerRevision = w.ownerRevision;
+#ifdef GPUI_TESTING
+      gpui_test_ime_trace(w, @"revision_ack",
+        @{@"ack_sequence": @(ack), @"accepted_owner_revision": @(w.ownerRevision)});
+#endif
     }
   }
   result_token = w.sessionEpoch;
@@ -1523,6 +1614,9 @@ static int end_text_session(GPWindow *w, double epoch_value) {
   if (!isfinite(epoch_value) || epoch_value <= 0 || epoch_value > INT_MAX || floor(epoch_value) != epoch_value ||
       (int)epoch_value != w.sessionEpoch || !w.sessionActive) return 10;
   fence_session(w, YES, 0);
+#ifdef GPUI_TESTING
+  gpui_test_ime_trace(w, @"session_closed", @{@"closed_epoch": @(w.sessionEpoch)});
+#endif
   return 0;
 }
 static int set_direct_text(GPWindow *w, BOOL enabled) {
@@ -1877,6 +1971,7 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
         view.inputContext.selectedKeyboardInputSource = source;
         BOOL restored = source ? [view.inputContext.selectedKeyboardInputSource isEqualToString:source] :
           view.inputContext.selectedKeyboardInputSource == nil;
+        gpui_test_ime_trace(w, @"input_source_restored", @{@"restored": @(restored)});
         if (!restored) return 9;
         w.testingOriginalInputSource = nil;
         w.testingInputSourceSaved = NO;
