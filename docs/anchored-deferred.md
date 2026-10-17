@@ -23,8 +23,9 @@ viewport are allowed. There is no per-edge margin or `SwitchAnchor` surface.
 `attachment.deferred(priority=5)` supplies an optional labeled `Int32` priority.
 The bounded range is 0 through 2147483647; negative values return
 `InvalidDeferredPriority`. Higher values paint later, with structural attachment
-order preserved for ties. Repeated wrapping and applying it to an ordinary
-element are rejected, and nested deferred draws remain unsupported. Leaving an
+order preserved for flat ties. Exactly two anchored deferred levels are
+supported; nested ties use discovery order as described below. Repeated
+wrapping, applying it to an ordinary element, and a third level are rejected. Leaving an
 attachment undeferred keeps its popup in structural paint order. Priority is
 chosen when wrapping; rebuild the declarative attachment for a different
 priority instead of wrapping an already deferred attachment again.
@@ -92,14 +93,30 @@ Neither accessor accepts geometry or bypasses layout. Request-layout and the
 published nodes retain structural order independently of deferred paint order;
 there is no Rust-style per-node lifecycle callback surface.
 
+Nested attachment parents and references are resolved from their real containing
+popup's measured layout, never from the ordinary-only request or a caller-supplied
+rectangle. Nested measurement excludes the nested attachment from its parent's
+in-flow allocation. Prepaint performs the discovery rounds, retaining captured
+logical offsets separately from device-snapped bounds. It adds each outer and
+inner logical translation once, then applies the layout-boundary device snap
+to the composed offset. Moving an ordinary ancestor changes final bounds while
+preserving the authored Local positions. The qualified nested corpus uses
+integer logical coordinates aligned at all exercised device scales; it does
+not establish fractional nested rounding parity.
+
 ## Drawing, masks and input
 
 `ElementTree.nodes()` always retains structural preorder. Dispatch ancestry,
 tab order, focus ownership and drag identities use this same tree. A separate
-stable traversal paints ordinary nodes first, then complete flat deferred
-subtrees in ascending priority order. Every subtree stays contiguous, including
-its attachment clip and nonpainting structural helpers. Ties retain structural
-attachment order across the entire tree. Priority comparison never subtracts,
+stable traversal paints ordinary nodes first, then deferred groups in ascending
+priority order. Each group includes its ordinary descendants and excludes every
+nested deferred group. Groups have independent identity even at equal priority.
+Flat ties retain structural attachment order. For nested groups, an ordinary
+pass discovers outer groups structurally; each stable priority-sorted prepaint
+round discovers the next round in its traversal order. The final paint pass
+sorts all discovered groups globally, preserving discovery ties. Thus a child
+may paint before its parent, and equal-priority children of reversed-priority
+parents follow parent prepaint order rather than structural DFS. Priority comparison never subtracts,
 so maximum and adjacent large `Int32` priorities cannot overflow the comparator.
 Hit testing visits the exact reverse paint traversal, selecting the last
 eligible overlapping node. This preserves the existing single-target core
@@ -117,8 +134,14 @@ closed-edge or general native occlusion equivalence.
 
 Scroll, uniform-list and container-query composition anywhere in an anchored
 declarative tree is rejected before callbacks/factories run. Query-generated
-attachments are also rejected. An attachment cannot contain another attachment.
-Reassembling exported anchored and scroll/list node snapshots is rejected too;
+attachments are also rejected. A deferred attachment may contain one further
+deferred attachment level. Both levels must use the bounded parent/reference
+shape; an undeferred outer or inner attachment cannot form a nested path.
+There is no element-transform API, cached-view reuse, or ordinary-deferred
+surface. Nontrivial nested ancestor masks are explicitly rejected when
+reassembling exported node snapshots: nested scheduling supports only the
+common full-viewport mask, with no implicit clip restoration or transform
+composition. Reassembling exported anchored and scroll/list node snapshots is rejected too;
 this surface does not silently drop an ancestor mask or support scroll escape.
 
 ## Identity, updates and rejection
@@ -139,8 +162,10 @@ focus ownership intact. Removing the owning parent removes the reference and
 all attachments as ordinary structural descendants. Removing only a reference
 while an attachment remains is rejected atomically, preventing a dangling live
 reference. Earlier immutable snapshots are unchanged. Exported node snapshots
-retain exact inherited subtree priority through copy operations; grafting a
-node with different priority metadata under a deferred parent is rejected.
+retain the independent group identity and exact inherited priority through
+copy operations. Grafting a node with different group or priority metadata
+under a deferred parent is rejected, even when the visible paint order would
+be unchanged. Bounds-only refresh compares both group identity and priority.
 
 ## Evidence and limits
 
@@ -221,4 +246,43 @@ rejection of priority changes during bounds-only refresh.
 These focused tests do not replace separately source-bound paired candidate
 execution, wrong-behavior controls or independent final-source review. There
 is no new browser/native-window, raster, text, cached-view, outside-click,
-arbitrary ordinary-deferred or nested-deferred qualification.
+arbitrary ordinary-deferred qualification. The bounded two-level nested evidence
+is recorded separately below.
+
+
+## Bounded two-level nested evidence
+
+The separate actual Rust oracle is
+[run 39032334348](https://github.com/gpui-mbt/gpui-conformance/actions/runs/39032334348),
+artifact `12100643370`, at CI merge
+`554bfe0908102375cef15efdc0ea7c15541b2621` (tree
+`62ada6494e6f6ec6d463a1425f6e7daa2dadbce2`). Its original `raw.json` SHA-256 is
+`b4fd41463d8a12da803ef04ffa37750ee25864e23a0def8e21f9528b5799fe50`.
+The core regressions retain all eight cases and all 56 observed frames,
+including each scale-2 bootstrap, both base frames at configured scale 1 or
+1.25, priority update, nested-child removal, restoration, and ancestor movement.
+Removal retains the updated parent priority; restoration restores the original
+priorities. No observed frame is discarded or fitted.
+
+The comparison is the source-derived projection of Rust paint-entry callbacks
+to actual core emitted boxes and prepainted bounds. The four families are
+increasing priorities, child-lower priorities, all-equal priorities, and
+reversed parent priorities with tied children. Reversed parents paint
+B, A, B.nested, A.nested; child-lower cases paint the children before their
+parents. Ordinary before/after sentinels remain in their groups. A's nested
+root is `[80, 68, 40, 32]`; moving its ordinary ancestor by `[16, 12]` yields
+`[96, 80, 40, 32]`. Expected observations are assertions, never layout inputs.
+
+The tests also exercise real balanced full-viewport scene masks, structural
+focus/tab/drag/dispatch ancestry, the core's existing topmost hit semantics,
+metadata copies, immutable removal/restoration, dynamic reference geometry,
+priority/group-sensitive bounds refresh, maximum priorities, malformed
+snapshots, and explicit unsupported composition/depth rejection. These are
+core contract checks. The Rust oracle has no pointer probes and does not
+establish input, outside-click, arbitrary clipping, transform, fractional
+nested rounding, cache, raster, text, browser/native-window, arbitrary
+ordinary-deferred, deeper nesting, or full upstream popover parity.
+
+These source regressions do not replace independently reviewed final source,
+source-bound actual paired candidate execution, or executed wrong-behavior
+controls. The external original conformance corpora are unchanged.

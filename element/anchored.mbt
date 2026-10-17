@@ -45,7 +45,7 @@ fn measure_anchored_popup(
     Ok(item) => item
     Err(_) => return Err(GeometryFailure)
   }
-  let measured = { ..popup, item: Some(item), }
+  let measured = { ..without_anchored_children(popup), item: Some(item), }
   let style = @layout.FlexTreeStyle::new(@layout.FlowDirection::row()).with_align(
     @layout.AlignItems::start(),
   )
@@ -69,10 +69,13 @@ fn validate_anchored_popup(
   wrapper_id : UInt64,
   popup : Element,
 ) -> Result[Unit, ElementError] {
-  let pending = [(popup, 1)]
+  if popup.anchored is Some(_) {
+    return Err(UnsupportedAnchoredComposition)
+  }
+  let pending = [(popup, 1, 1)]
   let ids : Array[UInt64] = [wrapper_id]
   while pending.length() > 0 {
-    let (element, depth) = pending.pop().unwrap()
+    let (element, depth, level) = pending.pop().unwrap()
     if depth > MAX_ELEMENT_DEPTH {
       return Err(TreeTooDeep)
     }
@@ -85,7 +88,9 @@ fn validate_anchored_popup(
       }
     }
     ids.push(element.id)
-    if element.anchored is Some(_) || element.deferred is Some(_) {
+    let attachment = element.anchored is Some(_)
+    if (attachment && (level >= 2 || element.deferred is None)) ||
+      (!attachment && element.deferred is Some(_)) {
       return Err(UnsupportedAnchoredComposition)
     }
     if element.grid_item is Some(_) ||
@@ -95,6 +100,22 @@ fn validate_anchored_popup(
       element.uniform_list is Some(_) ||
       element.scroll_offset is Some(_) {
       return Err(UnsupportedAnchoredComposition)
+    }
+    if attachment {
+      match validate_anchored_wrapper(element) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      for child in element.children {
+        pending.push((child, depth + 1, level + 1))
+      }
+      continue
+    }
+    if element.children.any(child => child.anchored is Some(_)) {
+      match validate_anchored_parent(element) {
+        Err(_) => return Err(UnsupportedAnchoredComposition)
+        Ok(_) => ()
+      }
     }
     let item = match element.item {
       None => return Err(MissingLayoutItem)
@@ -114,10 +135,29 @@ fn validate_anchored_popup(
       _ => ()
     }
     for child in element.children {
-      pending.push((child, depth + 1))
+      pending.push((child, depth + 1, level))
     }
   }
   Ok(())
+}
+
+///|
+fn validate_anchored_wrapper(element : Element) -> Result[Unit, ElementError] {
+  if element.item is Some(_) ||
+    element.grid_item is Some(_) ||
+    element.children_style is Some(_) ||
+    element.grid_style is Some(_) ||
+    element.children.length() != 1 ||
+    element.background is Some(_) ||
+    element.pointer_events ||
+    element.focusable ||
+    element.tab_stop ||
+    element.tab_index != 0 ||
+    element.tab_group_index is Some(_) {
+    Err(InvalidAnchoredShape)
+  } else {
+    Ok(())
+  }
 }
 
 ///|
@@ -253,7 +293,7 @@ fn anchored_placements(
   let pending : Array[ElementPlacement] = [
     { element: root, parent: None, depth: 0, },
   ]
-  let mut attachment_depth = -1
+  let attachments : Array[(Int32, Int32?)] = []
   while pending.length() > 0 {
     let placement = pending.pop().unwrap()
     let element = placement.element
@@ -268,8 +308,9 @@ fn anchored_placements(
         return Err(DuplicateId)
       }
     }
-    if placement.depth <= attachment_depth {
-      attachment_depth = -1
+    while attachments.length() > 0 &&
+          placement.depth <= attachments[attachments.length() - 1].0 {
+      let _ = attachments.pop()
     }
     if element.container_query is Some(_) ||
       element.query_root_size is Some(_) ||
@@ -291,22 +332,17 @@ fn anchored_placements(
     match element.anchored {
       None => ()
       Some(_) => {
-        if attachment_depth >= 0 {
+        if attachments.length() >= 2 ||
+          (
+            attachments.length() > 0 &&
+            (element.deferred is None || attachments[0].1 is None)
+          ) {
           return Err(UnsupportedAnchoredComposition)
         }
-        attachment_depth = placement.depth
-        if element.item is Some(_) ||
-          element.grid_item is Some(_) ||
-          element.children_style is Some(_) ||
-          element.grid_style is Some(_) ||
-          element.children.length() != 1 ||
-          element.background is Some(_) ||
-          element.pointer_events ||
-          element.focusable ||
-          element.tab_stop ||
-          element.tab_index != 0 ||
-          element.tab_group_index is Some(_) {
-          return Err(InvalidAnchoredShape)
+        attachments.push((placement.depth, element.deferred))
+        match validate_anchored_wrapper(element) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
         }
         match validate_anchored_popup(element.id, element.children[0]) {
           Err(error) => return Err(error)
@@ -376,16 +412,26 @@ fn request_anchored_layout(
     Err(error) => return Err(error)
   }
   let measured : Array[(UInt64, RequestedLayout)] = []
+  let enclosing : Array[(Int32, RequestedLayout)] = []
   for placement in placements {
+    while enclosing.length() > 0 &&
+          placement.depth <= enclosing[enclosing.length() - 1].0 {
+      let _ = enclosing.pop()
+    }
     match placement.element.anchored {
       None => ()
       Some(spec) => {
+        let containing = if enclosing.length() == 0 {
+          ordinary
+        } else {
+          enclosing[enclosing.length() - 1].1
+        }
         let parent = match
-          requested_bounds(ordinary, placement.parent.unwrap()) {
+          requested_bounds(containing, placement.parent.unwrap()) {
           Some(bounds) => bounds
           None => return Err(GeometryFailure)
         }
-        let reference = match requested_bounds(ordinary, spec.after) {
+        let reference = match requested_bounds(containing, spec.after) {
           Some(bounds) => bounds
           None => return Err(GeometryFailure)
         }
@@ -405,6 +451,7 @@ fn request_anchored_layout(
           Err(error) => return Err(error)
         }
         measured.push((placement.element.id, request))
+        enclosing.push((placement.depth, request))
       }
     }
   }
@@ -491,8 +538,8 @@ fn anchored_translation(
     Ok(value) => value
     Err(_) => return Err(GeometryFailure)
   }
-  // A distinct second stage mirrors Window::layout_bounds element-offset
-  // snapping. Do not combine this with the logical ties-away rounding above.
+  // Preserve logical offset until its inherited sum is complete. Device
+  // snapping belongs to each layout-bounds read, not to this captured offset.
   scroll_translation(offset, scale_factor)
 }
 
@@ -513,16 +560,77 @@ fn prepaint_anchored(
     Ok(value) => value
     Err(_) => return Err(GeometryFailure)
   }
+  // Build structural identity/membership before scheduling any geometry.
+  // A nested wrapper starts its own group even when its priority equals its
+  // parent. Ordinary descendants inherit both fields independently.
   let nodes : Array[ElementNode] = []
-  let mut current : (Int32, Int32?, RequestedLayout, @primitives.Point)? = None
-  let mut overflow = ordinary.layout.overflow()
   for placement in anchored.placements {
-    match current {
-      Some((depth, _, _, _)) if placement.depth <= depth => current = None
-      _ => ()
-    }
     let element = placement.element
     let mut deferred : Int32? = None
+    let mut deferred_group : UInt64? = None
+    for parent in nodes {
+      if Some(parent.id) == placement.parent {
+        deferred = parent.deferred
+        deferred_group = parent.deferred_group
+        break
+      }
+    }
+    if element.deferred is Some(_) {
+      deferred = element.deferred
+      deferred_group = Some(element.id)
+    }
+    nodes.push({
+      ..placement_node(placement, ordinary.layout.root_bounds()),
+      deferred,
+      deferred_group,
+      window_clip: if placement.depth == 0 || element.anchored is Some(_) {
+        Some(window_clip)
+      } else {
+        None
+      },
+      anchored_after: match element.anchored {
+        Some(spec) => Some(spec.after)
+        None => None
+      },
+    })
+  }
+  let contexts : Array[(UInt64, RequestedLayout, @primitives.Point)] = []
+  let zero = @primitives.Point::new(0, 0).unwrap()
+  let mut overflow = ordinary.layout.overflow()
+  // Ordinary work, then stable-priority discovery rounds. The stored array
+  // remains structural preorder; final global paint ordering is separate.
+  for index in deferred_indices(nodes, false) {
+    let placement = anchored.placements[index]
+    let element = placement.element
+    let mut containing = ordinary
+    let mut inherited = zero
+    let mut ancestor = placement.parent
+    let mut found = false
+    while ancestor is Some(_) && !found {
+      let id = ancestor.unwrap()
+      for (context_id, request, offset) in contexts {
+        if context_id == id {
+          containing = request
+          inherited = offset
+          found = true
+          break
+        }
+      }
+      if !found {
+        ancestor = None
+        for parent in nodes {
+          if parent.id == id {
+            ancestor = parent.parent
+            break
+          }
+        }
+      }
+    }
+    let inherited_snapped = match
+      scroll_translation(inherited, ordinary.scale_factor) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
     let bounds = match element.anchored {
       Some(spec) => {
         let mut measurement : RequestedLayout? = None
@@ -536,20 +644,30 @@ fn prepaint_anchored(
           None => return Err(GeometryFailure)
         }
         let popup = measurement.layout.items()[0].bounds()
-        let origin = measurement.layout.root_bounds().origin()
-        let offset = match
+        let origin = match
+          measurement.layout
+          .root_bounds()
+          .origin()
+          .translated(inherited_snapped) {
+          Ok(value) => value
+          Err(_) => return Err(GeometryFailure)
+        }
+        let relative = match
           anchored_translation(
             spec,
             origin,
             popup.size(),
             ordinary.viewport,
-            ordinary.scale_factor,
+            None,
           ) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
-        deferred = element.deferred
-        current = Some((placement.depth, deferred, measurement, offset))
+        let absolute = match inherited.translated(relative) {
+          Ok(value) => value
+          Err(_) => return Err(GeometryFailure)
+        }
+        contexts.push((element.id, measurement, absolute))
         match
           @primitives.Rect::new(
             origin.x(),
@@ -561,43 +679,22 @@ fn prepaint_anchored(
           Err(_) => return Err(GeometryFailure)
         }
       }
-      None =>
-        match current {
-          Some((_, delayed, measurement, offset)) => {
-            deferred = delayed
-            let bounds = match requested_bounds(measurement, element.id) {
-              Some(value) => value
-              None => return Err(GeometryFailure)
-            }
-            match bounds.translated(offset) {
-              Ok(value) => value
-              Err(_) => return Err(GeometryFailure)
-            }
-          }
-          None =>
-            match requested_bounds(ordinary, element.id) {
-              Some(value) => value
-              None => return Err(GeometryFailure)
-            }
+      None => {
+        let bounds = match requested_bounds(containing, element.id) {
+          Some(value) => value
+          None => return Err(GeometryFailure)
         }
+        match bounds.translated(inherited_snapped) {
+          Ok(value) => value
+          Err(_) => return Err(GeometryFailure)
+        }
+      }
     }
     if element.anchored is None &&
       !ordinary.layout.root_bounds().contains_rect(bounds) {
       overflow = true
     }
-    nodes.push({
-      ..placement_node(placement, bounds),
-      deferred,
-      window_clip: if placement.depth == 0 || element.anchored is Some(_) {
-        Some(window_clip)
-      } else {
-        None
-      },
-      anchored_after: match element.anchored {
-        Some(spec) => Some(spec.after)
-        None => None
-      },
-    })
+    nodes[index] = { ..nodes[index], bounds, }
   }
   let tree = match ElementTree::new(nodes) {
     Ok(value) => value
