@@ -128,6 +128,9 @@ fn flatten_mixed_elements(
   while pending.length() > 0 {
     let placement = pending.pop().unwrap()
     let element = placement.element
+    if element.anchored is Some(_) || element.deferred {
+      return Err(UnsupportedAnchoredComposition)
+    }
     if placement.depth > MAX_ELEMENT_DEPTH {
       return Err(TreeTooDeep)
     }
@@ -312,6 +315,7 @@ fn mixed_layout_at(
   Ok({
     placements,
     scale_factor,
+    anchored_layout: None,
     viewport: bounds.size(),
     layout,
     query_lease: if has_query {

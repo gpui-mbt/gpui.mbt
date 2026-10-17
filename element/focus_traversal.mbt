@@ -65,6 +65,9 @@ pub fn ElementNode::with_tab_index(
     background: self.background,
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
+    deferred: self.deferred,
+    anchored_after: self.anchored_after,
+    window_clip: self.window_clip,
   }
 }
 
@@ -93,6 +96,9 @@ pub fn ElementNode::with_tab_group_index(
     background: self.background,
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
+    deferred: self.deferred,
+    anchored_after: self.anchored_after,
+    window_clip: self.window_clip,
   }
 }
 
@@ -114,6 +120,9 @@ pub fn ElementNode::with_tab_stop(
     background: self.background,
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
+    deferred: self.deferred,
+    anchored_after: self.anchored_after,
+    window_clip: self.window_clip,
   }
 }
 
@@ -149,6 +158,8 @@ pub fn Element::with_tab_index(self : Element, index : Int32) -> Element {
     grid_style: self.grid_style,
     container_query: self.container_query,
     query_root_size: self.query_root_size,
+    anchored: self.anchored,
+    deferred: self.deferred,
   }
 }
 
@@ -179,6 +190,8 @@ pub fn Element::with_tab_group_index(self : Element, index : Int32?) -> Element 
     grid_style: self.grid_style,
     container_query: self.container_query,
     query_root_size: self.query_root_size,
+    anchored: self.anchored,
+    deferred: self.deferred,
   }
 }
 
@@ -202,6 +215,8 @@ pub fn Element::with_tab_stop(self : Element, enabled : Bool) -> Element {
     grid_style: self.grid_style,
     container_query: self.container_query,
     query_root_size: self.query_root_size,
+    anchored: self.anchored,
+    deferred: self.deferred,
   }
 }
 

@@ -4,6 +4,12 @@
 
 ### Added
 
+- Add bounded measured anchored attachments with all eight anchors, explicit
+  Local/Window positions, SnapToWindow fitting, two-stage offset rounding,
+  priority-zero deferred painting/hits, viewport clips, and preserved structural
+  input identities. Unsupported compositions fail explicitly.
+  (`docs/anchored-deferred.md`)
+
 - Add an opt-in live focus-scope session with checked revision admission, bounded
   nested modal lifetimes, destructive suffix teardown, exact focus restoration,
   scoped event/wheel routes, and explicit interaction cancellation hooks.

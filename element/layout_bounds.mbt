@@ -32,6 +32,9 @@ pub fn ElementTree::with_layout_bounds(
       retained.tab_index != next.tab_index ||
       retained.tab_group_index != next.tab_group_index ||
       retained.tab_stop != next.tab_stop ||
+      retained.deferred != next.deferred ||
+      retained.anchored_after != next.anchored_after ||
+      retained.window_clip != next.window_clip ||
       retained.pointer_events != next.pointer_events {
       return Err(LayoutBoundsMismatch)
     }
