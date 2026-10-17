@@ -281,6 +281,71 @@ class RuntimeDependencyTests(unittest.TestCase):
         manifest.write_text('import { "f4ah6o/gpui/primitives" }\n', encoding="utf-8")
         self.assertEqual(checker.validate_runtime_dependencies(self.root), [])
 
+    def test_text_session_accepts_only_its_four_portable_runtime_edges(self) -> None:
+        directory = self.root / "text_session"
+        directory.mkdir()
+        manifest = directory / "moon.pkg"
+        manifest.write_text(
+            'import { "f4ah6o/gpui/platform", "f4ah6o/gpui/text", '
+            '"f4ah6o/gpui/text_layout", "f4ah6o/gpui/controls/text_field" }\n'
+            'import { "f4ah6o/gpui/primitives" } for "test"\n',
+            encoding="utf-8",
+        )
+        self.assertEqual(checker.validate_runtime_dependencies(self.root), [])
+
+        for dependency in (
+            "ubuntu", "windows", "x11", "platform/macos",
+            "platform/linux_text", "platform/windows_text", "platform/macos_text",
+            "examples/browser", "core", "element", "layout", "scene",
+            "primitives", "controls/button", "unregistered_transport",
+        ):
+            with self.subTest(dependency=dependency):
+                manifest.write_text(
+                    f'import {{ "f4ah6o/gpui/{dependency}" }}\n', encoding="utf-8"
+                )
+                self.assertTrue(any(
+                    "text_session/: forbidden runtime package edge" in error
+                    for error in checker.validate_runtime_dependencies(self.root)
+                ))
+
+    def test_text_session_does_not_add_reverse_runtime_edges(self) -> None:
+        for package in (
+            "primitives", "core", "element", "platform", "text", "text_layout",
+            "controls/text_field",
+        ):
+            with self.subTest(package=package):
+                manifest = self.root / package / "moon.pkg"
+                manifest.parent.mkdir(parents=True, exist_ok=True)
+                original = manifest.read_text(encoding="utf-8") if manifest.exists() else None
+                try:
+                    manifest.write_text(
+                        'import { "f4ah6o/gpui/text_session" }\n', encoding="utf-8"
+                    )
+                    self.assertTrue(any(
+                        f"{package}/: forbidden runtime package edge" in error
+                        for error in checker.validate_runtime_dependencies(self.root)
+                    ))
+                finally:
+                    if original is None:
+                        manifest.unlink()
+                    else:
+                        manifest.write_text(original, encoding="utf-8")
+
+    def test_text_session_keeps_third_party_and_runtime_quickcheck_rejected(self) -> None:
+        directory = self.root / "text_session"
+        directory.mkdir()
+        manifest = directory / "moon.pkg"
+        for dependency, expected in (
+            ("vendor/transport", "third-party runtime import is forbidden"),
+            ("moonbitlang/core/quickcheck", "QuickCheck must be a test-only import"),
+        ):
+            with self.subTest(dependency=dependency):
+                manifest.write_text(f'import {{ "{dependency}" }}\n', encoding="utf-8")
+                self.assertTrue(any(
+                    expected in error
+                    for error in checker.validate_runtime_dependencies(self.root)
+                ))
+
     def test_capability_and_mcp_edges_are_explicit_and_bounded(self) -> None:
         for package, content in {
             "capability": 'import { "f4ah6o/gpui/core", "f4ah6o/gpui/diagnostics" }\n',
