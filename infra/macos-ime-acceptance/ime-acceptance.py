@@ -1168,13 +1168,14 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90,
         report["initial_state"] = initial_state
         report["app_pid"] = process.pid
         report["initial_checkpoint"] = initial_ready
-        report["gates"]["initial_frame"] = "PASS"
         report["input_source"] = initial_ready["input_source"]
         initial_png = output / "initial-window.png"
         initial_capture = capture_own_window(process.pid, APP_TITLE, initial_png, helper)
         report["screenshots"]["initial"] = bind_capture(initial_capture, "initial", initial_identity,
                                                             initial_state["field_bounds"], initial_state["caret"],
                                                             initial_geometry, initial_png)
+        png_pixels(initial_png)
+        report["gates"]["initial_frame"] = "PASS"
         process.stdin.write("begin\n")
         process.stdin.flush()
 
@@ -1209,7 +1210,6 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90,
            candidate["width"] <= 0 or candidate["height"] <= 0:
             raise AcceptanceError("composition checkpoint omits finite candidate geometry")
         report["composition_checkpoint"] = composing
-        report["gates"]["composition_frame"] = "PASS" if not diagnostic_immediate_preview else "UNRUN"
         if diagnostic_immediate_preview:
             # Skip only the collector wait at composition-ready; the app still
             # posts exactly one Return and retains its original 200-iteration bound.
@@ -1236,6 +1236,8 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90,
         report["screenshots"]["composition"] = bind_capture(composition_capture, "composition", identity,
                                                                composing["field_bounds"], composing["caret"],
                                                                initial_geometry, composition_png)
+        png_pixels(composition_png)
+        report["gates"]["composition_frame"] = "PASS"
         process.stdin.write("preview\n")
         process.stdin.flush()
 
@@ -1253,7 +1255,6 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90,
         final_capture = capture_own_window(process.pid, APP_TITLE, final_png, helper)
         report["screenshots"]["final"] = bind_capture(final_capture, "final", final["final_frame_identity"],
                                                          final["field_bounds"], None, initial_geometry, final_png)
-        report["gates"]["blur_final_frame"] = "PASS"
         process.stdin.write("quit\n")
         process.stdin.flush()
         exit_code = process.wait(timeout=timeout)
@@ -1274,6 +1275,7 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90,
             raise AcceptanceError("own-window text/preedit changes were not present in captured pixels")
         for phase, difference in roi_deltas.items():
             require_text_change(difference, phase)
+        report["gates"]["blur_final_frame"] = "PASS"
         report["pixel_differences"] = deltas
         report["text_roi_differences"] = roi_deltas
         screenshot_index = {name: dict(item) for name, item in report["screenshots"].items()}
