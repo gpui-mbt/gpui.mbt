@@ -973,13 +973,20 @@ class AppOutput:
         self.lines = queue.Queue()
         self.log_path = Path(log_path)
         self.log = self.log_path.open("w", encoding="utf-8")
+        self.timeline = self.log_path.with_name("timeline.ndjson").open("x", encoding="utf-8")
         self.thread = threading.Thread(target=self._read, daemon=True)
         self.thread.start()
 
     def _read(self):
-        for line in self.process.stdout:
+        for line_number, line in enumerate(self.process.stdout, 1):
+            tick_ns = time.monotonic_ns()
             self.log.write(line)
             self.log.flush()
+            self.timeline.write(json.dumps({
+                "line": line_number, "monotonic_ns": tick_ns,
+                "prefix": line.split(" ", 1)[0][:80],
+            }) + "\n")
+            self.timeline.flush()
             self.lines.put(line.rstrip("\n"))
         self.lines.put(None)
 
@@ -1060,6 +1067,7 @@ class AppOutput:
     def close(self):
         self.thread.join(timeout=2)
         self.log.close()
+        self.timeline.close()
 
 
 def execute(profile_root, app_bundle, output, repo=REPO, timeout=90):
@@ -1298,6 +1306,13 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90):
         if report["gates"]["normal_cleanup"] == "UNRUN" and process.poll() not in (None, 0):
             report["gates"]["normal_cleanup"] = "FAIL"
         (output / "summary.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
+    if report.get("ok") is True:
+        # A native acceptance is not green with corrupted diagnostic chronology.
+        if report["input_diagnostics"]["integrity"] != "PASS" or not report["input_diagnostics"]["return_route_observed"]:
+            report["ok"] = False
+            report["status"] = "failed"
+            report["error"] = "AppKit input chronology missing or invalid; native acceptance remains unqualified"
+            (output / "summary.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
     if report.get("ok") is True:
         try:
             validate_summary(output / "summary.json", repo, before)
