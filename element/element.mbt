@@ -22,6 +22,7 @@ pub enum ElementError {
   UnsupportedGridScroll
   InvalidAnchoredShape
   UnsupportedAnchoredComposition
+  InvalidDeferredPriority
   DuplicatePaintBinding
   PaintFailure(@scene.PaintError)
 } derive(Eq)
@@ -81,7 +82,7 @@ pub struct ElementNode {
   background : @primitives.Color?
   priv scroll_viewport : ScrollViewport?
   priv uniform_list : UniformListLayout?
-  priv deferred : Bool
+  priv deferred : Int32?
   priv anchored_after : UInt64?
   priv window_clip : @primitives.Rect?
 }
@@ -104,7 +105,7 @@ pub fn ElementNode::new(
     background: None,
     scroll_viewport: None,
     uniform_list: None,
-    deferred: false,
+    deferred: None,
     anchored_after: None,
     window_clip: None,
   }
@@ -322,7 +323,8 @@ pub fn DispatchOutcome::was_stopped(self : DispatchOutcome) -> Bool {
 
 ///|
 /// Headless element tree. Nodes retain structural preorder independently from
-/// paint order. Flat deferred subtrees paint after ordinary nodes.
+/// paint order. Flat deferred subtrees paint after ordinary nodes, in ascending
+/// priority order with stable structural ties.
 pub struct ElementTree {
   priv nodes : Array[ElementNode]
   focused : UInt64?
@@ -345,8 +347,23 @@ pub fn ElementTree::new(
   let mut index = 0
   while index < owned.length() && failure is None {
     let node = owned[index]
+    match node.deferred {
+      Some(priority) if priority < 0 => return Err(InvalidDeferredPriority)
+      _ => ()
+    }
+    // Internally reassembled snapshots must retain an indivisible deferred
+    // subtree: descendants inherit its exact priority, not only its
+    // deferred classification. Public node-copy operations preserve it.
+    for previous = 0; previous < index; previous = previous + 1 {
+      let parent = owned[previous]
+      if Some(parent.id) == node.parent &&
+        parent.deferred is Some(_) &&
+        node.deferred != parent.deferred {
+        return Err(UnsupportedAnchoredComposition)
+      }
+    }
     has_attachment = has_attachment ||
-      node.deferred ||
+      node.deferred is Some(_) ||
       node.anchored_after is Some(_) ||
       node.window_clip is Some(_)
     has_scroll = has_scroll ||

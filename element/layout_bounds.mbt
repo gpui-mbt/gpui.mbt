@@ -1,7 +1,8 @@
 ///|
 /// Refresh only hit-test bounds from a genuine lifecycle prepaint result.
 /// This is a bounded same-topology, non-scroll operation, not reconciliation:
-/// positional preorder IDs/parents, input metadata, and root viewport bounds
+/// positional preorder IDs/parents, input metadata (including exact deferred
+/// priorities), and root viewport bounds
 /// must match exactly. A scroll viewport in either tree is unsupported.
 ///
 /// Validation finishes before any bounds are copied. Success retains this

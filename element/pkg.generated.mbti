@@ -159,7 +159,7 @@ pub struct Element {
 }
 pub fn Element::anchored_after(UInt64, UInt64, Self, Anchor, AnchoredPositionMode, @primitives.Point, margin? : Double) -> Result[Self, ElementError]
 pub fn Element::container_query_root(UInt64, (@primitives.Size) -> Result[Self, ElementError]) -> Self
-pub fn Element::deferred(Self) -> Result[Self, ElementError]
+pub fn Element::deferred(Self, priority? : Int) -> Result[Self, ElementError]
 pub fn Element::grid_item(@layout.GridItem) -> Self
 pub fn Element::grid_root(UInt64, @layout.GridTreeStyle) -> Self
 pub fn Element::into_element(Self) -> Self
@@ -208,6 +208,7 @@ pub enum ElementError {
   UnsupportedGridScroll
   InvalidAnchoredShape
   UnsupportedAnchoredComposition
+  InvalidDeferredPriority
   DuplicatePaintBinding
   PaintFailure(@scene.PaintError)
 } derive(Eq)

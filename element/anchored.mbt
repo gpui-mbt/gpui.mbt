@@ -85,7 +85,7 @@ fn validate_anchored_popup(
       }
     }
     ids.push(element.id)
-    if element.anchored is Some(_) || element.deferred {
+    if element.anchored is Some(_) || element.deferred is Some(_) {
       return Err(UnsupportedAnchoredComposition)
     }
     if element.grid_item is Some(_) ||
@@ -188,7 +188,7 @@ fn has_anchored_elements(root : Element) -> Bool {
   let pending = [(root, 0)]
   while pending.length() > 0 {
     let (element, depth) = pending.pop().unwrap()
-    if element.anchored is Some(_) || element.deferred {
+    if element.anchored is Some(_) || element.deferred is Some(_) {
       return true
     }
     if depth > MAX_ELEMENT_DEPTH {
@@ -220,7 +220,7 @@ fn validate_anchored_parent(parent : Element) -> Result[Unit, ElementError] {
     return Err(InvalidAnchoredShape)
   }
   let reference = parent.children[0]
-  if reference.anchored is Some(_) || reference.deferred {
+  if reference.anchored is Some(_) || reference.deferred is Some(_) {
     return Err(InvalidAnchoredShape)
   }
   let item = match reference.item {
@@ -246,7 +246,7 @@ fn validate_anchored_parent(parent : Element) -> Result[Unit, ElementError] {
 fn anchored_placements(
   root : Element,
 ) -> Result[Array[ElementPlacement], ElementError] {
-  if !root.is_root || root.anchored is Some(_) || root.deferred {
+  if !root.is_root || root.anchored is Some(_) || root.deferred is Some(_) {
     return Err(RootRequired)
   }
   let placements : Array[ElementPlacement] = []
@@ -281,7 +281,11 @@ fn anchored_placements(
       Some(item) if item.id() != element.id => return Err(InvalidAnchoredShape)
       _ => ()
     }
-    if element.deferred && element.anchored is None {
+    match element.deferred {
+      Some(priority) if priority < 0 => return Err(InvalidDeferredPriority)
+      _ => ()
+    }
+    if element.deferred is Some(_) && element.anchored is None {
       return Err(UnsupportedAnchoredComposition)
     }
     match element.anchored {
@@ -510,7 +514,7 @@ fn prepaint_anchored(
     Err(_) => return Err(GeometryFailure)
   }
   let nodes : Array[ElementNode] = []
-  let mut current : (Int32, Bool, RequestedLayout, @primitives.Point)? = None
+  let mut current : (Int32, Int32?, RequestedLayout, @primitives.Point)? = None
   let mut overflow = ordinary.layout.overflow()
   for placement in anchored.placements {
     match current {
@@ -518,7 +522,7 @@ fn prepaint_anchored(
       _ => ()
     }
     let element = placement.element
-    let mut deferred = false
+    let mut deferred : Int32? = None
     let bounds = match element.anchored {
       Some(spec) => {
         let mut measurement : RequestedLayout? = None
