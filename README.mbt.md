@@ -120,6 +120,7 @@ Subscriptions are explicitly canceled with `unsubscribe`. Deterministic timer te
 
 | Package | What it provides |
 | --- | --- |
+| `app/` | Reusable `WindowView` runtime, sampled metrics, frame validation, close/exit policy and bounded loops |
 | `core/` | Application lifetime, entities, scoped contexts, subscriptions, scheduler and timers |
 | `primitives/` | Shared geometry, colors, input values, and portable primitives |
 | `text/` | UTF-16 documents, strict UTF-8 scalar-offset conversion, directional selections, and immutable composition values; no host IME or rendering |
@@ -130,6 +131,7 @@ Subscriptions are explicitly canceled with `unsubscribe`. Deterministic timer te
 | `controls/button/` | Shared enabled, loading, focus, keyboard/pointer activation, and scene-paint semantics |
 | `scene/` | Quad paint commands, bounded text snapshot items, validation, canonical snapshots, transforms, opacity, and clips |
 | `platform/` | Portable backend/window/event contracts plus the macOS backend |
+| `platform/macos_app/` | Reusable macOS app-layer CoreText labels, TextField callbacks, cursor state and window startup |
 | `ubuntu/` | Ubuntu Wayland/EGL/GLES2 native backend |
 | `windows/` | Experimental Win32/D3D11 WARP backend slice |
 | `capability/` | Typed semantic capabilities, validation, schema projection, and registry |
@@ -147,6 +149,7 @@ Subscriptions are explicitly canceled with `unsubscribe`. Deterministic timer te
 - [GPUI compatibility matrix](docs/compatibility.md)
 - [Device-scale layout boundaries](docs/conformance-device-scale.md)
 - [macOS native host](docs/macos-native.md)
+- [Reusable native application runtime](docs/app-runtime.md)
 - [Ubuntu / Wayland host](docs/ubuntu.md)
 - [Windows reusable Button fixture](docs/windows-button.md)
 - [Reproducible Debian cloud desktop](infra/linux-desktop/README.md)

@@ -39,6 +39,7 @@ pub fn TextField::marked_range(Self) -> @text.TextRange?
 pub fn TextField::measurement(Self) -> @text_layout.TextMeasurement
 pub fn TextField::new(UInt64, @primitives.Rect, Double, @text.TextDocument, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, TextFieldError]) -> Result[Self, TextFieldError]
 pub fn TextField::paint_items(Self, UInt64, Int) -> Result[(@scene.ClipChain, Array[@scene.SceneItem]), TextFieldPaintError]
+pub fn TextField::paint_items_with_palette(Self, UInt64, Int, TextFieldPaintPalette) -> Result[(@scene.ClipChain, Array[@scene.SceneItem]), TextFieldPaintError]
 pub fn TextField::redo(Self, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, TextFieldError]) -> Result[Self, TextFieldError]
 pub fn TextField::replace_selection(Self, String, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, TextFieldError]) -> Result[Self, TextFieldError]
 pub fn TextField::revision(Self) -> Int
@@ -85,6 +86,19 @@ pub enum TextFieldPaintError {
 } derive(Eq)
 pub fn TextFieldPaintError::equal(Self, Self) -> Bool
 pub fn TextFieldPaintError::not_equal(Self, Self) -> Bool
+
+pub struct TextFieldPaintPalette {
+  // private fields
+}
+pub fn TextFieldPaintPalette::background(Self) -> @primitives.Color
+pub fn TextFieldPaintPalette::border(Self) -> @primitives.Color
+pub fn TextFieldPaintPalette::caret(Self) -> @primitives.Color
+pub fn TextFieldPaintPalette::focused_border(Self) -> @primitives.Color
+pub fn TextFieldPaintPalette::new(@primitives.Color, @primitives.Color, @primitives.Color, @primitives.Color, @primitives.Color, @primitives.Color, @primitives.Color) -> Self
+pub fn TextFieldPaintPalette::selection_focused(Self) -> @primitives.Color
+pub fn TextFieldPaintPalette::selection_unfocused(Self) -> @primitives.Color
+pub fn TextFieldPaintPalette::standard() -> Self
+pub fn TextFieldPaintPalette::text(Self) -> @primitives.Color
 
 // Type aliases
 

@@ -1,0 +1,79 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/gpui/platform/macos_app"
+
+import {
+  "f4ah6o/gpui/app",
+  "f4ah6o/gpui/controls/text_field",
+  "f4ah6o/gpui/diagnostics",
+  "f4ah6o/gpui/platform",
+  "f4ah6o/gpui/platform/macos",
+  "f4ah6o/gpui/platform/macos_text",
+  "f4ah6o/gpui/primitives",
+  "f4ah6o/gpui/scene",
+  "f4ah6o/gpui/text",
+  "f4ah6o/gpui/text_layout",
+}
+
+// Values
+pub fn[V : @app.WindowView] run_main_window(@macos.Host, MacosWindowConfig, V, timeout_ms? : Int, max_ticks? : Int?, present_on_start? : Bool) -> Result[@app.WindowRunOutcome, @diagnostics.FrameworkError]
+
+// Errors
+
+// Types and methods
+pub struct CursorState {
+  // private fields
+}
+pub fn CursorState::apply(Self, @macos.Host, @platform.Cursor) -> Result[Bool, @diagnostics.FrameworkError]
+pub fn CursorState::current(Self) -> @platform.Cursor?
+pub fn CursorState::new() -> Self
+
+pub struct MacosTextFieldAdapter {
+  // private fields
+}
+pub fn MacosTextFieldAdapter::admit(Self, @text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]
+pub fn MacosTextFieldAdapter::font_size(Self) -> Double
+pub fn MacosTextFieldAdapter::hit(Self, @text.TextDocument, @primitives.Point) -> Result[@text_layout.TextHit, @text_field.TextFieldError]
+pub fn MacosTextFieldAdapter::measure(Self, @text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError]
+pub fn MacosTextFieldAdapter::new(Double) -> Result[Self, @text_field.TextFieldError]
+
+pub(all) enum MacosTextPaintError {
+  Text(@macos_text.MacosTextError)
+  Scene(@scene.SceneBuilderError)
+  UnsupportedText
+  InvalidMetrics
+} derive(Eq)
+pub fn MacosTextPaintError::equal(Self, Self) -> Bool
+pub fn MacosTextPaintError::not_equal(Self, Self) -> Bool
+
+pub struct MacosTextPainter {
+  // private fields
+}
+pub fn MacosTextPainter::cache_entries(Self) -> Int
+pub fn MacosTextPainter::cache_hits(Self) -> Int
+pub fn MacosTextPainter::cache_misses(Self) -> Int
+pub fn MacosTextPainter::label(Self, @scene.SceneBuilder, @primitives.Rect, String, Double, @primitives.Color, @scene.TextAlign, @scene.TextVerticalAlign, Int?) -> Result[Unit, MacosTextPaintError]
+pub fn MacosTextPainter::measure(Self, String, Double) -> Result[TextMetrics, MacosTextPaintError]
+pub fn MacosTextPainter::new(Int) -> Result[Self, MacosTextPaintError]
+
+pub(all) struct MacosWindowConfig {
+  title : String
+  width : Double
+  height : Double
+  require_text : Bool
+}
+pub fn MacosWindowConfig::height(Self) -> Double
+pub fn MacosWindowConfig::new(String, Double, Double, require_text? : Bool) -> Result[Self, @diagnostics.FrameworkError]
+pub fn MacosWindowConfig::require_text(Self) -> Bool
+pub fn MacosWindowConfig::title(Self) -> String
+pub fn MacosWindowConfig::width(Self) -> Double
+
+pub(all) struct TextMetrics {
+  width : Double
+  line_height : Double
+}
+pub fn TextMetrics::line_height(Self) -> Double
+pub fn TextMetrics::width(Self) -> Double
+
+// Type aliases
+
+// Traits

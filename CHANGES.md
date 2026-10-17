@@ -4,6 +4,24 @@
 
 ### Added
 
+- Add a reusable portable native application runtime (`app/`) with a
+  `WindowView` trait, sampled `WindowMetrics`, close/exit policy, event
+  sequence checks, frame viewport/scale validation, bounded ticks, and
+  after-present/idle hooks. The runtime is generic over the shared
+  `platform.Backend` contract.
+- Add a deterministic `scene.SceneBuilder` with monotonic item IDs, reserved-ID
+  ranges, external item merging, clip-chain deduplication, border quads, and
+  measured horizontal/vertical text alignment.
+- Add `platform/macos_app/` helpers for reusable macOS applications: CoreText
+  measure/admit/hit callbacks for `TextField`, a bounded scene-label painter
+  cache, cursor state, and one-window startup over the shared app runtime.
+- Add `platform/testing` frame analysis helpers (logical-pixel comparison,
+  region diffs, ink counts) and a deterministic `ScriptedBackend`.
+- Add `TextFieldPaintPalette` and `TextField::paint_items_with_palette` while
+  preserving the existing default field scene byte-for-byte.
+- Add `script/build_macos_app.sh` for reusable macOS app-bundle builds, smoke
+  runs, frame artifact conversion, and PID/log handling.
+
 - Add immutable caller-supplied Button paint palettes with ten RGBA roles and
   an additive paint entry point, preserving default scenes, geometry, validation,
   and input behavior. (`docs/button-paint-palette.md`)
