@@ -1083,6 +1083,8 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90):
     profile.doctor(profile_root)
     env = profile.profile_environment(profile_root)
     before = source_snapshot(repo)
+    if before["status"].strip() or before["tracked_patch_sha256"] != hashlib.sha256(b"").hexdigest():
+        raise AcceptanceError("the source checkout must be clean: native acceptance is exact-tree only")
     binary = app_bundle / "Contents/MacOS/GpuiTextField"
     library = app_bundle / "Contents/Frameworks/libgpui_macos.dylib"
     plist = app_bundle / "Contents/Info.plist"
