@@ -55,6 +55,17 @@ pub fn Button::paint_items(
   self : Button,
   item_id_base : UInt64,
 ) -> Result[Array[@scene.SceneItem], ButtonPaintError] {
+  self.paint_items_with_palette(item_id_base, ButtonPaintPalette::standard())
+}
+
+///|
+/// Paint using caller-supplied colors without changing state, item IDs/order,
+/// geometry, or label validation. The palette is not retained by the Button.
+pub fn Button::paint_items_with_palette(
+  self : Button,
+  item_id_base : UInt64,
+  palette : ButtonPaintPalette,
+) -> Result[Array[@scene.SceneItem], ButtonPaintError] {
   let maximum_base : UInt64 = 18446744073709551612
   if item_id_base == 0UL || item_id_base > maximum_base {
     return Err(InvalidItemId)
@@ -63,27 +74,27 @@ pub fn Button::paint_items(
     return Err(InvalidBounds)
   }
   let border = if !self.enabled {
-    button_paint_color(100, 106, 114)
+    palette.disabled_border
   } else if self.focused {
-    button_paint_color(98, 170, 255)
+    palette.focused_border
   } else {
-    button_paint_color(102, 126, 150)
+    palette.normal_border
   }
   let fill = if !self.enabled {
-    button_paint_color(47, 52, 60)
+    palette.disabled_fill
   } else if self.loading {
-    button_paint_color(55, 70, 88)
+    palette.loading_fill
   } else if self.is_pressed() {
-    button_paint_color(35, 77, 119)
+    palette.pressed_fill
   } else if self.hovered {
-    button_paint_color(48, 91, 137)
+    palette.hovered_fill
   } else {
-    button_paint_color(42, 71, 101)
+    palette.normal_fill
   }
   let foreground = if !self.enabled {
-    button_paint_color(166, 171, 178)
+    palette.disabled_foreground
   } else {
-    button_paint_color(242, 246, 250)
+    palette.enabled_foreground
   }
   let bounds = self.bounds
   let border_item = match button_paint_quad(item_id_base, bounds, border) {

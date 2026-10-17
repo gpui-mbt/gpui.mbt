@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add immutable caller-supplied Button paint palettes with ten RGBA roles and
+  an additive paint entry point, preserving default scenes, geometry, validation,
+  and input behavior. (`docs/button-paint-palette.md`)
+
 - Add bounded measured anchored attachments with all eight anchors, explicit
   Local/Window positions, SnapToWindow fitting, two-stage offset rounding,
   priority-zero deferred painting/hits, viewport clips, and preserved structural
