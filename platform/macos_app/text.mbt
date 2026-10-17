@@ -55,11 +55,19 @@ fn painter_key(text : String, font_size : Double) -> String {
 
 ///|
 fn painter_metrics(
-  measurement : @text_layout.TextMeasurement,
+  logical : @primitives.Rect,
+  ink : @primitives.Rect,
+  unknown_glyph_count : Int32,
   font_size : Double,
-) -> TextMetrics {
-  let logical = measurement.logical_rect()
-  let ink = measurement.ink_rect()
+) -> Result[TextMetrics, MacosTextPaintError] {
+  if unknown_glyph_count > 0 {
+    return Err(UnsupportedText)
+  }
+  // Legacy scene labels cannot represent an origin separate from their clip
+  // bounds. Reject overhanging ink rather than silently cropping it.
+  if ink.left() < 0.0 || ink.top() < 0.0 {
+    return Err(UnsupportedText)
+  }
   let mut width = logical.right()
   if ink.right() > width {
     width = ink.right()
@@ -74,7 +82,7 @@ fn painter_metrics(
   if height <= 0.0 {
     height = font_size
   }
-  { width, line_height: height, }
+  Ok({ width, line_height: height, })
 }
 
 ///|
@@ -101,7 +109,16 @@ pub fn MacosTextPainter::measure(
         Err(error) => return Err(Text(error))
         Ok(value) => value
       }
-      let metrics = painter_metrics(measurement, font_size)
+      let metrics = match
+        painter_metrics(
+          measurement.logical_rect(),
+          measurement.ink_rect(),
+          measurement.unknown_glyph_count(),
+          font_size,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       if self.entries_count >= self.max_entries {
         self.entries = Map([])
         self.entries_count = 0
@@ -130,7 +147,65 @@ pub fn MacosTextPainter::cache_entries(self : MacosTextPainter) -> Int32 {
 }
 
 ///|
+fn painter_label_input(
+  text : String,
+  font_size : Double,
+) -> Result[Unit, MacosTextPaintError] {
+  if font_size.is_nan() ||
+    font_size.is_inf() ||
+    font_size <= 0.0 ||
+    font_size > 32.0 {
+    return Err(InvalidMetrics)
+  }
+  let document = match @text.TextDocument::new(text) {
+    Err(_) => return Err(UnsupportedText)
+    Ok(value) => value
+  }
+  match document.utf8_length() {
+    Ok(length) if length <= 4096 => Ok(())
+    _ => Err(UnsupportedText)
+  }
+}
+
+///|
+fn painter_label_bounds_valid(
+  bounds : @primitives.Rect,
+  metrics : TextMetrics,
+  align : @scene.TextAlign,
+  vertical : @scene.TextVerticalAlign,
+) -> Bool {
+  let width = if metrics.width <= 0.0 { 1.0 } else { metrics.width + 2.0 }
+  let height = metrics.line_height
+  let x = match align {
+    Left => bounds.left()
+    Center => bounds.left() + (bounds.size().width() - width) / 2.0
+    Right => bounds.right() - width
+  }
+  let y = match vertical {
+    Top => bounds.top()
+    Center => bounds.top() + (bounds.size().height() - height) / 2.0
+    Bottom => bounds.bottom() - height
+  }
+  !width.is_nan() &&
+  !width.is_inf() &&
+  width <= 2048.0 &&
+  !height.is_nan() &&
+  !height.is_inf() &&
+  height > 0.0 &&
+  height <= 128.0 &&
+  !x.is_nan() &&
+  !x.is_inf() &&
+  x >= -1000000000.0 &&
+  x <= 1000000000.0 &&
+  !y.is_nan() &&
+  !y.is_inf() &&
+  y >= -1000000000.0 &&
+  y <= 1000000000.0
+}
+
+///|
 /// Append one measured, aligned text item to a SceneBuilder.
+/// Reject inputs outside the native label renderer's bounded text subset.
 pub fn MacosTextPainter::label(
   self : MacosTextPainter,
   builder : @scene.SceneBuilder,
@@ -142,9 +217,16 @@ pub fn MacosTextPainter::label(
   vertical : @scene.TextVerticalAlign,
   clip_chain_id : Int32?,
 ) -> Result[Unit, MacosTextPaintError] {
+  match painter_label_input(text, font_size) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let metrics = match self.measure(text, font_size) {
     Err(error) => return Err(error)
     Ok(value) => value
+  }
+  if !painter_label_bounds_valid(bounds, metrics, align, vertical) {
+    return Err(InvalidMetrics)
   }
   match
     builder.text(

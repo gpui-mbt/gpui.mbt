@@ -59,7 +59,11 @@ macOS applications:
 - `MacosTextFieldAdapter` maps `platform/macos_text.measure` into the
   `controls/text_field` measure/admit/hit callbacks.
 - `MacosTextPainter` caches bounded CoreText logical metrics and emits aligned
-  scene labels through `SceneBuilder`.
+  scene labels through `SceneBuilder`. Labels use the native renderer's bounded
+  subset: at most 4096 UTF-8 bytes, font sizes up to 32, and final padded bounds
+  no larger than 2048 by 128 logical pixels. Unknown glyphs and negative left/top
+  ink bearings are rejected rather than silently cropped by legacy text items.
+  Lower-level `platform/macos_text.measure` keeps its wider measurement limits.
 - `CursorState` suppresses redundant cursor calls.
 - `run_main_window` checks the macOS capabilities, creates one window, and runs
   the shared app runtime. Host start/stop remains caller-owned.
@@ -84,6 +88,21 @@ Modes are `--build`, `--run`, `--verify` and `--smoke`. Smoke builds the shim
 with `GPUI_TESTING`, sets `GPUI_NATIVE_E2E=1`, passes `--smoke`, and converts
 PPM frame artifacts to PNG when `sips` is available. `--native-source` and
 `--framework` add app-specific native inputs.
+The build cache is isolated by the canonical requested package path, and
+packaging fails if more than one executable is found for that package. Bundle
+metadata is serialized as a property list, including names with XML characters.
+
+The `macos-native-build` CI job runs the `platform/macos_app` CoreText tests
+on macOS and builds an isolated external consumer with this helper. It loads
+the bundled native library and runs a headless CoreText measurement/caret check
+from the packaged executable. This is bundle/link and CoreText evidence, not
+window, GPU, input or accessibility evidence. On other hosts, the package tests
+skip only `UnsupportedPlatform`; other CoreText failures fail the tests.
+
+With the pinned MoonBit workspace toolchain, member prebuild script paths are
+resolved from the workspace root. An external workspace must provide
+`script/macos_text_prebuild.py` there, copied from this checkout, so the existing
+CoreText framework-link hook can run.
 
 ## Limits
 

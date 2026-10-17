@@ -95,6 +95,14 @@ done
   exit 2
 }
 ROOT="$(cd "$ROOT" && pwd)"
+case "$NAME" in
+  */*|.|..) echo 'The app name must be a single filename.' >&2; exit 2 ;;
+esac
+case "$PACKAGE" in
+  /*) PACKAGE_ROOT="$(cd "$PACKAGE" && pwd)" ;;
+  *) PACKAGE_ROOT="$(cd "$ROOT/$PACKAGE" && pwd)" ;;
+esac
+PACKAGE_KEY="$(python3 -c 'import hashlib, os, sys; print(hashlib.sha256(os.fsencode(sys.argv[1])).hexdigest())' "$PACKAGE_ROOT")"
 [[ -f "$ROOT/moon.work" ]] || {
   echo "missing $ROOT/moon.work; the app must include the gpui.mbt checkout as a workspace member" >&2
   exit 2
@@ -116,7 +124,7 @@ APP_BINARY="$APP_BUNDLE/Contents/MacOS/$NAME"
 APP_LIBRARY="$APP_BUNDLE/Contents/Frameworks/libgpui_macos.dylib"
 PID_FILE="$TARGET_DIR/$NAME.pid"
 LOG_FILE="$TARGET_DIR/$NAME.log"
-MOON_TARGET_DIR="$TARGET_DIR/moon"
+MOON_TARGET_DIR="$TARGET_DIR/moon/$PACKAGE_KEY"
 SMOKE_DIR="$TARGET_DIR/smoke"
 
 mkdir -p "$TARGET_DIR"
@@ -163,28 +171,32 @@ done
 xcrun clang "${CLANG_ARGS[@]}" "${SOURCES[@]}" "${FRAMEWORK_ARGS[@]}" -o "$APP_LIBRARY"
 
 cd "$ROOT"
-moon build --target native --deny-warn --target-dir "$MOON_TARGET_DIR" "$PACKAGE"
-PACKAGE_BASENAME="$(basename "$PACKAGE")"
-EXECUTABLE="$(find "$MOON_TARGET_DIR/native/debug/build" -type f -name "$PACKAGE_BASENAME.exe" -not -path '*.dSYM/*' -print -quit)"
-[[ -n "$EXECUTABLE" ]] || {
-  echo "could not find the built executable for package $PACKAGE under $MOON_TARGET_DIR" >&2
+moon build --target native --deny-warn --target-dir "$MOON_TARGET_DIR" "$PACKAGE_ROOT"
+EXECUTABLES=()
+while IFS= read -r -d '' executable; do
+  EXECUTABLES+=("$executable")
+done < <(find "$MOON_TARGET_DIR/native/debug/build" -type f -name '*.exe' -not -path '*.dSYM/*' -print0)
+[[ "${#EXECUTABLES[@]}" == 1 ]] || {
+  echo "expected exactly one built executable for package $PACKAGE under $MOON_TARGET_DIR" >&2
   exit 1
 }
-cp "$EXECUTABLE" "$APP_BINARY"
+cp "${EXECUTABLES[0]}" "$APP_BINARY"
 
-cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>CFBundleExecutable</key><string>$NAME</string>
-<key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
-<key>CFBundleName</key><string>$NAME</string>
-<key>CFBundlePackageType</key><string>APPL</string>
-<key>LSMinimumSystemVersion</key><string>13.0</string>
-<key>NSHighResolutionCapable</key><true/>
-<key>NSPrincipalClass</key><string>NSApplication</string>
-</dict></plist>
-PLIST
+python3 - "$APP_BUNDLE/Contents/Info.plist" "$NAME" "$BUNDLE_ID" <<'PY'
+import plistlib
+import sys
+
+with open(sys.argv[1], "wb") as stream:
+    plistlib.dump({
+        "CFBundleExecutable": sys.argv[2],
+        "CFBundleIdentifier": sys.argv[3],
+        "CFBundleName": sys.argv[2],
+        "CFBundlePackageType": "APPL",
+        "LSMinimumSystemVersion": "13.0",
+        "NSHighResolutionCapable": True,
+        "NSPrincipalClass": "NSApplication",
+    }, stream)
+PY
 
 case "$MODE" in
   build)

@@ -2,7 +2,8 @@
 fn macos_app_coretext_available() -> Bool {
   match @macos_text.require_grayscale_raster() {
     Ok(_) => true
-    Err(_) => false
+    Err(@macos_text.UnsupportedPlatform) => false
+    Err(_) => abort("CoreText grayscale raster unavailable")
   }
 }
 
@@ -19,6 +20,33 @@ fn macos_app_rect(
 ///|
 fn macos_app_color() -> @primitives.Color {
   @primitives.Color::rgba(240, 242, 248, 255).unwrap()
+}
+
+///|
+test "macOS labels reject oversized inputs before measuring or mutating scene" {
+  let painter = @macos_app.MacosTextPainter::new(2).unwrap()
+  let bounds = macos_app_rect(0.0, 0.0, 100.0, 40.0)
+  let builder = @scene.SceneBuilder::new(bounds, 1.0).unwrap()
+  for (text, size) in [("Hello", 40.0), ("a".repeat(4097), 16.0)] {
+    assert_true(
+      painter.label(
+        builder,
+        bounds,
+        text,
+        size,
+        macos_app_color(),
+        Left,
+        Top,
+        None,
+      )
+      is Err(_),
+    )
+    assert_eq(builder.item_count(), 0)
+    assert_eq(builder.next_item_id(), 1UL)
+    assert_eq(painter.cache_entries(), 0)
+    assert_eq(painter.cache_hits(), 0)
+    assert_eq(painter.cache_misses(), 0)
+  }
 }
 
 ///|
