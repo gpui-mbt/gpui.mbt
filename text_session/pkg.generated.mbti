@@ -1,0 +1,119 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/gpui/text_session"
+
+import {
+  "f4ah6o/gpui/controls/text_field",
+  "f4ah6o/gpui/platform",
+  "f4ah6o/gpui/text",
+  "f4ah6o/gpui/text_layout",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct BatchReceipt {
+  // private fields
+}
+pub fn BatchReceipt::accepted_target(Self) -> SessionTarget
+pub fn BatchReceipt::acknowledges(Self, SessionTarget) -> Bool
+pub fn BatchReceipt::outcomes(Self) -> Array[SessionOutcome]
+pub fn BatchReceipt::snapshot(Self) -> SessionSnapshot
+
+pub(all) enum EndReason {
+  Blur
+  ExternalReplacement
+} derive(Eq)
+pub fn EndReason::equal(Self, Self) -> Bool
+pub fn EndReason::not_equal(Self, Self) -> Bool
+
+pub(all) enum ObservedEnd {
+  Committed(String)
+  Cancelled
+}
+
+pub struct PendingEnd {
+  // private fields
+}
+pub fn PendingEnd::reason(Self) -> EndReason
+pub fn PendingEnd::target(Self) -> SessionTarget
+
+pub(all) enum SessionError {
+  Closed
+  Reentrant
+  ForeignOwner
+  StaleBinding
+  StaleSession
+  StaleRevision
+  Replay
+  OutOfOrder
+  Unfocused
+  PendingResolution
+  InvalidPending
+  WrongEndReason
+  NoComposition
+  CompositionActive
+  InvalidBinding
+  EmptyBatch
+  Exhausted
+  FieldFailure(@text_field.TextFieldError)
+} derive(Eq)
+pub fn SessionError::equal(Self, Self) -> Bool
+pub fn SessionError::not_equal(Self, Self) -> Bool
+
+pub(all) enum SessionOperation {
+  Preview(String, @text.TextSelection)
+  PreviewUtf8(String, Int, Int)
+  Commit(String)
+  Cancel
+}
+
+pub(all) enum SessionOutcome {
+  Previewed(@text_field.TextField)
+  Committed(@text_field.TextField)
+  Cancelled(@text_field.TextField)
+  Blurred(@text_field.TextField)
+  Rebound(@text_field.TextField)
+}
+
+pub struct SessionSnapshot {
+  // private fields
+}
+pub fn SessionSnapshot::committed_document_revision(Self) -> UInt64
+pub fn SessionSnapshot::delivery_watermark(Self) -> UInt64
+pub fn SessionSnapshot::field(Self) -> @text_field.TextField
+pub fn SessionSnapshot::has_pending_end(Self) -> Bool
+pub fn SessionSnapshot::is_closed(Self) -> Bool
+pub fn SessionSnapshot::published_revision(Self) -> UInt64
+pub fn SessionSnapshot::root_id(Self) -> UInt64
+pub fn SessionSnapshot::session_id(Self) -> UInt64
+pub fn SessionSnapshot::window(Self) -> @platform.WindowId
+
+pub struct SessionTarget {
+  // private fields
+}
+pub fn SessionTarget::delivery_sequence(Self) -> UInt64
+pub fn SessionTarget::field_id(Self) -> UInt64
+pub fn SessionTarget::published_revision(Self) -> UInt64
+pub fn SessionTarget::root_id(Self) -> UInt64
+pub fn SessionTarget::session_id(Self) -> UInt64
+pub fn SessionTarget::window(Self) -> @platform.WindowId
+
+pub struct TextSession {
+  // private fields
+}
+pub fn TextSession::apply_batch(Self, SessionTarget, Array[SessionOperation], (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]
+pub fn TextSession::close(Self) -> Result[Unit, SessionError]
+pub fn TextSession::complete_blur(Self, PendingEnd, ObservedEnd, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]
+pub fn TextSession::complete_replacement(Self, PendingEnd, ObservedEnd, @platform.WindowId, UInt64, @text_field.TextField, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]
+pub fn TextSession::new(@platform.WindowId, UInt64, @text_field.TextField) -> Result[Self, SessionError]
+pub fn TextSession::rearm(Self) -> Result[Unit, SessionError]
+pub fn TextSession::rebind(Self, @platform.WindowId, UInt64, @text_field.TextField) -> Result[Unit, SessionError]
+pub fn TextSession::request_end(Self, SessionTarget, EndReason) -> Result[PendingEnd, SessionError]
+pub fn TextSession::snapshot(Self) -> SessionSnapshot
+pub fn TextSession::target(Self) -> Result[SessionTarget, SessionError]
+
+// Type aliases
+
+// Traits

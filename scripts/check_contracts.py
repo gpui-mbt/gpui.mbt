@@ -644,6 +644,9 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         # Reusable editing/paint state consumes portable layout results; native
         # shaping, raster admission and clipboard ownership remain in leaves.
         "controls/text_field": {"text", "text_layout", "primitives", "scene", "element"},
+        # Live composition ownership wraps the existing portable editor and
+        # shared window identifiers; native text transports remain OS leaves.
+        "text_session": {"platform", "text", "text_layout", "controls/text_field"},
         # Reusable button state stays portable above hit-testing and scene data.
         "controls/button": {"primitives", "element", "scene"},
         "controls/command_palette": {"text", "text_layout", "primitives", "element", "controls/text_field", "capability", "diagnostics", "scene"},
