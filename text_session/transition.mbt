@@ -446,8 +446,10 @@ pub fn TextSession::rearm(self : TextSession) -> Result[Unit, SessionError] {
 /// last field and counters for diagnostics; does not claim an OS cancellation.
 pub fn TextSession::close(self : TextSession) -> Result[Unit, SessionError] {
   self.mutate(fn(state) {
+    // Repeated teardown through any shared handle is successful and preserves
+    // the last visible snapshot. The mutation guard still rejects reentrancy.
     if state.closed {
-      return Err(Closed)
+      return Ok((state, ()))
     }
     Ok(({ ..state, closed: true, pending: None, }, ()))
   })

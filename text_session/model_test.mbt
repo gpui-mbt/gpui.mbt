@@ -903,3 +903,57 @@ test "published revision differs from whole field and committed document revisio
   assert_eq(session.snapshot().published_revision(), 5UL)
   assert_eq(session.snapshot().delivery_watermark(), 3UL)
 }
+
+///|
+test "terminal close is idempotent across copied handles and preserves the final snapshot" {
+  let session = owner()
+  let copy = session
+  let _ = apply(session, [preview("日本")])
+  let pending = session
+    .request_end(session.target().unwrap(), @text_session.Blur)
+    .unwrap()
+  session.close().unwrap()
+  let closed = session.snapshot()
+  assert_true(closed.is_closed())
+  assert_false(closed.has_pending_end())
+  assert_true(closed.field().is_composing())
+  copy.close().unwrap()
+  session.close().unwrap()
+  assert_snapshot(closed, session.snapshot())
+  assert_snapshot(closed, copy.snapshot())
+  assert_true(session.target() is Err(@text_session.Closed))
+  assert_true(session.rearm() is Err(@text_session.Closed))
+  assert_true(
+    session.rebind(@platform.WindowId::new(1L), 7UL, field("new", 3, 3))
+    is Err(@text_session.Closed),
+  )
+  assert_true(
+    session.request_end(pending.target(), @text_session.Blur)
+    is Err(@text_session.Closed),
+  )
+  let calls = [0]
+  let count = fn(document) {
+    calls[0] += 1
+    measure(document)
+  }
+  assert_true(
+    session.apply_batch(
+      pending.target(),
+      [@text_session.Commit("日本")],
+      count,
+      admit,
+    )
+    is Err(@text_session.Closed),
+  )
+  assert_true(
+    session.complete_blur(
+      pending,
+      @text_session.Committed("日本"),
+      count,
+      admit,
+    )
+    is Err(@text_session.Closed),
+  )
+  assert_eq(calls[0], 0)
+  assert_snapshot(closed, session.snapshot())
+}

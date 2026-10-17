@@ -41,7 +41,9 @@ The caller must explicitly report lifecycle changes:
 - `rearm()` refocuses a resolved field and advances the binding session. It
   rejects an active composition or pending end request.
 - `close()` terminally revokes the shared owner, including every copied handle
-  and pending token. The final field remains readable for diagnostics. Closing
+  and pending token. Repeated close through any copied handle succeeds without
+  changing the visible snapshot. All other mutations and ingress still reject
+  the closed owner. The final field remains readable for diagnostics. Closing
   does not imply that an OS commit or cancel was observed.
 
 There is no automatic observation of `ElementTree`, focus changes, native window
