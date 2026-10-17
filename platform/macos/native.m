@@ -80,6 +80,12 @@ static double frame_scale;
 static double test_scale_override;
 static NSPasteboard *test_clipboard;
 #endif
+#ifdef GPUI_TESTING
+#include "../../tests/native/macos_ime_trace.inc"
+#define GPUI_IME_TRACE(W, P, K, H, F) gpui_test_ime_trace((W), (P), (K), (H), (F))
+#else
+#define GPUI_IME_TRACE(W, P, K, H, F) ((void)0)
+#endif
 static BOOL key_window_owns_view(GPWindow *w);
 static NSPasteboard *clipboard_pasteboard(void) {
 #ifdef GPUI_TESTING
@@ -268,6 +274,7 @@ static void flush_text_batch(GPWindow *w) {
   w.awaitingSequence = sequence;
   w.sessionAwaitingAck = YES;
   w.batchDelivered = NO;
+  GPUI_IME_TRACE(w, @"batch_enqueued", -1, nil, NO);
 }
 static void flush_async_text_transactions(void) {
   if (!windows) return;
@@ -280,6 +287,7 @@ static void flush_async_text_transactions(void) {
 }
 static void fence_session(GPWindow *w, BOOL close_session, int error) {
   if (!w) return;
+  GPUI_IME_TRACE(w, @"session_fence", -1, nil, NO);
   if (error) w.deferredTextError = error;
   w.sessionAwaitingAck = NO;
   w.awaitingSequence = 0;
@@ -699,6 +707,7 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
   if (dispatch_id < 0) return;
 #endif
   [self dispatchKeyDown:e];
+  GPUI_IME_TRACE(self.owner, @"key_down_done", e.keyCode, nil, NO);
 #ifdef GPUI_TESTING
   complete_testing_key_dispatch(self.owner, dispatch_id, @"down");
 #endif
@@ -725,6 +734,7 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
     NSData *characters = [e.charactersIgnoringModifiers dataUsingEncoding:NSUTF8StringEncoding] ?: [NSData data];
     emit_event(owner, 11, 0, 0, modifiers(e), e.keyCode, e.isARepeat, characters, 0);
   }
+  GPUI_IME_TRACE(owner, @"key_up_done", e.keyCode, nil, NO);
 #ifdef GPUI_TESTING
   complete_testing_key_dispatch(owner, dispatch_id, @"up");
 #endif
@@ -790,8 +800,10 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
         discard_marked_input_state(owner);
       }
     } else {
+      GPUI_IME_TRACE(owner, @"route_begin", event.keyCode, nil, NO);
       BOOL handled = [self.inputContext handleEvent:event];
       if (!handled) [self interpretKeyEvents:@[event]];
+      GPUI_IME_TRACE(owner, @"route_result", event.keyCode, @(handled), !handled);
     }
     self.dispatchKeyEvent = nil;
     [self flushPendingUnmark];
@@ -814,6 +826,7 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
 }
 - (void)flushPendingUnmark {
   GPWindow *owner = self.owner;
+  GPUI_IME_TRACE(owner, @"flush_unmark", -1, nil, NO);
   if (!owner || !owner.pendingUnmark) return;
   owner.pendingUnmark = NO;
   NSString *preview = owner.pendingUnmarkText ?: @"";
@@ -861,6 +874,7 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
 // the last accepted field state plus callbacks in the current AppKit dispatch.
 - (void)insertText:(id)value replacementRange:(NSRange)replacementRange {
   GPWindow *owner = self.owner;
+  GPUI_IME_TRACE(owner, @"callback_insert", self.dispatchKeyEvent ? self.dispatchKeyEvent.keyCode : -1, nil, NO);
   if (!owner || owner.closing || self.suppressTextCallbacks) return;
   NSString *text = [value isKindOfClass:NSAttributedString.class] ? [value string] :
     ([value isKindOfClass:NSString.class] ? value : nil);
@@ -919,6 +933,7 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
 - (void)insertText:(id)value { [self insertText:value replacementRange:NSMakeRange(NSNotFound, 0)]; }
 - (void)setMarkedText:(id)value selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange {
   GPWindow *owner = self.owner;
+  GPUI_IME_TRACE(owner, @"callback_marked", self.dispatchKeyEvent ? self.dispatchKeyEvent.keyCode : -1, nil, NO);
   if (!owner || owner.closing || self.suppressTextCallbacks || (!owner.sessionActive && !owner.directText)) return;
   NSString *text = [value isKindOfClass:NSAttributedString.class] ? [value string] :
     ([value isKindOfClass:NSString.class] ? value : nil);
@@ -986,6 +1001,7 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
 }
 - (void)unmarkText {
   GPWindow *owner = self.owner;
+  GPUI_IME_TRACE(owner, @"callback_unmark", self.dispatchKeyEvent ? self.dispatchKeyEvent.keyCode : -1, nil, NO);
   if (!owner || self.suppressTextCallbacks || (!owner.sessionActive && !owner.directText) || !owner.hasMarkedText) return;
   owner.pendingUnmarkText = [owner.visibleText substringWithRange:owner.markedRange];
   owner.pendingUnmark = YES;
@@ -1007,6 +1023,7 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
 }
 - (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(NSRangePointer)actualRange {
   GPWindow *owner = self.owner;
+  GPUI_IME_TRACE(owner, @"client_first_rect", -1, nil, NO);
   if (!owner || (!owner.sessionActive && !owner.directText)) return NSZeroRect;
   if (range.location == NSNotFound) range = NSMakeRange(owner.caretHead, 0);
   if (!valid_range_for_text(range, owner.visibleText)) return NSZeroRect;
@@ -1044,6 +1061,7 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
 - (void)doCommandBySelector:(SEL)selector {
   (void)selector;
   GPWindow *owner = self.owner;
+  GPUI_IME_TRACE(owner, @"callback_command", self.dispatchKeyEvent ? self.dispatchKeyEvent.keyCode : -1, nil, NO);
   if (!owner || !owner.sessionActive || !owner.textDispatchActive || !self.dispatchKeyEvent) return;
   NSDictionary *forwarded = [self forwardedKey:self.dispatchKeyEvent kind:@"forwarded_pressed"];
   if (forwarded && append_text_callback(owner, forwarded))
@@ -1503,6 +1521,7 @@ static int update_text_session(GPWindow *w, double epoch_value, const uint8_t *b
     if (ack) {
       w.lastPresentedBatchSequence = ack;
       w.lastPresentedOwnerRevision = w.ownerRevision;
+      GPUI_IME_TRACE(w, @"batch_acknowledged", -1, nil, NO);
     }
   }
   result_token = w.sessionEpoch;
@@ -1759,6 +1778,7 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
             return 10;
           }
           window.batchDelivered = YES;
+          GPUI_IME_TRACE(window, @"batch_delivered", -1, nil, NO);
         }
       }
       return 0;
@@ -1878,6 +1898,7 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
         BOOL restored = source ? [view.inputContext.selectedKeyboardInputSource isEqualToString:source] :
           view.inputContext.selectedKeyboardInputSource == nil;
         if (!restored) return 9;
+        GPUI_IME_TRACE(w, @"source_restored", -1, nil, NO);
         w.testingOriginalInputSource = nil;
         w.testingInputSourceSaved = NO;
         return 0;
