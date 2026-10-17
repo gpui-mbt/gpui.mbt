@@ -16,6 +16,10 @@ pub enum ElementError {
   LayoutBoundsMismatch
   ScrollLayoutBoundsUnsupported
   UniformListFailure(UniformListError)
+  AlreadyPrepainted
+  InvalidQueryShape
+  UnsupportedQueryComposition
+  UnsupportedGridScroll
 } derive(Eq)
 
 ///|

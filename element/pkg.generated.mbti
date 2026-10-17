@@ -137,6 +137,9 @@ pub struct Element {
   pointer_events : Bool
   // private fields
 }
+pub fn Element::container_query_root(UInt64, (@primitives.Size) -> Result[Self, ElementError]) -> Self
+pub fn Element::grid_item(@layout.GridItem) -> Self
+pub fn Element::grid_root(UInt64, @layout.GridTreeStyle) -> Self
 pub fn Element::into_element(Self) -> Self
 pub fn Element::is_tab_stop(Self) -> Bool
 pub fn Element::new(@layout.FlexItem) -> Self
@@ -149,8 +152,11 @@ pub fn Element::tab_index(Self) -> Int
 pub fn Element::with_background(Self, @primitives.Color?) -> Self
 pub fn Element::with_child(Self, Self) -> Self
 pub fn Element::with_children_style(Self, @layout.FlexTreeStyle) -> Self
+pub fn Element::with_container_query(Self, (@primitives.Size) -> Result[Self, ElementError]) -> Self
 pub fn Element::with_focusable(Self, Bool) -> Self
+pub fn Element::with_grid_children_style(Self, @layout.GridTreeStyle) -> Self
 pub fn Element::with_pointer_events(Self, Bool) -> Self
+pub fn Element::with_query_root_size(Self, @primitives.Size) -> Self
 pub fn Element::with_scroll_offset(Self, @primitives.Point) -> Self
 pub fn Element::with_tab_group_index(Self, Int?) -> Self
 pub fn Element::with_tab_index(Self, Int) -> Self
@@ -174,6 +180,10 @@ pub enum ElementError {
   LayoutBoundsMismatch
   ScrollLayoutBoundsUnsupported
   UniformListFailure(UniformListError)
+  AlreadyPrepainted
+  InvalidQueryShape
+  UnsupportedQueryComposition
+  UnsupportedGridScroll
 } derive(Eq)
 pub fn ElementError::equal(Self, Self) -> Bool
 pub fn ElementError::not_equal(Self, Self) -> Bool

@@ -54,6 +54,10 @@ pub fn Element::with_scroll_offset(
     pointer_events: self.pointer_events,
     scroll_offset: Some(offset),
     uniform_list: self.uniform_list,
+    grid_item: self.grid_item,
+    grid_style: self.grid_style,
+    container_query: self.container_query,
+    query_root_size: self.query_root_size,
   }
 }
 

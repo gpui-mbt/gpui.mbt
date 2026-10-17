@@ -9,6 +9,9 @@ pub(all) enum TreeLayoutError {
   TreeTooDeep
   Flex(LayoutError)
   GeometryFailure
+  Grid(GridLayoutError)
+  MismatchedItem
+  UnsupportedIntrinsicGrid
 } derive(Eq)
 
 ///|

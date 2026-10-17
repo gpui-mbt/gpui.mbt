@@ -255,6 +255,9 @@ fn validate_uniform_lists(
         if element.is_root ||
           element.children.length() != 0 ||
           element.children_style is Some(_) ||
+          element.grid_style is Some(_) ||
+          element.container_query is Some(_) ||
+          element.query_root_size is Some(_) ||
           element.scroll_offset is Some(_) {
           return Err(UniformListFailure(UnsupportedListShape))
         }
@@ -332,6 +335,9 @@ fn uniform_factory(
       }
       seen.push(element.id)
       if element.is_root ||
+        element.grid_item is Some(_) ||
+        element.grid_style is Some(_) ||
+        element.container_query is Some(_) ||
         element.uniform_list is Some(_) ||
         element.scroll_offset is Some(_) {
         return Err(UniformListFailure(UnsupportedRowShape(index)))

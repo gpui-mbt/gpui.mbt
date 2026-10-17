@@ -145,6 +145,10 @@ pub fn Element::with_tab_index(self : Element, index : Int32) -> Element {
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
     uniform_list: self.uniform_list,
+    grid_item: self.grid_item,
+    grid_style: self.grid_style,
+    container_query: self.container_query,
+    query_root_size: self.query_root_size,
   }
 }
 
@@ -171,6 +175,10 @@ pub fn Element::with_tab_group_index(self : Element, index : Int32?) -> Element 
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
     uniform_list: self.uniform_list,
+    grid_item: self.grid_item,
+    grid_style: self.grid_style,
+    container_query: self.container_query,
+    query_root_size: self.query_root_size,
   }
 }
 
@@ -190,6 +198,10 @@ pub fn Element::with_tab_stop(self : Element, enabled : Bool) -> Element {
     pointer_events: self.pointer_events,
     scroll_offset: self.scroll_offset,
     uniform_list: self.uniform_list,
+    grid_item: self.grid_item,
+    grid_style: self.grid_style,
+    container_query: self.container_query,
+    query_root_size: self.query_root_size,
   }
 }
 
