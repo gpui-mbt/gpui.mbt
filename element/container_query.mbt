@@ -128,7 +128,7 @@ fn flatten_mixed_elements(
   while pending.length() > 0 {
     let placement = pending.pop().unwrap()
     let element = placement.element
-    if element.anchored is Some(_) || element.deferred {
+    if element.anchored is Some(_) || element.deferred is Some(_) {
       return Err(UnsupportedAnchoredComposition)
     }
     if placement.depth > MAX_ELEMENT_DEPTH {

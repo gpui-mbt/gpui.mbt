@@ -6,7 +6,7 @@ fn deferred_test_tree(interactive : Bool) -> ElementTree {
     ..ElementNode::new(3, Some(2), bounds)
     .with_background(color)
     .with_pointer_events(interactive),
-    deferred: true,
+    deferred: Some(0),
   }
   let child = {
     ..ElementNode::new(
@@ -16,7 +16,7 @@ fn deferred_test_tree(interactive : Bool) -> ElementTree {
     )
     .with_background(color)
     .with_pointer_events(interactive),
-    deferred: true,
+    deferred: Some(0),
   }
   ElementTree::new([
     ElementNode::new(1, None, bounds).with_background(color),

@@ -19,10 +19,15 @@ margin must be finite and nonnegative; negative values, NaN and infinities
 return `GeometryFailure` during construction. Finite margins larger than the
 viewport are allowed. There is no per-edge margin or `SwitchAnchor` surface.
 
-`attachment.deferred()` returns a priority-zero attachment. Repeated wrapping
-and applying it to an ordinary element are rejected. Higher priorities and
-nested deferred draws are not supported. Leaving an attachment undeferred
-keeps its popup in structural paint order.
+`attachment.deferred()` returns a priority-zero attachment.
+`attachment.deferred(priority=5)` supplies an optional labeled `Int32` priority.
+The bounded range is 0 through 2147483647; negative values return
+`InvalidDeferredPriority`. Higher values paint later, with structural attachment
+order preserved for ties. Repeated wrapping and applying it to an ordinary
+element are rejected, and nested deferred draws remain unsupported. Leaving an
+attachment undeferred keeps its popup in structural paint order. Priority is
+chosen when wrapping; rebuild the declarative attachment for a different
+priority instead of wrapping an already deferred attachment again.
 
 The owning parent must contain exactly one fixed-size, nonflexing ordinary
 child first, followed only by attachments that reference that child's ID. Use
@@ -83,16 +88,22 @@ a single device rounding of +0.5 would produce a different result.
 the separately measured popup subtrees into the full structural tree. Read
 `prepainted.tree().node(attachment_id).bounds()` for genuine static attachment
 bounds and the popup/descendant node bounds for final translated geometry.
-Neither accessor accepts geometry or bypasses layout.
+Neither accessor accepts geometry or bypasses layout. Request-layout and the
+published nodes retain structural order independently of deferred paint order;
+there is no Rust-style per-node lifecycle callback surface.
 
 ## Drawing, masks and input
 
 `ElementTree.nodes()` always retains structural preorder. Dispatch ancestry,
 tab order, focus ownership and drag identities use this same tree. A separate
-stable traversal paints ordinary nodes first and flat priority-zero deferred
-subtrees afterward; hit testing visits the exact reverse paint traversal.
-Deferred siblings retain their structural order, making the last overlapping
-interactive popup the hit target.
+stable traversal paints ordinary nodes first, then complete flat deferred
+subtrees in ascending priority order. Every subtree stays contiguous, including
+its attachment clip and nonpainting structural helpers. Ties retain structural
+attachment order across the entire tree. Priority comparison never subtracts,
+so maximum and adjacent large `Int32` priorities cannot overflow the comparator.
+Hit testing visits the exact reverse paint traversal, selecting the last
+eligible overlapping node. This preserves the existing single-target core
+input model; it does not adopt GPUI's multi-listener or occlusion behavior.
 
 Anchored trees carry the logical viewport mask for the ordinary pass and each
 attachment subtree. Scenes contain balanced `ClipPushCommand` /
@@ -118,7 +129,8 @@ metadata fail explicitly. Validation occurs before publishing a tree.
 
 `with_layout_bounds` retains the old focus acquisition only for compatible
 structural/input metadata, including attachment-reference identity, deferred
-classification and viewport masks. An incompatible refresh is rejected without
+priority (including changes that leave paint order unchanged) and viewport
+masks. An incompatible refresh is rejected without
 changing the retained tree. Ordinary dynamic bounds and popup translation can
 refresh when that contract remains satisfied.
 
@@ -126,7 +138,9 @@ Removing an attachment subtree leaves its ordinary reference and surviving
 focus ownership intact. Removing the owning parent removes the reference and
 all attachments as ordinary structural descendants. Removing only a reference
 while an attachment remains is rejected atomically, preventing a dangling live
-reference. Earlier immutable snapshots are unchanged.
+reference. Earlier immutable snapshots are unchanged. Exported node snapshots
+retain exact inherited subtree priority through copy operations; grafting a
+node with different priority metadata under a deferred parent is rejected.
 
 ## Evidence and limits
 
@@ -172,3 +186,39 @@ execution or executed paired-control evidence. The Rust margin run has no
 pointer probes and does not establish new browser/native-window, text,
 popover, arbitrary nesting, priority or client-inset claims. Core hit/scene
 checks remain tests of the MoonBit lifecycle's documented contract.
+
+
+## Flat nonzero priority evidence
+
+The separate actual Rust priority observation is
+[run 39024859010](https://github.com/gpui-mbt/gpui-conformance/actions/runs/39024859010),
+artifact `12098386453`, at suite CI merge
+`7dcd55101572269950ecbc4b69b88c806575c3ad` (tree
+`e9ccfbb217339438fff87c010cdc5292d15ef889`). Original `raw.json` SHA-256:
+`5739ab910b7f3bd5dcfa22769d7e6f4af52469bf609b32e0bfe2684e2d6b4ecd`.
+The focused core tests retain the paint-entry-to-box projection of all 16
+cases and all 224 observed frames: ascending, descending, equal nonzero,
+reversed equal, zero, priority update, removal and restoration, at configured
+scales 1/1.25 and bootstrap scale 2. Expected box-order labels and bounds are
+assertions copied from actual callbacks. Core observations come from genuine
+request-layout/prepaint bounds and actual scene-command emission. They never
+come from a synthetic callback traversal. Nonpainting flex helpers express
+the authored child offsets without accepting final rectangles as layout inputs.
+
+This is a source-derived correspondence from Rust paint-entry callbacks to
+core emitted boxes, not a capture of Rust scene primitives or proof of
+layout/prepaint/paint callback equality. Rust's ordinary, transparent,
+occluding and propagation-stopping fixtures supply identical paint-order
+projections but different input callback lists. Those richer input results do
+not establish input parity with this core and are not reproduced by changing
+its single-target route. Alpha-zero backgrounds remain emitted and do not
+implicitly disable core pointer events; use `with_pointer_events(false)` for
+that behavior. Separate tests cover stable whole-subtree order, maximum and
+adjacent priorities, negative errors, exact default-zero compatibility,
+immutable copies/removal, structural tab/focus/dispatch/drag identities, and
+rejection of priority changes during bounds-only refresh.
+
+These focused tests do not replace separately source-bound paired candidate
+execution, wrong-behavior controls or independent final-source review. There
+is no new browser/native-window, raster, text, cached-view, outside-click,
+arbitrary ordinary-deferred or nested-deferred qualification.
