@@ -58,6 +58,8 @@ pub fn Element::with_scroll_offset(
     grid_style: self.grid_style,
     container_query: self.container_query,
     query_root_size: self.query_root_size,
+    anchored: self.anchored,
+    deferred: self.deferred,
   }
 }
 
@@ -152,6 +154,10 @@ fn ElementTree::within_scroll_clips(
   node : ElementNode,
   position : @primitives.Point,
 ) -> Bool {
+  match node.window_clip {
+    Some(bounds) if !pointer_in_bounds(bounds, position) => return false
+    _ => ()
+  }
   let mut parent = node.parent
   while parent is Some(_) {
     match parent {
@@ -163,6 +169,11 @@ fn ElementTree::within_scroll_clips(
             if ancestor.scroll_viewport is Some(_) &&
               !pointer_in_bounds(ancestor.bounds, position) {
               return false
+            }
+            match ancestor.window_clip {
+              Some(bounds) if !pointer_in_bounds(bounds, position) =>
+                return false
+              _ => ()
             }
             parent = ancestor.parent
           }
@@ -251,6 +262,9 @@ fn resolve_scroll_nodes(
       background: original.background,
       scroll_viewport: viewport,
       uniform_list: uniform,
+      deferred: original.deferred,
+      anchored_after: original.anchored_after,
+      window_clip: original.window_clip,
     })
     // A leaf has no descendants to translate. Avoid failing on an unused sum.
     let descendant_offset = match viewport {

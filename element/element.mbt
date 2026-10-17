@@ -20,6 +20,8 @@ pub enum ElementError {
   InvalidQueryShape
   UnsupportedQueryComposition
   UnsupportedGridScroll
+  InvalidAnchoredShape
+  UnsupportedAnchoredComposition
 } derive(Eq)
 
 ///|
@@ -77,6 +79,9 @@ pub struct ElementNode {
   background : @primitives.Color?
   priv scroll_viewport : ScrollViewport?
   priv uniform_list : UniformListLayout?
+  priv deferred : Bool
+  priv anchored_after : UInt64?
+  priv window_clip : @primitives.Rect?
 }
 
 ///|
@@ -97,6 +102,9 @@ pub fn ElementNode::new(
     background: None,
     scroll_viewport: None,
     uniform_list: None,
+    deferred: false,
+    anchored_after: None,
+    window_clip: None,
   }
 }
 
@@ -157,6 +165,9 @@ pub fn ElementNode::with_focusable(
     background: self.background,
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
+    deferred: self.deferred,
+    anchored_after: self.anchored_after,
+    window_clip: self.window_clip,
   }
 }
 
@@ -177,6 +188,9 @@ pub fn ElementNode::with_pointer_events(
     background: self.background,
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
+    deferred: self.deferred,
+    anchored_after: self.anchored_after,
+    window_clip: self.window_clip,
   }
 }
 
@@ -197,6 +211,9 @@ pub fn ElementNode::with_background(
     background: color,
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
+    deferred: self.deferred,
+    anchored_after: self.anchored_after,
+    window_clip: self.window_clip,
   }
 }
 
@@ -302,8 +319,8 @@ pub fn DispatchOutcome::was_stopped(self : DispatchOutcome) -> Bool {
 }
 
 ///|
-/// Headless element tree. Nodes are stored in stable pre-order and later nodes
-/// are considered visually above earlier nodes during hit testing.
+/// Headless element tree. Nodes retain structural preorder independently from
+/// paint order. Flat deferred subtrees paint after ordinary nodes.
 pub struct ElementTree {
   priv nodes : Array[ElementNode]
   focused : UInt64?
@@ -320,10 +337,60 @@ pub fn ElementTree::new(
 ) -> Result[ElementTree, ElementError] {
   let owned = copy_nodes(nodes)
   let mut failure : ElementError? = None
+  let mut has_attachment = false
+  let mut has_scroll = false
   let mut ancestors : Array[UInt64] = []
   let mut index = 0
   while index < owned.length() && failure is None {
     let node = owned[index]
+    has_attachment = has_attachment ||
+      node.deferred ||
+      node.anchored_after is Some(_) ||
+      node.window_clip is Some(_)
+    has_scroll = has_scroll ||
+      node.scroll_viewport is Some(_) ||
+      node.uniform_list is Some(_)
+    match node.anchored_after {
+      None => ()
+      Some(reference_id) => {
+        if node.background is Some(_) ||
+          node.pointer_events ||
+          node.focusable ||
+          node.tab_stop ||
+          node.tab_index != 0 ||
+          node.tab_group_index is Some(_) ||
+          node.window_clip is None {
+          return Err(InvalidAnchoredShape)
+        }
+        let mut reference_found = false
+        for previous = 0; previous < index; previous = previous + 1 {
+          let candidate = owned[previous]
+          if candidate.id == reference_id &&
+            candidate.parent == node.parent &&
+            node.parent is Some(_) {
+            reference_found = true
+          }
+        }
+        let mut ancestor = node.parent
+        while ancestor is Some(_) {
+          let current_id = ancestor.unwrap()
+          ancestor = None
+          for previous = 0; previous < index; previous = previous + 1 {
+            let candidate = owned[previous]
+            if candidate.id == current_id {
+              if candidate.anchored_after is Some(_) {
+                return Err(UnsupportedAnchoredComposition)
+              }
+              ancestor = candidate.parent
+              break
+            }
+          }
+        }
+        if !reference_found {
+          return Err(InvalidAnchoredShape)
+        }
+      }
+    }
     let mut prior = 0
     let mut duplicate = false
     while prior < index && !duplicate {
@@ -375,6 +442,9 @@ pub fn ElementTree::new(
     }
     index += 1
   }
+  if has_attachment && has_scroll {
+    return Err(UnsupportedAnchoredComposition)
+  }
   match failure {
     Some(error) => Err(error)
     None =>
@@ -418,7 +488,7 @@ pub fn ElementTree::node(self : ElementTree, id : UInt64) -> ElementNode? {
 }
 
 ///|
-/// Hit test in reverse paint/pre-order. This is deterministic and intentionally
+/// Hit test in reverse paint order. This is deterministic and intentionally
 /// independent of platform pointer-event types. Pointer coverage includes the
 /// left/top edges and excludes the right/bottom edges; zero-extent nodes do
 /// not receive hits. Geometric Rect::contains remains a closed-edge operation.
@@ -427,10 +497,11 @@ pub fn ElementTree::hit_test(
   position : @primitives.Point,
 ) -> UInt64? {
   let mut hit : UInt64? = None
-  let mut index = self.nodes.length()
+  let order = deferred_paint_indices(self.nodes)
+  let mut index = order.length()
   while index > 0 && hit is None {
     index -= 1
-    let node = self.nodes[index]
+    let node = self.nodes[order[index]]
     if node.pointer_events &&
       pointer_in_bounds(node.bounds, position) &&
       self.within_scroll_clips(node, position) {
@@ -751,6 +822,20 @@ pub fn ElementTree::without_subtree(
         kept.push(node)
       }
     }
+    // Removing a structural parent removes its attachments with it. Removing
+    // only a reference child cannot leave a live attachment pointing at an
+    // absent identity; reject before changing focus or returning a new tree.
+    for node in kept {
+      match node.anchored_after {
+        Some(reference) =>
+          for removed_id in removed {
+            if reference == removed_id {
+              return Err(InvalidAnchoredShape)
+            }
+          }
+        None => ()
+      }
+    }
     let mut focused = self.focused
     match focused {
       None => ()
@@ -788,12 +873,14 @@ pub fn ElementTree::clear_focus(self : ElementTree) -> ElementTree {
 pub fn ElementTree::to_scene(self : ElementTree) -> @scene.Scene {
   let commands : Array[@scene.PaintCommand] = []
   let ancestors : Array[ElementNode] = []
-  for node in self.nodes {
+  for paint_index in deferred_paint_indices(self.nodes) {
+    let node = self.nodes[paint_index]
     // Close each completed subtree before painting the next sibling/root.
     while ancestors.length() > 0 &&
           Some(ancestors[ancestors.length() - 1].id) != node.parent {
       match ancestors.pop() {
-        Some(ancestor) if ancestor.scroll_viewport is Some(_) =>
+        Some(ancestor) if ancestor.scroll_viewport is Some(_) ||
+          ancestor.window_clip is Some(_) =>
           commands.push(@scene.PaintCommand::clip_pop(ancestor.id))
         _ => ()
       }
@@ -803,14 +890,20 @@ pub fn ElementTree::to_scene(self : ElementTree) -> @scene.Scene {
       Some(color) =>
         commands.push(@scene.PaintCommand::quad(node.id, node.bounds, color))
     }
-    if node.scroll_viewport is Some(_) {
-      commands.push(@scene.PaintCommand::clip_push(node.id, node.bounds))
+    match node.window_clip {
+      Some(bounds) =>
+        commands.push(@scene.PaintCommand::clip_push(node.id, bounds))
+      None =>
+        if node.scroll_viewport is Some(_) {
+          commands.push(@scene.PaintCommand::clip_push(node.id, node.bounds))
+        }
     }
     ancestors.push(node)
   }
   while ancestors.length() > 0 {
     match ancestors.pop() {
-      Some(ancestor) if ancestor.scroll_viewport is Some(_) =>
+      Some(ancestor) if ancestor.scroll_viewport is Some(_) ||
+        ancestor.window_clip is Some(_) =>
         commands.push(@scene.PaintCommand::clip_pop(ancestor.id))
       _ => ()
     }

@@ -4,6 +4,12 @@
 
 ### Added
 
+- Add bounded measured anchored attachments with all eight anchors, explicit
+  Local/Window positions, SnapToWindow fitting, two-stage offset rounding,
+  priority-zero deferred painting/hits, viewport clips, and preserved structural
+  input identities. Unsupported compositions fail explicitly.
+  (`docs/anchored-deferred.md`)
+
 - Add bounded explicit equal-fraction grid layout, opt-in mixed flex/grid trees,
   and deferred container queries with per-request one-shot prepaint, global
   generated-tree validation, physical overflow, and absolute device-edge

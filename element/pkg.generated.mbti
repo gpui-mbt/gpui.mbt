@@ -20,6 +20,26 @@ pub fn[T : Render] render_element(T) -> Element
 // Errors
 
 // Types and methods
+pub(all) enum Anchor {
+  TopLeft
+  TopCenter
+  TopRight
+  LeftCenter
+  RightCenter
+  BottomLeft
+  BottomCenter
+  BottomRight
+} derive(Eq)
+pub fn Anchor::equal(Self, Self) -> Bool
+pub fn Anchor::not_equal(Self, Self) -> Bool
+
+pub(all) enum AnchoredPositionMode {
+  Local
+  Window
+} derive(Eq)
+pub fn AnchoredPositionMode::equal(Self, Self) -> Bool
+pub fn AnchoredPositionMode::not_equal(Self, Self) -> Bool
+
 pub struct DispatchContext {
   target : UInt64
   current_target : UInt64
@@ -137,7 +157,9 @@ pub struct Element {
   pointer_events : Bool
   // private fields
 }
+pub fn Element::anchored_after(UInt64, UInt64, Self, Anchor, AnchoredPositionMode, @primitives.Point) -> Result[Self, ElementError]
 pub fn Element::container_query_root(UInt64, (@primitives.Size) -> Result[Self, ElementError]) -> Self
+pub fn Element::deferred(Self) -> Result[Self, ElementError]
 pub fn Element::grid_item(@layout.GridItem) -> Self
 pub fn Element::grid_root(UInt64, @layout.GridTreeStyle) -> Self
 pub fn Element::into_element(Self) -> Self
@@ -184,6 +206,8 @@ pub enum ElementError {
   InvalidQueryShape
   UnsupportedQueryComposition
   UnsupportedGridScroll
+  InvalidAnchoredShape
+  UnsupportedAnchoredComposition
 } derive(Eq)
 pub fn ElementError::equal(Self, Self) -> Bool
 pub fn ElementError::not_equal(Self, Self) -> Bool

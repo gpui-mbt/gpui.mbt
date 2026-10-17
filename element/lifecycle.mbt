@@ -35,6 +35,8 @@ pub struct Element {
   priv grid_style : @layout.GridTreeStyle?
   priv container_query : ((@primitives.Size) -> Result[Element, ElementError])?
   priv query_root_size : @primitives.Size?
+  priv anchored : AnchoredSpec?
+  priv deferred : Bool
 }
 
 ///|
@@ -62,6 +64,8 @@ pub fn Element::root(
     grid_style: None,
     container_query: None,
     query_root_size: None,
+    anchored: None,
+    deferred: false,
   }
 }
 
@@ -86,6 +90,8 @@ pub fn Element::new(item : @layout.FlexItem) -> Element {
     grid_style: None,
     container_query: None,
     query_root_size: None,
+    anchored: None,
+    deferred: false,
   }
 }
 
@@ -113,6 +119,8 @@ pub fn Element::with_children_style(
     grid_style: None,
     container_query: self.container_query,
     query_root_size: self.query_root_size,
+    anchored: self.anchored,
+    deferred: self.deferred,
   }
 }
 
@@ -139,6 +147,8 @@ pub fn Element::with_child(self : Element, child : Element) -> Element {
     grid_style: self.grid_style,
     container_query: self.container_query,
     query_root_size: self.query_root_size,
+    anchored: self.anchored,
+    deferred: self.deferred,
   }
 }
 
@@ -165,6 +175,8 @@ pub fn Element::with_background(
     grid_style: self.grid_style,
     container_query: self.container_query,
     query_root_size: self.query_root_size,
+    anchored: self.anchored,
+    deferred: self.deferred,
   }
 }
 
@@ -188,6 +200,8 @@ pub fn Element::with_focusable(self : Element, focusable : Bool) -> Element {
     grid_style: self.grid_style,
     container_query: self.container_query,
     query_root_size: self.query_root_size,
+    anchored: self.anchored,
+    deferred: self.deferred,
   }
 }
 
@@ -211,6 +225,8 @@ pub fn Element::with_pointer_events(self : Element, enabled : Bool) -> Element {
     grid_style: self.grid_style,
     container_query: self.container_query,
     query_root_size: self.query_root_size,
+    anchored: self.anchored,
+    deferred: self.deferred,
   }
 }
 
@@ -247,10 +263,16 @@ pub fn[T : IntoElement] into_element(value : T) -> Element {
 ///|
 /// Result of the request-layout phase. Layout is resolved against the definite
 /// root viewport and the original declarative tree is retained for prepaint.
+/// For anchored attachments, `layout` describes the ordinary in-flow tree;
+/// separately measured popup subtrees join structural order during prepaint.
+/// Read the resulting ElementTree for complete final bounds and static
+/// attachment bounds. Neither host-supplied final boxes nor relayout bypasses
+/// participate in the attachment path.
 pub struct RequestedLayout {
   priv placements : Array[ElementPlacement]
   priv scale_factor : Double?
   priv query_lease : Ref[Bool]?
+  priv anchored_layout : AnchoredLayout?
   viewport : @primitives.Size
   layout : @layout.FlexTreeLayout
 }
@@ -327,6 +349,9 @@ fn Element::request_layout_internal(
   viewport : @primitives.Size,
   scale_factor : Double?,
 ) -> Result[RequestedLayout, ElementError] {
+  if has_anchored_elements(self) {
+    return request_anchored_layout(self, viewport, scale_factor)
+  }
   if has_mixed_layout(self) {
     return request_mixed_layout(self, viewport, scale_factor)
   }
@@ -381,6 +406,7 @@ fn Element::request_layout_internal(
                       layout,
                       scale_factor,
                       query_lease: None,
+                      anchored_layout: None,
                     })
                 }
               Some(scale) =>
@@ -400,6 +426,7 @@ fn Element::request_layout_internal(
                       layout,
                       scale_factor,
                       query_lease: None,
+                      anchored_layout: None,
                     })
                 }
             }
@@ -416,6 +443,10 @@ fn Element::request_layout_internal(
 pub fn RequestedLayout::prepaint(
   self : RequestedLayout,
 ) -> Result[Prepainted, ElementError] {
+  match self.anchored_layout {
+    Some(anchored) => return prepaint_anchored(self, anchored)
+    None => ()
+  }
   match self.query_lease {
     Some(lease) => {
       if lease.val {
