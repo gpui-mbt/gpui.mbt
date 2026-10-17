@@ -207,6 +207,15 @@ class DiagnosticEvidenceTests(unittest.TestCase):
         self.assertEqual(result["integrity"], "FAIL")
         self.assertGreaterEqual(len(result["errors"]), 2)
 
+    def test_truncated_trace_cannot_qualify_native_evidence(self):
+        result = diagnostics.analyze_log(self.log([
+            "GPUI_MACOS_IME_TRACE " + json.dumps({
+                "schema_version": 1, "index": 0,
+                "phase": "truncated_ordinary", "limit": 180,
+            })
+        ]))
+        self.assertEqual(result["integrity"], "FAIL")
+
     def test_callback_observation_is_not_e2e_pass(self):
         result = diagnostics.analyze_log(self.log([
             "GPUI_MACOS_IME_TRACE " + json.dumps({
