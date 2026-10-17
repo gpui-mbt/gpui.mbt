@@ -68,9 +68,10 @@ if ($IsWindows) {
   Invoke-CheckedCommand -Program $ownerIdTest -Arguments @() -LogName "accessibility-owner-id-test.log"
 }
 
-Invoke-CheckedCommand -Program $moon -Arguments @("fmt", "--check", "windows", "platform/windows_text", "examples/windows", "examples/windows_text_field", "examples/windows_command_palette", "examples/windows_button", "examples/ubuntu_button/fixture") -LogName "format.log"
+Invoke-CheckedCommand -Program $moon -Arguments @("fmt", "--check", "windows", "platform/windows_text", "platform/windows_app", "examples/windows", "examples/windows_text_field", "examples/windows_command_palette", "examples/windows_button", "examples/ubuntu_button/fixture") -LogName "format.log"
 Invoke-CheckedCommand -Program $moon -Arguments @("check", "--package-path", "windows", "--target", "native", "--deny-warn") -LogName "check-windows.log"
 Invoke-CheckedCommand -Program $moon -Arguments @("check", "--package-path", "platform/windows_text", "--target", "native", "--deny-warn") -LogName "check-text-adapter.log"
+Invoke-CheckedCommand -Program $moon -Arguments @("check", "--package-path", "platform/windows_app", "--target", "native", "--deny-warn") -LogName "check-windows-app.log"
 Invoke-CheckedCommand -Program $moon -Arguments @("check", "--package-path", "examples/windows", "--target", "native", "--deny-warn") -LogName "check-example.log"
 Invoke-CheckedCommand -Program $moon -Arguments @("check", "--package-path", "examples/windows_text_field", "--target", "native", "--deny-warn") -LogName "check-text-field.log"
 Invoke-CheckedCommand -Program $moon -Arguments @("check", "--package-path", "examples/windows_command_palette", "--target", "native", "--deny-warn") -LogName "check-command-palette.log"
@@ -81,6 +82,7 @@ Remove-Item Env:GPUI_WINDOWS_READBACK -ErrorAction SilentlyContinue
 Invoke-CheckedCommand -Program $moon -Arguments @("test", "--package", "f4ah6o/gpui/windows", "--target", "native", "--deny-warn", "--no-parallelize") -LogName "portable-tests.log"
 Invoke-CheckedCommand -Program $moon -Arguments @("test", "--package", "f4ah6o/gpui/accessibility", "--target", "native", "--deny-warn", "--no-parallelize") -LogName "accessibility-tests.log"
 Invoke-CheckedCommand -Program $moon -Arguments @("test", "--package", "f4ah6o/gpui/platform/windows_text", "--target", "native", "--deny-warn", "--no-parallelize") -LogName "text-adapter-tests.log"
+Invoke-CheckedCommand -Program $moon -Arguments @("test", "--package", "f4ah6o/gpui/platform/windows_app", "--target", "native", "--deny-warn", "--no-parallelize") -LogName "windows-app-tests.log"
 Invoke-CheckedCommand -Program $moon -Arguments @("test", "--package", "f4ah6o/gpui/examples/windows_text_field", "--target", "native", "--deny-warn", "--no-parallelize") -LogName "text-field-tests.log"
 Invoke-CheckedCommand -Program $moon -Arguments @("test", "--package", "f4ah6o/gpui/examples/windows_command_palette", "--target", "native", "--deny-warn", "--no-parallelize") -LogName "command-palette-tests.log"
 Invoke-CheckedCommand -Program $moon -Arguments @("test", "--target", "native", "--deny-warn", "--no-parallelize", "examples/windows_button") -LogName "button-tests.log"
@@ -94,6 +96,7 @@ if (-not $IsWindows) {
 }
 
 $env:GPUI_WINDOWS_E2E = "1"
+$env:GPUI_NATIVE_E2E = "1"
 $env:GPUI_WINDOWS_READBACK = "1"
 $env:GPUI_WINDOWS_CLIPBOARD_FIXTURE = (Resolve-Path $clipboardFixture).Path
 Invoke-CheckedCommand -Program $moon -Arguments @(
@@ -101,6 +104,21 @@ Invoke-CheckedCommand -Program $moon -Arguments @(
   "--deny-warn", "--no-parallelize", "--filter",
   "Windows clipboard fixture line reader drains buffered exit response"
 ) -LogName "clipboard-line-reader-regression.log"
+Invoke-CheckedCommand -Program $moon -Arguments @(
+  "test", "--package", "f4ah6o/gpui/windows", "--target", "native",
+  "--deny-warn", "--no-parallelize", "--filter",
+  "Windows test input hooks enqueue decoded shortcuts"
+) -LogName "windows-input-hooks.log"
+Invoke-CheckedCommand -Program $moon -Arguments @(
+  "test", "--package", "f4ah6o/gpui/windows", "--target", "native",
+  "--deny-warn", "--no-parallelize", "--filter",
+  "Windows shortcut WndProc emits exactly one event"
+) -LogName "windows-shortcut-wndproc.log"
+Invoke-CheckedCommand -Program $moon -Arguments @(
+  "test", "--package", "f4ah6o/gpui/windows", "--target", "native",
+  "--deny-warn", "--no-parallelize", "--filter",
+  "Windows shortcut punctuation follows the keyboard layout"
+) -LogName "windows-shortcut-layout.log"
 Invoke-CheckedCommand -Program $moon -Arguments @(
   "test", "--package", "f4ah6o/gpui/windows", "--target", "native",
   "--deny-warn", "--no-parallelize", "--filter",

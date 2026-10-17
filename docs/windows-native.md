@@ -114,9 +114,15 @@ back to Microsoft's WARP software driver when hardware device creation fails.
   not form an atomic display-change transaction.
 - Basic pointer movement, mouse buttons, vertical/horizontal wheel, focus,
   common navigation keys, committed `WM_CHAR` text events, and arrow/hand/text
-  cursors. Wheel deltas are attached only after their event slot is accepted,
-  so queue or sequence exhaustion leaves earlier input records intact. Key
-  labels are not a source of committed text. The public
+  cursors. Printable shortcut chords with Control/Alt/Meta also produce a
+  single `Character` key-down so applications can distinguish `Ctrl+K` from
+  committed text; plain typing still arrives only through `WM_CHAR`. The
+  shortcut character is translated through the active keyboard layout, so
+  punctuation follows the user's layout instead of a fixed US mapping, and
+  Ctrl+Alt (AltGr) is left to `WM_CHAR`. C0 control characters are not
+  committed as text. Wheel deltas are attached only after their event slot is
+  accepted, so queue or sequence exhaustion leaves earlier input records
+  intact. Key labels are not a source of committed text. The public
   `TextInput` capability remains unadvertised; the bounded field example uses
   the existing committed-text event path directly.
 - Native Unicode plain-text clipboard read/write. The Windows E2E round-trips
@@ -154,6 +160,30 @@ only; it does not imply text input or IME support. `DirectKeyboardText`,
 renderer recovery are not advertised. An explicit renderer-recreation method
 exists for experimentation, but no loss-injection or automatic recovery
 state-machine evidence exists.
+
+## Reusable Windows app helpers
+
+`platform/windows_app` mirrors the macOS-only `platform/macos_app` package for
+reusable one-window applications:
+
+- `WindowsWindowConfig` validates a bounded title and logical size.
+- `run_main_window` preflights native-window, quad, pointer/keyboard, and
+  optional grayscale-text capabilities, creates the window, runs the shared
+  `app` `WindowView` loop, and destroys the window on a failed or `MaxTicks` run.
+- `WindowsTextPainter` caches bounded DirectWrite measurements and appends
+  measured, aligned scene labels through `SceneBuilder`.
+- `WindowsTextFieldAdapter` supplies DirectWrite measure/admit/hit callbacks for
+  `controls/text_field` and `controls/command_palette`.
+- `CursorState` suppresses repeated `SetCursor` calls.
+
+The package is a convenience layer over the existing `windows` backend and
+`platform/windows_text`; it does not add a new renderer or a support tier.
+
+`windows.Host::post_test_key` and `post_test_click` are opt-in E2E hooks gated
+by `GPUI_NATIVE_E2E=1`. They enqueue through the production event queue and
+decoder, not through physical `SendInput`; they exist so native smoke tests can
+drive shortcuts, typed text, and clicks deterministically. Physical input, IME,
+and UI Automation remain outside this evidence boundary.
 
 ## Bounded text rendering and field example
 

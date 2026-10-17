@@ -4,9 +4,25 @@
 
 ### Added
 
+- Add `platform/windows_app` reusable Windows application helpers: bounded
+  DirectWrite scene-label measurement, `TextField` measure/admit/hit callbacks,
+  cursor state, window configuration, and a one-window `app.WindowView` runner.
+- Add opt-in Windows `Host::post_test_key` and `Host::post_test_click` E2E
+  input hooks that enqueue through the production event queue and decoder.
+
 ### Changed
 
+- Windows printable shortcut chords with Control/Alt/Meta now produce one
+  `Character` key-down event in addition to committed `WM_CHAR` text, so
+  applications can implement Ctrl-based commands. The event is emitted from a
+  single WndProc path and the character is translated through the active
+  keyboard layout.
+
 ### Fixed
+
+- Windows no longer commits C0 control characters from `WM_CHAR`, preventing
+  Enter/Tab and Ctrl chords from inserting control characters after their
+  key-down event.
 
 ### Deprecated
 

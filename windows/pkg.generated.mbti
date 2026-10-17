@@ -107,6 +107,8 @@ pub fn Host::end_text_session(Self, @platform.WindowId, Int, Int) -> Result[Unit
 pub fn Host::frame_metrics(Self, @platform.WindowId) -> Result[(Int, Int, Double), @diagnostics.FrameworkError]
 pub fn Host::next_editor_event(Self, timeout_ms? : Int) -> Result[EditorEvent?, @diagnostics.FrameworkError]
 pub fn Host::next_event(Self, timeout_ms? : Int) -> Result[@platform.Event?, @diagnostics.FrameworkError]
+pub fn Host::post_test_click(Self, @platform.WindowId, @primitives.Point) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::post_test_key(Self, @platform.WindowId, @primitives.Key, @primitives.Modifiers) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::present(Self, @platform.WindowId, @scene.SceneSnapshot) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::read_clipboard(Self) -> Result[String, @diagnostics.FrameworkError]
 pub fn Host::readback_samples(Self, @platform.WindowId) -> Result[Array[Double], @diagnostics.FrameworkError]
