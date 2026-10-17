@@ -46,8 +46,47 @@ pub fn CommandSnapshot::commands(Self) -> Array[PaintCommand]
 pub fn CommandSnapshot::scale(Self) -> Double
 pub fn CommandSnapshot::viewport(Self) -> @primitives.Rect
 
+pub struct ConvexPolygon {
+  bounds : @primitives.Rect
+  // private fields
+} derive(Eq)
+pub fn ConvexPolygon::bounds(Self) -> @primitives.Rect
+pub fn ConvexPolygon::equal(Self, Self) -> Bool
+pub fn ConvexPolygon::not_equal(Self, Self) -> Bool
+pub fn ConvexPolygon::points(Self) -> Array[@primitives.Point]
+
+pub(all) enum GradientColorSpace {
+  Srgb
+  Oklab
+} derive(Eq)
+pub fn GradientColorSpace::equal(Self, Self) -> Bool
+pub fn GradientColorSpace::not_equal(Self, Self) -> Bool
+
+pub struct LinearGradient {
+  angle : Double
+  start : @primitives.FloatColor
+  start_position : Double
+  end : @primitives.FloatColor
+  end_position : Double
+  space : GradientColorSpace
+} derive(Eq)
+pub fn LinearGradient::angle(Self) -> Double
+pub fn LinearGradient::canonical_json(Self) -> String
+pub fn LinearGradient::end(Self) -> @primitives.FloatColor
+pub fn LinearGradient::end_position(Self) -> Double
+pub fn LinearGradient::equal(Self, Self) -> Bool
+pub fn LinearGradient::new(Double, @primitives.FloatColor, Double, @primitives.FloatColor, Double, GradientColorSpace) -> Result[Self, PaintError]
+pub fn LinearGradient::not_equal(Self, Self) -> Bool
+pub fn LinearGradient::sample(Self, @primitives.Point, @primitives.Rect) -> Result[@primitives.FloatColor, PaintError]
+pub fn LinearGradient::sample_shader_linear(Self, @primitives.Point, @primitives.Rect) -> Result[@primitives.FloatColor, PaintError]
+pub fn LinearGradient::space(Self) -> GradientColorSpace
+pub fn LinearGradient::start(Self) -> @primitives.FloatColor
+pub fn LinearGradient::start_position(Self) -> Double
+pub fn LinearGradient::validate(Self) -> Result[Unit, PaintError]
+
 pub(all) enum PaintCommand {
   QuadCommand(id~ : UInt64, bounds~ : @primitives.Rect, color~ : @primitives.Color)
+  PaintCommand(id~ : UInt64, shape~ : PaintShape, fill~ : PaintFill, opacity~ : Double)
   ClipPushCommand(id~ : UInt64, bounds~ : @primitives.Rect)
   ClipPopCommand(id~ : UInt64)
 } derive(Eq)
@@ -59,15 +98,66 @@ pub fn PaintCommand::equal(Self, Self) -> Bool
 pub fn PaintCommand::id(Self) -> UInt64
 pub fn PaintCommand::kind(Self) -> PaintKind
 pub fn PaintCommand::not_equal(Self, Self) -> Bool
+pub fn PaintCommand::paint(UInt64, PaintShape, PaintFill, Double) -> Result[Self, PaintError]
 pub fn PaintCommand::quad(UInt64, @primitives.Rect, @primitives.Color) -> Self
+
+pub(all) enum PaintError {
+  InvalidColor
+  InvalidGradient
+  InvalidGeometry
+  InvalidOpacity
+  UnsupportedPaint
+  UnknownPaint
+  AmbiguousPaint
+  UnsupportedTransform
+  InvalidRaster
+} derive(Eq)
+pub fn PaintError::equal(Self, Self) -> Bool
+pub fn PaintError::not_equal(Self, Self) -> Bool
+
+pub(all) enum PaintFill {
+  FloatSolid(@primitives.FloatColor)
+  Gradient(LinearGradient)
+} derive(Eq)
+pub fn PaintFill::equal(Self, Self) -> Bool
+pub fn PaintFill::not_equal(Self, Self) -> Bool
+pub fn PaintFill::sample(Self, @primitives.Point, @primitives.Rect) -> Result[@primitives.FloatColor, PaintError]
+pub fn PaintFill::validate(Self) -> Result[Unit, PaintError]
 
 pub(all) enum PaintKind {
   Quad
+  Paint
   ClipPush
   ClipPop
 } derive(Eq)
 pub fn PaintKind::equal(Self, Self) -> Bool
 pub fn PaintKind::not_equal(Self, Self) -> Bool
+
+pub struct PaintRasterTile {
+  x : Int
+  y : Int
+  width : Int
+  height : Int
+  // private fields
+}
+pub fn PaintRasterTile::height(Self) -> Int
+pub fn PaintRasterTile::rgba(Self) -> Array[Int]
+pub fn PaintRasterTile::width(Self) -> Int
+pub fn PaintRasterTile::x(Self) -> Int
+pub fn PaintRasterTile::y(Self) -> Int
+
+pub(all) enum PaintShape {
+  RoundedQuad(bounds~ : @primitives.Rect, radius~ : Double)
+  Polygon(ConvexPolygon)
+} derive(Eq)
+pub fn PaintShape::bounds(Self) -> @primitives.Rect
+pub fn PaintShape::contains(Self, @primitives.Point) -> Bool
+pub fn PaintShape::convex_polygon(Array[@primitives.Point]) -> Result[Self, PaintError]
+pub fn PaintShape::equal(Self, Self) -> Bool
+pub fn PaintShape::normalization_bounds(Self, Array[@primitives.Rect]) -> @primitives.Rect?
+pub fn PaintShape::not_equal(Self, Self) -> Bool
+pub fn PaintShape::rounded_quad(@primitives.Rect, Double) -> Result[Self, PaintError]
+pub fn PaintShape::validate(Self) -> Result[Unit, PaintError]
 
 pub struct Scene {
   commands : Array[PaintCommand]
@@ -86,17 +176,20 @@ pub enum SceneError {
   ClipUnderflow
   ClipMismatch
   UnclosedClip
+  InvalidPaint(PaintError)
 } derive(Eq)
 pub fn SceneError::equal(Self, Self) -> Bool
 pub fn SceneError::not_equal(Self, Self) -> Bool
 
 pub(all) enum SceneItem {
+  PaintItem(id~ : UInt64, shape~ : PaintShape, fill~ : PaintFill, transform~ : AffineTransform, opacity~ : Double, clip_chain_id~ : Int?)
   QuadItem(id~ : UInt64, bounds~ : @primitives.Rect, color~ : @primitives.Color, transform~ : AffineTransform, opacity~ : Double, clip_chain_id~ : Int?)
   TextItem(id~ : UInt64, bounds~ : @primitives.Rect, text~ : String, font_size~ : Double, color~ : @primitives.Color, transform~ : AffineTransform, opacity~ : Double, clip_chain_id~ : Int?)
   TextRunItem(id~ : UInt64, bounds~ : @primitives.Rect, text_origin~ : @primitives.Point, text~ : String, font_size~ : Double, color~ : @primitives.Color, transform~ : AffineTransform, opacity~ : Double, clip_chain_id~ : Int?)
 }
 pub fn SceneItem::clip_chain_id(Self) -> Int?
 pub fn SceneItem::id(Self) -> UInt64
+pub fn SceneItem::paint(UInt64, PaintShape, PaintFill, AffineTransform, Double, Int?) -> Result[Self, SnapshotError]
 pub fn SceneItem::quad(UInt64, @primitives.Rect, @primitives.Color, AffineTransform, Double, Int?) -> Result[Self, SnapshotError]
 pub fn SceneItem::text(UInt64, @primitives.Rect, String, Double, @primitives.Color, AffineTransform, Double, Int?) -> Result[Self, SnapshotError]
 pub fn SceneItem::text_run(UInt64, @primitives.Rect, @primitives.Point, String, Double, @primitives.Color, AffineTransform, Double, Int?) -> Result[Self, SnapshotError]
@@ -116,8 +209,14 @@ pub struct SceneSnapshot {
 pub fn SceneSnapshot::canonical_json(Self) -> String
 pub fn SceneSnapshot::clip_chains(Self) -> Array[ClipChain]
 pub fn SceneSnapshot::items(Self) -> Array[SceneItem]
+pub fn SceneSnapshot::legacy_v1_subset(Self) -> Result[Self, SnapshotError]
 pub fn SceneSnapshot::new(@primitives.Rect, Double, Array[SceneResource], Array[ClipChain], Array[SceneItem]) -> Result[Self, SnapshotError]
+pub fn SceneSnapshot::rasterize_item_tile_webgl2_linear(Self, Int) -> Result[PaintRasterTile?, PaintError]
+pub fn SceneSnapshot::rasterize_item_webgl2_linear(Self, Int, @primitives.Rect, Int, Int) -> Result[Array[Int], PaintError]
+pub fn SceneSnapshot::rasterize_paint_run_webgl2_linear(Self, Int, Int) -> Result[PaintRasterTile?, PaintError]
+pub fn SceneSnapshot::rasterize_webgl2_linear(Self, @primitives.Rect, Int, Int, @primitives.FloatColor) -> Result[Array[Int], PaintError]
 pub fn SceneSnapshot::resources(Self) -> Array[SceneResource]
+pub fn SceneSnapshot::sample_paint(Self, UInt64, @primitives.Point) -> Result[@primitives.FloatColor?, PaintError]
 pub fn SceneSnapshot::scale(Self) -> Double
 pub fn SceneSnapshot::schema_version(Self) -> Int
 pub fn SceneSnapshot::viewport(Self) -> @primitives.Rect
@@ -130,6 +229,8 @@ pub enum SnapshotError {
   NonFiniteTransform
   UnknownClipChain
   DuplicateClipChain
+  InvalidPaint(PaintError)
+  UnsupportedPaint
 } derive(Eq)
 pub fn SnapshotError::equal(Self, Self) -> Bool
 pub fn SnapshotError::not_equal(Self, Self) -> Bool

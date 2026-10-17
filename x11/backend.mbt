@@ -800,6 +800,12 @@ pub fn Host::dispatch(
 fn frame_data(
   snapshot : @scene.SceneSnapshot,
 ) -> Result[FixedArray[Double], @diagnostics.FrameworkError] {
+  // Enhanced paint is unsupported by the legacy native ABI. Preflight the
+  // complete scene before classifying text, allocating records, or calling FFI.
+  let snapshot = match snapshot.legacy_v1_subset() {
+    Ok(legacy) => legacy
+    Err(_) => return Err(backend_error(1, "present"))
+  }
   if snapshot.schema_version() != 1 || snapshot.resources().length() != 0 {
     return Err(backend_error(1, "present"))
   }
@@ -817,6 +823,7 @@ fn frame_data(
   let chains = snapshot.clip_chains()
   for index = 0; index < items.length(); index = index + 1 {
     match items[index] {
+      @scene.PaintItem(..) => return Err(backend_error(1, "present"))
       @scene.TextItem(..) | @scene.TextRunItem(..) =>
         return Err(backend_error(1, "present"))
       @scene.QuadItem(bounds~, color~, transform~, opacity~, clip_chain_id~, ..) => {
@@ -874,6 +881,12 @@ priv struct MixedFrame {
 fn mixed_frame_data(
   snapshot : @scene.SceneSnapshot,
 ) -> Result[MixedFrame, @diagnostics.FrameworkError] {
+  // Enhanced paint is unsupported by the legacy native ABI. Preflight the
+  // complete scene before classifying text, allocating records, or calling FFI.
+  let snapshot = match snapshot.legacy_v1_subset() {
+    Ok(legacy) => legacy
+    Err(_) => return Err(backend_error(1, "present"))
+  }
   if snapshot.schema_version() != 1 || snapshot.resources().length() != 0 {
     return Err(backend_error(1, "present"))
   }
@@ -901,6 +914,7 @@ fn mixed_frame_data(
   for index = 0; index < items.length(); index = index + 1 {
     let offset = 5 + index * stride
     match items[index] {
+      @scene.PaintItem(..) => return Err(backend_error(1, "present"))
       @scene.TextItem(text~, font_size~, ..)
       | @scene.TextRunItem(text~, font_size~, ..) => {
         text_count += 1
@@ -949,6 +963,7 @@ fn mixed_frame_data(
       data[offset + 24] = text_origin.y()
     }
     match items[index] {
+      @scene.PaintItem(..) => return Err(backend_error(1, "present"))
       @scene.QuadItem(bounds~, color~, transform~, opacity~, clip_chain_id~, ..)
       | @scene.TextItem(
         bounds~,
@@ -1020,6 +1035,12 @@ pub fn Host::present(
   window : @platform.WindowId,
   snapshot : @scene.SceneSnapshot,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
+  // Enhanced paint is unsupported by the legacy native ABI. Preflight the
+  // complete scene before classifying text, allocating records, or calling FFI.
+  let snapshot = match snapshot.legacy_v1_subset() {
+    Ok(legacy) => legacy
+    Err(_) => return Err(backend_error(1, "present"))
+  }
   let mut has_text = false
   for item in snapshot.items() {
     if item is @scene.TextItem(..) || item is @scene.TextRunItem(..) {

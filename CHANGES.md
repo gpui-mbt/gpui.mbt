@@ -389,3 +389,13 @@
 - Add an EGL/GLES2 SceneSnapshot v1 quad renderer, ordered basic input, integer scale, frame completion, and explicit renderer recreation.
 - Add the native MoonBit example, shared host conformance gate, GPU readback/lifecycle/FD tests, and Ubuntu 24.04 Weston CI at 1×/2×.
 - Keep clipboard, IME/accessibility, fractional scale and production support gates open; see [Ubuntu evidence and limits](docs/ubuntu.md).
+
+## Bounded enhanced paint (Stage B)
+
+- Extend the canonical scene with validated two-stop Srgb/Oklab gradient and
+  float-solid rounded-quad/convex-polygon paints, preserving legacy snapshot bytes.
+- Add current-geometry element paint bindings, explicit fallible legacy-subset
+  projection, and early native unsupported-paint guards.
+- Add bounded core-owned shader-linear sampling and ordered reference raster runs
+  for the explicitly qualified software WebGL2 output profile. Native rendering
+  and edge antialiasing remain unsupported/unqualified. See docs/enhanced-paint.md.

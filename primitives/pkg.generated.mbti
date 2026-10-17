@@ -27,6 +27,28 @@ pub enum ColorError {
 pub fn ColorError::equal(Self, Self) -> Bool
 pub fn ColorError::not_equal(Self, Self) -> Bool
 
+pub struct FloatColor {
+  red : Double
+  green : Double
+  blue : Double
+  alpha : Double
+} derive(Eq)
+pub fn FloatColor::alpha(Self) -> Double
+pub fn FloatColor::blue(Self) -> Double
+pub fn FloatColor::equal(Self, Self) -> Bool
+pub fn FloatColor::green(Self) -> Double
+pub fn FloatColor::is_opaque(Self) -> Bool
+pub fn FloatColor::not_equal(Self, Self) -> Bool
+pub fn FloatColor::red(Self) -> Double
+pub fn FloatColor::rgba(Double, Double, Double, Double) -> Result[Self, FloatColorError]
+pub fn FloatColor::validate(Self) -> Result[Unit, FloatColorError]
+
+pub enum FloatColorError {
+  InvalidChannel
+} derive(Eq)
+pub fn FloatColorError::equal(Self, Self) -> Bool
+pub fn FloatColorError::not_equal(Self, Self) -> Bool
+
 pub enum GeometryError {
   NonFiniteValue
   NegativeExtent

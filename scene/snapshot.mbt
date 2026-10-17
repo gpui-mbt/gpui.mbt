@@ -12,6 +12,8 @@ pub enum SnapshotError {
   NonFiniteTransform
   UnknownClipChain
   DuplicateClipChain
+  InvalidPaint(PaintError)
+  UnsupportedPaint
 } derive(Eq)
 
 ///|
@@ -128,6 +130,14 @@ pub fn ClipChain::rects(self : ClipChain) -> Array[@primitives.Rect] {
 /// it does not promise portable shaping, wrapping, caret layout, or bidi layout.
 /// New paint variants extend this enum while preserving the v1 envelope.
 pub(all) enum SceneItem {
+  PaintItem(
+    id~ : UInt64,
+    shape~ : PaintShape,
+    fill~ : PaintFill,
+    transform~ : AffineTransform,
+    opacity~ : Double,
+    clip_chain_id~ : Int32?
+  )
   QuadItem(
     id~ : UInt64,
     bounds~ : @primitives.Rect,
@@ -259,14 +269,18 @@ pub fn SceneItem::text_run(
 ///|
 pub fn SceneItem::id(self : SceneItem) -> UInt64 {
   match self {
-    QuadItem(id~, ..) | TextItem(id~, ..) | TextRunItem(id~, ..) => id
+    PaintItem(id~, ..)
+    | QuadItem(id~, ..)
+    | TextItem(id~, ..)
+    | TextRunItem(id~, ..) => id
   }
 }
 
 ///|
 pub fn SceneItem::clip_chain_id(self : SceneItem) -> Int32? {
   match self {
-    QuadItem(clip_chain_id~, ..)
+    PaintItem(clip_chain_id~, ..)
+    | QuadItem(clip_chain_id~, ..)
     | TextItem(clip_chain_id~, ..)
     | TextRunItem(clip_chain_id~, ..) => clip_chain_id
   }
@@ -326,10 +340,16 @@ fn snapshot_validate_items(
           Err(error) => return Err(error)
           Ok(_) => ()
         }
+      PaintItem(shape~, fill~, opacity~, ..) =>
+        match validate_paint(shape, fill, opacity) {
+          Err(e) => return Err(InvalidPaint(e))
+          Ok(_) => ()
+        }
       QuadItem(..) => ()
     }
     match items[item_index] {
-      QuadItem(transform~, opacity~, clip_chain_id~, ..)
+      PaintItem(transform~, opacity~, clip_chain_id~, ..)
+      | QuadItem(transform~, opacity~, clip_chain_id~, ..)
       | TextItem(transform~, opacity~, clip_chain_id~, ..)
       | TextRunItem(transform~, opacity~, clip_chain_id~, ..) =>
         if !snapshot_finite(opacity) || opacity < 0.0 || opacity > 1.0 {
@@ -478,6 +498,21 @@ pub fn Scene::snapshot_v1(
           match self.commands[index] {
             ClipPushCommand(bounds~, ..) => clip_stack.push(bounds)
             ClipPopCommand(..) => ignore(clip_stack.pop())
+            PaintCommand(id~, shape~, fill~, opacity~) => {
+              let clip_chain_id = snapshot_clip_chain_id(
+                clip_chains, clip_stack,
+              )
+              items.push(
+                PaintItem(
+                  id~,
+                  shape~,
+                  fill~,
+                  transform=AffineTransform::identity(),
+                  opacity~,
+                  clip_chain_id~,
+                ),
+              )
+            }
             QuadCommand(id~, bounds~, color~) => {
               let clip_chain_id = snapshot_clip_chain_id(
                 clip_chains, clip_stack,
@@ -601,6 +636,13 @@ fn snapshot_clip_chain_json(chain : ClipChain) -> String {
 ///|
 fn snapshot_item_json(item : SceneItem) -> String {
   match item {
+    PaintItem(id~, shape~, fill~, transform~, opacity~, clip_chain_id~) => {
+      let clip_json = match clip_chain_id {
+        None => "null"
+        Some(value) => "\{value}"
+      }
+      "{\"kind\":\"paint\",\"id\":\{id},\"shape\":\{paint_shape_json(shape)},\"fill\":\{paint_fill_json(fill)},\"transform\":\{snapshot_transform_json(transform)},\"opacity\":\{snapshot_double(opacity)},\"clip_chain_id\":\{clip_json}}"
+    }
     QuadItem(id~, bounds~, color~, transform~, opacity~, clip_chain_id~) => {
       let clip_json = match clip_chain_id {
         None => "null"
@@ -733,4 +775,38 @@ fn copy_snapshot_items(values : Array[SceneItem]) -> Array[SceneItem] {
     copy.push(value)
   }
   copy
+}
+
+///|
+/// Enhanced paints extend the v1 envelope, not the legacy renderer subset.
+pub fn SceneItem::paint(
+  id : UInt64,
+  shape : PaintShape,
+  fill : PaintFill,
+  transform : AffineTransform,
+  opacity : Double,
+  clip_chain_id : Int32?,
+) -> Result[SceneItem, SnapshotError] {
+  match validate_paint(shape, fill, opacity) {
+    Err(e) => return Err(InvalidPaint(e))
+    Ok(_) => ()
+  }
+  if !snapshot_transform_finite(transform) {
+    return Err(NonFiniteTransform)
+  }
+  Ok(PaintItem(id~, shape~, fill~, transform~, opacity~, clip_chain_id~))
+}
+
+///|
+/// Atomically reject enhanced paint before passing a frame to a legacy backend.
+/// For supported frames this preserves all canonical bytes, IDs, clips and order.
+pub fn SceneSnapshot::legacy_v1_subset(
+  self : SceneSnapshot,
+) -> Result[SceneSnapshot, SnapshotError] {
+  for item in self.items {
+    if item is PaintItem(..) {
+      return Err(UnsupportedPaint)
+    }
+  }
+  Ok(self)
 }

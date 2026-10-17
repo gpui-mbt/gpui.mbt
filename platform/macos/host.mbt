@@ -124,6 +124,11 @@ pub fn Host::present(
   window : @platform.WindowId,
   snapshot : @scene.SceneSnapshot,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
+  // Reject enhanced paint before host checks, JSON allocation, or native FFI.
+  let snapshot = match snapshot.legacy_v1_subset() {
+    Ok(legacy) => legacy
+    Err(_) => return Err(error(@diagnostics.UnsupportedCapability, "present"))
+  }
   match self.check() {
     Err(error) => return Err(error)
     Ok(_) => ()
