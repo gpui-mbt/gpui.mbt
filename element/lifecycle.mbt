@@ -36,7 +36,7 @@ pub struct Element {
   priv container_query : ((@primitives.Size) -> Result[Element, ElementError])?
   priv query_root_size : @primitives.Size?
   priv anchored : AnchoredSpec?
-  priv deferred : Bool
+  priv deferred : Int32?
 }
 
 ///|
@@ -65,7 +65,7 @@ pub fn Element::root(
     container_query: None,
     query_root_size: None,
     anchored: None,
-    deferred: false,
+    deferred: None,
   }
 }
 
@@ -91,7 +91,7 @@ pub fn Element::new(item : @layout.FlexItem) -> Element {
     container_query: None,
     query_root_size: None,
     anchored: None,
-    deferred: false,
+    deferred: None,
   }
 }
 
