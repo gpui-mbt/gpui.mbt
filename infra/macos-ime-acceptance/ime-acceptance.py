@@ -1070,7 +1070,8 @@ class AppOutput:
         self.timeline.close()
 
 
-def execute(profile_root, app_bundle, output, repo=REPO, timeout=90):
+def execute(profile_root, app_bundle, output, repo=REPO, timeout=90,
+            diagnostic_immediate_preview=False):
     repo = Path(repo).resolve(strict=True)
     profile_root = Path(profile_root).resolve(strict=True)
     app_bundle = Path(app_bundle).resolve(strict=True)
@@ -1138,6 +1139,7 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90):
                                   "helper_sha256": digest(helper), "engine": "ScreenCaptureKit.SCScreenshotManager",
                                   "helper_source_sha256": hashlib.sha256(SWIFT_WINDOW_CAPTURE.encode()).hexdigest()},
               "screenshots": {}, "ok": False,
+              "diagnostic_immediate_preview": diagnostic_immediate_preview,
               "gates": {key: "UNRUN" for key in (
                 "initial_frame", "composition_frame", "return_commit", "escape_cancel",
                 "blur_final_frame", "source_restoration", "normal_cleanup")}}
@@ -1207,7 +1209,28 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90):
            candidate["width"] <= 0 or candidate["height"] <= 0:
             raise AcceptanceError("composition checkpoint omits finite candidate geometry")
         report["composition_checkpoint"] = composing
-        report["gates"]["composition_frame"] = "PASS"
+        report["gates"]["composition_frame"] = "PASS" if not diagnostic_immediate_preview else "UNRUN"
+        if diagnostic_immediate_preview:
+            # Skip only the collector wait at composition-ready; the app still
+            # posts exactly one Return and retains its original 200-iteration bound.
+            process.stdin.write("preview\n")
+            process.stdin.flush()
+            diag_final = app.wait_line("GPUI_MACOS_IME_ACCEPTANCE ", timeout)
+            diag_final = validate_final(diag_final, before, binary_sha,
+                                        initial_state["revision"], initial_identity["frame_revision"])
+            report["final_acceptance"] = diag_final
+            report["gates"]["return_commit"] = "PASS"
+            report["gates"]["escape_cancel"] = "PASS"
+            report["gates"]["source_restoration"] = "PASS"
+            process.stdin.write("quit\n")
+            process.stdin.flush()
+            diag_exit = process.wait(timeout=timeout)
+            app.close()
+            report["app_exit_code"] = diag_exit
+            report["gates"]["normal_cleanup"] = "PASS" if diag_exit == 0 else "FAIL"
+            raise AcceptanceError(
+                "DIAGNOSTIC ONLY: composition screenshot deliberately omitted; not native IME/pixel acceptance"
+            )
         composition_png = output / "composition-window.png"
         composition_capture = capture_own_window(process.pid, APP_TITLE, composition_png, helper)
         report["screenshots"]["composition"] = bind_capture(composition_capture, "composition", identity,
@@ -1335,6 +1358,8 @@ def main(argv=None):
     parser.add_argument("--app", required=True, type=Path, help="fresh GPUI text-field test-hook app bundle")
     parser.add_argument("--output", required=True, type=Path, help="new external evidence directory")
     parser.add_argument("--timeout", type=int, default=90)
+    parser.add_argument("--diagnostic-immediate-preview", action="store_true",
+                        help="skip only composition capture to isolate AppKit event-loop blocking; never GREEN")
     args = parser.parse_args(argv)
     if not 10 <= args.timeout <= 600:
         parser.error("--timeout must be in 10..600 seconds")
@@ -1344,7 +1369,8 @@ def main(argv=None):
     signal.signal(signal.SIGTERM, handle_sigterm)
     try:
         try:
-            report = execute(args.profile, args.app, args.output, args.repo, args.timeout)
+            report = execute(args.profile, args.app, args.output, args.repo, args.timeout,
+                             diagnostic_immediate_preview=args.diagnostic_immediate_preview)
             print("summary=" + str(Path(args.output).resolve() / "summary.json"))
             print("GREEN scope=macos-kotoeri-pixels source=" + report["source_before"]["commit"])
             return 0
