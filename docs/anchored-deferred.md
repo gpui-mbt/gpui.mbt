@@ -6,13 +6,18 @@ Block layout, Rust source compatibility, or a full GPUI overlay/occlusion API.
 
 ## Explicit API
 
-`Element::anchored_after(id, after_child, popup, anchor, mode, position)` returns
-`Result[Element, ElementError]`. Append the returned element with `with_child`.
+`Element::anchored_after(id, after_child, popup, anchor, mode, position, margin=0.0)`
+returns `Result[Element, ElementError]`. The labeled `margin` argument is
+optional and defaults to zero, preserving existing six-argument calls. Append
+the returned element with `with_child`.
 All eight perimeter `Anchor` values and both `AnchoredPositionMode` values,
 `Local` and `Window`, are supported. Anchor, mode and position are required;
 there is no implicit Rust-default fit mode or unspecified-position contract.
-Fitting is always `SnapToWindow`, with zero client inset, zero margins and no
-additional offset. There is no `SwitchAnchor` surface.
+Fitting is always `SnapToWindow`, with zero client inset and no additional
+offset. `margin=8.0`, for example, supplies one symmetric scalar margin. The
+margin must be finite and nonnegative; negative values, NaN and infinities
+return `GeometryFailure` during construction. Finite margins larger than the
+viewport are allowed. There is no per-edge margin or `SwitchAnchor` surface.
 
 `attachment.deferred()` returns a priority-zero attachment. Repeated wrapping
 and applying it to an ordinary element are rejected. Higher priorities and
@@ -55,8 +60,20 @@ near/far-edge snapping. This feature adds no production layout-package APIs.
 For `Local`, the requested point is relative to this actual attachment origin.
 For `Window`, it is in logical window coordinates. Placement subtracts the
 selected anchor fraction of the measured popup size. SnapToWindow processes
-right, left, bottom, then top, so an oversized popup aligns to the window's
-left/top edges. The desired-minus-static translation is rounded to logical
+right, left, bottom, then top. A right or bottom crossing subtracts the raw
+overflow plus the scalar margin. A left or top crossing sets that coordinate
+to the margin. Conditions use the viewport edges, not an inset viewport:
+near-edge and exact-edge noncrossings do not receive an automatic inset. The
+later left/top correction wins for oversized popups and for opposite-edge
+crossings introduced by a right/bottom margin correction. There is one pass,
+with no subsequent recheck of the right/bottom edges. Consequently a margin
+larger than the viewport can legitimately place a popup outside it; the
+viewport mask still governs painting and hits. A finite margin that is not
+used by an edge crossing has no placement effect.
+
+Correction and placement arithmetic must remain finite. Overflow is reported
+as `GeometryFailure` before a later edge correction could hide it or a partial
+prepaint tree could be published. The desired-minus-static translation is rounded to logical
 integer pixels with midpoint ties away from zero. Only then is the element
 offset snapped to device pixels with ties toward zero. These are two distinct
 stages: at scale 1.25, a logical translation of +1 becomes +0.8 logical units;
@@ -133,6 +150,25 @@ masks, deferred order, pointer transparency, focus/tab/drag identity and explici
 negative controls. Core arithmetic uses Double and the Rust baseline uses f32;
 small numerical representation differences are not broader geometry tolerance.
 
-Local validation is the element package on the JS target with warnings denied.
-Other compiler targets and aggregate repository checks require CI; a focused
-JS pass is not an all-target or native conformance claim.
+The separate scalar-margin oracle is actual GPUI
+[run 39019813091](https://github.com/gpui-mbt/gpui-conformance/actions/runs/39019813091),
+artifact `12096028446`, at suite CI merge
+`11d18c9dd7322aa134733f3a4fa99973b9cef267` (tree
+`1098d462cb250cc280a23dcf854772cd50ee7f4b`). Its original `raw.json` SHA-256 is
+`1d19d7bb63f3415ef13e1aca483af83c40815f7c3669791a9d406cd82af5ae35`.
+The focused core regressions retain all 88 authored cases and all 264 observed
+frames: margins 0/8, configured scales 1/1.25, and each actual bootstrap frame
+at scale 2. These cover crossed, near and exact edges, corners, oversized
+popups, margin-induced opposite crossings, and Local positive/negative half
+offsets. Observed expected bounds are assertions only, never layout inputs.
+The f32-versus-Double allowance is less than 0.000016 logical pixels. Explicit
+zero and omitted-margin tree/scene geometry are compared exactly. Additional
+core tests cover all eight anchors, invalid margins, arithmetic failure,
+fractional margins, finite margins larger than the viewport, clipped hits,
+focus-preserving refresh and unsupported-composition rejection.
+
+These core regressions do not replace separately source-bound paired candidate
+execution or executed paired-control evidence. The Rust margin run has no
+pointer probes and does not establish new browser/native-window, text,
+popover, arbitrary nesting, priority or client-inset claims. Core hit/scene
+checks remain tests of the MoonBit lifecycle's documented contract.
