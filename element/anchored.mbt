@@ -27,7 +27,7 @@ pub(all) enum AnchoredPositionMode {
 pub extend AnchoredPositionMode with Eq::{not_equal, equal}
 
 ///|
-// A single zero-margin popup subtree is measured through ordinary recursive
+// A single popup subtree is measured through ordinary recursive
 // core layout. Neither its measured size nor descendant rectangles are host
 // fixture inputs. Text leaves may carry measured intrinsic metrics, as in the
 // ordinary element lifecycle. The temporary root is never a live identity.
@@ -126,6 +126,7 @@ priv struct AnchoredSpec {
   anchor : Anchor
   mode : AnchoredPositionMode
   position : @primitives.Point
+  margin : Double
 }
 
 ///|
@@ -136,7 +137,10 @@ priv struct AnchoredLayout {
 
 ///|
 /// Attach one measured popup after a parent's single fixed ordinary child.
-/// Fitting is always SnapToWindow, with zero margin and no extra offset.
+/// Fitting is always SnapToWindow, with an optional scalar margin and no extra
+/// offset. Margin defaults to zero and must be finite and nonnegative. It is
+/// applied only when a raw edge crosses the viewport, not as an always-inset
+/// rectangle. Invalid margin or placement arithmetic returns GeometryFailure.
 /// All position choices are explicit. Append the returned element after the
 /// reference child, then optionally call deferred() before appending it.
 ///
@@ -153,7 +157,11 @@ pub fn Element::anchored_after(
   anchor : Anchor,
   mode : AnchoredPositionMode,
   position : @primitives.Point,
+  margin~ : Double = 0.0,
 ) -> Result[Element, ElementError] {
+  if !scroll_finite(margin) || margin < 0.0 {
+    return Err(GeometryFailure)
+  }
   match validate_anchored_popup(id, popup) {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -171,7 +179,7 @@ pub fn Element::anchored_after(
     item: None,
     children: [popup],
     pointer_events: false,
-    anchored: Some({ after: after_child, anchor, mode, position, }),
+    anchored: Some({ after: after_child, anchor, mode, position, margin, }),
   })
 }
 
@@ -407,6 +415,9 @@ fn anchored_translation(
   viewport : @primitives.Size,
   scale_factor : Double?,
 ) -> Result[@primitives.Point, ElementError] {
+  if !scroll_finite(spec.margin) || spec.margin < 0.0 {
+    return Err(GeometryFailure)
+  }
   let (horizontal, vertical) = match spec.anchor {
     TopLeft => (0.0, 0.0)
     TopCenter => (0.5, 0.0)
@@ -433,18 +444,32 @@ fn anchored_translation(
     !scroll_finite(y + size.height()) {
     return Err(GeometryFailure)
   }
-  // Source order matters for oversized popups: right, left, bottom, top.
+  // Only raw crossed edges receive margin. Source order matters both for
+  // oversized popups and when a margin correction crosses the opposite edge:
+  // right, left, bottom, top. Do not fit to an inset viewport or iterate.
   if x + size.width() > viewport.width() {
-    x -= x + size.width() - viewport.width()
+    let correction = x + size.width() - viewport.width() + spec.margin
+    x -= correction
+    // Check before the opposite-edge correction can hide an overflow.
+    if !scroll_finite(correction) || !scroll_finite(x) {
+      return Err(GeometryFailure)
+    }
   }
   if x < 0.0 {
-    x = 0.0
+    x = spec.margin
   }
   if y + size.height() > viewport.height() {
-    y -= y + size.height() - viewport.height()
+    let correction = y + size.height() - viewport.height() + spec.margin
+    y -= correction
+    if !scroll_finite(correction) || !scroll_finite(y) {
+      return Err(GeometryFailure)
+    }
   }
   if y < 0.0 {
-    y = 0.0
+    y = spec.margin
+  }
+  if !scroll_finite(x + size.width()) || !scroll_finite(y + size.height()) {
+    return Err(GeometryFailure)
   }
   let round_away = fn(value : Double) {
     let rounded = (value.abs() + 0.5).floor()

@@ -157,7 +157,7 @@ pub struct Element {
   pointer_events : Bool
   // private fields
 }
-pub fn Element::anchored_after(UInt64, UInt64, Self, Anchor, AnchoredPositionMode, @primitives.Point) -> Result[Self, ElementError]
+pub fn Element::anchored_after(UInt64, UInt64, Self, Anchor, AnchoredPositionMode, @primitives.Point, margin? : Double) -> Result[Self, ElementError]
 pub fn Element::container_query_root(UInt64, (@primitives.Size) -> Result[Self, ElementError]) -> Self
 pub fn Element::deferred(Self) -> Result[Self, ElementError]
 pub fn Element::grid_item(@layout.GridItem) -> Self
