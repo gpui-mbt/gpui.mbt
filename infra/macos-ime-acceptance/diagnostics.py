@@ -145,7 +145,7 @@ def analyze_log(path):
             errors.append("invalid timeline evidence: " + str(error))
     return {
         "schema_version": 1,
-        "integrity": "FAIL" if errors or any(r["data"].get("phase") == "truncated" for r in native) else "PASS",
+        "integrity": "FAIL" if errors or any(r["data"].get("phase") in ("truncated", "truncated_ordinary") for r in native) else "PASS",
         "errors": errors,
         "trace_records": len(records),
         "native_callback_order": [{"phase": r["data"]["phase"], "line": r["line"],
