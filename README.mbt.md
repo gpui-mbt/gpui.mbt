@@ -132,6 +132,7 @@ Subscriptions are explicitly canceled with `unsubscribe`. Deterministic timer te
 | `scene/` | Quad paint commands, bounded text snapshot items, validation, canonical snapshots, transforms, opacity, and clips |
 | `platform/` | Portable backend/window/event contracts plus the macOS backend |
 | `platform/macos_app/` | Reusable macOS app-layer CoreText labels, TextField callbacks, cursor state and window startup |
+| `platform/windows_app/` | Reusable Windows app-layer DirectWrite labels, TextField callbacks, cursor state and window startup |
 | `ubuntu/` | Ubuntu Wayland/EGL/GLES2 native backend |
 | `windows/` | Experimental Win32/D3D11 WARP backend slice |
 | `capability/` | Typed semantic capabilities, validation, schema projection, and registry |

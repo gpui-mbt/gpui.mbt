@@ -172,7 +172,7 @@ def main():
         module.mkdir()
         (workspace / "moon.work").write_text("members = " + json.dumps([str(ROOT), str(yami), str(yami / "native"), str(module)]) + "\n")
         shutil.copytree(ROOT / "script", workspace / "script")
-        (module / "moon.mod").write_text('name = "audit/shared_ui_buttons"\nversion = "0.0.0"\nimport { "f4ah6o/gpui@0.8.0", "f4ah6o/yami_kumo@0.1.1", "f4ah6o/yami_kumo_native@0.2.5", }\n')
+        (module / "moon.mod").write_text('name = "audit/shared_ui_buttons"\nversion = "0.0.0"\nimport { "f4ah6o/gpui@0.9.0", "f4ah6o/yami_kumo@0.1.1", "f4ah6o/yami_kumo_native@0.2.5", }\n')
         (module / "moon.pkg").write_text('import { "f4ah6o/gpui/controls/button", "f4ah6o/gpui/primitives", "f4ah6o/gpui/diagnostics", "f4ah6o/gpui/text", "f4ah6o/gpui/text_layout", "f4ah6o/yami_kumo", "f4ah6o/yami_kumo_native/components", }\noptions("is-main": true)\n')
         (module / "main.mbt").write_text(source)
         (output / "generated-probe.mbt").write_text(source)
