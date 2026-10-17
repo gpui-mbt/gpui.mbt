@@ -21,7 +21,11 @@ Existing Quad, Text and TextRun canonical bytes, clip numbering, order, byte
   on ingress/egress, and bounds are computed rather than supplied. Coordinates
   lie in [-1e9,1e9]; quads have positive dimensions and radius in
   [0,min(width,height)/2]. Self-intersections, concavity, duplicate/collinear
-  vertices and nonfinite values are rejected, not repaired.
+  vertices and nonfinite values are rejected, not repaired. Orientation uses
+  consistent positive x/y tight-extent normalization, supporting tiny
+  representable polygons without an epsilon. A determinant that remains zero
+  (including a representability-limited unresolved orientation) is rejected as
+  `InvalidGeometry`; this is not an adaptive exact-predicate geometry kernel.
 - `PaintCommand::paint` and `SceneItem::paint` validate shape, fill and opacity.
   Scene validation and both snapshot freeze paths recheck the same invariants,
   including public enum construction. Existing legacy validation is unchanged.

@@ -68,25 +68,27 @@ pub fn PaintShape::convex_polygon(
       return Err(InvalidGeometry)
     }
   }
+  let bounds = match paint_points_bounds(points) {
+    None => return Err(InvalidGeometry)
+    Some(bounds) => bounds
+  }
   let mut sign = 0.0
   for i = 0; i < points.length(); i = i + 1 {
     let a = points[i]
     let b = points[(i + 1) % points.length()]
     for j = 0; j < points.length(); j = j + 1 {
       if j != i && j != (i + 1) % points.length() {
-        let cross = (b.x() - a.x()) * (points[j].y() - a.y()) -
-          (b.y() - a.y()) * (points[j].x() - a.x())
-        if cross == 0.0 || (sign != 0.0 && cross * sign < 0.0) {
+        let cross = paint_orientation(a, b, points[j], bounds)
+        if cross == 0.0 ||
+          (sign < 0.0 && cross > 0.0) ||
+          (sign > 0.0 && cross < 0.0) {
           return Err(InvalidGeometry)
         }
         sign = cross
       }
     }
   }
-  match paint_points_bounds(points) {
-    None => Err(InvalidGeometry)
-    Some(bounds) => Ok(Polygon({ points: paint_copy_points(points), bounds, }))
-  }
+  Ok(Polygon({ points: paint_copy_points(points), bounds, }))
 }
 
 ///|
@@ -207,18 +209,23 @@ pub fn PaintShape::contains(
       } else {
         point.y()
       }
-      let dx = point.x() - cx
-      let dy = point.y() - cy
-      dx * dx + dy * dy <= radius * radius
+      if radius == 0.0 {
+        return true
+      }
+      let dx = (point.x() - cx) / radius
+      let dy = (point.y() - cy) / radius
+      dx * dx + dy * dy <= 1.0
     }
     Polygon(p) => {
+      if !p.bounds.contains(point) {
+        return false
+      }
       let mut sign = 0.0
       for i = 0; i < p.points.length(); i = i + 1 {
         let a = p.points[i]
         let b = p.points[(i + 1) % p.points.length()]
-        let cross = (b.x() - a.x()) * (point.y() - a.y()) -
-          (b.y() - a.y()) * (point.x() - a.x())
-        if sign * cross < 0.0 {
+        let cross = paint_orientation(a, b, point, p.bounds)
+        if (sign < 0.0 && cross > 0.0) || (sign > 0.0 && cross < 0.0) {
           return false
         }
         if cross != 0.0 {
@@ -349,4 +356,21 @@ fn paint_fill_json(fill : PaintFill) -> String {
     Gradient(g) =>
       "{\"kind\":\"linear_gradient\",\"gradient\":\{g.canonical_json()}}"
   }
+}
+
+///|
+/// Consistently scale each axis by the positive tight extent before evaluating
+/// orientation. This supports tiny representable shapes without an epsilon.
+/// Unresolved zero determinants are rejected by polygon construction.
+fn paint_orientation(
+  a : @primitives.Point,
+  b : @primitives.Point,
+  point : @primitives.Point,
+  bounds : @primitives.Rect,
+) -> Double {
+  let dx = (b.x() - a.x()) / bounds.size().width()
+  let dy = (b.y() - a.y()) / bounds.size().height()
+  let px = (point.x() - a.x()) / bounds.size().width()
+  let py = (point.y() - a.y()) / bounds.size().height()
+  dx * py - dy * px
 }
