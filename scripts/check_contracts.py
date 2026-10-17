@@ -671,6 +671,13 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
             "platform/macos", "platform/macos_text", "primitives", "scene",
             "text", "text_layout",
         },
+        # Reusable Windows app-layer helpers above the backend: DirectWrite
+        # scene labels and TextField callbacks, cursor state and window startup.
+        "platform/windows_app": {
+            "app", "controls/text_field", "diagnostics", "platform",
+            "platform/windows_text", "windows", "primitives", "scene", "text",
+            "text_layout",
+        },
         "platform/testing": {"platform", "diagnostics", "primitives", "scene"},
         "examples/native_macos": {"platform/macos", "platform", "primitives", "diagnostics", "scene"},
         "ubuntu": {
