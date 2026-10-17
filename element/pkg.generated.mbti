@@ -376,6 +376,27 @@ pub fn InputModality::allows_hover(Self) -> Bool
 pub fn InputModality::equal(Self, Self) -> Bool
 pub fn InputModality::not_equal(Self, Self) -> Bool
 
+pub struct OutsideDispatchOutcome {
+  // private fields
+}
+pub fn OutsideDispatchOutcome::outside_visited(Self) -> Array[UInt64]
+pub fn OutsideDispatchOutcome::routed(Self) -> DispatchOutcome
+
+pub struct OutsidePointerContext {
+  // private fields
+}
+pub fn OutsidePointerContext::current_target(Self) -> UInt64
+pub fn OutsidePointerContext::is_propagation_stopped(Self) -> Bool
+pub fn OutsidePointerContext::phase(Self) -> EventPhase
+pub fn OutsidePointerContext::stop_propagation(Self) -> Unit
+pub fn OutsidePointerContext::target(Self) -> UInt64?
+
+pub struct PointerOutsideFrame {
+  // private fields
+}
+pub fn PointerOutsideFrame::dispatch_input_with(Self, @primitives.InputEvent, (OutsidePointerContext, @primitives.InputEvent) -> Result[Unit, ElementError], (DispatchContext, @primitives.InputEvent) -> Result[Unit, ElementError]) -> Result[OutsideDispatchOutcome, ElementError]
+pub fn PointerOutsideFrame::new(ElementTree, Array[UInt64]) -> Result[Self, ElementError]
+
 pub struct Prepainted {
   tree : ElementTree
   viewport : @primitives.Size
