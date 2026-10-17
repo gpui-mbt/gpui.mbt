@@ -664,3 +664,149 @@ test "anchored deferred hit routes retain integrated focus scope truncation" {
   assert_eq(blocked.capture_visited(), [])
   assert_eq(blocked.bubble_visited(), [])
 }
+
+///|
+fn anchor_fractional_frame(
+  width : Double,
+  height : Double,
+) -> @element.Prepainted {
+  let attachment = @element.Element::anchored_after(
+      20,
+      3,
+      anchor_popup(10, 240, 160, true).with_focusable(true),
+      @element.TopLeft,
+      @element.Window,
+      anchor_point(80, 60),
+    )
+    .unwrap()
+    .deferred()
+    .unwrap()
+  anchor_root(anchor_parent().with_focusable(true).with_child(attachment), 8, 8)
+  .request_layout_with_device_scale(anchor_size(width, height), 1)
+  .unwrap()
+  .prepaint()
+  .unwrap()
+}
+
+///|
+fn anchor_assert_logical_clip(width : Double, height : Double) -> Unit raise {
+  let frame = anchor_fractional_frame(width, height)
+  let expected = @primitives.Rect::new(0, 0, width, height).unwrap()
+  let scene = frame.paint()
+  assert_true(scene.validate() is Ok(_))
+  let clips = scene
+    .commands()
+    .filter(command => command.kind() == @scene.ClipPush)
+  assert_eq(clips.length(), 2)
+  for clip in clips {
+    anchor_assert_rect(clip.bounds().unwrap(), expected)
+  }
+  let snapshot = frame.paint_snapshot(1).unwrap()
+  assert_eq(snapshot.items().length(), 1)
+  assert_true(snapshot.items()[0].clip_chain_id() is Some(_))
+  for chain in snapshot.clip_chains() {
+    for rect in chain.rects() {
+      anchor_assert_rect(rect, expected)
+    }
+  }
+}
+
+///|
+test "anchored fractional width round up uses logical scene clip and excludes exact edge" {
+  let tree = anchor_fractional_frame(160.6, 120).tree()
+  assert_true(tree.hit_test(anchor_point(160.5, 100)) == Some(10))
+  assert_true(tree.hit_test(anchor_point(160.6, 100)) is None)
+  assert_true(tree.hit_test(anchor_point(160.8, 100)) is None)
+  anchor_assert_logical_clip(160.6, 120)
+}
+
+///|
+test "anchored fractional width round down retains valid logical strip" {
+  let tree = anchor_fractional_frame(160.4, 120).tree()
+  assert_true(tree.hit_test(anchor_point(160.2, 100)) == Some(10))
+  assert_true(tree.hit_test(anchor_point(160.4, 100)) is None)
+  assert_true(tree.hit_test(anchor_point(160.6, 100)) is None)
+  anchor_assert_logical_clip(160.4, 120)
+}
+
+///|
+test "anchored fractional height round up uses logical scene clip and excludes exact edge" {
+  let tree = anchor_fractional_frame(160, 120.6).tree()
+  assert_true(tree.hit_test(anchor_point(100, 120.5)) == Some(10))
+  assert_true(tree.hit_test(anchor_point(100, 120.6)) is None)
+  assert_true(tree.hit_test(anchor_point(100, 120.8)) is None)
+  anchor_assert_logical_clip(160, 120.6)
+}
+
+///|
+test "anchored fractional height round down retains valid logical strip" {
+  let tree = anchor_fractional_frame(160, 120.4).tree()
+  assert_true(tree.hit_test(anchor_point(100, 120.2)) == Some(10))
+  assert_true(tree.hit_test(anchor_point(100, 120.4)) is None)
+  assert_true(tree.hit_test(anchor_point(100, 120.6)) is None)
+  anchor_assert_logical_clip(160, 120.4)
+}
+
+///|
+test "anchored fractional clip refresh rejects changed logical viewport with same snapped bounds" {
+  let frame = anchor_fractional_frame(160.1, 120.1)
+  let retained = frame.tree().with_focus(3).unwrap()
+  let refreshed = retained.with_layout_bounds(frame).unwrap()
+  assert_true(refreshed.focus_owner() == retained.focus_owner())
+  for (width, height) in [(160.4, 120.1), (160.1, 120.4)] {
+    let changed = anchor_fractional_frame(width, height)
+    anchor_assert_rect(
+      retained.node(1).unwrap().bounds(),
+      changed.tree().node(1).unwrap().bounds(),
+    )
+    assert_true(
+      retained.with_layout_bounds(changed) is Err(@element.LayoutBoundsMismatch),
+    )
+    assert_true(retained.focus_owner() == refreshed.focus_owner())
+    assert_true(retained.hit_test(anchor_point(160.05, 120.05)) == Some(10))
+    assert_true(retained.hit_test(anchor_point(160.1, 120.05)) is None)
+  }
+}
+
+///|
+test "anchored fractional clip preserves modal routing through valid subpixel strip" {
+  let tree = anchor_fractional_frame(160.4, 120.4).tree()
+  let session = @element.FocusScopeSession::new(tree).unwrap()
+  let _ = session.open_scope(session.target(), 2, _ => Ok(())).unwrap()
+  let inside = session
+    .dispatch_input_with(
+      session.target(),
+      @primitives.PointerMoved(position=anchor_point(160.2, 120.2)),
+      (_, _) => Ok(()),
+    )
+    .unwrap()
+  assert_true(inside.target() == Some(10))
+  assert_eq(inside.capture_visited(), [2, 20, 10])
+  assert_eq(inside.bubble_visited(), [10, 20, 2])
+  for point in [anchor_point(160.4, 120.2), anchor_point(160.2, 120.4)] {
+    let outside = session
+      .dispatch_input_with(
+        session.target(),
+        @primitives.PointerMoved(position=point),
+        (_, _) => Ok(()),
+      )
+      .unwrap()
+    assert_true(outside.target() is None)
+    assert_eq(outside.capture_visited(), [])
+    assert_eq(outside.bubble_visited(), [])
+  }
+  let blocked_session = @element.FocusScopeSession::new(tree).unwrap()
+  let _ = blocked_session
+    .open_scope(blocked_session.target(), 3, _ => Ok(()))
+    .unwrap()
+  let blocked = blocked_session
+    .dispatch_input_with(
+      blocked_session.target(),
+      @primitives.PointerMoved(position=anchor_point(160.2, 120.2)),
+      (_, _) => Ok(()),
+    )
+    .unwrap()
+  assert_true(blocked.target() is None)
+  assert_eq(blocked.capture_visited(), [])
+  assert_eq(blocked.bubble_visited(), [])
+}

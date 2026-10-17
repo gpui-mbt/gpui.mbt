@@ -472,6 +472,18 @@ fn prepaint_anchored(
   ordinary : RequestedLayout,
   anchored : AnchoredLayout,
 ) -> Result[Prepainted, ElementError] {
+  // Window masks use the logical viewport, independently of device-snapped
+  // layout bounds. Rounding the mask would add or remove a subpixel hit strip.
+  let window_clip = match
+    @primitives.Rect::new(
+      0,
+      0,
+      ordinary.viewport.width(),
+      ordinary.viewport.height(),
+    ) {
+    Ok(value) => value
+    Err(_) => return Err(GeometryFailure)
+  }
   let nodes : Array[ElementNode] = []
   let mut current : (Int32, Bool, RequestedLayout, @primitives.Point)? = None
   let mut overflow = ordinary.layout.overflow()
@@ -548,7 +560,7 @@ fn prepaint_anchored(
       ..placement_node(placement, bounds),
       deferred,
       window_clip: if placement.depth == 0 || element.anchored is Some(_) {
-        Some(ordinary.layout.root_bounds())
+        Some(window_clip)
       } else {
         None
       },
