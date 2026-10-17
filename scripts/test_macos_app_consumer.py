@@ -55,7 +55,7 @@ def prepare_fixture(workspace: Path) -> Path:
     )
     (module / "moon.mod").write_text(
         'name = "test/macos_app_consumer"\nversion = "0.0.0"\n'
-        'import { "f4ah6o/gpui@0.7.2", }\n'
+        'import { "f4ah6o/gpui@0.8.0", }\n'
     )
     (module / "moon.pkg").write_text(
         'import { "f4ah6o/gpui/platform/macos_app", '
