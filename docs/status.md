@@ -74,7 +74,7 @@ host-specific security integration remain open.
 - Ubuntu / Wayland: native Wayland/EGL/GLES2 slice with an experimental, bounded grayscale text-frame renderer; quad and bounded grayscale mixed-scene checks passed in hosted CI; production desktop gates remain open.
 - Browser / JavaScript: Canvas 2D Weekboard and interaction lab implemented; exact execution and test scope is recorded in [the browser guide](browser-demo.md).
 - Windows: experimental one-window Win32/D3D11 hardware-or-WARP slice, bounded grayscale text renderer, focused single-line text field, reusable Button fixture, and private default-off IMM32 text-session ingress implemented. The Button fixture passed portable checks and a bounded completed-frame pixel smoke; the current environment blocked real SendInput qualification, and UI Automation/Japanese IME acceptance remain open. See [the Windows guide](windows-native.md) and [Button fixture guide](windows-button.md).
-- X11 / XWayland: no backend yet.
+- X11 / XWayland: experimental one-window Xlib/EGL/GLES2 backend with bounded grayscale text, direct-keyboard Compose input, clipboard/cursors, and frame readback implemented. It can connect to Xorg, Xvfb, or XWayland. IME, multiple windows, and fractional/per-monitor scaling are unsupported; native-display acceptance is separate from headless contract checks, and production desktop gates remain open. See [the X11 guide](../x11/README.md).
 
 These statements describe implementation and evidence, not a compatibility or support tier unless the release evidence ledger explicitly assigns one.
 
