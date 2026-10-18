@@ -23,6 +23,7 @@ pub enum ElementError {
   InvalidAnchoredShape
   UnsupportedAnchoredComposition
   InvalidDeferredPriority
+  InvalidOpacity
   DuplicatePaintBinding
   PaintFailure(@scene.PaintError)
 } derive(Eq)
@@ -80,6 +81,7 @@ pub struct ElementNode {
   tab_stop : Bool
   pointer_events : Bool
   background : @primitives.Color?
+  priv opacity : Double
   priv scroll_viewport : ScrollViewport?
   priv uniform_list : UniformListLayout?
   priv deferred : Int32?
@@ -104,6 +106,7 @@ pub fn ElementNode::new(
     tab_stop: false,
     pointer_events: true,
     background: None,
+    opacity: 1.0,
     scroll_viewport: None,
     uniform_list: None,
     deferred: None,
@@ -168,6 +171,7 @@ pub fn ElementNode::with_focusable(
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     background: self.background,
+    opacity: self.opacity,
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
     deferred: self.deferred,
@@ -192,6 +196,7 @@ pub fn ElementNode::with_pointer_events(
     tab_stop: self.tab_stop,
     pointer_events: enabled,
     background: self.background,
+    opacity: self.opacity,
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
     deferred: self.deferred,
@@ -216,6 +221,7 @@ pub fn ElementNode::with_background(
     tab_stop: self.tab_stop,
     pointer_events: self.pointer_events,
     background: color,
+    opacity: self.opacity,
     scroll_viewport: self.scroll_viewport,
     uniform_list: self.uniform_list,
     deferred: self.deferred,
@@ -352,6 +358,9 @@ pub fn ElementTree::new(
   let mut index = 0
   while index < owned.length() && failure is None {
     let node = owned[index]
+    if !valid_element_opacity(node.opacity) {
+      return Err(InvalidOpacity)
+    }
     match node.deferred {
       Some(priority) if priority < 0 => return Err(InvalidDeferredPriority)
       _ => ()
@@ -936,8 +945,10 @@ fn ElementTree::paint_bound_commands(
 ) -> @scene.Scene {
   let commands : Array[@scene.PaintCommand] = []
   let ancestors : Array[ElementNode] = []
+  let opacities = effective_element_opacities(self.nodes)
   for paint_index in deferred_paint_indices(self.nodes) {
     let node = self.nodes[paint_index]
+    let opacity = opacities[paint_index]
     // Close each completed subtree before painting the next sibling/root.
     while ancestors.length() > 0 &&
           Some(ancestors[ancestors.length() - 1].id) != node.parent {
@@ -951,7 +962,7 @@ fn ElementTree::paint_bound_commands(
     let mut bound = false
     for command in paints {
       if command.id() == node.id {
-        commands.push(command)
+        commands.push(command.with_opacity(opacity).unwrap())
         bound = true
       }
     }
@@ -959,7 +970,11 @@ fn ElementTree::paint_bound_commands(
       match node.background {
         None => ()
         Some(color) =>
-          commands.push(@scene.PaintCommand::quad(node.id, node.bounds, color))
+          commands.push(
+            @scene.PaintCommand::quad(node.id, node.bounds, color)
+            .with_opacity(opacity)
+            .unwrap(),
+          )
       }
     }
     match node.window_clip {

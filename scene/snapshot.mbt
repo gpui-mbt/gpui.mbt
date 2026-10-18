@@ -530,6 +530,22 @@ pub fn Scene::snapshot_v1(
                 ),
               )
             }
+            OpacityQuadCommand(id~, bounds~, color~, opacity~) => {
+              let clip_chain_id = snapshot_clip_chain_id(
+                clip_chains, clip_stack,
+              )
+              let transform = AffineTransform::identity()
+              items.push(
+                QuadItem(
+                  id~,
+                  bounds~,
+                  color~,
+                  transform~,
+                  opacity~,
+                  clip_chain_id~,
+                ),
+              )
+            }
           }
           index += 1
         }

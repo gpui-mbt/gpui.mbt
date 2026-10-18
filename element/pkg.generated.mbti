@@ -166,6 +166,7 @@ pub fn Element::grid_root(UInt64, @layout.GridTreeStyle) -> Self
 pub fn Element::into_element(Self) -> Self
 pub fn Element::is_tab_stop(Self) -> Bool
 pub fn Element::new(@layout.FlexItem) -> Self
+pub fn Element::opacity(Self) -> Double
 pub fn Element::render(Self) -> Self
 pub fn Element::request_layout(Self, @primitives.Size) -> Result[RequestedLayout, ElementError]
 pub fn Element::request_layout_with_device_scale(Self, @primitives.Size, Double) -> Result[RequestedLayout, ElementError]
@@ -178,6 +179,7 @@ pub fn Element::with_children_style(Self, @layout.FlexTreeStyle) -> Self
 pub fn Element::with_container_query(Self, (@primitives.Size) -> Result[Self, ElementError]) -> Self
 pub fn Element::with_focusable(Self, Bool) -> Self
 pub fn Element::with_grid_children_style(Self, @layout.GridTreeStyle) -> Self
+pub fn Element::with_opacity(Self, Double) -> Result[Self, ElementError]
 pub fn Element::with_pointer_events(Self, Bool) -> Self
 pub fn Element::with_query_root_size(Self, @primitives.Size) -> Self
 pub fn Element::with_scroll_offset(Self, @primitives.Point) -> Self
@@ -210,6 +212,7 @@ pub enum ElementError {
   InvalidAnchoredShape
   UnsupportedAnchoredComposition
   InvalidDeferredPriority
+  InvalidOpacity
   DuplicatePaintBinding
   PaintFailure(@scene.PaintError)
 } derive(Eq)
@@ -236,11 +239,13 @@ pub fn ElementNode::id(Self) -> UInt64
 pub fn ElementNode::is_focusable(Self) -> Bool
 pub fn ElementNode::is_tab_stop(Self) -> Bool
 pub fn ElementNode::new(UInt64, UInt64?, @primitives.Rect) -> Self
+pub fn ElementNode::opacity(Self) -> Double
 pub fn ElementNode::parent(Self) -> UInt64?
 pub fn ElementNode::tab_group_index(Self) -> Int?
 pub fn ElementNode::tab_index(Self) -> Int
 pub fn ElementNode::with_background(Self, @primitives.Color?) -> Self
 pub fn ElementNode::with_focusable(Self, Bool) -> Self
+pub fn ElementNode::with_opacity(Self, Double) -> Result[Self, ElementError]
 pub fn ElementNode::with_pointer_events(Self, Bool) -> Self
 pub fn ElementNode::with_tab_group_index(Self, Int?) -> Self
 pub fn ElementNode::with_tab_index(Self, Int) -> Self
@@ -525,3 +530,4 @@ pub(open) trait IntoElement {
 pub(open) trait Render {
   fn render(Self) -> Element
 }
+

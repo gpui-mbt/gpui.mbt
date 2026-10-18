@@ -558,6 +558,7 @@ fn expand_uniform_rows(
             }
             expanded.push(
               ElementNode::new(element.id, placement.parent, bounds)
+              .with_local_opacity(element.opacity)
               .with_background(element.background)
               .with_focusable(element.focusable)
               .with_tab_index(element.tab_index)

@@ -20,6 +20,12 @@ pub(all) enum PaintCommand {
     bounds~ : @primitives.Rect,
     color~ : @primitives.Color
   )
+  OpacityQuadCommand(
+    id~ : UInt64,
+    bounds~ : @primitives.Rect,
+    color~ : @primitives.Color,
+    opacity~ : Double
+  )
   PaintCommand(
     id~ : UInt64,
     shape~ : PaintShape,
@@ -58,7 +64,7 @@ pub fn PaintCommand::clip_pop(id : UInt64) -> PaintCommand {
 ///|
 pub fn PaintCommand::kind(self : PaintCommand) -> PaintKind {
   match self {
-    QuadCommand(..) => Quad
+    QuadCommand(..) | OpacityQuadCommand(..) => Quad
     PaintCommand(..) => Paint
     ClipPushCommand(..) => ClipPush
     ClipPopCommand(..) => ClipPop
@@ -68,7 +74,7 @@ pub fn PaintCommand::kind(self : PaintCommand) -> PaintKind {
 ///|
 pub fn PaintCommand::id(self : PaintCommand) -> UInt64 {
   match self {
-    QuadCommand(id~, ..) => id
+    QuadCommand(id~, ..) | OpacityQuadCommand(id~, ..) => id
     PaintCommand(id~, ..) => id
     ClipPushCommand(id~, ..) => id
     ClipPopCommand(id~) => id
@@ -78,7 +84,7 @@ pub fn PaintCommand::id(self : PaintCommand) -> UInt64 {
 ///|
 pub fn PaintCommand::bounds(self : PaintCommand) -> @primitives.Rect? {
   match self {
-    QuadCommand(bounds~, ..) => Some(bounds)
+    QuadCommand(bounds~, ..) | OpacityQuadCommand(bounds~, ..) => Some(bounds)
     PaintCommand(shape~, ..) => Some(shape.bounds())
     ClipPushCommand(bounds~, ..) => Some(bounds)
     ClipPopCommand(..) => None
@@ -88,7 +94,7 @@ pub fn PaintCommand::bounds(self : PaintCommand) -> @primitives.Rect? {
 ///|
 pub fn PaintCommand::color(self : PaintCommand) -> @primitives.Color? {
   match self {
-    QuadCommand(color~, ..) => Some(color)
+    QuadCommand(color~, ..) | OpacityQuadCommand(color~, ..) => Some(color)
     PaintCommand(..) | ClipPushCommand(..) | ClipPopCommand(..) => None
   }
 }
@@ -215,6 +221,10 @@ pub fn Scene::validate(self : Scene) -> Result[Unit, SceneError] {
           Ok(_) => ()
           Err(e) => failure = Some(InvalidPaint(e))
         }
+      OpacityQuadCommand(opacity~, ..) =>
+        if !snapshot_finite(opacity) || opacity < 0.0 || opacity > 1.0 {
+          failure = Some(InvalidPaint(InvalidOpacity))
+        }
       QuadCommand(..) => ()
     }
     index += 1
@@ -266,6 +276,8 @@ fn canonical_command_json(command : PaintCommand) -> String {
   match command {
     PaintCommand(id~, shape~, fill~, opacity~) =>
       "{\"kind\":\"paint\",\"id\":\{id},\"shape\":\{paint_shape_json(shape)},\"fill\":\{paint_fill_json(fill)},\"opacity\":\{snapshot_double(opacity)}}"
+    OpacityQuadCommand(id~, bounds~, color~, opacity~) =>
+      "{\"kind\":\"quad\",\"id\":\{id},\"bounds\":\{canonical_rect_json(bounds)},\"color\":\{canonical_color_json(color)},\"opacity\":\{snapshot_double(opacity)}}"
     QuadCommand(id~, bounds~, color~) =>
       "{\"kind\":\"quad\",\"id\":\{id},\"bounds\":\{canonical_rect_json(bounds)},\"color\":\{canonical_color_json(color)}}"
     ClipPushCommand(id~, bounds~) =>

@@ -86,6 +86,7 @@ pub fn LinearGradient::validate(Self) -> Result[Unit, PaintError]
 
 pub(all) enum PaintCommand {
   QuadCommand(id~ : UInt64, bounds~ : @primitives.Rect, color~ : @primitives.Color)
+  OpacityQuadCommand(id~ : UInt64, bounds~ : @primitives.Rect, color~ : @primitives.Color, opacity~ : Double)
   PaintCommand(id~ : UInt64, shape~ : PaintShape, fill~ : PaintFill, opacity~ : Double)
   ClipPushCommand(id~ : UInt64, bounds~ : @primitives.Rect)
   ClipPopCommand(id~ : UInt64)
@@ -98,8 +99,10 @@ pub fn PaintCommand::equal(Self, Self) -> Bool
 pub fn PaintCommand::id(Self) -> UInt64
 pub fn PaintCommand::kind(Self) -> PaintKind
 pub fn PaintCommand::not_equal(Self, Self) -> Bool
+pub fn PaintCommand::opacity(Self) -> Double
 pub fn PaintCommand::paint(UInt64, PaintShape, PaintFill, Double) -> Result[Self, PaintError]
 pub fn PaintCommand::quad(UInt64, @primitives.Rect, @primitives.Color) -> Self
+pub fn PaintCommand::with_opacity(Self, Double) -> Result[Self, PaintError]
 
 pub(all) enum PaintError {
   InvalidColor
@@ -302,3 +305,4 @@ pub fn TextVerticalAlign::not_equal(Self, Self) -> Bool
 // Type aliases
 
 // Traits
+
