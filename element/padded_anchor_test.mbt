@@ -1,12 +1,18 @@
 ///|
-fn padded_leaf(id : UInt64, width : Double, height : Double) -> @element.Element {
+fn padded_leaf(
+  id : UInt64,
+  width : Double,
+  height : Double,
+) -> @element.Element {
   @element.Element::new(
     @layout.FlexItem::new(
       id,
       @layout.Dimension::auto(),
       @layout.Dimension::auto(),
       anchor_size(width, height),
-    ).with_flex(0, 0).unwrap(),
+    )
+    .with_flex(0, 0)
+    .unwrap(),
   )
 }
 
@@ -41,7 +47,10 @@ fn padded_attachment(
     @element.Local,
     anchor_point(0, 0),
     margin=8,
-  ).unwrap().deferred().unwrap()
+  )
+  .unwrap()
+  .deferred()
+  .unwrap()
 }
 
 ///|
@@ -54,14 +63,21 @@ test "measured leaf anchor follows actual decorated auto owner layout" {
       let root = anchor_root(parent, 32, 24)
       let ordinary = root
         .request_layout_with_device_scale(anchor_size(640, 480), scale)
-        .unwrap().prepaint().unwrap().tree()
+        .unwrap()
+        .prepaint()
+        .unwrap()
+        .tree()
       let frame = anchor_root(
-          parent.with_child(padded_attachment(20, 3, padded_owner(10, 11, 80, 32))),
+          parent.with_child(
+            padded_attachment(20, 3, padded_owner(10, 11, 80, 32)),
+          ),
           32,
           24,
         )
         .request_layout_with_device_scale(anchor_size(640, 480), scale)
-        .unwrap().prepaint().unwrap()
+        .unwrap()
+        .prepaint()
+        .unwrap()
       let tree = frame.tree()
       let owner = tree.node(2).unwrap().bounds()
       let leaf = tree.node(3).unwrap().bounds()
@@ -69,12 +85,19 @@ test "measured leaf anchor follows actual decorated auto owner layout" {
       let popup = tree.node(10).unwrap().bounds()
       anchor_assert_rect(owner, ordinary.node(2).unwrap().bounds())
       anchor_assert_rect(leaf, ordinary.node(3).unwrap().bounds())
-      anchor_assert_point(attachment.origin(), anchor_point(leaf.left(), leaf.bottom()))
+      anchor_assert_point(
+        attachment.origin(),
+        anchor_point(leaf.left(), leaf.bottom()),
+      )
       anchor_assert_point(popup.origin(), attachment.origin())
       assert_true(attachment.left() > owner.left())
       assert_true(attachment.top() < owner.bottom())
-      assert_true(popup.size().width() > tree.node(11).unwrap().bounds().size().width())
-      assert_true(popup.size().height() > tree.node(11).unwrap().bounds().size().height())
+      assert_true(
+        popup.size().width() > tree.node(11).unwrap().bounds().size().width(),
+      )
+      assert_true(
+        popup.size().height() > tree.node(11).unwrap().bounds().size().height(),
+      )
       assert_true(frame.paint().validate() is Ok(_))
       assert_true(!tree.node(20).unwrap().accepts_pointer_events())
     }
@@ -90,36 +113,64 @@ test "measured metrics change auto owner and popup sizes without host boxes" {
       ),
       32,
       24,
-    ).request_layout(anchor_size(640, 480)).unwrap().prepaint().unwrap().tree()
+    )
+    .request_layout(anchor_size(640, 480))
+    .unwrap()
+    .prepaint()
+    .unwrap()
+    .tree()
   }
   let small = render(40, 15)
   let large = render(90, 30)
   for id in [2UL, 3UL, 10UL, 11UL] {
-    assert_true(large.node(id).unwrap().bounds().size().width() > small.node(id).unwrap().bounds().size().width())
-    assert_true(large.node(id).unwrap().bounds().size().height() > small.node(id).unwrap().bounds().size().height())
+    assert_true(
+      large.node(id).unwrap().bounds().size().width() >
+      small.node(id).unwrap().bounds().size().width(),
+    )
+    assert_true(
+      large.node(id).unwrap().bounds().size().height() >
+      small.node(id).unwrap().bounds().size().height(),
+    )
   }
-  assert_true(large.node(20).unwrap().bounds().top() > small.node(20).unwrap().bounds().top())
+  assert_true(
+    large.node(20).unwrap().bounds().top() >
+    small.node(20).unwrap().bounds().top(),
+  )
 }
 
 ///|
 test "measured nested attachments fit through existing lifecycle and restore" {
   let child = padded_attachment(30, 11, padded_owner(40, 41, 190, 45))
-  let parent = padded_attachment(20, 3, padded_owner(10, 11, 150, 55).with_child(child))
+  let parent = padded_attachment(
+    20,
+    3,
+    padded_owner(10, 11, 150, 55).with_child(child),
+  )
   let root = anchor_root(padded_owner(2, 3, 70, 25).with_child(parent), 60, 50)
   for scale in [1.0, 1.25, 1.5, 2.0] {
     let render = fn(width : Double, height : Double) {
-      root.request_layout_with_device_scale(anchor_size(width, height), scale)
-      .unwrap().prepaint().unwrap().tree()
+      root
+      .request_layout_with_device_scale(anchor_size(width, height), scale)
+      .unwrap()
+      .prepaint()
+      .unwrap()
+      .tree()
     }
     let wide = render(640, 480)
     let narrow = render(160, 120)
     let restored = render(640, 480)
     for id in [1UL, 2UL, 3UL, 20UL, 10UL, 11UL, 30UL, 40UL, 41UL] {
-      anchor_assert_rect(wide.node(id).unwrap().bounds(), restored.node(id).unwrap().bounds())
+      anchor_assert_rect(
+        wide.node(id).unwrap().bounds(),
+        restored.node(id).unwrap().bounds(),
+      )
     }
     for (wrapper, reference) in [(20UL, 3UL), (30UL, 11UL)] {
       let bounds = narrow.node(reference).unwrap().bounds()
-      anchor_assert_point(narrow.node(wrapper).unwrap().bounds().origin(), anchor_point(bounds.left(), bounds.bottom()))
+      anchor_assert_point(
+        narrow.node(wrapper).unwrap().bounds().origin(),
+        anchor_point(bounds.left(), bounds.bottom()),
+      )
     }
     for id in [10UL, 40UL] {
       let popup = narrow.node(id).unwrap().bounds()
@@ -143,14 +194,25 @@ test "measured construction validates margin and metric input constructors" {
     assert_true(@layout.Insets::new(0, 0, 0, invalid) is Err(_))
     assert_true(
       @element.Element::anchored_after_measured_leaf(
-        20, 3, padded_owner(10, 11, 50, 20),
-        @element.TopLeft, @element.Local, anchor_point(0, 0), margin=invalid,
-      ) is Err(@element.GeometryFailure),
+        20,
+        3,
+        padded_owner(10, 11, 50, 20),
+        @element.TopLeft,
+        @element.Local,
+        anchor_point(0, 0),
+        margin=invalid,
+      )
+      is Err(@element.GeometryFailure),
     )
   }
   let zero = anchor_root(
-    padded_owner(2, 3, 0, 0).with_child(padded_attachment(20, 3, padded_owner(10, 11, 0, 0))),
-    0, 0,
+    padded_owner(2, 3, 0, 0).with_child(
+      padded_attachment(20, 3, padded_owner(10, 11, 0, 0)),
+    ),
+    0,
+    0,
   )
-  assert_true(zero.request_layout(anchor_size(640, 480)).unwrap().prepaint() is Ok(_))
+  assert_true(
+    zero.request_layout(anchor_size(640, 480)).unwrap().prepaint() is Ok(_),
+  )
 }

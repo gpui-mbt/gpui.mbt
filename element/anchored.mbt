@@ -258,13 +258,20 @@ pub fn Element::anchored_after_measured_leaf(
 ) -> Result[Element, ElementError] {
   match
     Element::anchored_after(
-      id, after_child, popup, anchor, mode, position, margin~,
+      id,
+      after_child,
+      popup,
+      anchor,
+      mode,
+      position,
+      margin~,
     ) {
     Err(error) => Err(error)
-    Ok(element) => Ok({
-      ..element,
-      anchored: Some({ ..element.anchored.unwrap(), measured_leaf: true, }),
-    })
+    Ok(element) =>
+      Ok({
+        ..element,
+        anchored: Some({ ..element.anchored.unwrap(), measured_leaf: true, }),
+      })
   }
 }
 
@@ -335,9 +342,8 @@ fn validate_anchored_parent(parent : Element) -> Result[Unit, ElementError] {
       return Err(InvalidAnchoredShape)
     }
     match parent.item {
-      Some(owner)
-        if owner.main is @layout.Percent(_) ||
-          owner.cross is @layout.Percent(_) =>
+      Some(owner) if owner.main is @layout.Percent(_) ||
+        owner.cross is @layout.Percent(_) =>
         return Err(InvalidAnchoredShape)
       _ => ()
     }
@@ -365,8 +371,8 @@ fn validate_anchored_parent(parent : Element) -> Result[Unit, ElementError] {
   }
   for index = 1; index < parent.children.length(); index = index + 1 {
     match parent.children[index].anchored {
-      Some(spec)
-        if spec.after == reference.id && spec.measured_leaf == measured_leaf => ()
+      Some(spec) if spec.after == reference.id &&
+        spec.measured_leaf == measured_leaf => ()
       _ => return Err(InvalidAnchoredShape)
     }
   }
