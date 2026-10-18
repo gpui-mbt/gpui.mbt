@@ -309,5 +309,9 @@ fn validate_paint(
     Err(e) => return Err(e)
     Ok(_) => ()
   }
+  if fill is Slash(_) && shape is Polygon(_) {
+    return Err(UnsupportedPaint)
+  }
   fill.validate()
 }
+

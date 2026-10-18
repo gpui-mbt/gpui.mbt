@@ -104,6 +104,7 @@ pub fn PaintCommand::quad(UInt64, @primitives.Rect, @primitives.Color) -> Self
 pub(all) enum PaintError {
   InvalidColor
   InvalidGradient
+  InvalidPattern
   InvalidGeometry
   InvalidOpacity
   UnsupportedPaint
@@ -118,6 +119,7 @@ pub fn PaintError::not_equal(Self, Self) -> Bool
 pub(all) enum PaintFill {
   FloatSolid(@primitives.FloatColor)
   Gradient(LinearGradient)
+  Slash(SlashPattern)
 } derive(Eq)
 pub fn PaintFill::equal(Self, Self) -> Bool
 pub fn PaintFill::not_equal(Self, Self) -> Bool
@@ -249,6 +251,23 @@ pub fn SceneSnapshot::sample_paint(Self, UInt64, @primitives.Point) -> Result[@p
 pub fn SceneSnapshot::scale(Self) -> Double
 pub fn SceneSnapshot::schema_version(Self) -> Int
 pub fn SceneSnapshot::viewport(Self) -> @primitives.Rect
+
+pub struct SlashPattern {
+  color : @primitives.FloatColor
+  width : Double
+  interval : Double
+} derive(Eq)
+pub fn SlashPattern::canonical_json(Self) -> String
+pub fn SlashPattern::color(Self) -> @primitives.FloatColor
+pub fn SlashPattern::equal(Self, Self) -> Bool
+pub fn SlashPattern::interval(Self) -> Double
+pub fn SlashPattern::new(@primitives.FloatColor, Double, Double) -> Result[Self, PaintError]
+pub fn SlashPattern::not_equal(Self, Self) -> Bool
+pub fn SlashPattern::packed(Self) -> Double
+pub fn SlashPattern::sample(Self, @primitives.Point, @primitives.Rect) -> Result[@primitives.FloatColor, PaintError]
+pub fn SlashPattern::sample_shader_linear(Self, @primitives.Point, @primitives.Rect) -> Result[@primitives.FloatColor, PaintError]
+pub fn SlashPattern::validate(Self) -> Result[Unit, PaintError]
+pub fn SlashPattern::width(Self) -> Double
 
 pub enum SnapshotError {
   InvalidScale

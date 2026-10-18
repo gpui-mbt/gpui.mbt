@@ -14,8 +14,8 @@ Existing Quad, Text and TextRun canonical bytes, clip numbering, order, byte
   domain; they are not automatically decoded from sRGB bytes.
 - `LinearGradient` has exactly two FloatColor stops, a finite raw angle, finite
   raw stop positions, and `Srgb` or `Oklab` interpolation. Positions remain
-  unsorted, unclamped and potentially equal. There is no multi-stop/pattern API.
-- `PaintFill` is `FloatSolid` or `Gradient`.
+  unsorted, unclamped and potentially equal. There is no multi-stop API.
+- `PaintFill` is `FloatSolid`, `Gradient`, or `Slash`.
 - `PaintShape` is a rounded quad or a strictly convex filled polygon, either
   winding, with 3–64 distinct non-collinear vertices. Polygon points are copied
   on ingress/egress, and bounds are computed rather than supplied. Coordinates
@@ -103,3 +103,28 @@ No native enhanced rendering, glyph equivalence, antialiasing equivalence,
 physical-GPU/backend parity or universal color conformance is established here.
 The unchanged upstream oracle, synthetic policy diagnostics and candidate remain
 separate evidence categories.
+
+
+## Bounded slash pattern fill
+
+`SlashPattern::new(color, width, interval)` accepts shader-linear `FloatColor`
+and positive dimensions up to 256, each quantizing to at least 1/255 pixel.
+`PaintFill::Slash` supports rounded quads only; polygon slash fills are rejected.
+The authored dimensions and color are retained in canonical JSON along with the
+packed f32 value. Input f32 rounding, f32 multiplication by 255, truncation, integer
+packing with 65535, and final f32 rounding follow pinned GPUI color.rs. The shader
+width decode deliberately does not floor division by 65535. Width and interval
+are not simply used verbatim, so 56/6 does not decode to an exact interval of 6.
+
+Sampling uses original quad origin, including after rectangular clips, and applies
+the pinned 45-degree periodic signed-distance coverage to alpha. RGB remains
+unpremultiplied shader-linear. Existing scene opacity and ordered source-over
+rasterization apply unchanged. As for gradients, geometry is a Double numerical
+model rather than bit-exact GPU arithmetic; pattern coverage is modeled but outer
+rounded-quad edge antialiasing remains a presentation boundary. Existing supported
+axis-aligned scene transforms use local coordinates. The legacy backend still
+rejects enhanced paint atomically. No JavaScript stripe geometry is introduced.
+
+Source: zed-industries/zed 5a5fbe79917971a4d52a96b6ddb04da198a5012e,
+crates/gpui/src/color.rs `pattern_slash` and
+crates/gpui_wgpu/src/shaders.wgsl background case 2.

@@ -3,6 +3,7 @@
 pub(all) enum PaintError {
   InvalidColor
   InvalidGradient
+  InvalidPattern
   InvalidGeometry
   InvalidOpacity
   UnsupportedPaint
@@ -19,6 +20,7 @@ pub extend PaintError with Eq::{equal, not_equal}
 pub(all) enum PaintFill {
   FloatSolid(@primitives.FloatColor)
   Gradient(LinearGradient)
+  Slash(SlashPattern)
 } derive(Eq)
 
 ///|
@@ -144,6 +146,7 @@ pub fn PaintFill::validate(self : PaintFill) -> Result[Unit, PaintError] {
         Err(_) => Err(InvalidColor)
       }
     Gradient(g) => g.validate()
+    Slash(p) => p.validate()
   }
 }
 
@@ -160,6 +163,7 @@ pub fn PaintFill::sample(
         Err(e) => Err(e)
       }
     Gradient(g) => g.sample(point, bounds)
+    Slash(p) => p.sample(point, bounds)
   }
 }
 
@@ -351,6 +355,8 @@ fn paint_float_json(c : @primitives.FloatColor) -> String {
 ///|
 fn paint_fill_json(fill : PaintFill) -> String {
   match fill {
+    Slash(p) =>
+      "{\"kind\":\"slash_pattern\",\"pattern\":\{p.canonical_json()}}"
     FloatSolid(c) =>
       "{\"kind\":\"float_solid\",\"color\":\{paint_float_json(c)}}"
     Gradient(g) =>
@@ -374,3 +380,4 @@ fn paint_orientation(
   let py = (point.y() - a.y()) / bounds.size().height()
   dx * py - dy * px
 }
+
