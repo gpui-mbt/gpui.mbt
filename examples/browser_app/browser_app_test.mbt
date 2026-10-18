@@ -43,7 +43,10 @@ fn counter_indicator_width(snapshot : @scene.SceneSnapshot) -> Double {
     if item.id() == 92 {
       match item {
         @scene.QuadItem(bounds~, ..) => width = bounds.size().width()
-        @scene.PaintItem(..) | @scene.TextItem(..) | @scene.TextRunItem(..) =>
+        @scene.ImageItem(..)
+        | @scene.PaintItem(..)
+        | @scene.TextItem(..)
+        | @scene.TextRunItem(..) =>
           abort("counter indicator must remain a quad")
       }
     }
@@ -84,8 +87,10 @@ test "portable browser app preserves logical dimensions across DPR changes" {
   let mut transformed_quad_is_clipped = false
   for item in items {
     match item {
-      @scene.PaintItem(..) | @scene.TextItem(..) | @scene.TextRunItem(..) =>
-        fail("legacy fixture must remain quad-only")
+      @scene.ImageItem(..)
+      | @scene.PaintItem(..)
+      | @scene.TextItem(..)
+      | @scene.TextRunItem(..) => fail("legacy fixture must remain quad-only")
       @scene.QuadItem(id~, transform~, clip_chain_id~, ..) =>
         if id == 4 {
           assert_true(clip_chain_id == Some(0))
@@ -98,8 +103,10 @@ test "portable browser app preserves logical dimensions across DPR changes" {
   assert_true(items[8].id() == 90)
   match items[8] {
     @scene.QuadItem(transform~, ..) => assert_true(transform.tx() == 114.0)
-    @scene.PaintItem(..) | @scene.TextItem(..) | @scene.TextRunItem(..) =>
-      fail("pointer marker must remain a quad")
+    @scene.ImageItem(..)
+    | @scene.PaintItem(..)
+    | @scene.TextItem(..)
+    | @scene.TextRunItem(..) => fail("pointer marker must remain a quad")
   }
 
   let status = @browser_app.BrowserDemo::status_json(demo)

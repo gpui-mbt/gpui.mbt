@@ -177,3 +177,34 @@ test("invalid output dimensions fail without touching the context", () => {
     assert.deepEqual(context.calls, []);
   }
 });
+
+test("image resource metadata and invisible image items reject before canvas mutation", () => {
+  const image = {
+    kind: "image", id: 3, resource_id: 7, frame_index: 1,
+    bounds: viewport, image_bounds: viewport, transform: identity,
+    opacity: 1, clip_chain_id: null,
+  };
+  const resource = {
+    id: 7, kind: "image",
+    content_identity: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    pixel_width: 2, pixel_height: 2, frame_count: 2,
+  };
+  for (const item of [image, { ...image, opacity: 0 }, { ...image, clip_chain_id: 7 }]) {
+    for (const items of [[item], [quad(1), item], [text(2), item], [item, text(2)]]) {
+      for (const resources of [[], [resource]]) {
+        const snapshot = scene(items, {
+          resources,
+          clip_chains: [{ id: 7, rects: [{ x: 400, y: 300, width: 1, height: 1 }] }],
+        });
+        const context = recordingContext();
+        const before = context.state();
+        assert.throws(
+          () => drawSceneSnapshot(context, snapshot, dimensions),
+          (error) => error instanceof CanvasSceneError && error.code === "unsupported_capability",
+        );
+        assert.deepEqual(context.calls, []);
+        assert.deepEqual(context.state(), before);
+      }
+    }
+  }
+});

@@ -4,6 +4,7 @@
 pub(all) enum PaintKind {
   Quad
   Paint
+  Image
   ClipPush
   ClipPop
 } derive(Eq)
@@ -15,6 +16,14 @@ pub extend PaintKind with Eq::{not_equal, equal}
 /// A bounded M3 scene foundation. Commands contain only framework values and
 /// never native/GPU handles. Array order is the paint order.
 pub(all) enum PaintCommand {
+  ImageCommand(
+    id~ : UInt64,
+    resource~ : SceneResource,
+    frame_index~ : Int32,
+    bounds~ : @primitives.Rect,
+    image_bounds~ : @primitives.Rect,
+    opacity~ : Double
+  )
   QuadCommand(
     id~ : UInt64,
     bounds~ : @primitives.Rect,
@@ -65,6 +74,7 @@ pub fn PaintCommand::clip_pop(id : UInt64) -> PaintCommand {
 pub fn PaintCommand::kind(self : PaintCommand) -> PaintKind {
   match self {
     QuadCommand(..) | OpacityQuadCommand(..) => Quad
+    ImageCommand(..) => Image
     PaintCommand(..) => Paint
     ClipPushCommand(..) => ClipPush
     ClipPopCommand(..) => ClipPop
@@ -75,7 +85,7 @@ pub fn PaintCommand::kind(self : PaintCommand) -> PaintKind {
 pub fn PaintCommand::id(self : PaintCommand) -> UInt64 {
   match self {
     QuadCommand(id~, ..) | OpacityQuadCommand(id~, ..) => id
-    PaintCommand(id~, ..) => id
+    ImageCommand(id~, ..) | PaintCommand(id~, ..) => id
     ClipPushCommand(id~, ..) => id
     ClipPopCommand(id~) => id
   }
@@ -85,6 +95,7 @@ pub fn PaintCommand::id(self : PaintCommand) -> UInt64 {
 pub fn PaintCommand::bounds(self : PaintCommand) -> @primitives.Rect? {
   match self {
     QuadCommand(bounds~, ..) | OpacityQuadCommand(bounds~, ..) => Some(bounds)
+    ImageCommand(bounds~, ..) => Some(bounds)
     PaintCommand(shape~, ..) => Some(shape.bounds())
     ClipPushCommand(bounds~, ..) => Some(bounds)
     ClipPopCommand(..) => None
@@ -95,7 +106,10 @@ pub fn PaintCommand::bounds(self : PaintCommand) -> @primitives.Rect? {
 pub fn PaintCommand::color(self : PaintCommand) -> @primitives.Color? {
   match self {
     QuadCommand(color~, ..) | OpacityQuadCommand(color~, ..) => Some(color)
-    PaintCommand(..) | ClipPushCommand(..) | ClipPopCommand(..) => None
+    ImageCommand(..)
+    | PaintCommand(..)
+    | ClipPushCommand(..)
+    | ClipPopCommand(..) => None
   }
 }
 
@@ -107,6 +121,7 @@ pub enum SceneError {
   ClipMismatch
   UnclosedClip
   InvalidPaint(PaintError)
+  InvalidImage(ImageError)
 } derive(Eq)
 
 ///|
@@ -194,6 +209,10 @@ pub fn Scene::command_at(self : Scene, index : Int32) -> PaintCommand? {
 /// nested strictly: each pop must match the most recent unmatched push, and a
 /// frame cannot finish with an open clip.
 pub fn Scene::validate(self : Scene) -> Result[Unit, SceneError] {
+  match validate_image_commands(self.commands) {
+    Err(e) => return Err(InvalidImage(e))
+    Ok(_) => ()
+  }
   let stack : Array[UInt64] = []
   let mut depth = 0
   let mut failure : SceneError? = None
@@ -225,7 +244,7 @@ pub fn Scene::validate(self : Scene) -> Result[Unit, SceneError] {
         if !snapshot_finite(opacity) || opacity < 0.0 || opacity > 1.0 {
           failure = Some(InvalidPaint(InvalidOpacity))
         }
-      QuadCommand(..) => ()
+      ImageCommand(..) | QuadCommand(..) => ()
     }
     index += 1
   }
@@ -274,6 +293,8 @@ fn canonical_color_json(color : @primitives.Color) -> String {
 ///|
 fn canonical_command_json(command : PaintCommand) -> String {
   match command {
+    ImageCommand(id~, resource~, frame_index~, bounds~, image_bounds~, opacity~) =>
+      "{\"kind\":\"image\",\"id\":\{id},\"resource\":\{image_resource_json(resource)},\"frame_index\":\{frame_index},\"bounds\":\{canonical_rect_json(bounds)},\"image_bounds\":\{canonical_rect_json(image_bounds)},\"opacity\":\{snapshot_double(opacity)}}"
     PaintCommand(id~, shape~, fill~, opacity~) =>
       "{\"kind\":\"paint\",\"id\":\{id},\"shape\":\{paint_shape_json(shape)},\"fill\":\{paint_fill_json(fill)},\"opacity\":\{snapshot_double(opacity)}}"
     OpacityQuadCommand(id~, bounds~, color~, opacity~) =>

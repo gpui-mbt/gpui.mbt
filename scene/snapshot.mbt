@@ -14,6 +14,7 @@ pub enum SnapshotError {
   DuplicateClipChain
   InvalidPaint(PaintError)
   UnsupportedPaint
+  InvalidImage(ImageError)
 } derive(Eq)
 
 ///|
@@ -88,14 +89,18 @@ pub fn AffineTransform::ty(self : AffineTransform) -> Double {
 
 ///|
 /// Logical resource-table entry. Quads and bounded host-font text need no
-/// resources; the table is reserved for resource-backed paint variants.
+/// resources; image entries carry immutable host-prepared resource metadata.
 pub struct SceneResource {
   id : UInt64
-}
+  priv image : ImageData?
+} derive(Eq)
+
+///|
+pub extend SceneResource with Eq::{not_equal, equal}
 
 ///|
 pub fn SceneResource::new(id : UInt64) -> SceneResource {
-  { id, }
+  { id, image: None, }
 }
 
 ///|
@@ -130,6 +135,16 @@ pub fn ClipChain::rects(self : ClipChain) -> Array[@primitives.Rect] {
 /// it does not promise portable shaping, wrapping, caret layout, or bidi layout.
 /// New paint variants extend this enum while preserving the v1 envelope.
 pub(all) enum SceneItem {
+  ImageItem(
+    id~ : UInt64,
+    resource_id~ : UInt64,
+    frame_index~ : Int32,
+    bounds~ : @primitives.Rect,
+    image_bounds~ : @primitives.Rect,
+    transform~ : AffineTransform,
+    opacity~ : Double,
+    clip_chain_id~ : Int32?
+  )
   PaintItem(
     id~ : UInt64,
     shape~ : PaintShape,
@@ -269,7 +284,8 @@ pub fn SceneItem::text_run(
 ///|
 pub fn SceneItem::id(self : SceneItem) -> UInt64 {
   match self {
-    PaintItem(id~, ..)
+    ImageItem(id~, ..)
+    | PaintItem(id~, ..)
     | QuadItem(id~, ..)
     | TextItem(id~, ..)
     | TextRunItem(id~, ..) => id
@@ -279,7 +295,8 @@ pub fn SceneItem::id(self : SceneItem) -> UInt64 {
 ///|
 pub fn SceneItem::clip_chain_id(self : SceneItem) -> Int32? {
   match self {
-    PaintItem(clip_chain_id~, ..)
+    ImageItem(clip_chain_id~, ..)
+    | PaintItem(clip_chain_id~, ..)
     | QuadItem(clip_chain_id~, ..)
     | TextItem(clip_chain_id~, ..)
     | TextRunItem(clip_chain_id~, ..) => clip_chain_id
@@ -311,6 +328,10 @@ pub fn SceneSnapshot::new(
   } else if snapshot_has_duplicate_clip_ids(clip_chains) {
     Err(DuplicateClipChain)
   } else {
+    match validate_image_resources(resources, items) {
+      Err(error) => return Err(InvalidImage(error))
+      Ok(_) => ()
+    }
     match snapshot_validate_items(items, clip_chains) {
       Err(error) => Err(error)
       Ok(_) =>
@@ -345,10 +366,16 @@ fn snapshot_validate_items(
           Err(e) => return Err(InvalidPaint(e))
           Ok(_) => ()
         }
+      ImageItem(bounds~, image_bounds~, opacity~, ..) =>
+        match validate_image_geometry(bounds, image_bounds, opacity) {
+          Err(e) => return Err(InvalidImage(e))
+          Ok(_) => ()
+        }
       QuadItem(..) => ()
     }
     match items[item_index] {
-      PaintItem(transform~, opacity~, clip_chain_id~, ..)
+      ImageItem(transform~, opacity~, clip_chain_id~, ..)
+      | PaintItem(transform~, opacity~, clip_chain_id~, ..)
       | QuadItem(transform~, opacity~, clip_chain_id~, ..)
       | TextItem(transform~, opacity~, clip_chain_id~, ..)
       | TextRunItem(transform~, opacity~, clip_chain_id~, ..) =>
@@ -451,7 +478,7 @@ pub fn SceneSnapshot::canonical_json(self : SceneSnapshot) -> String {
     if index > 0 {
       resources_json = resources_json + ","
     }
-    resources_json = resources_json + "{\"id\":\{self.resources[index].id()}}"
+    resources_json = resources_json + image_resource_json(self.resources[index])
     index += 1
   }
   let mut clips_json = ""
@@ -478,7 +505,7 @@ pub fn SceneSnapshot::canonical_json(self : SceneSnapshot) -> String {
 ///|
 /// Convert the currently supported command stream into the versioned R0
 /// envelope. Every painted quad receives a deterministic clip-chain entry for
-/// the active rectangle stack. The current command surface has no resources.
+/// the active rectangle stack. Image resources are collected in first-use order.
 pub fn Scene::snapshot_v1(
   self : Scene,
   viewport : @primitives.Rect,
@@ -493,11 +520,39 @@ pub fn Scene::snapshot_v1(
         let clip_stack : Array[@primitives.Rect] = []
         let clip_chains : Array[ClipChain] = []
         let items : Array[SceneItem] = []
+        let resources : Array[SceneResource] = []
         let mut index = 0
         while index < self.commands.length() {
           match self.commands[index] {
             ClipPushCommand(bounds~, ..) => clip_stack.push(bounds)
             ClipPopCommand(..) => ignore(clip_stack.pop())
+            ImageCommand(
+              id~,
+              resource~,
+              frame_index~,
+              bounds~,
+              image_bounds~,
+              opacity~
+            ) => {
+              let clip_chain_id = snapshot_clip_chain_id(
+                clip_chains, clip_stack,
+              )
+              if !image_resource_present(resource.id(), resources) {
+                resources.push(resource)
+              }
+              items.push(
+                ImageItem(
+                  id~,
+                  resource_id=resource.id(),
+                  frame_index~,
+                  bounds~,
+                  image_bounds~,
+                  transform=AffineTransform::identity(),
+                  opacity~,
+                  clip_chain_id~,
+                ),
+              )
+            }
             PaintCommand(id~, shape~, fill~, opacity~) => {
               let clip_chain_id = snapshot_clip_chain_id(
                 clip_chains, clip_stack,
@@ -553,7 +608,7 @@ pub fn Scene::snapshot_v1(
           schema_version: SCENE_SNAPSHOT_SCHEMA_VERSION,
           viewport,
           scale,
-          resources: [],
+          resources,
           clip_chains,
           items,
         })
@@ -652,6 +707,22 @@ fn snapshot_clip_chain_json(chain : ClipChain) -> String {
 ///|
 fn snapshot_item_json(item : SceneItem) -> String {
   match item {
+    ImageItem(
+      id~,
+      resource_id~,
+      frame_index~,
+      bounds~,
+      image_bounds~,
+      transform~,
+      opacity~,
+      clip_chain_id~
+    ) => {
+      let clip_json = match clip_chain_id {
+        None => "null"
+        Some(value) => "\{value}"
+      }
+      "{\"kind\":\"image\",\"id\":\{id},\"resource_id\":\{resource_id},\"frame_index\":\{frame_index},\"bounds\":\{snapshot_rect_json(bounds)},\"image_bounds\":\{snapshot_rect_json(image_bounds)},\"transform\":\{snapshot_transform_json(transform)},\"opacity\":\{snapshot_double(opacity)},\"clip_chain_id\":\{clip_json}}"
+    }
     PaintItem(id~, shape~, fill~, transform~, opacity~, clip_chain_id~) => {
       let clip_json = match clip_chain_id {
         None => "null"
@@ -820,7 +891,7 @@ pub fn SceneSnapshot::legacy_v1_subset(
   self : SceneSnapshot,
 ) -> Result[SceneSnapshot, SnapshotError] {
   for item in self.items {
-    if item is PaintItem(..) {
+    if item is PaintItem(..) || item is ImageItem(..) {
       return Err(UnsupportedPaint)
     }
   }
