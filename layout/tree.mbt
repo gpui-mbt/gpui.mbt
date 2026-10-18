@@ -264,6 +264,7 @@ pub struct FlexTreeLayout {
   root_bounds : @primitives.Rect
   items : Array[TreeLayoutBox]
   overflow : Bool
+  priv before_edge_snap : Array[(UInt64, @primitives.Rect)]
 }
 
 ///|
@@ -279,6 +280,30 @@ pub fn FlexTreeLayout::root_bounds(self : FlexTreeLayout) -> @primitives.Rect {
 ///|
 pub fn FlexTreeLayout::items(self : FlexTreeLayout) -> Array[TreeLayoutBox] {
   copy_tree_boxes(self.items)
+}
+
+///|
+/// Solved absolute bounds after metric quantization but before final edge
+/// snapping. Missing identities return None. Public root_bounds/items remain
+/// snapped; only rectangles changed by edge snapping need retained storage.
+pub fn FlexTreeLayout::bounds_before_edge_snap(
+  self : FlexTreeLayout,
+  id : UInt64,
+) -> @primitives.Rect? {
+  for (candidate, bounds) in self.before_edge_snap {
+    if candidate == id {
+      return Some(bounds)
+    }
+  }
+  if self.root_id == id {
+    return Some(self.root_bounds)
+  }
+  for item in self.items {
+    if item.id == id {
+      return Some(item.bounds)
+    }
+  }
+  None
 }
 
 ///|
@@ -317,6 +342,7 @@ pub fn layout_flex_tree(
                 root_bounds,
                 items: output,
                 overflow: overflow.val,
+                before_edge_snap: [],
               })
           }
         }
@@ -390,12 +416,19 @@ pub fn layout_flex_tree_with_device_scale(
                   Ok(bounds) => bounds
                   Err(error) => return Err(Flex(error))
                 }
+                let before_edge_snap : Array[(UInt64, @primitives.Rect)] = []
+                if root_bounds != layout.root_bounds {
+                  before_edge_snap.push((layout.root_id, layout.root_bounds))
+                }
                 let items : Array[TreeLayoutBox] = []
                 for item in layout.items {
                   let bounds = match
                     snap_absolute_rect_to_device_grid(item.bounds, scale_factor) {
                     Ok(bounds) => bounds
                     Err(error) => return Err(Flex(error))
+                  }
+                  if bounds != item.bounds {
+                    before_edge_snap.push((item.id, item.bounds))
                   }
                   items.push({ id: item.id, bounds, overflow: item.overflow, })
                 }
@@ -404,6 +437,7 @@ pub fn layout_flex_tree_with_device_scale(
                   root_bounds,
                   items,
                   overflow: layout.overflow,
+                  before_edge_snap,
                 })
               }
             }

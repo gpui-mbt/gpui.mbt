@@ -9,7 +9,7 @@ fn margin_translation(
   scale~ : Double? = None,
 ) -> Result[@primitives.Point, ElementError] {
   anchored_translation(
-    { after: 3, anchor: TopLeft, mode, position, margin, },
+    { after: 3, measured_leaf: false, anchor: TopLeft, mode, position, margin, },
     origin,
     size,
     viewport,

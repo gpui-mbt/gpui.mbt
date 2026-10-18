@@ -123,7 +123,9 @@ pub struct FlexTreeLayout {
   root_bounds : @primitives.Rect
   items : Array[TreeLayoutBox]
   overflow : Bool
+  // private fields
 }
+pub fn FlexTreeLayout::bounds_before_edge_snap(Self, UInt64) -> @primitives.Rect?
 pub fn FlexTreeLayout::items(Self) -> Array[TreeLayoutBox]
 pub fn FlexTreeLayout::overflow(Self) -> Bool
 pub fn FlexTreeLayout::root_bounds(Self) -> @primitives.Rect

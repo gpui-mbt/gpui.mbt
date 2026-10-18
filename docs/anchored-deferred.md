@@ -286,3 +286,78 @@ ordinary-deferred, deeper nesting, or full upstream popover parity.
 These source regressions do not replace independently reviewed final source,
 source-bound actual paired candidate execution, or executed wrong-behavior
 controls. The external original conformance corpora are unchanged.
+## Opt-in measured-leaf attachment owners
+
+`Element::anchored_after_measured_leaf` is additive to `anchored_after` and
+uses the same ID, reference ID, popup, anchor, coordinate mode, position, and
+optional margin arguments. It supports one intrinsically measured leaf inside
+a padded/bordered owner. The existing constructor keeps its zero-inset,
+fixed-reference acceptance boundary.
+
+The owner must be a start-aligned, start-justified, nonwrapping column with
+zero gaps. Padding and border must be finite and nonnegative. The owner may
+be auto-sized or fixed-sized; percentage owner dimensions are excluded. Its
+first child must be an Auto/Auto leaf with zero grow/shrink, default minimum
+and maximum limits, and no child container or contextual layout behavior.
+All following children must be measured-leaf attachments referencing that
+same first child. Mixing constructor modes on one owner is rejected.
+
+The production request-layout phase lays out the ordinary tree, reads that
+reference leaf's actual requested bounds, and uses its left/bottom as the
+static attachment origin. It does not add authored decoration to an owner
+coordinate, use the owner's outer bottom, or accept a final reference box from
+the host. Existing recursive layout derives auto-owner sizes from the measured
+leaf and decoration, and separately measures the popup subtree. The existing
+prepaint path retains window fitting, nested cumulative offsets, device
+snapping, viewport masks and deferred ordering. Wrapper input/focus rejection,
+popup restrictions, and the two-attachment-level limit are unchanged.
+
+Core `Element` has no semantic text tag or shaping engine. An application can
+represent text using an intrinsic-size leaf, but supplying those metrics is a
+separate responsibility. Rebuild/request layout when metric inputs, scale or
+viewport change. This API neither shapes fonts nor provides general Block
+static-position layout.
+
+### Evidence and validation boundary
+
+The source-bound Rust diagnostic at conformance PR71 head
+`e60bbe60c8c6946e46a61483a90043be8bfb7ae6`, upstream
+`5a5fbe79917971a4d52a96b6ddb04da198a5012e`, observed the static cursor at the
+text child's bottom-left for two tested single-text-child Block owners. It
+distinguished that cursor from the decorated owner's outer bottom. The
+[original execution](https://github.com/gpui-mbt/gpui-conformance/actions/runs/39083515918)
+used upstream NoopTextSystem synthetic metrics. It is not real-font evidence.
+
+The added tests use independent synthetic intrinsic inputs and the genuine
+core request-layout/prepaint/paint functions. Their expected attachment
+positions come from live reference geometry, not copied Rust oracle boxes.
+They exercise decoration, auto sizing, metric changes, fractional scales,
+nested fitting, restoration and explicit rejection boundaries. They do not
+establish a paired 42-attachment Rust comparison. Existing core fitting uses
+Double, while the pinned Rust arithmetic uses f32; that distinction remains
+unchanged. Fractional text line heights and all paired numerical discrepancies
+must be reported honestly in a subsequent adapter comparison. No system-font,
+screenshot or unchanged-full-example BrowserLab parity is claimed here.
+
+### Preserving measured attachment layout phase
+
+Measured-leaf attachments carry the reference's solved absolute left/bottom into
+popup measurement before final edge snapping. Authored lengths and intrinsic
+metrics have already undergone the existing device-scale quantization. This
+preserves cumulative centering offsets across separately measured popup trees;
+it does not reconstruct an offset from a snapped rectangle. The legacy
+`anchored_after` mode keeps its existing origin behavior.
+
+`FlexTreeLayout::bounds_before_edge_snap(id)` exposes that solved rectangle for
+layout composition and diagnostics. Ordinary `root_bounds()`/`items()`, prepaint,
+hit geometry and paint retain their existing snapped bounds. An unknown ID
+returns `None`. The layout retains only rectangles which differ from their
+published bounds, falling back to the published rectangle when they are equal.
+This adds an array header per layout and O(k) ID/rectangle storage and lookup for
+k changed rectangles, with O(n) worst-case storage and lookup including ordinary
+identity search. No performance improvement is claimed.
+
+Upstream raw-phase behavior is currently supported by source analysis and paired
+final outputs; upstream intermediate raw origins have not yet been instrumented.
+This change does not establish real-font parity or alter the Double metric
+quantization contract.
