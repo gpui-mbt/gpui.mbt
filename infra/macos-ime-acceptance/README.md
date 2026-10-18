@@ -77,3 +77,44 @@ Compare `route_begin`, `route_result.handled`, `fallback_invoked`, `callback_mar
 The summary reports each gate as `PASS`, `FAIL`, or `UNRUN`. It is only fully green if the strict independent artifact validator agrees, the source tree before and after is unchanged, diagnostic trace integrity holds, all required screenshots/pixel-ROI differences are present, and the app exited normally. Current automated CI can check **source/contracts/build only**; macOS Kotoeri / native pixels / cleanup remain **UNRUN** until measured on a logged-in Apple Silicon desktop.
 
 Historical evidence: [#45 result](https://github.com/gpui-mbt/gpui.mbt/blob/ba9648dfb11408289cd1c945df7c377a7878a65e/infra/macos-desktop/evidence/pr40-e2e-20261007/RESULT.md), [Return diagnostics](https://github.com/gpui-mbt/gpui.mbt/blob/ba9648dfb11408289cd1c945df7c377a7878a65e/infra/macos-desktop/evidence/pr40-e2e-20261007/return-diagnostics.json).
+
+## 5. Consolidation of #106 and #107 (2026-10-18)
+
+**Canonical implementation: Draft #107. Draft #106 is superseded.** There is
+one collector, host adapter and native instrumentation include, under
+`infra/macos-ime-acceptance` and `tests/native/macos_ime_trace.inc`. No second
+`infra/macos-desktop` collector is added. The #89 base and immutable #45 FAIL
+archive remain unchanged. Live qualification is **UNRUN**.
+
+| Area | #106 at `467303c` | #107 at `8d1868d` | Consolidated #107 |
+| --- | --- | --- | --- |
+| Collector | Strict historical PNG/ROI/source/binary validator | Same strict evidence, monotonic line receipt timeline | Keep #107 collector and independent artifact revalidation |
+| Host | Current identity, macOS 26 minimum | Current identity, Apple Silicon/macOS 14+ | Keep measured #107 OS/Xcode/SDK/clang profile |
+| Native trace | Inline opt-in diagnostic probes | Separate test-only bounded trace include; reserved Return/ACK slots | One bounded include; add callback enqueue kind, key entry, frame hash/revision, session close and restoration result/fallback probes |
+| Offline diagnostics | Independent gate report | Legacy #45 log interpretation, Return timeout and latency, callback order | Keep #107 diagnostics and import independent gate-report capability |
+| Evidence judgment | Return/commit/ACK/blur/restore/cleanup/pixel gates, weak cross-event matching | Strict artifact validator; runtime chronology check | Bind Return 9 and Escape 11 to window/host/session, callback, batch delivery and matching revision ACK; re-read raw trace during retained validation |
+| Negative tests | 10 trace/receipt tests | 18 contract tests including historical 200-iteration failure | Both capabilities covered; add foreign ACK/session, suppressed callback, stale frame hash, missing trace and diagnostic-only rejection |
+| CI | Dedicated Python checks and test-hook app build | General contracts and macOS build | Dedicated workflow runs focused tests and `script/test_macos.sh --text-field`; existing general CI retained |
+
+The dedicated workflow `.github/workflows/macos-ime-contracts.yml` executes
+portable contracts and builds/tests the exact native TextField test-hook path.
+It explicitly reports live Kotoeri/pixels/cleanup **UNRUN**. A hosted build
+success does not change Draft status or establish IME support.
+
+`acceptance/gates.json` retains independent `appkit_return_route`,
+`return_commit`, `revision_ack`, `escape_cancel`, `final_blur_frame`,
+`input_source_restoration`, `normal_cleanup`, `window_pixel_frames`, and
+`trace_integrity` results. `summary.json` includes those results, while
+`validate_summary` re-reads the raw trace and retained pixels rather than trusting
+cached gate statuses. An abort restoration witness cannot pass normal cleanup;
+truncated/missing native evidence cannot qualify acceptance. Diagnostic preview
+runs label successful native witnesses `DIAGNOSTIC_ONLY` and never qualify.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_macos_ime*.py' -v
+python3 infra/macos-ime-acceptance/trace_contract.py --summary /path/to/acceptance/summary.json
+```
+
+The offline trace command evaluates native witnesses and capture metadata;
+full acceptance additionally requires `validate_summary` to revalidate the
+current source/host/binary and actual retained ScreenCaptureKit PNG bytes/ROI.

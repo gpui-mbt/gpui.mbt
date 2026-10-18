@@ -179,7 +179,7 @@ class DiagnosticEvidenceTests(unittest.TestCase):
             ("batch_enqueued", -1, None),
             ("batch_delivered", -1, None),
             ("batch_acknowledged", -1, None),
-            ("source_restored", -1, None),
+            ("source_restore_result", -1, True),
         ]
         lines = [
             "GPUI_MACOS_IME_TRACE " + json.dumps(

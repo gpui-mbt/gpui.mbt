@@ -174,8 +174,9 @@ def analyze_log(path):
         "app_reported_commit_callbacks": None if not final else final.get("commit_callbacks"),
         "app_reported_cancel_callbacks": None if not final else final.get("cancel_callbacks"),
         "source_restored_observed": bool(
-            any(r["data"].get("phase") == "source_restored" for r in native) or
-            final is not None or (abort and abort.get("restored") is True)
+            any(r["data"].get("phase") == "source_restore_result" and
+                r["data"].get("handled") is True for r in native) or
+            (abort and abort.get("restored") is True and abort.get("session_closed") is True)
         ),
         "abort_receipt": abort,
         "failure_messages": failures,

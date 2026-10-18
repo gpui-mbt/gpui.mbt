@@ -14,7 +14,10 @@ fi
 RUN_DIR="$(python3 - "$1" "$ROOT_DIR" <<'PY'
 from pathlib import Path
 import sys
-directory = Path(sys.argv[1]).expanduser().absolute()
+directory = Path(sys.argv[1]).expanduser()
+if not directory.is_absolute():
+    raise SystemExit("evidence directory must be absolute")
+directory = directory.resolve(strict=False)
 root = Path(sys.argv[2]).resolve(strict=True)
 if not directory.is_absolute() or directory == Path("/") or root == directory or root in directory.parents:
     raise SystemExit("evidence directory must be external to the repository")

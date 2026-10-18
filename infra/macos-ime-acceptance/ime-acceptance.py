@@ -781,6 +781,7 @@ def validate_summary(path, repo=REPO, expected_source=None):
     directory = path.parent
     report = strict_json(path.read_text())
     if type(report) is not dict or type(report.get("schema_version")) is not int or report.get("schema_version") != 1 or \
+       report.get("diagnostic_immediate_preview") is True or \
        report.get("ok") is not True or report.get("status") != "passed" or \
        type(report.get("app_exit_code")) is not int or report.get("app_exit_code") != 0:
         raise AcceptanceError("retained IME report does not declare a completed pass")
@@ -964,6 +965,8 @@ def validate_summary(path, repo=REPO, expected_source=None):
         raise AcceptanceError("pixel deltas do not match retained ScreenCaptureKit frame bytes/ROI")
     for phase, difference in actual_roi_differences.items():
         require_text_change(difference, phase)
+    from trace_contract import require_native_trace
+    require_native_trace(directory / "app.stdout.log", report)
     return report
 
 
@@ -1115,7 +1118,7 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90,
     (output / "window-capture-build.log").write_text(compile_result.stdout)
     if compile_result.returncode != 0:
         raise AcceptanceError("could not build the ScreenCaptureKit own-window capture helper")
-    env.update({"GPUI_FIELD_MACOS_IME": "1", "GPUI_FIELD_MACOS_E2E_STATE": "1",
+    env.update({"GPUI_FIELD_MACOS_IME_DISPATCH_TRACE": "1", "GPUI_FIELD_MACOS_IME": "1", "GPUI_FIELD_MACOS_E2E_STATE": "1",
                 "GPUI_FIELD_MACOS_SOURCE_REVISION": before["commit"],
                 "GPUI_FIELD_MACOS_SOURCE_TREE": before["tree"],
                 "GPUI_FIELD_MACOS_BINARY_SHA256": binary_sha,
@@ -1334,6 +1337,15 @@ def execute(profile_root, app_bundle, output, repo=REPO, timeout=90,
             report["gates"]["return_commit"] = "FAIL"
         if report["gates"]["normal_cleanup"] == "UNRUN" and process.poll() not in (None, 0):
             report["gates"]["normal_cleanup"] = "FAIL"
+        from trace_contract import summarize
+        native_gates = summarize(report, output / "app.stdout.log")
+        report["native_gates"] = native_gates
+        report["gates"].update({name: gate["status"] for name, gate in native_gates["gates"].items()})
+        (output / "gates.json").write_text(json.dumps(native_gates, indent=2) + "\n")
+        if native_gates["qualification"] != "PASS" and report.get("ok") is True:
+            report["ok"] = False
+            report["status"] = "failed"
+            report["error"] = "independent native trace gates did not pass"
         (output / "summary.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
     if report.get("ok") is True:
         # A native acceptance is not green with corrupted diagnostic chronology.

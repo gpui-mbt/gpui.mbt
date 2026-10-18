@@ -25,7 +25,12 @@ static void gpui_test_ime_trace(GPWindow *w, NSString *phase, int key_code,
                   [phase isEqualToString:@"batch_delivered"] ||
                   [phase isEqualToString:@"batch_acknowledged"] ||
                   [phase isEqualToString:@"source_restored"] ||
-                  [phase isEqualToString:@"session_fence"];
+                  [phase isEqualToString:@"session_fence"] ||
+                  [phase hasPrefix:@"callback_enqueued_"] ||
+                  [phase hasPrefix:@"source_restore"] ||
+                  [phase isEqualToString:@"session_closed"] ||
+                  [phase isEqualToString:@"session_failed"] ||
+                  [phase isEqualToString:@"frame_presented"] || key_code == 53;
   if (!critical && gpui_test_ime_trace_ordinary_count >= GPUI_TEST_IME_TRACE_ORDINARY_BUDGET) {
     if (!gpui_test_ime_trace_ordinary_truncated &&
         gpui_test_ime_trace_count < GPUI_TEST_IME_TRACE_MAX - 1) {
@@ -62,6 +67,11 @@ static void gpui_test_ime_trace(GPWindow *w, NSString *phase, int key_code,
     @"owner_revision": @(w.ownerRevision), @"callback_count": @(w.textCallbacks.count),
     @"deferred_text_error": @(w.deferredTextError), @"fallback_invoked": @(fallback),
     @"handled": handled ?: (id)NSNull.null,
+    @"suppress_callbacks": @(view.suppressTextCallbacks),
+    @"main_thread": @([NSThread isMainThread]),
+    @"frame_revision": @(w.completedFrameRevision),
+    @"frame_sha256": w.completedFrameSHA256 ?: @"",
+    @"last_presented_owner_revision": @(w.lastPresentedOwnerRevision),
   } mutableCopy];
   NSData *json = [NSJSONSerialization dataWithJSONObject:row options:NSJSONWritingSortedKeys error:nil];
   if (!json) return;

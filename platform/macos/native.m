@@ -195,6 +195,7 @@ static void discard_marked_input_state(GPWindow *w) {
   view.suppressTextCallbacks = NO;
 }
 static void fail_text_session(GPWindow *w, int error) {
+  GPUI_IME_TRACE(w, @"session_failed", -1, @(error), NO);
   w.deferredTextError = error ? error : 17;
   w.sessionActive = NO;
   w.sessionAwaitingAck = NO;
@@ -237,6 +238,7 @@ static BOOL append_text_callback(GPWindow *w, NSDictionary *callback) {
     return NO;
   }
   [w.textCallbacks addObject:[callback copy]];
+  GPUI_IME_TRACE(w, [@"callback_enqueued_" stringByAppendingString:callback[@"kind"] ?: @"unknown"], -1, nil, NO);
   return YES;
 }
 static void flush_text_batch(GPWindow *w) {
@@ -706,6 +708,7 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
   int64_t dispatch_id = take_testing_key_dispatch(self.owner, e, @"down");
   if (dispatch_id < 0) return;
 #endif
+  GPUI_IME_TRACE(self.owner, @"key_down_entry", e.keyCode, nil, NO);
   [self dispatchKeyDown:e];
   GPUI_IME_TRACE(self.owner, @"key_down_done", e.keyCode, nil, NO);
 #ifdef GPUI_TESTING
@@ -719,6 +722,7 @@ static void complete_testing_key_dispatch(GPWindow *w, int64_t dispatch_id, NSSt
   int64_t dispatch_id = take_testing_key_dispatch(owner, e, @"up");
   if (dispatch_id < 0) return;
 #endif
+  GPUI_IME_TRACE(owner, @"key_up_entry", e.keyCode, nil, NO);
   resize_surface(owner);
   if (owner.sessionActive) {
     NSNumber *key_code = @(e.keyCode);
@@ -1092,6 +1096,10 @@ static void destroy(GPWindow *w) {
   // context even when app-side cleanup unwinds through window destruction.
   if (w.testingInputSourceSaved) {
     view.inputContext.selectedKeyboardInputSource = w.testingOriginalInputSource;
+    BOOL restored = w.testingOriginalInputSource ?
+      [view.inputContext.selectedKeyboardInputSource isEqualToString:w.testingOriginalInputSource] :
+      view.inputContext.selectedKeyboardInputSource == nil;
+    GPUI_IME_TRACE(w, @"source_restore_fallback", -1, @(restored), NO);
     w.testingInputSourceSaved = NO;
     w.testingOriginalInputSource = nil;
   }
@@ -1442,6 +1450,7 @@ static int present(GPWindow *w, const uint8_t *bytes, int32_t len) {
   for (NSUInteger i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) [hex appendFormat:@"%02x", digest[i]];
   w.completedFrameSHA256 = [hex copy];
   w.completedFrameRevision++;
+  GPUI_IME_TRACE(w, @"frame_presented", -1, nil, NO);
 #endif
   return 0;
 }
@@ -1542,6 +1551,7 @@ static int end_text_session(GPWindow *w, double epoch_value) {
   if (!isfinite(epoch_value) || epoch_value <= 0 || epoch_value > INT_MAX || floor(epoch_value) != epoch_value ||
       (int)epoch_value != w.sessionEpoch || !w.sessionActive) return 10;
   fence_session(w, YES, 0);
+  GPUI_IME_TRACE(w, @"session_closed", -1, nil, NO);
   return 0;
 }
 static int set_direct_text(GPWindow *w, BOOL enabled) {
@@ -1897,6 +1907,7 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
         view.inputContext.selectedKeyboardInputSource = source;
         BOOL restored = source ? [view.inputContext.selectedKeyboardInputSource isEqualToString:source] :
           view.inputContext.selectedKeyboardInputSource == nil;
+        GPUI_IME_TRACE(w, @"source_restore_result", -1, @(restored), NO);
         if (!restored) return 9;
         GPUI_IME_TRACE(w, @"source_restored", -1, nil, NO);
         w.testingOriginalInputSource = nil;
