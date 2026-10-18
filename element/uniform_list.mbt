@@ -573,4 +573,3 @@ fn expand_uniform_rows(
   }
   Ok(expanded)
 }
-

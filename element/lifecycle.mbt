@@ -625,4 +625,3 @@ fn copy_elements(elements : Array[Element]) -> Array[Element] {
   }
   owned
 }
-

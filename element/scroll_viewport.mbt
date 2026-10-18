@@ -411,4 +411,3 @@ fn rounded_scroll_limit(value : Double) -> Double {
     (value * 100.0 + 0.5).floor() / 100.0
   }
 }
-

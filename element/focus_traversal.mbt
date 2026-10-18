@@ -454,4 +454,3 @@ fn ElementTree::traverse_focus_within(
     }
   }
 }
-

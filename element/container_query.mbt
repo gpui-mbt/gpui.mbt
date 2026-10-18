@@ -559,4 +559,3 @@ pub fn Element::with_query_root_size(
     query_root_size: Some(size),
   }
 }
-

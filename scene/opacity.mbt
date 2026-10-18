@@ -17,15 +17,17 @@ pub fn PaintCommand::with_opacity(
   if opacity == 1.0 {
     return Ok(self)
   }
-  Ok(match self {
-    QuadCommand(id~, bounds~, color~) =>
-      OpacityQuadCommand(id~, bounds~, color~, opacity~)
-    OpacityQuadCommand(id~, bounds~, color~, opacity=local) =>
-      OpacityQuadCommand(id~, bounds~, color~, opacity=local * opacity)
-    PaintCommand(id~, shape~, fill~, opacity=local) =>
-      PaintCommand(id~, shape~, fill~, opacity=local * opacity)
-    ClipPushCommand(..) | ClipPopCommand(..) => self
-  })
+  Ok(
+    match self {
+      QuadCommand(id~, bounds~, color~) =>
+        OpacityQuadCommand(id~, bounds~, color~, opacity~)
+      OpacityQuadCommand(id~, bounds~, color~, opacity=factor) =>
+        OpacityQuadCommand(id~, bounds~, color~, opacity=factor * opacity)
+      PaintCommand(id~, shape~, fill~, opacity=factor) =>
+        PaintCommand(id~, shape~, fill~, opacity=factor * opacity)
+      ClipPushCommand(..) | ClipPopCommand(..) => self
+    },
+  )
 }
 
 ///|

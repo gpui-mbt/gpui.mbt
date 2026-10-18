@@ -972,7 +972,8 @@ fn ElementTree::paint_bound_commands(
         Some(color) =>
           commands.push(
             @scene.PaintCommand::quad(node.id, node.bounds, color)
-            .with_opacity(opacity).unwrap(),
+            .with_opacity(opacity)
+            .unwrap(),
           )
       }
     }
@@ -1014,4 +1015,3 @@ fn copy_ids(ids : Array[UInt64]) -> Array[UInt64] {
   }
   owned
 }
-
