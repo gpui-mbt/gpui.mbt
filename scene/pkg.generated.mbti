@@ -77,7 +77,7 @@ pub fn ImageData::not_equal(Self, Self) -> Bool
 pub fn ImageData::pixel_height(Self) -> Int
 pub fn ImageData::pixel_width(Self) -> Int
 
-pub enum ImageError {
+pub(all) enum ImageError {
   InvalidIdentity
   InvalidDimensions
   InvalidFrame

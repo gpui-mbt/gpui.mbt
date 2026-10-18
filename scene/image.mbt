@@ -13,7 +13,7 @@ pub struct ImageData {
 pub extend ImageData with Eq::{not_equal, equal}
 
 ///|
-pub enum ImageError {
+pub(all) enum ImageError {
   InvalidIdentity
   InvalidDimensions
   InvalidFrame
