@@ -26,6 +26,7 @@ pub enum ElementError {
   InvalidOpacity
   DuplicatePaintBinding
   PaintFailure(@scene.PaintError)
+  ImageFailure(@scene.ImageError)
 } derive(Eq)
 
 ///|

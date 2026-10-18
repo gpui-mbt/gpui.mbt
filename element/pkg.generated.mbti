@@ -215,9 +215,17 @@ pub enum ElementError {
   InvalidOpacity
   DuplicatePaintBinding
   PaintFailure(@scene.PaintError)
+  ImageFailure(@scene.ImageError)
 } derive(Eq)
 pub fn ElementError::equal(Self, Self) -> Bool
 pub fn ElementError::not_equal(Self, Self) -> Bool
+
+pub struct ElementImageBinding {
+  id : UInt64
+  // private fields
+}
+pub fn ElementImageBinding::id(Self) -> UInt64
+pub fn ElementImageBinding::new(UInt64, @scene.SceneResource, Int, @scene.ImageFit, Double) -> Result[Self, @scene.ImageError]
 
 pub struct ElementNode {
   id : UInt64
@@ -282,6 +290,7 @@ pub fn ElementTree::restore_focus(Self, FocusOwner?, FocusOwner) -> Self
 pub fn ElementTree::scroll_viewport(Self, UInt64) -> ScrollViewport?
 pub fn ElementTree::scroll_wheel(Self, @primitives.Point, Double, Double) -> Result[Array[ScrollViewport], ScrollError]
 pub fn ElementTree::to_scene(Self) -> @scene.Scene
+pub fn ElementTree::to_scene_with_images(Self, Array[ElementImageBinding]) -> Result[@scene.Scene, ElementError]
 pub fn ElementTree::to_scene_with_paints(Self, Array[ElementPaintBinding]) -> Result[@scene.Scene, ElementError]
 pub fn ElementTree::uniform_list(Self, UInt64) -> UniformListLayout?
 pub fn ElementTree::with_focus(Self, UInt64) -> Result[Self, ElementError]
@@ -412,6 +421,7 @@ pub struct Prepainted {
 pub fn Prepainted::overflow(Self) -> Bool
 pub fn Prepainted::paint(Self) -> @scene.Scene
 pub fn Prepainted::paint_snapshot(Self, Double) -> Result[@scene.SceneSnapshot, @scene.SceneError]
+pub fn Prepainted::paint_with_images(Self, Array[ElementImageBinding]) -> Result[@scene.Scene, ElementError]
 pub fn Prepainted::paint_with_paints(Self, Array[ElementPaintBinding]) -> Result[@scene.Scene, ElementError]
 pub fn Prepainted::tree(Self) -> ElementTree
 pub fn Prepainted::viewport(Self) -> @primitives.Size

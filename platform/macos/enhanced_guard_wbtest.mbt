@@ -107,3 +107,73 @@ test "enhanced paint fails before native staging including mixed and oversized t
     }
   }
 }
+
+///|
+test "image paint fails atomically before native staging and host checks" {
+  let viewport = @primitives.Rect::new(0.0, 0.0, 100.0, 80.0).unwrap()
+  let outside = @primitives.Rect::new(200.0, 200.0, 1.0, 1.0).unwrap()
+  let color = @primitives.Color::rgba(12, 34, 56, 255).unwrap()
+  let identity = @scene.AffineTransform::identity()
+  let metadata = @scene.ImageData::new(
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    2,
+    2,
+    2,
+  ).unwrap()
+  let resource = @scene.SceneResource::image(7, metadata)
+  let quad = @scene.SceneItem::quad(1, viewport, color, identity, 1.0, None).unwrap()
+  let text = @scene.SceneItem::text(
+    2,
+    viewport,
+    "Hi",
+    12.0,
+    color,
+    identity,
+    1.0,
+    None,
+  ).unwrap()
+  let images = [
+    @scene.SceneItem::image(
+      3, 7, 0, viewport, viewport, identity, 1.0, None,
+    ).unwrap(),
+    // Public construction and invisible images must never bypass the gate.
+    @scene.ImageItem(
+      id=3,
+      resource_id=7,
+      frame_index=1,
+      bounds=viewport,
+      image_bounds=viewport,
+      transform=identity,
+      opacity=0.0,
+      clip_chain_id=None,
+    ),
+    @scene.SceneItem::image(
+      3, 7, 0, viewport, viewport, identity, 1.0, Some(7),
+    ).unwrap(),
+  ]
+  let host : Host = { marker: -1, }
+  for image in images {
+    let overloaded : Array[@scene.SceneItem] = []
+    for i = 0; i < 1025; i = i + 1 {
+      overloaded.push(text)
+    }
+    overloaded.push(image)
+    for items in [[image], [quad, image], [text, image], [image, text], overloaded] {
+      let snapshot = @scene.SceneSnapshot::new(
+        viewport,
+        1.0,
+        [resource],
+        [@scene.ClipChain::new(7, [outside])],
+        items,
+      ).unwrap()
+      // The stopped host must not be checked before image capability rejection.
+      match host.present(@platform.WindowId::new(-1), snapshot) {
+        Ok(_) => fail("image paint reached legacy native presentation")
+        Err(error) => {
+          assert_eq(error.code().label(), @diagnostics.UnsupportedCapability.label())
+          assert_eq(error.operation(), "present")
+        }
+      }
+    }
+  }
+}

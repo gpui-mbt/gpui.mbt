@@ -62,6 +62,42 @@ pub(all) enum GradientColorSpace {
 pub fn GradientColorSpace::equal(Self, Self) -> Bool
 pub fn GradientColorSpace::not_equal(Self, Self) -> Bool
 
+pub struct ImageData {
+  content_identity : String
+  pixel_width : Int
+  pixel_height : Int
+  frame_count : Int
+} derive(Eq)
+pub fn ImageData::content_identity(Self) -> String
+pub fn ImageData::equal(Self, Self) -> Bool
+pub fn ImageData::fit_bounds(Self, @primitives.Rect, ImageFit) -> Result[@primitives.Rect, ImageError]
+pub fn ImageData::frame_count(Self) -> Int
+pub fn ImageData::new(String, Int, Int, Int) -> Result[Self, ImageError]
+pub fn ImageData::not_equal(Self, Self) -> Bool
+pub fn ImageData::pixel_height(Self) -> Int
+pub fn ImageData::pixel_width(Self) -> Int
+
+pub enum ImageError {
+  InvalidIdentity
+  InvalidDimensions
+  InvalidFrame
+  MissingResource
+  DuplicateResource
+  ConflictingResource
+  InvalidGeometry
+  InvalidOpacity
+} derive(Eq)
+pub fn ImageError::equal(Self, Self) -> Bool
+pub fn ImageError::not_equal(Self, Self) -> Bool
+
+pub(all) enum ImageFit {
+  Contain
+  Cover
+  Fill
+} derive(Eq)
+pub fn ImageFit::equal(Self, Self) -> Bool
+pub fn ImageFit::not_equal(Self, Self) -> Bool
+
 pub struct LinearGradient {
   angle : Double
   start : @primitives.FloatColor
@@ -85,6 +121,7 @@ pub fn LinearGradient::start_position(Self) -> Double
 pub fn LinearGradient::validate(Self) -> Result[Unit, PaintError]
 
 pub(all) enum PaintCommand {
+  ImageCommand(id~ : UInt64, resource~ : SceneResource, frame_index~ : Int, bounds~ : @primitives.Rect, image_bounds~ : @primitives.Rect, opacity~ : Double)
   QuadCommand(id~ : UInt64, bounds~ : @primitives.Rect, color~ : @primitives.Color)
   OpacityQuadCommand(id~ : UInt64, bounds~ : @primitives.Rect, color~ : @primitives.Color, opacity~ : Double)
   PaintCommand(id~ : UInt64, shape~ : PaintShape, fill~ : PaintFill, opacity~ : Double)
@@ -97,6 +134,7 @@ pub fn PaintCommand::clip_push(UInt64, @primitives.Rect) -> Self
 pub fn PaintCommand::color(Self) -> @primitives.Color?
 pub fn PaintCommand::equal(Self, Self) -> Bool
 pub fn PaintCommand::id(Self) -> UInt64
+pub fn PaintCommand::image(UInt64, SceneResource, Int, @primitives.Rect, @primitives.Rect, Double) -> Result[Self, ImageError]
 pub fn PaintCommand::kind(Self) -> PaintKind
 pub fn PaintCommand::not_equal(Self, Self) -> Bool
 pub fn PaintCommand::opacity(Self) -> Double
@@ -132,6 +170,7 @@ pub fn PaintFill::validate(Self) -> Result[Unit, PaintError]
 pub(all) enum PaintKind {
   Quad
   Paint
+  Image
   ClipPush
   ClipPop
 } derive(Eq)
@@ -211,11 +250,13 @@ pub enum SceneError {
   ClipMismatch
   UnclosedClip
   InvalidPaint(PaintError)
+  InvalidImage(ImageError)
 } derive(Eq)
 pub fn SceneError::equal(Self, Self) -> Bool
 pub fn SceneError::not_equal(Self, Self) -> Bool
 
 pub(all) enum SceneItem {
+  ImageItem(id~ : UInt64, resource_id~ : UInt64, frame_index~ : Int, bounds~ : @primitives.Rect, image_bounds~ : @primitives.Rect, transform~ : AffineTransform, opacity~ : Double, clip_chain_id~ : Int?)
   PaintItem(id~ : UInt64, shape~ : PaintShape, fill~ : PaintFill, transform~ : AffineTransform, opacity~ : Double, clip_chain_id~ : Int?)
   QuadItem(id~ : UInt64, bounds~ : @primitives.Rect, color~ : @primitives.Color, transform~ : AffineTransform, opacity~ : Double, clip_chain_id~ : Int?)
   TextItem(id~ : UInt64, bounds~ : @primitives.Rect, text~ : String, font_size~ : Double, color~ : @primitives.Color, transform~ : AffineTransform, opacity~ : Double, clip_chain_id~ : Int?)
@@ -223,6 +264,7 @@ pub(all) enum SceneItem {
 }
 pub fn SceneItem::clip_chain_id(Self) -> Int?
 pub fn SceneItem::id(Self) -> UInt64
+pub fn SceneItem::image(UInt64, UInt64, Int, @primitives.Rect, @primitives.Rect, AffineTransform, Double, Int?) -> Result[Self, SnapshotError]
 pub fn SceneItem::paint(UInt64, PaintShape, PaintFill, AffineTransform, Double, Int?) -> Result[Self, SnapshotError]
 pub fn SceneItem::quad(UInt64, @primitives.Rect, @primitives.Color, AffineTransform, Double, Int?) -> Result[Self, SnapshotError]
 pub fn SceneItem::text(UInt64, @primitives.Rect, String, Double, @primitives.Color, AffineTransform, Double, Int?) -> Result[Self, SnapshotError]
@@ -230,9 +272,14 @@ pub fn SceneItem::text_run(UInt64, @primitives.Rect, @primitives.Point, String, 
 
 pub struct SceneResource {
   id : UInt64
-}
+  // private fields
+} derive(Eq)
+pub fn SceneResource::equal(Self, Self) -> Bool
 pub fn SceneResource::id(Self) -> UInt64
+pub fn SceneResource::image(UInt64, ImageData) -> Self
+pub fn SceneResource::image_data(Self) -> ImageData?
 pub fn SceneResource::new(UInt64) -> Self
+pub fn SceneResource::not_equal(Self, Self) -> Bool
 
 pub struct SceneSnapshot {
   schema_version : Int
@@ -282,6 +329,7 @@ pub enum SnapshotError {
   DuplicateClipChain
   InvalidPaint(PaintError)
   UnsupportedPaint
+  InvalidImage(ImageError)
 } derive(Eq)
 pub fn SnapshotError::equal(Self, Self) -> Bool
 pub fn SnapshotError::not_equal(Self, Self) -> Bool

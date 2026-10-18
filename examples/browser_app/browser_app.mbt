@@ -878,7 +878,8 @@ fn scene_snapshot(
           let items : Array[@scene.SceneItem] = []
           for item in base.items() {
             match item {
-              @scene.PaintItem(..)
+              @scene.ImageItem(..)
+              | @scene.PaintItem(..)
               | @scene.TextItem(..)
               | @scene.TextRunItem(..) => return Err(SceneSnapshotFailed)
               @scene.QuadItem(id~, bounds~, color~, transform~, opacity~, ..) => {
