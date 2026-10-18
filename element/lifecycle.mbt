@@ -24,6 +24,7 @@ pub struct Element {
   children_style : @layout.FlexTreeStyle?
   children : Array[Element]
   background : @primitives.Color?
+  priv opacity : Double
   focusable : Bool
   tab_index : Int32
   tab_group_index : Int32?
@@ -53,6 +54,7 @@ pub fn Element::root(
     children_style: Some(children_style),
     children: [],
     background: None,
+    opacity: 1.0,
     focusable: false,
     tab_index: 0,
     tab_group_index: None,
@@ -79,6 +81,7 @@ pub fn Element::new(item : @layout.FlexItem) -> Element {
     children_style: None,
     children: [],
     background: None,
+    opacity: 1.0,
     focusable: false,
     tab_index: 0,
     tab_group_index: None,
@@ -108,6 +111,7 @@ pub fn Element::with_children_style(
     children_style: Some(style),
     children: copy_elements(self.children),
     background: self.background,
+    opacity: self.opacity,
     focusable: self.focusable,
     tab_index: self.tab_index,
     tab_group_index: self.tab_group_index,
@@ -136,6 +140,7 @@ pub fn Element::with_child(self : Element, child : Element) -> Element {
     children_style: self.children_style,
     children,
     background: self.background,
+    opacity: self.opacity,
     focusable: self.focusable,
     tab_index: self.tab_index,
     tab_group_index: self.tab_group_index,
@@ -164,6 +169,7 @@ pub fn Element::with_background(
     children_style: self.children_style,
     children: copy_elements(self.children),
     background: color,
+    opacity: self.opacity,
     focusable: self.focusable,
     tab_index: self.tab_index,
     tab_group_index: self.tab_group_index,
@@ -189,6 +195,7 @@ pub fn Element::with_focusable(self : Element, focusable : Bool) -> Element {
     children_style: self.children_style,
     children: copy_elements(self.children),
     background: self.background,
+    opacity: self.opacity,
     focusable,
     tab_index: self.tab_index,
     tab_group_index: self.tab_group_index,
@@ -214,6 +221,7 @@ pub fn Element::with_pointer_events(self : Element, enabled : Bool) -> Element {
     children_style: self.children_style,
     children: copy_elements(self.children),
     background: self.background,
+    opacity: self.opacity,
     focusable: self.focusable,
     tab_index: self.tab_index,
     tab_group_index: self.tab_group_index,
@@ -481,6 +489,7 @@ pub fn RequestedLayout::prepaint(
       None => failure = Some(GeometryFailure)
       Some(rect) => {
         let node = ElementNode::new(element.id, placement.parent, rect)
+          .with_local_opacity(element.opacity)
           .with_background(element.background)
           .with_focusable(element.focusable)
           .with_tab_index(element.tab_index)
@@ -616,3 +625,4 @@ fn copy_elements(elements : Array[Element]) -> Array[Element] {
   }
   owned
 }
+

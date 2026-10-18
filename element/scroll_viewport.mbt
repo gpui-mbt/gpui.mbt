@@ -47,6 +47,7 @@ pub fn Element::with_scroll_offset(
     children_style: self.children_style,
     children: copy_elements(self.children),
     background: self.background,
+    opacity: self.opacity,
     focusable: self.focusable,
     tab_index: self.tab_index,
     tab_group_index: self.tab_group_index,
@@ -278,6 +279,7 @@ fn resolve_scroll_nodes(
       tab_stop: original.tab_stop,
       pointer_events: original.pointer_events,
       background: original.background,
+      opacity: original.opacity,
       scroll_viewport: viewport,
       uniform_list: uniform,
       deferred: original.deferred,
@@ -409,3 +411,4 @@ fn rounded_scroll_limit(value : Double) -> Double {
     (value * 100.0 + 0.5).floor() / 100.0
   }
 }
+
