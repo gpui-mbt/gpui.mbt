@@ -229,3 +229,34 @@ test "measured wrapper and popup guards remain on the production path" {
     tree.node(2).unwrap().bounds == requested_bounds(request, 2).unwrap(),
   )
 }
+
+///|
+test "measured attachment carries actual raw reference into popup layout" {
+  for scale in [1.0, 1.25, 1.5, 2.0] {
+    let root = Element::root(
+      1,
+      @layout.FlexTreeStyle::new(@layout.FlowDirection::row())
+      .with_justify(@layout.JustifyContent::center())
+      .with_align(@layout.AlignItems::center()),
+    ).with_child(measured_test_owner())
+    let request = root.request_layout_with_device_scale(
+      @primitives.Size::new(641, 481).unwrap(), scale,
+    ).unwrap()
+    let reference = request.layout.bounds_before_edge_snap(3).unwrap()
+    let published = requested_bounds(request, 3).unwrap()
+    let measured = request.anchored_layout.unwrap().measured[0].1
+    let raw_root = measured.layout.bounds_before_edge_snap(20).unwrap()
+    assert_eq(raw_root.left(), reference.left())
+    assert_eq(raw_root.top(), reference.bottom())
+    assert_eq(measured.layout.root_bounds().left(), published.left())
+    assert_eq(measured.layout.root_bounds().top(), published.bottom())
+    if scale == 1 {
+      assert_true(reference.left() != published.left())
+      let popup_text = measured.layout.bounds_before_edge_snap(11).unwrap()
+      assert_eq(popup_text.left(), reference.left() + 8)
+    }
+    let tree = request.prepaint().unwrap().tree()
+    assert_true(tree.node(3).unwrap().bounds == published)
+    assert_true(tree.node(20).unwrap().bounds.origin() == measured.layout.root_bounds().origin())
+  }
+}

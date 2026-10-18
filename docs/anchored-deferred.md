@@ -338,3 +338,26 @@ Double, while the pinned Rust arithmetic uses f32; that distinction remains
 unchanged. Fractional text line heights and all paired numerical discrepancies
 must be reported honestly in a subsequent adapter comparison. No system-font,
 screenshot or unchanged-full-example BrowserLab parity is claimed here.
+
+### Preserving measured attachment layout phase
+
+Measured-leaf attachments carry the reference's solved absolute left/bottom into
+popup measurement before final edge snapping. Authored lengths and intrinsic
+metrics have already undergone the existing device-scale quantization. This
+preserves cumulative centering offsets across separately measured popup trees;
+it does not reconstruct an offset from a snapped rectangle. The legacy
+`anchored_after` mode keeps its existing origin behavior.
+
+`FlexTreeLayout::bounds_before_edge_snap(id)` exposes that solved rectangle for
+layout composition and diagnostics. Ordinary `root_bounds()`/`items()`, prepaint,
+hit geometry and paint retain their existing snapped bounds. An unknown ID
+returns `None`. The layout retains only rectangles which differ from their
+published bounds, falling back to the published rectangle when they are equal.
+This adds an array header per layout and O(k) ID/rectangle storage and lookup for
+k changed rectangles, with O(n) worst-case storage and lookup including ordinary
+identity search. No performance improvement is claimed.
+
+Upstream raw-phase behavior is currently supported by source analysis and paired
+final outputs; upstream intermediate raw origins have not yet been instrumented.
+This change does not establish real-font parity or alter the Double metric
+quantization contract.

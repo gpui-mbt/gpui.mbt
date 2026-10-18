@@ -154,6 +154,7 @@ pub fn layout_mixed_tree_at(
   }
   let mut final_root = root_bounds
   let final_items : Array[TreeLayoutBox] = []
+  let before_edge_snap : Array[(UInt64, @primitives.Rect)] = []
   match scale_factor {
     None =>
       for item in output {
@@ -164,11 +165,17 @@ pub fn layout_mixed_tree_at(
         Ok(bounds) => bounds
         Err(error) => return Err(Flex(error))
       }
+      if final_root != root_bounds {
+        before_edge_snap.push((root_id, root_bounds))
+      }
       for item in output {
         let bounds = match
           snap_absolute_rect_to_device_grid(item.bounds, scale) {
           Ok(bounds) => bounds
           Err(error) => return Err(Flex(error))
+        }
+        if bounds != item.bounds {
+          before_edge_snap.push((item.id, item.bounds))
         }
         final_items.push({ ..item, bounds, })
       }
@@ -179,6 +186,7 @@ pub fn layout_mixed_tree_at(
     root_bounds: final_root,
     items: final_items,
     overflow: overflow.val,
+    before_edge_snap,
   })
 }
 

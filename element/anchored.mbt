@@ -528,7 +528,14 @@ fn request_anchored_layout(
           Some(bounds) => bounds
           None => return Err(GeometryFailure)
         }
-        let reference = match requested_bounds(containing, spec.after) {
+        // The new mode carries the actual solved layout phase into popup
+        // measurement. Fitting and published bounds still use snapped edges.
+        let reference_bounds = if spec.measured_leaf {
+          containing.layout.bounds_before_edge_snap(spec.after)
+        } else {
+          requested_bounds(containing, spec.after)
+        }
+        let reference = match reference_bounds {
           Some(bounds) => bounds
           None => return Err(GeometryFailure)
         }

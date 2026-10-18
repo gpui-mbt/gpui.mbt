@@ -106,9 +106,9 @@ test "device-grid flex tree snaps authored wrap heights before layout" {
     Ok(value) => value
     Err(_) => fail("device-grid flex tree layout was rejected")
   }
-  assert_eq(raw.items()[1].bounds().top(), 10.75)
-  assert_eq(snapped.items()[1].bounds().top(), 10.5)
-  assert_eq(snapped.items()[1].bounds().size().height(), 10.5)
+  assert_true(raw.items()[1].bounds().top() == 10.75)
+  assert_true(snapped.items()[1].bounds().top() == 10.5)
+  assert_true(snapped.items()[1].bounds().size().height() == 10.5)
 }
 
 ///|
@@ -127,8 +127,8 @@ test "device-grid flex tree rounds negative and nested origins from absolute edg
     Ok(value) => value
     Err(_) => fail("negative device-grid layout was rejected")
   }
-  assert_eq(negative.items()[0].bounds().top(), -10.0)
-  assert_eq(negative.items()[0].bounds().size().height(), 40.0)
+  assert_true(negative.items()[0].bounds().top() == -10.0)
+  assert_true(negative.items()[0].bounds().size().height() == 40.0)
 
   let root_style = FlexTreeStyle::new(FlowDirection::row()).with_justify(
     JustifyContent::center(),
@@ -150,8 +150,8 @@ test "device-grid flex tree rounds negative and nested origins from absolute edg
     Ok(value) => value
     Err(_) => fail("nested device-grid layout was rejected")
   }
-  assert_eq(nested.items()[0].bounds().left(), 15.0)
-  assert_eq(nested.items()[1].bounds().left(), 25.5)
+  assert_true(nested.items()[0].bounds().left() == 15.0)
+  assert_true(nested.items()[1].bounds().left() == 25.5)
 }
 
 ///|
@@ -178,9 +178,9 @@ test "device-grid flex tree ceils measured sizes and preserves nonzero strokes" 
     Ok(value) => value
     Err(_) => fail("measured device-grid layout was rejected")
   }
-  assert_eq(result.items()[0].bounds().left(), 0.5)
-  assert_eq(result.items()[0].bounds().size().width(), 10.5)
-  assert_eq(result.items()[0].bounds().size().height(), 10.5)
+  assert_true(result.items()[0].bounds().left() == 0.5)
+  assert_true(result.items()[0].bounds().size().width() == 10.5)
+  assert_true(result.items()[0].bounds().size().height() == 10.5)
 }
 
 ///|
@@ -224,8 +224,8 @@ test "device-grid tree honors 1x and non-2x scales without changing raw layout" 
     Ok(value) => value
     Err(_) => fail("one-times device-grid layout was rejected")
   }
-  assert_eq(raw.items()[1].bounds().top(), 10.5)
-  assert_eq(one_x.items()[1].bounds().top(), 10.0)
+  assert_true(raw.items()[1].bounds().top() == 10.5)
+  assert_true(one_x.items()[1].bounds().top() == 10.0)
 
   let fractional_nodes = [
     device_grid_tree_item(2, 1, 40.0, 10.4, None),
@@ -239,6 +239,83 @@ test "device-grid tree honors 1x and non-2x scales without changing raw layout" 
     Ok(value) => value
     Err(_) => fail("one-and-a-half-times device-grid layout was rejected")
   }
-  assert_eq(one_and_half_x.items()[1].bounds().top(), 16.0 / 1.5)
-  assert_eq(one_and_half_x.items()[2].bounds().top(), 32.0 / 1.5)
+  assert_true(one_and_half_x.items()[1].bounds().top() == 16.0 / 1.5)
+  assert_true(one_and_half_x.items()[2].bounds().top() == 32.0 / 1.5)
+}
+
+///|
+test "pre-edge-snap bounds retain solved phase with sparse identity lookup" {
+  for scale in [1.0, 1.25, 1.5, 2.0] {
+    for phase in [-80.5, -0.5, 0.0, 0.5] {
+      let root = device_grid_rect(phase / scale, phase / scale, 100 / scale, 40 / scale)
+      let style = FlexTreeStyle::new(FlowDirection::row()).with_justify(
+        JustifyContent::center(),
+      )
+      let item = FlexItem::new(
+        2,
+        device_grid_points(21 / scale),
+        device_grid_points(10 / scale),
+        device_grid_size(0, 0),
+      ).with_flex(0, 0).unwrap()
+      let result = layout_mixed_tree_at(
+        1, root, FlexStyle(style),
+        [MixedTreeNode::new(FlexChild(item), 1, None)], Some(scale),
+      ).unwrap()
+      let raw = device_grid_rect((phase + 39.5) / scale, phase / scale, 21 / scale, 10 / scale)
+      assert_true(result.bounds_before_edge_snap(1) == Some(root))
+      phase_assert_bounds(result.bounds_before_edge_snap(2).unwrap(), raw)
+      assert_true(result.bounds_before_edge_snap(99) == None)
+      assert_true(result.root_bounds() == snap_absolute_rect_to_device_grid(root, scale).unwrap())
+      phase_assert_bounds(result.items()[0].bounds(), snap_absolute_rect_to_device_grid(raw, scale).unwrap())
+      for (id, bounds) in result.before_edge_snap {
+        let mut count = 0
+        for (other, _) in result.before_edge_snap {
+          if id == other { count = count + 1 }
+        }
+        assert_eq(count, 1)
+        let published = if id == 1 { result.root_bounds() } else { result.items()[0].bounds() }
+        assert_true(bounds != published)
+      }
+      let unscaled = layout_mixed_tree_at(
+        1, root, FlexStyle(style),
+        [MixedTreeNode::new(FlexChild(item), 1, None)], None,
+      ).unwrap()
+      assert_eq(unscaled.before_edge_snap.length(), 0)
+      assert_true(unscaled.bounds_before_edge_snap(1) == Some(unscaled.root_bounds()))
+      assert_true(unscaled.bounds_before_edge_snap(2) == Some(unscaled.items()[0].bounds()))
+    }
+  }
+}
+
+///|
+test "flex pre-edge-snap metadata follows quantized metrics and unchanged fallback" {
+  for scale in [1.0, 1.25, 1.5, 2.0] {
+    let style = FlexTreeStyle::new(FlowDirection::row()).with_justify(
+      JustifyContent::center(),
+    )
+    for width in [20.0, 21.0] {
+      let item = FlexItem::new(
+        2, Dimension::auto(), device_grid_points(10 / scale),
+        device_grid_size((width - 0.25) / scale, 10 / scale),
+      ).with_flex(0, 0).unwrap()
+      let result = layout_flex_tree_with_device_scale(
+        1, device_grid_size(100 / scale, 40 / scale), style,
+        [FlexTreeNode::new(item, 1)], scale,
+      ).unwrap()
+      let raw = device_grid_rect((100 - width) / 2 / scale, 0, width / scale, 10 / scale)
+      assert_true(result.bounds_before_edge_snap(1) == Some(result.root_bounds()))
+      phase_assert_bounds(result.bounds_before_edge_snap(2).unwrap(), raw)
+      phase_assert_bounds(result.items()[0].bounds(), snap_absolute_rect_to_device_grid(raw, scale).unwrap())
+      assert_true(result.bounds_before_edge_snap(99) == None)
+      let raw_item = result.bounds_before_edge_snap(2).unwrap()
+      assert_eq(result.before_edge_snap.length(), if raw_item == result.items()[0].bounds() { 0 } else { 1 })
+    }
+  }
+}
+
+///|
+fn phase_assert_bounds(actual : @primitives.Rect, expected : @primitives.Rect) raise {
+  for (a, b) in [(actual.left(), expected.left()), (actual.top(), expected.top()), (actual.right(), expected.right()), (actual.bottom(), expected.bottom())] {
+    assert_true(a - b < 0.000000001 && a - b > -0.000000001)
+  }
 }

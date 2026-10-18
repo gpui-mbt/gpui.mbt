@@ -216,3 +216,43 @@ test "measured construction validates margin and metric input constructors" {
     zero.request_layout(anchor_size(640, 480)).unwrap().prepaint() is Ok(_),
   )
 }
+
+///|
+test "measured popup descendants preserve cumulative centered layout phase" {
+  for scale in [1.0, 1.25, 1.5, 2.0] {
+    for (leaf_width, popup_child_width) in [(116.0, 141.0), (72.0, 95.0), (117.0, 140.0)] {
+      let owner = padded_leaf(2, 0, 0)
+        .with_children_style(
+          @layout.FlexTreeStyle::new(@layout.FlowDirection::column()).with_insets(
+            @layout.Insets::new(4 / scale, 17 / scale, 3 / scale, 11 / scale).unwrap(),
+            @layout.Insets::new(1 / scale, 2 / scale, 1 / scale, 1 / scale).unwrap(),
+          ),
+        )
+        .with_child(padded_leaf(3, leaf_width / scale, 26 / scale))
+      let popup = anchor_popup(10, 384 / scale, 80 / scale, false)
+        .with_children_style(
+          @layout.FlexTreeStyle::new(@layout.FlowDirection::row())
+          .with_justify(@layout.JustifyContent::center()),
+        )
+        .with_child(anchor_popup(11, popup_child_width / scale, 20 / scale, true))
+      let root = @element.Element::root(
+        1,
+        @layout.FlexTreeStyle::new(@layout.FlowDirection::row())
+        .with_justify(@layout.JustifyContent::center())
+        .with_align(@layout.AlignItems::center()),
+      ).with_child(owner.with_child(padded_attachment(20, 3, popup)))
+      let request = root.request_layout_with_device_scale(anchor_size(900 / scale, 700 / scale), scale).unwrap()
+      let reference = request.layout.bounds_before_edge_snap(3).unwrap()
+      let frame = request.prepaint().unwrap()
+      let tree = frame.tree()
+      // Positive physical half ties round toward zero. Derive expected position
+      // from live raw reference and authored child size, not an oracle box.
+      let physical = reference.left() * scale + (384 - popup_child_width) / 2
+      let expected = (physical - 0.5).ceil()
+      let actual = tree.node(11).unwrap().bounds().left() * scale
+      assert_true(actual - expected < 0.000000001 && actual - expected > -0.000000001)
+      anchor_assert_point(tree.node(20).unwrap().bounds().origin(), tree.node(10).unwrap().bounds().origin())
+      assert_true(frame.paint().validate() is Ok(_))
+    }
+  }
+}
