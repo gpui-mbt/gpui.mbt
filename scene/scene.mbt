@@ -326,4 +326,3 @@ fn validate_paint(
   }
   fill.validate()
 }
-

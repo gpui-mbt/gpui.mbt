@@ -826,4 +826,3 @@ pub fn SceneSnapshot::legacy_v1_subset(
   }
   Ok(self)
 }
-
