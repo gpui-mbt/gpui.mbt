@@ -17,7 +17,7 @@ pub fn SlashPattern::new(
   width : Double,
   interval : Double,
 ) -> Result[SlashPattern, PaintError] {
-  let pattern = SlashPattern::{ color, width, interval }
+  let pattern = SlashPattern::{ color, width, interval, }
   match pattern.validate() {
     Ok(_) => Ok(pattern)
     Err(e) => Err(e)
@@ -27,7 +27,7 @@ pub fn SlashPattern::new(
 ///|
 fn slash_scaled(value : Double) -> Double {
   // Rust accepts f32 inputs and multiplies in f32 before truncating to u32.
-  (value.to_float() * 255.0).to_double().to_int().to_double()
+  (Float::from_double(value) * 255.0).to_double().to_int().to_double()
 }
 
 ///|
@@ -37,8 +37,10 @@ pub fn SlashPattern::validate(self : SlashPattern) -> Result[Unit, PaintError] {
   }
   if !snapshot_finite(self.width) ||
     !snapshot_finite(self.interval) ||
-    self.width <= 0.0 || self.width > 256.0 ||
-    self.interval <= 0.0 || self.interval > 256.0 {
+    self.width <= 0.0 ||
+    self.width > 256.0 ||
+    self.interval <= 0.0 ||
+    self.interval > 256.0 {
     return Err(InvalidPattern)
   }
   if slash_scaled(self.width) < 1.0 || slash_scaled(self.interval) < 1.0 {
@@ -66,9 +68,9 @@ pub fn SlashPattern::interval(self : SlashPattern) -> Double {
 /// Exact integer packing followed by the upstream f32 transport rounding.
 /// Double holds the bounded integer sum exactly, avoiding signed i32 overflow.
 pub fn SlashPattern::packed(self : SlashPattern) -> Double {
-  (slash_scaled(self.width) * 65535.0 + slash_scaled(self.interval))
-  .to_float()
-  .to_double()
+  Float::from_double(
+    slash_scaled(self.width) * 65535.0 + slash_scaled(self.interval),
+  ).to_double()
 }
 
 ///|
@@ -86,29 +88,37 @@ pub fn SlashPattern::sample_shader_linear(
     Err(e) => return Err(e)
     Ok(_) => ()
   }
-  if bounds.size().width() <= 0.0 || bounds.size().height() <= 0.0 ||
-    !paint_coordinate(bounds.left()) || !paint_coordinate(bounds.top()) ||
-    !paint_coordinate(bounds.right()) || !paint_coordinate(bounds.bottom()) ||
-    !paint_coordinate(point.x()) || !paint_coordinate(point.y()) {
+  if bounds.size().width() <= 0.0 ||
+    bounds.size().height() <= 0.0 ||
+    !paint_coordinate(bounds.left()) ||
+    !paint_coordinate(bounds.top()) ||
+    !paint_coordinate(bounds.right()) ||
+    !paint_coordinate(bounds.bottom()) ||
+    !paint_coordinate(point.x()) ||
+    !paint_coordinate(point.y()) {
     return Err(InvalidGeometry)
   }
-  let packed = self.packed().to_float()
-  let width = ((packed / 65535.0) / 255.0).to_double()
-  let interval = ((packed % 65535.0) / 255.0).to_double()
+  let packed = Float::from_double(self.packed())
+  let width = (packed / 65535.0 / 255.0).to_double()
+  let interval = (packed % 65535.0 / 255.0).to_double()
   let height = width + interval
   let angle = 3.1415926 / 4.0
   let period = height * @math.sin(angle)
   let relative_x = point.x() - bounds.left()
   let relative_y = point.y() - bounds.top()
   // WGSL matrices are column-major: rotated.x = cos*x + sin*y.
-  let phase = (@math.cos(angle) * relative_x + @math.sin(angle) * relative_y) % period
+  let phase = (@math.cos(angle) * relative_x + @math.sin(angle) * relative_y) %
+    period
   let distance = (if phase < period - phase { phase } else { period - phase }) -
     period * (width / height) / 2.0
   let coverage = gradient_clamp(0.5 - distance)
-  match @primitives.FloatColor::rgba(
-    self.color.red(), self.color.green(), self.color.blue(),
-    self.color.alpha() * coverage,
-  ) {
+  match
+    @primitives.FloatColor::rgba(
+      self.color.red(),
+      self.color.green(),
+      self.color.blue(),
+      self.color.alpha() * coverage,
+    ) {
     Ok(c) => Ok(c)
     Err(_) => Err(InvalidColor)
   }

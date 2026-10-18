@@ -355,8 +355,7 @@ fn paint_float_json(c : @primitives.FloatColor) -> String {
 ///|
 fn paint_fill_json(fill : PaintFill) -> String {
   match fill {
-    Slash(p) =>
-      "{\"kind\":\"slash_pattern\",\"pattern\":\{p.canonical_json()}}"
+    Slash(p) => "{\"kind\":\"slash_pattern\",\"pattern\":\{p.canonical_json()}}"
     FloatSolid(c) =>
       "{\"kind\":\"float_solid\",\"color\":\{paint_float_json(c)}}"
     Gradient(g) =>
@@ -380,4 +379,3 @@ fn paint_orientation(
   let py = (point.y() - a.y()) / bounds.size().height()
   dx * py - dy * px
 }
-
