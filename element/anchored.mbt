@@ -343,22 +343,22 @@ fn validate_anchored_parent(parent : Element) -> Result[Unit, ElementError] {
     }
     match parent.item {
       Some(owner) if owner.main is @layout.Percent(_) ||
-        owner.cross is @layout.Percent(_) =>
-        return Err(InvalidAnchoredShape)
+        owner.cross is @layout.Percent(_) => return Err(InvalidAnchoredShape)
       _ => ()
     }
-    for value in [
-      style.padding.top(),
-      style.padding.right(),
-      style.padding.bottom(),
-      style.padding.left(),
-      style.border.top(),
-      style.border.right(),
-      style.border.bottom(),
-      style.border.left(),
-      item.intrinsic.width(),
-      item.intrinsic.height(),
-    ] {
+    for
+      value in [
+        style.padding.top(),
+        style.padding.right(),
+        style.padding.bottom(),
+        style.padding.left(),
+        style.border.top(),
+        style.border.right(),
+        style.border.bottom(),
+        style.border.left(),
+        item.intrinsic.width(),
+        item.intrinsic.height(),
+      ] {
       if !scroll_finite(value) || value < 0.0 {
         return Err(GeometryFailure)
       }
