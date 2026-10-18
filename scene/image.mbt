@@ -41,14 +41,18 @@ pub fn ImageData::new(
   }
   for i = 0; i < content_identity.length(); i = i + 1 {
     let c = content_identity[i].to_int()
-    if !(c >= 48 && c <= 57 || c >= 97 && c <= 102) {
+    if !((c >= 48 && c <= 57) || (c >= 97 && c <= 102)) {
       return Err(InvalidIdentity)
     }
   }
-  if pixel_width < 1 || pixel_width > 16384 ||
-    pixel_height < 1 || pixel_height > 16384 ||
-    frame_count < 1 || frame_count > 256 ||
-    pixel_width.to_double() * pixel_height.to_double() * frame_count.to_double() > 16777216.0 {
+  if pixel_width < 1 ||
+    pixel_width > 16384 ||
+    pixel_height < 1 ||
+    pixel_height > 16384 ||
+    frame_count < 1 ||
+    frame_count > 256 ||
+    pixel_width.to_double() * pixel_height.to_double() * frame_count.to_double() >
+    16777216.0 {
     return Err(InvalidDimensions)
   }
   Ok({ content_identity, pixel_width, pixel_height, frame_count, })
@@ -60,13 +64,19 @@ pub fn ImageData::content_identity(self : ImageData) -> String {
 }
 
 ///|
-pub fn ImageData::pixel_width(self : ImageData) -> Int32 { self.pixel_width }
+pub fn ImageData::pixel_width(self : ImageData) -> Int32 {
+  self.pixel_width
+}
 
 ///|
-pub fn ImageData::pixel_height(self : ImageData) -> Int32 { self.pixel_height }
+pub fn ImageData::pixel_height(self : ImageData) -> Int32 {
+  self.pixel_height
+}
 
 ///|
-pub fn ImageData::frame_count(self : ImageData) -> Int32 { self.frame_count }
+pub fn ImageData::frame_count(self : ImageData) -> Int32 {
+  self.frame_count
+}
 
 ///|
 pub fn SceneResource::image(id : UInt64, data : ImageData) -> SceneResource {
@@ -100,7 +110,9 @@ pub fn ImageData::fit_bounds(
     Err(e) => return Err(e)
     Ok(_) => ()
   }
-  if fit == Fill { return Ok(bounds) }
+  if fit == Fill {
+    return Ok(bounds)
+  }
   let width = bounds.size().width()
   let height = bounds.size().height()
   if width == 0.0 || height == 0.0 {
@@ -118,23 +130,36 @@ pub fn ImageData::fit_bounds(
   }
   let w = self.pixel_width.to_double() * scale
   let h = self.pixel_height.to_double() * scale
-  match @primitives.Rect::new(bounds.left() + (width - w) / 2.0, bounds.top() + (height - h) / 2.0, w, h) {
+  match
+    @primitives.Rect::new(
+      bounds.left() + (width - w) / 2.0,
+      bounds.top() + (height - h) / 2.0,
+      w,
+      h,
+    ) {
     Err(_) => Err(InvalidGeometry)
-    Ok(rect) => match validate_image_rect(rect) {
-      Err(e) => Err(e)
-      Ok(_) => Ok(rect)
-    }
+    Ok(rect) =>
+      match validate_image_rect(rect) {
+        Err(e) => Err(e)
+        Ok(_) => Ok(rect)
+      }
   }
 }
 
 ///|
 fn validate_image_rect(rect : @primitives.Rect) -> Result[Unit, ImageError] {
-  if !snapshot_finite(rect.left()) || !snapshot_finite(rect.top()) ||
-    !snapshot_finite(rect.right()) || !snapshot_finite(rect.bottom()) ||
-    !snapshot_finite(rect.size().width()) || !snapshot_finite(rect.size().height()) ||
-    rect.size().width() < 0.0 || rect.size().height() < 0.0 {
+  if !snapshot_finite(rect.left()) ||
+    !snapshot_finite(rect.top()) ||
+    !snapshot_finite(rect.right()) ||
+    !snapshot_finite(rect.bottom()) ||
+    !snapshot_finite(rect.size().width()) ||
+    !snapshot_finite(rect.size().height()) ||
+    rect.size().width() < 0.0 ||
+    rect.size().height() < 0.0 {
     Err(InvalidGeometry)
-  } else { Ok(()) }
+  } else {
+    Ok(())
+  }
 }
 
 ///|
@@ -154,17 +179,28 @@ fn validate_image_geometry(
 }
 
 ///|
-fn validate_image_selection(resource : SceneResource, frame_index : Int32) -> Result[Unit, ImageError] {
+fn validate_image_selection(
+  resource : SceneResource,
+  frame_index : Int32,
+) -> Result[Unit, ImageError] {
   match resource.image {
     None => Err(MissingResource)
     Some(data) => {
-      match ImageData::new(data.content_identity, data.pixel_width, data.pixel_height, data.frame_count) {
+      match
+        ImageData::new(
+          data.content_identity,
+          data.pixel_width,
+          data.pixel_height,
+          data.frame_count,
+        ) {
         Err(e) => return Err(e)
         Ok(_) => ()
       }
       if frame_index < 0 || frame_index >= data.frame_count {
         Err(InvalidFrame)
-      } else { Ok(()) }
+      } else {
+        Ok(())
+      }
     }
   }
 }
@@ -186,7 +222,9 @@ pub fn PaintCommand::image(
     Err(e) => return Err(e)
     Ok(_) => ()
   }
-  Ok(ImageCommand(id~, resource~, frame_index~, bounds~, image_bounds~, opacity~))
+  Ok(
+    ImageCommand(id~, resource~, frame_index~, bounds~, image_bounds~, opacity~),
+  )
 }
 
 ///|
@@ -201,28 +239,63 @@ pub fn SceneItem::image(
   opacity : Double,
   clip_chain_id : Int32?,
 ) -> Result[SceneItem, SnapshotError] {
-  if frame_index < 0 { return Err(InvalidImage(InvalidFrame)) }
+  if frame_index < 0 {
+    return Err(InvalidImage(InvalidFrame))
+  }
   match validate_image_geometry(bounds, image_bounds, opacity) {
     Err(e) => return Err(InvalidImage(e))
     Ok(_) => ()
   }
-  if !snapshot_transform_finite(transform) { return Err(NonFiniteTransform) }
-  Ok(ImageItem(id~, resource_id~, frame_index~, bounds~, image_bounds~, transform~, opacity~, clip_chain_id~))
+  if !snapshot_transform_finite(transform) {
+    return Err(NonFiniteTransform)
+  }
+  Ok(
+    ImageItem(
+      id~,
+      resource_id~,
+      frame_index~,
+      bounds~,
+      image_bounds~,
+      transform~,
+      opacity~,
+      clip_chain_id~,
+    ),
+  )
 }
 
 ///|
-fn image_resource_present(id : UInt64, resources : Array[SceneResource]) -> Bool {
-  for resource in resources { if resource.id == id { return true } }
+fn image_resource_present(
+  id : UInt64,
+  resources : Array[SceneResource],
+) -> Bool {
+  for resource in resources {
+    if resource.id == id {
+      return true
+    }
+  }
   false
 }
 
 ///|
-fn validate_image_resources(resources : Array[SceneResource], items : Array[SceneItem]) -> Result[Unit, ImageError] {
+fn validate_image_resources(
+  resources : Array[SceneResource],
+  items : Array[SceneItem],
+) -> Result[Unit, ImageError] {
   let mut has_images = false
-  for resource in resources { if resource.image is Some(_) { has_images = true } }
-  for item in items { if item is ImageItem(..) { has_images = true } }
+  for resource in resources {
+    if resource.image is Some(_) {
+      has_images = true
+    }
+  }
+  for item in items {
+    if item is ImageItem(..) {
+      has_images = true
+    }
+  }
   // Preserve legacy id-only resource tables. Image tables require unique IDs.
-  if !has_images { return Ok(()) }
+  if !has_images {
+    return Ok(())
+  }
   for i = 0; i < resources.length(); i = i + 1 {
     if resources[i].image is Some(_) {
       match validate_image_selection(resources[i], 0) {
@@ -231,8 +304,12 @@ fn validate_image_resources(resources : Array[SceneResource], items : Array[Scen
       }
     }
     for j = 0; j < i; j = j + 1 {
-      if resources[i].id == resources[j].id { return Err(DuplicateResource) }
-      if image_resources_conflict(resources[i], resources[j]) { return Err(ConflictingResource) }
+      if resources[i].id == resources[j].id {
+        return Err(DuplicateResource)
+      }
+      if image_resources_conflict(resources[i], resources[j]) {
+        return Err(ConflictingResource)
+      }
     }
   }
   for item in items {
@@ -248,7 +325,9 @@ fn validate_image_resources(resources : Array[SceneResource], items : Array[Scen
             }
           }
         }
-        if !found { return Err(MissingResource) }
+        if !found {
+          return Err(MissingResource)
+        }
       }
       _ => ()
     }
@@ -257,11 +336,20 @@ fn validate_image_resources(resources : Array[SceneResource], items : Array[Scen
 }
 
 ///|
-fn validate_image_commands(commands : Array[PaintCommand]) -> Result[Unit, ImageError] {
+fn validate_image_commands(
+  commands : Array[PaintCommand],
+) -> Result[Unit, ImageError] {
   let resources : Array[SceneResource] = []
   for command in commands {
     match command {
-      ImageCommand(resource~, frame_index~, bounds~, image_bounds~, opacity~, ..) => {
+      ImageCommand(
+        resource~,
+        frame_index~,
+        bounds~,
+        image_bounds~,
+        opacity~,
+        ..
+      ) => {
         match validate_image_selection(resource, frame_index) {
           Err(e) => return Err(e)
           Ok(_) => ()
@@ -275,7 +363,9 @@ fn validate_image_commands(commands : Array[PaintCommand]) -> Result[Unit, Image
             return Err(ConflictingResource)
           }
         }
-        if !image_resource_present(resource.id, resources) { resources.push(resource) }
+        if !image_resource_present(resource.id, resources) {
+          resources.push(resource)
+        }
       }
       _ => ()
     }
@@ -287,13 +377,19 @@ fn validate_image_commands(commands : Array[PaintCommand]) -> Result[Unit, Image
 fn image_resource_json(resource : SceneResource) -> String {
   match resource.image {
     None => "{\"id\":\{resource.id}}"
-    Some(data) => "{\"id\":\{resource.id},\"kind\":\"image\",\"content_identity\":\{snapshot_text_json(data.content_identity)},\"pixel_width\":\{data.pixel_width},\"pixel_height\":\{data.pixel_height},\"frame_count\":\{data.frame_count}}"
+    Some(data) =>
+      "{\"id\":\{resource.id},\"kind\":\"image\",\"content_identity\":\{snapshot_text_json(data.content_identity)},\"pixel_width\":\{data.pixel_width},\"pixel_height\":\{data.pixel_height},\"frame_count\":\{data.frame_count}}"
   }
 }
 
 ///|
-fn image_resources_conflict(left : SceneResource, right : SceneResource) -> Bool {
-  if left.id == right.id && left != right { return true }
+fn image_resources_conflict(
+  left : SceneResource,
+  right : SceneResource,
+) -> Bool {
+  if left.id == right.id && left != right {
+    return true
+  }
   match (left.image, right.image) {
     (Some(a), Some(b)) => a.content_identity == b.content_identity && a != b
     _ => false

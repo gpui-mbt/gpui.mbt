@@ -23,8 +23,22 @@ pub fn PaintCommand::with_opacity(
         OpacityQuadCommand(id~, bounds~, color~, opacity~)
       OpacityQuadCommand(id~, bounds~, color~, opacity=factor) =>
         OpacityQuadCommand(id~, bounds~, color~, opacity=factor * opacity)
-      ImageCommand(id~, resource~, frame_index~, bounds~, image_bounds~, opacity=factor) =>
-        ImageCommand(id~, resource~, frame_index~, bounds~, image_bounds~, opacity=factor * opacity)
+      ImageCommand(
+        id~,
+        resource~,
+        frame_index~,
+        bounds~,
+        image_bounds~,
+        opacity=factor
+      ) =>
+        ImageCommand(
+          id~,
+          resource~,
+          frame_index~,
+          bounds~,
+          image_bounds~,
+          opacity=factor * opacity,
+        )
       PaintCommand(id~, shape~, fill~, opacity=factor) =>
         PaintCommand(id~, shape~, fill~, opacity=factor * opacity)
       ClipPushCommand(..) | ClipPopCommand(..) => self
@@ -36,7 +50,9 @@ pub fn PaintCommand::with_opacity(
 /// The scalar multiplier, separate from intrinsic color/fill alpha.
 pub fn PaintCommand::opacity(self : PaintCommand) -> Double {
   match self {
-    ImageCommand(opacity~, ..) | PaintCommand(opacity~, ..) | OpacityQuadCommand(opacity~, ..) => opacity
+    ImageCommand(opacity~, ..)
+    | PaintCommand(opacity~, ..)
+    | OpacityQuadCommand(opacity~, ..) => opacity
     QuadCommand(..) | ClipPushCommand(..) | ClipPopCommand(..) => 1.0
   }
 }

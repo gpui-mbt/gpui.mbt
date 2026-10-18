@@ -106,7 +106,10 @@ pub fn PaintCommand::bounds(self : PaintCommand) -> @primitives.Rect? {
 pub fn PaintCommand::color(self : PaintCommand) -> @primitives.Color? {
   match self {
     QuadCommand(color~, ..) | OpacityQuadCommand(color~, ..) => Some(color)
-    ImageCommand(..) | PaintCommand(..) | ClipPushCommand(..) | ClipPopCommand(..) => None
+    ImageCommand(..)
+    | PaintCommand(..)
+    | ClipPushCommand(..)
+    | ClipPopCommand(..) => None
   }
 }
 

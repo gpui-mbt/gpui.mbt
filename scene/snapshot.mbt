@@ -526,12 +526,32 @@ pub fn Scene::snapshot_v1(
           match self.commands[index] {
             ClipPushCommand(bounds~, ..) => clip_stack.push(bounds)
             ClipPopCommand(..) => ignore(clip_stack.pop())
-            ImageCommand(id~, resource~, frame_index~, bounds~, image_bounds~, opacity~) => {
-              let clip_chain_id = snapshot_clip_chain_id(clip_chains, clip_stack)
+            ImageCommand(
+              id~,
+              resource~,
+              frame_index~,
+              bounds~,
+              image_bounds~,
+              opacity~
+            ) => {
+              let clip_chain_id = snapshot_clip_chain_id(
+                clip_chains, clip_stack,
+              )
               if !image_resource_present(resource.id(), resources) {
                 resources.push(resource)
               }
-              items.push(ImageItem(id~, resource_id=resource.id(), frame_index~, bounds~, image_bounds~, transform=AffineTransform::identity(), opacity~, clip_chain_id~))
+              items.push(
+                ImageItem(
+                  id~,
+                  resource_id=resource.id(),
+                  frame_index~,
+                  bounds~,
+                  image_bounds~,
+                  transform=AffineTransform::identity(),
+                  opacity~,
+                  clip_chain_id~,
+                ),
+              )
             }
             PaintCommand(id~, shape~, fill~, opacity~) => {
               let clip_chain_id = snapshot_clip_chain_id(
@@ -687,7 +707,16 @@ fn snapshot_clip_chain_json(chain : ClipChain) -> String {
 ///|
 fn snapshot_item_json(item : SceneItem) -> String {
   match item {
-    ImageItem(id~, resource_id~, frame_index~, bounds~, image_bounds~, transform~, opacity~, clip_chain_id~) => {
+    ImageItem(
+      id~,
+      resource_id~,
+      frame_index~,
+      bounds~,
+      image_bounds~,
+      transform~,
+      opacity~,
+      clip_chain_id~
+    ) => {
       let clip_json = match clip_chain_id {
         None => "null"
         Some(value) => "\{value}"

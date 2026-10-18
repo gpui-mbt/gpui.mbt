@@ -202,10 +202,7 @@ test "image paint fails atomically before native staging and host checks" {
   let color = @primitives.Color::rgba(12, 34, 56, 255).unwrap()
   let identity = @scene.AffineTransform::identity()
   let metadata = @scene.ImageData::new(
-    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-    2,
-    2,
-    2,
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", 2, 2, 2,
   ).unwrap()
   let resource = @scene.SceneResource::image(7, metadata)
   let quad = @scene.SceneItem::quad(1, viewport, color, identity, 1.0, None).unwrap()
@@ -220,9 +217,7 @@ test "image paint fails atomically before native staging and host checks" {
     None,
   ).unwrap()
   let images = [
-    @scene.SceneItem::image(
-      3, 7, 0, viewport, viewport, identity, 1.0, None,
-    ).unwrap(),
+    @scene.SceneItem::image(3, 7, 0, viewport, viewport, identity, 1.0, None).unwrap(),
     // Public construction and invisible images must never bypass the gate.
     @scene.ImageItem(
       id=3,
@@ -234,9 +229,7 @@ test "image paint fails atomically before native staging and host checks" {
       opacity=0.0,
       clip_chain_id=None,
     ),
-    @scene.SceneItem::image(
-      3, 7, 0, viewport, viewport, identity, 1.0, Some(7),
-    ).unwrap(),
+    @scene.SceneItem::image(3, 7, 0, viewport, viewport, identity, 1.0, Some(7)).unwrap(),
   ]
   let host : Host = { token: -1, stopped: true, }
   for image in images {
@@ -245,7 +238,14 @@ test "image paint fails atomically before native staging and host checks" {
       overloaded.push(text)
     }
     overloaded.push(image)
-    for items in [[image], [quad, image], [text, image], [image, text], overloaded] {
+    for
+      items in [
+        [image],
+        [quad, image],
+        [text, image],
+        [image, text],
+        overloaded,
+      ] {
       let snapshot = @scene.SceneSnapshot::new(
         viewport,
         1.0,
@@ -256,21 +256,30 @@ test "image paint fails atomically before native staging and host checks" {
       match frame_data(snapshot) {
         Ok(_) => fail("image paint reached legacy quad serialization")
         Err(error) => {
-          assert_eq(error.code().label(), @diagnostics.UnsupportedCapability.label())
+          assert_eq(
+            error.code().label(),
+            @diagnostics.UnsupportedCapability.label(),
+          )
           assert_eq(error.operation(), "present")
         }
       }
       match mixed_frame_data(snapshot) {
         Ok(_) => fail("image paint reached legacy mixed serialization")
         Err(error) => {
-          assert_eq(error.code().label(), @diagnostics.UnsupportedCapability.label())
+          assert_eq(
+            error.code().label(),
+            @diagnostics.UnsupportedCapability.label(),
+          )
           assert_eq(error.operation(), "present")
         }
       }
       match host.present(@platform.WindowId::new(-1), snapshot) {
         Ok(_) => fail("image paint reached legacy native presentation")
         Err(error) => {
-          assert_eq(error.code().label(), @diagnostics.UnsupportedCapability.label())
+          assert_eq(
+            error.code().label(),
+            @diagnostics.UnsupportedCapability.label(),
+          )
           assert_eq(error.operation(), "present")
         }
       }
