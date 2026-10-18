@@ -239,9 +239,12 @@ test "measured attachment carries actual raw reference into popup layout" {
       .with_justify(@layout.JustifyContent::center())
       .with_align(@layout.AlignItems::center()),
     ).with_child(measured_test_owner())
-    let request = root.request_layout_with_device_scale(
-      @primitives.Size::new(641, 481).unwrap(), scale,
-    ).unwrap()
+    let request = root
+      .request_layout_with_device_scale(
+        @primitives.Size::new(641, 481).unwrap(),
+        scale,
+      )
+      .unwrap()
     let reference = request.layout.bounds_before_edge_snap(3).unwrap()
     let published = requested_bounds(request, 3).unwrap()
     let measured = request.anchored_layout.unwrap().measured[0].1
@@ -257,6 +260,9 @@ test "measured attachment carries actual raw reference into popup layout" {
     }
     let tree = request.prepaint().unwrap().tree()
     assert_true(tree.node(3).unwrap().bounds == published)
-    assert_true(tree.node(20).unwrap().bounds.origin() == measured.layout.root_bounds().origin())
+    assert_true(
+      tree.node(20).unwrap().bounds.origin() ==
+      measured.layout.root_bounds().origin(),
+    )
   }
 }
