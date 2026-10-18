@@ -163,6 +163,7 @@ fn validate_anchored_wrapper(element : Element) -> Result[Unit, ElementError] {
 ///|
 priv struct AnchoredSpec {
   after : UInt64
+  measured_leaf : Bool
   anchor : Anchor
   mode : AnchoredPositionMode
   position : @primitives.Point
@@ -219,8 +220,52 @@ pub fn Element::anchored_after(
     item: None,
     children: [popup],
     pointer_events: false,
-    anchored: Some({ after: after_child, anchor, mode, position, margin, }),
+    anchored: Some({
+      after: after_child,
+      measured_leaf: false,
+      anchor,
+      mode,
+      position,
+      margin,
+    }),
   })
+}
+
+///|
+/// Attach a popup after one intrinsic measured leaf inside a decorated owner.
+/// The owner is a zero-gap, start-aligned, nonwrapping column; its finite,
+/// nonnegative padding and border participate in ordinary recursive layout.
+/// Auto-sized owners are supported. The reference is its sole ordinary child:
+/// an Auto/Auto leaf with zero grow/shrink and default size limits. Subsequent
+/// children must all be attachments created by this constructor for that leaf.
+/// Mixing this mode with anchored_after on one owner is rejected at layout.
+///
+/// The static origin is the actual requested leaf's left/bottom, before popup
+/// fitting. Intrinsic metrics are inputs to ordinary layout, never final boxes.
+/// This contract can represent measured text but does not shape text, identify
+/// text semantically, or implement general Block static positioning. Popup
+/// measurement, position modes, margin, deferred depth and fitting retain the
+/// existing anchored contract. In particular this does not promise Rust f32 or
+/// native-font parity. Use a fresh request after metrics or viewport changes.
+pub fn Element::anchored_after_measured_leaf(
+  id : UInt64,
+  after_child : UInt64,
+  popup : Element,
+  anchor : Anchor,
+  mode : AnchoredPositionMode,
+  position : @primitives.Point,
+  margin~ : Double = 0.0,
+) -> Result[Element, ElementError] {
+  match
+    Element::anchored_after(
+      id, after_child, popup, anchor, mode, position, margin~,
+    ) {
+    Err(error) => Err(error)
+    Ok(element) => Ok({
+      ..element,
+      anchored: Some({ ..element.anchored.unwrap(), measured_leaf: true, }),
+    })
+  }
 }
 
 ///|
@@ -252,8 +297,6 @@ fn validate_anchored_parent(parent : Element) -> Result[Unit, ElementError] {
     style.wrap != @layout.FlexWrap::no_wrap() ||
     style.align != @layout.AlignItems::start() ||
     style.justify != @layout.JustifyContent::start() ||
-    style.padding != @layout.Insets::zero() ||
-    style.border != @layout.Insets::zero() ||
     style.gap_x != 0.0 ||
     style.gap_y != 0.0 ||
     parent.children.length() < 2 {
@@ -267,15 +310,63 @@ fn validate_anchored_parent(parent : Element) -> Result[Unit, ElementError] {
     Some(item) => item
     None => return Err(InvalidAnchoredShape)
   }
-  if !(item.main is @layout.Points(_)) ||
-    !(item.cross is @layout.Points(_)) ||
-    item.grow != 0.0 ||
-    item.shrink != 0.0 {
+  let measured_leaf = match parent.children[1].anchored {
+    Some(spec) => spec.measured_leaf
+    None => return Err(InvalidAnchoredShape)
+  }
+  if item.grow != 0.0 || item.shrink != 0.0 {
+    return Err(InvalidAnchoredShape)
+  }
+  if measured_leaf {
+    if !(item.main is @layout.Auto) ||
+      !(item.cross is @layout.Auto) ||
+      item.min_main != 0.0 ||
+      item.max_main is Some(_) ||
+      item.min_cross != 0.0 ||
+      item.max_cross is Some(_) ||
+      reference.children.length() != 0 ||
+      reference.children_style is Some(_) ||
+      reference.grid_item is Some(_) ||
+      reference.grid_style is Some(_) ||
+      reference.container_query is Some(_) ||
+      reference.query_root_size is Some(_) ||
+      reference.uniform_list is Some(_) ||
+      reference.scroll_offset is Some(_) {
+      return Err(InvalidAnchoredShape)
+    }
+    match parent.item {
+      Some(owner)
+        if owner.main is @layout.Percent(_) ||
+          owner.cross is @layout.Percent(_) =>
+        return Err(InvalidAnchoredShape)
+      _ => ()
+    }
+    for value in [
+      style.padding.top(),
+      style.padding.right(),
+      style.padding.bottom(),
+      style.padding.left(),
+      style.border.top(),
+      style.border.right(),
+      style.border.bottom(),
+      style.border.left(),
+      item.intrinsic.width(),
+      item.intrinsic.height(),
+    ] {
+      if !scroll_finite(value) || value < 0.0 {
+        return Err(GeometryFailure)
+      }
+    }
+  } else if style.padding != @layout.Insets::zero() ||
+    style.border != @layout.Insets::zero() ||
+    !(item.main is @layout.Points(_)) ||
+    !(item.cross is @layout.Points(_)) {
     return Err(InvalidAnchoredShape)
   }
   for index = 1; index < parent.children.length(); index = index + 1 {
     match parent.children[index].anchored {
-      Some(spec) if spec.after == reference.id => ()
+      Some(spec)
+        if spec.after == reference.id && spec.measured_leaf == measured_leaf => ()
       _ => return Err(InvalidAnchoredShape)
     }
   }
@@ -436,7 +527,14 @@ fn request_anchored_layout(
           None => return Err(GeometryFailure)
         }
         let origin = match
-          @primitives.Point::new(parent.left(), reference.bottom()) {
+          @primitives.Point::new(
+            if spec.measured_leaf {
+              reference.left()
+            } else {
+              parent.left()
+            },
+            reference.bottom(),
+          ) {
           Ok(value) => value
           Err(_) => return Err(GeometryFailure)
         }
