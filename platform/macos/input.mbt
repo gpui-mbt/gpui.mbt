@@ -75,6 +75,16 @@ pub fn Host::next_event(
         Ok(kind) => kind
         Err(error) => return Err(error)
       }
+    17 => {
+      let text = match read_text() {
+        Ok(text) => text
+        Err(error) => return Err(error)
+      }
+      match decode_composition_event(integer(5).to_int(), text, number(3)) {
+        Ok(kind) => kind
+        Err(error) => return Err(error)
+      }
+    }
     12 => @platform.CloseRequested
     13 => @platform.Destroyed
     14 => @platform.Wake
@@ -110,6 +120,44 @@ fn decode_scroll_event(
     Err(_) => return Err(error(@diagnostics.InvalidInput, "next_event"))
   }
   Ok(@platform.Input(@primitives.Scroll(position~, delta~, modifiers~)))
+}
+
+///|
+/// Decode one native composition frame. The preedit and commit bounds are in
+/// UTF-16 code units, matching AppKit's ranges and MoonBit's string length.
+fn decode_composition_event(
+  code : Int32,
+  text : String,
+  cursor : Double,
+) -> Result[@platform.EventKind, @diagnostics.FrameworkError] {
+  match code {
+    0 => Ok(@platform.Composition(@primitives.Start))
+    1 => {
+      if text.length() > 16_384 {
+        return Err(error(@diagnostics.ResourceExhausted, "next_event"))
+      }
+      if cursor.is_nan() ||
+        cursor.is_inf() ||
+        cursor < 0.0 ||
+        cursor > text.length().to_double() ||
+        cursor.to_int().to_double() != cursor {
+        return Err(error(@diagnostics.InvalidInput, "next_event"))
+      }
+      Ok(
+        @platform.Composition(
+          @primitives.Update(text~, cursor_utf16=cursor.to_int()),
+        ),
+      )
+    }
+    2 =>
+      if text.length() > 65_536 {
+        Err(error(@diagnostics.ResourceExhausted, "next_event"))
+      } else {
+        Ok(@platform.Composition(@primitives.Commit(text~)))
+      }
+    3 => Ok(@platform.Composition(@primitives.Cancel))
+    _ => Err(error(@diagnostics.NativeFailure, "next_event"))
+  }
 }
 
 ///|

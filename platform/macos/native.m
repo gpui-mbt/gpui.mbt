@@ -13,9 +13,20 @@
 @property int64_t token, sequence;
 @property double scale;
 @property BOOL closing;
+@property BOOL ime_enabled;
+@property NSRect ime_caret;
 @end
-@interface GPView : NSView
+@interface GPView : NSView <NSTextInputClient>
 @property(weak) GPWindow *owner;
+@property BOOL marked;
+@property NSRange marked_range;
+@property NSRange marked_selection;
+@property(strong) NSString *marked_text;
+@property NSUInteger last_modifiers;
+@property unsigned short last_key_code;
+@property BOOL ime_in_keydown;
+@property int ime_keydown_outcome; // 0 none, 1 committed, 2 cancelled
+- (void)resetImeState;
 @end
 static NSMutableDictionary<NSNumber *, GPWindow *> *windows;
 static NSMutableArray<NSDictionary *> *events;
@@ -54,6 +65,36 @@ static void emit_scroll(GPWindow *w, double x, double y, double delta_x,
                         double delta_y, int mods) {
   append_event(w, 16, x, y, mods, 0, 0, delta_x, delta_y);
 }
+/* Composition frames are bounded at the host boundary. AppKit ranges and
+ * MoonBit strings are UTF-16; the MoonBit decoder repeats the validation. */
+static void emit_composition(GPWindow *w, int code, NSString *text,
+                             NSUInteger cursor) {
+  if (!w || w.closing) return;
+  if (!text) text = @"";
+  NSUInteger limit = code == 2 ? 65536 : 16384;
+  if (text.length > limit) {
+    NSRange tail = [text rangeOfComposedCharacterSequenceAtIndex:limit - 1];
+    text = [text substringToIndex:tail.location];
+  }
+  if (cursor == NSNotFound || cursor > text.length) cursor = text.length;
+  NSData *data = [text dataUsingEncoding:NSUTF8StringEncoding] ?: [NSData data];
+  if (events.count >= 4096) { overflow = YES; return; }
+  int64_t sequence = ++w.sequence;
+  [events addObject:@{@"kind":@(17), @"token":@(w.token), @"seq":@(sequence),
+    @"scale":@(w.scale), @"x":@(0.0), @"y":@(0.0), @"mods":@(0),
+    @"code":@(code), @"repeat":@(0), @"width":@((double)cursor),
+    @"height":@(0.0), @"text":data}];
+}
+static void emit_key(GPWindow *w, int kind, int mods, int code, int repeat,
+                     NSString *text) {
+  NSUInteger before = events.count;
+  emit(w, kind, 0, 0, mods, code, repeat);
+  if (events.count > before) {
+    NSMutableDictionary *event = [events.lastObject mutableCopy];
+    event[@"text"] = [text dataUsingEncoding:NSUTF8StringEncoding] ?: [NSData data];
+    events[events.count-1] = event;
+  }
+}
 static void resize_surface(GPWindow *w) {
   double scale = w.window.backingScaleFactor;
 #ifdef GPUI_TESTING
@@ -72,7 +113,11 @@ static void resize_surface(GPWindow *w) {
 - (void)windowDidMove:(NSNotification *)note { (void)note; resize_surface(self); emit(self, 3, self.window.frame.origin.x, self.window.frame.origin.y, 0, 0, 0); }
 - (void)windowDidChangeBackingProperties:(NSNotification *)note { (void)note; resize_surface(self); }
 - (void)windowDidBecomeKey:(NSNotification *)note { (void)note; emit(self, 5, 0, 0, 0, 0, 0); }
-- (void)windowDidResignKey:(NSNotification *)note { (void)note; emit(self, 6, 0, 0, 0, 0, 0); }
+- (void)windowDidResignKey:(NSNotification *)note {
+  (void)note;
+  [(GPView *)self.window.contentView unmarkText];
+  emit(self, 6, 0, 0, 0, 0, 0);
+}
 @end
 static int modifiers(NSEvent *event) {
   NSUInteger f = event.modifierFlags;
@@ -113,19 +158,190 @@ static int modifiers(NSEvent *event) {
   emit_scroll(owner, p.x, p.y, e.scrollingDeltaX, e.scrollingDeltaY,
               modifiers(e));
 }
-- (void)keyDown:(NSEvent *)e { [self key:e kind:10]; }
+- (void)keyDown:(NSEvent *)e {
+  GPWindow *owner = self.owner;
+  if (!owner || owner.closing) return;
+  resize_surface(owner);
+  /* Command chords remain application shortcuts. Everything else is offered
+   * to AppKit so dead keys and input methods can compose. */
+  if (owner.ime_enabled &&
+      (e.modifierFlags & NSEventModifierFlagCommand) == 0) {
+    self.last_modifiers = e.modifierFlags;
+    self.last_key_code = e.keyCode;
+    self.ime_in_keydown = YES;
+    self.ime_keydown_outcome = 0;
+    [self interpretKeyEvents:@[e]];
+    self.ime_in_keydown = NO;
+    self.ime_keydown_outcome = 0;
+    return;
+  }
+  [self key:e kind:10];
+}
 - (void)keyUp:(NSEvent *)e { [self key:e kind:11]; }
 - (void)key:(NSEvent *)e kind:(int)kind {
   GPWindow *owner = self.owner;
   if (!owner || owner.closing) return;
   resize_surface(owner);
-  NSUInteger before = events.count;
-  emit(owner, kind, 0, 0, modifiers(e), e.keyCode, e.isARepeat);
-  if (events.count > before) {
-    NSMutableDictionary *event = [events.lastObject mutableCopy];
-    event[@"text"] = [e.charactersIgnoringModifiers dataUsingEncoding:NSUTF8StringEncoding] ?: [NSData data];
-    events[events.count-1] = event;
+  emit_key(owner, kind, modifiers(e), (int)e.keyCode, e.isARepeat,
+           e.charactersIgnoringModifiers ?: @"");
+}
+- (void)resetImeState {
+  self.marked = NO;
+  self.marked_text = nil;
+  self.marked_range = NSMakeRange(NSNotFound, 0);
+  self.marked_selection = NSMakeRange(NSNotFound, 0);
+}
+- (BOOL)resignFirstResponder {
+  [self unmarkText];
+  return [super resignFirstResponder];
+}
+/* NSTextInputClient. The app owns the document; these callbacks only publish
+ * an ordered composition transaction and never edit a document here. */
+- (BOOL)hasMarkedText { return self.marked; }
+- (NSRange)markedRange {
+  return self.marked ? self.marked_range : NSMakeRange(NSNotFound, 0);
+}
+- (NSRange)selectedRange {
+  return self.marked ? self.marked_selection : NSMakeRange(NSNotFound, 0);
+}
+- (NSArray<NSAttributedStringKey> *)validAttributesForMarkedText {
+  return @[];
+}
+- (NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range
+                                                actualRange:(NSRangePointer)actualRange {
+  (void)range;
+  if (actualRange) *actualRange = NSMakeRange(NSNotFound, 0);
+  return nil;
+}
+- (NSUInteger)characterIndexForPoint:(NSPoint)point {
+  (void)point;
+  return NSNotFound;
+}
+- (NSRect)firstRectForCharacterRange:(NSRange)range
+                         actualRange:(NSRangePointer)actualRange {
+  (void)range;
+  if (actualRange) {
+    *actualRange = self.marked ? self.marked_range : NSMakeRange(NSNotFound, 0);
   }
+  NSRect caret = self.owner ? self.owner.ime_caret : NSZeroRect;
+  if (!isfinite(NSMinX(caret)) || !isfinite(NSMinY(caret)) ||
+      !isfinite(NSWidth(caret)) || !isfinite(NSHeight(caret)) ||
+      NSWidth(caret) <= 0 || NSHeight(caret) <= 0) {
+    caret = NSMakeRect(0, 0, 1, 18);
+  }
+  NSRect in_window = [self convertRect:caret toView:nil];
+  return self.window ? [self.window convertRectToScreen:in_window] : in_window;
+}
+- (void)setMarkedText:(id)string selectedRange:(NSRange)selectedRange
+      replacementRange:(NSRange)replacementRange {
+  (void)replacementRange;
+  GPWindow *owner = self.owner;
+  if (!owner || owner.closing || !owner.ime_enabled) return;
+  NSString *text = [string isKindOfClass:NSString.class]
+      ? string
+      : ([string isKindOfClass:NSAttributedString.class]
+          ? [(NSAttributedString *)string string] : nil);
+  if (!text || text.length == 0) {
+    [self unmarkText];
+    return;
+  }
+  if (!self.marked) {
+    self.marked = YES;
+    emit_composition(owner, 0, @"", 0);
+  }
+  if (selectedRange.location == NSNotFound ||
+      selectedRange.location > text.length) {
+    selectedRange.location = text.length;
+  }
+  if (selectedRange.length > text.length - selectedRange.location) {
+    selectedRange.length = text.length - selectedRange.location;
+  }
+  self.marked_text = text;
+  self.marked_range = NSMakeRange(0, text.length);
+  self.marked_selection = selectedRange;
+  emit_composition(owner, 1, text, selectedRange.location);
+}
+- (void)unmarkText {
+  GPWindow *owner = self.owner;
+  BOOL had_marked = self.marked;
+  [self resetImeState];
+  if (had_marked && owner && !owner.closing && owner.ime_enabled) {
+    if (self.ime_in_keydown) self.ime_keydown_outcome = 2;
+    emit_composition(owner, 3, @"", 0);
+  }
+}
+- (void)insertText:(id)string replacementRange:(NSRange)replacementRange {
+  (void)replacementRange;
+  GPWindow *owner = self.owner;
+  if (!owner || owner.closing || !owner.ime_enabled) return;
+  NSString *text = [string isKindOfClass:NSString.class]
+      ? string
+      : ([string isKindOfClass:NSAttributedString.class]
+          ? [(NSAttributedString *)string string] : nil);
+  if (!text) return;
+  if (self.ime_in_keydown) self.ime_keydown_outcome = 1;
+  [self resetImeState];
+  emit_composition(owner, 2, text, 0);
+}
+- (void)doCommandBySelector:(SEL)selector {
+  int code = -1;
+  NSUInteger mods = self.last_modifiers;
+  if (selector == @selector(insertNewline:) ||
+      selector == @selector(insertNewlineIgnoringFieldEditor:)) {
+    code = 36;
+  } else if (selector == @selector(cancelOperation:)) {
+    code = 53;
+  } else if (selector == @selector(deleteBackward:)) {
+    code = 51;
+  } else if (selector == @selector(deleteForward:)) {
+    code = 117;
+  } else if (selector == @selector(moveLeft:)) {
+    code = 123;
+  } else if (selector == @selector(moveRight:)) {
+    code = 124;
+  } else if (selector == @selector(moveDown:)) {
+    code = 125;
+  } else if (selector == @selector(moveUp:)) {
+    code = 126;
+  } else if (selector == @selector(moveToBeginningOfLine:) ||
+             selector == @selector(moveToBeginningOfDocument:)) {
+    code = 115;
+  } else if (selector == @selector(moveToEndOfLine:) ||
+             selector == @selector(moveToEndOfDocument:)) {
+    code = 119;
+  } else if (selector == @selector(scrollPageUp:)) {
+    code = 116;
+  } else if (selector == @selector(scrollPageDown:)) {
+    code = 121;
+  } else if (selector == @selector(insertTab:)) {
+    code = 48;
+  } else if (selector == @selector(insertBacktab:)) {
+    code = 48;
+    mods |= NSEventModifierFlagShift;
+  }
+  GPWindow *owner = self.owner;
+  if (code < 0 || !owner || owner.closing) return;
+  /* A synthetic or fallback key path may deliver Enter/Escape as commands
+   * without the input method committing first. Resolve marked text here too. */
+  if (code == 36 && self.marked) {
+    [self insertText:self.marked_text replacementRange:self.marked_range];
+    return;
+  }
+  if (code == 53 && self.marked) {
+    [self unmarkText];
+    return;
+  }
+  /* Enter commits and Escape cancels inside the IME. Do not forward the same
+   * key as an application command after that terminal callback. */
+  if (code == 36 && self.ime_keydown_outcome == 1) {
+    self.ime_keydown_outcome = 0;
+    return;
+  }
+  if (code == 53 && self.ime_keydown_outcome == 2) {
+    self.ime_keydown_outcome = 0;
+    return;
+  }
+  emit_key(owner, 10, (int)mods, code, 0, @"");
 }
 @end
 @interface GPApplicationDelegate : NSObject <NSApplicationDelegate>
@@ -578,6 +794,41 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
       case 9: return present(w,bytes,len);
       case 16: return recover_renderer();
       case 15: resize_surface(w); current=@{@"width":@(w.window.contentView.bounds.size.width), @"height":@(w.window.contentView.bounds.size.height), @"scale":@(w.scale)}; return 0;
+      case 19: {
+        if (x != 0.0 && x != 1.0) return 5;
+        GPView *view = (GPView *)w.window.contentView;
+        if (x == 0.0) {
+          [view unmarkText];
+          w.ime_enabled = NO;
+        } else {
+          w.ime_enabled = YES;
+          [w.window makeFirstResponder:view];
+        }
+        return 0;
+      }
+      case 20: {
+        if (!isfinite(x) || !isfinite(y) || len != 8 || !bytes) return 5;
+        uint32_t width = (uint32_t)bytes[0] | ((uint32_t)bytes[1] << 8) |
+                         ((uint32_t)bytes[2] << 16) | ((uint32_t)bytes[3] << 24);
+        uint32_t height = (uint32_t)bytes[4] | ((uint32_t)bytes[5] << 8) |
+                          ((uint32_t)bytes[6] << 16) | ((uint32_t)bytes[7] << 24);
+        if (x < -8192.0 || y < -8192.0 || x > 8192.0 || y > 8192.0 ||
+            width == 0 || height == 0 || width > 8192 || height > 8192)
+          return 5;
+        w.ime_caret = NSMakeRect(x, y, (double)width, (double)height);
+        return 0;
+      }
+      case 21: {
+        if (x != 0.0 && x != 1.0) return 5;
+        if (!w.ime_enabled) return 9;
+        GPView *view = (GPView *)w.window.contentView;
+        if (x != 0.0 && view.marked && view.marked_text.length > 0) {
+          [view insertText:view.marked_text replacementRange:view.marked_range];
+        } else {
+          [view unmarkText];
+        }
+        return 0;
+      }
       default: return 9;
     }
   }
@@ -822,6 +1073,46 @@ int32_t gpui_macos_test_post_key_v1(int64_t token, int32_t key_code,
   return 0;
 #else
   (void)token; (void)key_code; (void)modifier_bits; (void)bytes; (void)length;
+  return 9;
+#endif
+}
+
+int32_t gpui_macos_test_post_composition_v1(int64_t token, int32_t kind,
+                                            int32_t cursor,
+                                            const uint8_t *bytes,
+                                            int32_t length) {
+#ifdef GPUI_TESTING
+  if (![NSThread isMainThread]) return 18;
+  const char *enabled = getenv("GPUI_NATIVE_E2E");
+  if (!enabled || strcmp(enabled, "1") != 0) return 9;
+  if (kind < 0 || kind > 3 || cursor < 0 || cursor > 16384) return 5;
+  if (length < 0 || (length > 0 && !bytes) || length > 65536) return 5;
+  GPWindow *target = windows[@(token)];
+  if (!target || !target.window || target.closing) return 10;
+  if (!target.ime_enabled) return 9;
+  GPView *view = (GPView *)target.window.contentView;
+  NSString *text = [[NSString alloc] initWithBytes:bytes
+      length:(NSUInteger)length encoding:NSUTF8StringEncoding];
+  if (!text) return 17;
+  switch (kind) {
+    case 0:
+      [view resetImeState];
+      break;
+    case 1:
+      [view setMarkedText:text
+          selectedRange:NSMakeRange((NSUInteger)cursor, 0)
+          replacementRange:NSMakeRange(NSNotFound, 0)];
+      break;
+    case 2:
+      [view insertText:text replacementRange:NSMakeRange(NSNotFound, 0)];
+      break;
+    case 3:
+      [view unmarkText];
+      break;
+  }
+  return 0;
+#else
+  (void)token; (void)kind; (void)cursor; (void)bytes; (void)length;
   return 9;
 #endif
 }

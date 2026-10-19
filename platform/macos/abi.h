@@ -14,7 +14,10 @@ typedef struct {
 // 7 request-close, 8 destroy, 9 present, 10 wake, 11 request-exit,
 // 12 cursor, 13 read clipboard, 14 write clipboard, 15 window metrics,
 // 16 explicit renderer recreation, 17 accessory/background start (hidden windows),
-// 18 order a background-host window behind others without activation.
+// 18 order a background-host window behind others without activation,
+// 19 enable/disable text composition, 20 set the logical caret rectangle
+// (x/y arguments, width/height as little-endian uint32 bytes), 21 finish a
+// composition (x != 0 commits, otherwise cancels).
 // Integer fields: 0 result token, 1 event kind, 2 event token, 3 sequence,
 // 4 modifiers, 5 button/key, 6 repeat, 7 ABI version, 8 UTF-8 output length, 9 host epoch,
 // 100+i UTF-8 output byte i. Output remains owned by the shim until the next call.
@@ -22,6 +25,8 @@ typedef struct {
 // Event kind 16 is scroll: x/y are logical pointer coordinates, width/height
 // carry AppKit scrollingDeltaX/Y values (points for precise events, lines/rows
 // otherwise), with no cross-platform unit normalization.
+// Event kind 17 is text composition: code 0=start, 1=update, 2=commit,
+// 3=cancel; width is the UTF-16 cursor inside the text payload.
 // Test-only E2E exports (GPUI_TESTING + GPUI_NATIVE_E2E=1): read metadata and
 // copy the last completed Metal frame as top-left RGBA8.
 int32_t gpui_macos_test_frame_meta_v1(int64_t window, double *output);
@@ -32,6 +37,10 @@ int32_t gpui_macos_test_post_escape_v1(int64_t window);
 int32_t gpui_macos_test_post_key_v1(int64_t window, int32_t key_code,
                                     int32_t modifiers, const uint8_t *text,
                                     int32_t text_length);
+int32_t gpui_macos_test_post_composition_v1(int64_t window, int32_t kind,
+                                            int32_t cursor,
+                                            const uint8_t *text,
+                                            int32_t text_length);
 // Copies bounded AppKit/CoreGraphics screen metadata into caller-owned storage.
 // Returns a display count, or the negative diagnostics.ErrorCode ordinal + 1.
 int32_t gpui_macos_display_snapshot_v1(int64_t host, double *records,

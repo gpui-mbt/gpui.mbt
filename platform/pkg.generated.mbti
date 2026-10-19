@@ -79,6 +79,7 @@ pub(all) enum EventKind {
   FocusChanged(Bool)
   VisibilityChanged(Bool)
   Input(@primitives.InputEvent)
+  Composition(@primitives.CompositionEvent)
   CloseRequested
   Destroyed
   FrameCompleted

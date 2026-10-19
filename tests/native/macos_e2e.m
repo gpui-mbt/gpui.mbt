@@ -92,6 +92,228 @@ static void verify_scroll_delivery(int64_t token, CGScrollEventUnit units,
   assert(fabs(api->number(3)-event.scrollingDeltaX)<0.0001);
   assert(fabs(api->number(4)-event.scrollingDeltaY)<0.0001);
 }
+static void drain(void);
+static void expect_composition(int64_t token, int code, NSString *text,
+                               int cursor) {
+  for (int i = 0; i < 64; i++) {
+    assert(call_op(6, 0, 0, 0, nil) == 0);
+    if (api->integer(1) != 17) continue;
+    assert(api->integer(2) == token);
+    assert(api->integer(5) == code);
+    NSData *payload = read_clipboard_bytes();
+    assert([payload isEqualToData:[text dataUsingEncoding:NSUTF8StringEncoding]]);
+    if (code == 1) assert((int)api->number(3) == cursor);
+    return;
+  }
+  assert(!"composition event missing");
+}
+static void verify_composition(int64_t token) {
+  GPWindow *window = windows[@(token)];
+  assert(window && window.window.contentView);
+  GPView *view = (GPView *)window.window.contentView;
+  drain();
+  assert(call_op(19, token, 1, 0, nil) == 0 && window.ime_enabled);
+  uint8_t caret[8] = {4, 0, 0, 0, 18, 0, 0, 0};
+  assert(api->call(20, token, 10.0, 20.0, caret, 8) == 0);
+  assert(api->call(20, token, 10.0, 20.0, caret, 7) == 5);
+  NSRange actual = NSMakeRange(NSNotFound, 0);
+  NSRect screen = [view firstRectForCharacterRange:NSMakeRange(0, 0)
+                                       actualRange:&actual];
+  assert(screen.size.width > 0 && screen.size.height > 0);
+
+  NSData *preedit = [@"にほんご" dataUsingEncoding:NSUTF8StringEncoding];
+  assert(gpui_macos_test_post_composition_v1(token, 1, 4, preedit.bytes,
+                                             (int32_t)preedit.length) == 0);
+  expect_composition(token, 0, @"", 0);
+  expect_composition(token, 1, @"にほんご", 4);
+  assert(view.marked && view.marked_range.length == 4);
+
+  NSData *commit = [@"日本語" dataUsingEncoding:NSUTF8StringEncoding];
+  assert(gpui_macos_test_post_composition_v1(token, 2, 0, commit.bytes,
+                                             (int32_t)commit.length) == 0);
+  expect_composition(token, 2, @"日本語", 0);
+  assert(!view.marked);
+
+  assert(gpui_macos_test_post_composition_v1(token, 1, 4, preedit.bytes,
+                                             (int32_t)preedit.length) == 0);
+  expect_composition(token, 0, @"", 0);
+  expect_composition(token, 1, @"にほんご", 4);
+  assert(gpui_macos_test_post_composition_v1(token, 3, 0, NULL, 0) == 0);
+  expect_composition(token, 3, @"", 0);
+  assert(!view.marked);
+
+  assert(gpui_macos_test_post_composition_v1(token, 1, 4, preedit.bytes,
+                                             (int32_t)preedit.length) == 0);
+  expect_composition(token, 0, @"", 0);
+  expect_composition(token, 1, @"にほんご", 4);
+  assert(call_op(21, token, 1, 0, nil) == 0);
+  expect_composition(token, 2, @"にほんご", 0);
+
+  assert(gpui_macos_test_post_composition_v1(token, 1, 4, preedit.bytes,
+                                             (int32_t)preedit.length) == 0);
+  expect_composition(token, 0, @"", 0);
+  expect_composition(token, 1, @"にほんご", 4);
+  assert(call_op(21, token, 0, 0, nil) == 0);
+  expect_composition(token, 3, @"", 0);
+
+  /* A printable key goes through interpretKeyEvents -> insertText. */
+  assert(gpui_macos_test_post_key_v1(token, 0, 0,
+                                     (const uint8_t *)"a", 1) == 0);
+  expect_composition(token, 2, @"a", 0);
+
+  /* Enter commits marked text and must not also reach the application. */
+  assert(gpui_macos_test_post_composition_v1(token, 1, 4, preedit.bytes,
+                                             (int32_t)preedit.length) == 0);
+  expect_composition(token, 0, @"", 0);
+  expect_composition(token, 1, @"にほんご", 4);
+  assert(gpui_macos_test_post_key_v1(token, 36, 0,
+                                     (const uint8_t *)"\r", 1) == 0);
+  expect_composition(token, 2, @"にほんご", 0);
+  for (int i = 0; i < 16; i++) {
+    assert(call_op(6, 0, 0, 0, nil) == 0);
+    if (api->integer(1) == 10) assert(api->integer(5) != 36);
+  }
+
+  /* Escape cancels marked text and must not also clear the draft. */
+  assert(gpui_macos_test_post_composition_v1(token, 1, 4, preedit.bytes,
+                                             (int32_t)preedit.length) == 0);
+  expect_composition(token, 0, @"", 0);
+  expect_composition(token, 1, @"にほんご", 4);
+  assert(gpui_macos_test_post_key_v1(token, 53, 0,
+                                     (const uint8_t *)"\x1b", 1) == 0);
+  expect_composition(token, 3, @"", 0);
+  for (int i = 0; i < 16; i++) {
+    assert(call_op(6, 0, 0, 0, nil) == 0);
+    if (api->integer(1) == 10) assert(api->integer(5) != 53);
+  }
+
+  assert(call_op(19, token, 0, 0, nil) == 0 && !window.ime_enabled);
+  assert(gpui_macos_test_post_composition_v1(token, 1, 0, preedit.bytes,
+                                             (int32_t)preedit.length) == 9);
+  drain();
+}
+
+static NSString *composition_text(void) {
+  NSData *data = read_clipboard_bytes();
+  return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"";
+}
+
+static void pump_until_quiet(int64_t token) {
+  (void)token;
+  for (int i = 0; i < 256; i++) {
+    assert(call_op(6, 0, 0, 0, nil) == 0);
+    if (!api->integer(1)) return;
+  }
+  assert(!"event queue did not become quiet");
+}
+
+static void post_ascii_key(int64_t token, int32_t key_code, const char *text) {
+  assert(gpui_macos_test_post_key_v1(token, key_code, 0,
+                                     (const uint8_t *)text,
+                                     (int32_t)strlen(text)) == 0);
+  pump_until_quiet(token);
+}
+
+static NSString *latest_preedit(int64_t token) {
+  (void)token;
+  NSString *last = @"";
+  for (int i = 0; i < 512; i++) {
+    assert(call_op(6, 0, 0, 0, nil) == 0);
+    int64_t kind = api->integer(1);
+    if (!kind) return last;
+    if (kind == 17 && api->integer(5) == 1) last = composition_text();
+  }
+  return last;
+}
+
+static BOOL wait_for_commit(int64_t token, NSString *expected) {
+  (void)token;
+  for (int i = 0; i < 512; i++) {
+    assert(call_op(6, 0, 0, 0, nil) == 0);
+    int64_t kind = api->integer(1);
+    if (!kind) return NO;
+    if (kind == 17 && api->integer(5) == 2) {
+      return [composition_text() isEqualToString:expected];
+    }
+  }
+  return NO;
+}
+
+static void verify_real_kotoeri(int64_t token) {
+  const char *enabled = getenv("GPUI_MACOS_REAL_IME");
+  if (!enabled || strcmp(enabled, "1") != 0) {
+    printf("GPUI_MACOS_REAL_IME {\"result\":\"not_run\"}\n");
+    return;
+  }
+  GPWindow *window = windows[@(token)];
+  assert(window && window.window.contentView);
+  GPView *view = (GPView *)window.window.contentView;
+  NSTextInputContext *context = [view inputContext];
+  if (!context) {
+    printf("GPUI_MACOS_REAL_IME {\"result\":\"no_input_context\"}\n");
+    return;
+  }
+  NSString *previous = context.selectedKeyboardInputSource;
+  [context activate];
+  NSString *kotoeri = nil;
+  for (NSString *source in context.keyboardInputSources) {
+    if ([source containsString:@"Kotoeri"]) {
+      kotoeri = source;
+      break;
+    }
+  }
+  if (!kotoeri) {
+    printf("GPUI_MACOS_REAL_IME {\"result\":\"kotoeri_unavailable\"}\n");
+    return;
+  }
+  context.selectedKeyboardInputSource = kotoeri;
+  [context activate];
+  [context invalidateCharacterCoordinates];
+  [[NSRunningApplication currentApplication] activateWithOptions:0];
+  [NSApp activateIgnoringOtherApps:YES];
+  [window.window makeKeyAndOrderFront:nil];
+  [window.window makeFirstResponder:view];
+  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.5]];
+  fprintf(stderr, "real-ime key=%d active=%d current=%d first=%d selected=%s\n",
+          window.window.isKeyWindow,
+          [NSApp isActive],
+          [NSTextInputContext currentInputContext] == context,
+          [window.window firstResponder] == view,
+          context.selectedKeyboardInputSource.UTF8String);
+  assert(call_op(19, token, 1, 0, nil) == 0);
+  drain();
+  post_ascii_key(token, 45, "n");
+  post_ascii_key(token, 34, "i");
+  post_ascii_key(token, 4, "h");
+  post_ascii_key(token, 31, "o");
+  post_ascii_key(token, 45, "n");
+  post_ascii_key(token, 5, "g");
+  post_ascii_key(token, 31, "o");
+  NSString *preedit = latest_preedit(token);
+  BOOL typed = [preedit containsString:@"にほん"] || [preedit containsString:@"nihon"];
+  if (typed) {
+    post_ascii_key(token, 49, " ");
+    pump_until_quiet(token);
+    NSString *converted = latest_preedit(token);
+    if (![converted containsString:@"日本"]) {
+      post_ascii_key(token, 49, " ");
+      pump_until_quiet(token);
+    }
+    post_ascii_key(token, 36, "\r");
+    BOOL committed = wait_for_commit(token, @"日本語");
+    printf("GPUI_MACOS_REAL_IME {\"result\":\"%s\",\"preedit\":\"%s\",\"source\":\"%s\"}\n",
+           committed ? "pass" : "commit_mismatch",
+           [preedit UTF8String], [kotoeri UTF8String]);
+  } else {
+    printf("GPUI_MACOS_REAL_IME {\"result\":\"no_composition\",\"preedit\":\"%s\",\"source\":\"%s\"}\n",
+           [preedit UTF8String], [kotoeri UTF8String]);
+  }
+  if (previous) context.selectedKeyboardInputSource = previous;
+  [context deactivate];
+  assert(call_op(19, token, 0, 0, nil) == 0);
+  drain();
+}
+
 static void *wrong_thread(void *unused) {
   (void)unused;
   double records[16 * 14] = {0};
@@ -168,6 +390,8 @@ int main(void) {
     verify_clipboard_and_cursors();
     verify_scroll_delivery(token,kCGScrollEventUnitLine,NO,1,-2);
     verify_scroll_delivery(token,kCGScrollEventUnitPixel,YES,-4,7);
+    verify_composition(token);
+    verify_real_kotoeri(token);
     NSString *snapshot=[NSString stringWithFormat:
       @"{\"schema_version\":1,\"viewport\":{\"x\":0,\"y\":0,\"width\":320,\"height\":240},\"scale\":%g,\"resources\":[],\"clip_chains\":[{\"id\":0,\"rects\":[{\"x\":60,\"y\":60,\"width\":80,\"height\":40}]}],\"items\":[{\"kind\":\"quad\",\"bounds\":{\"x\":40,\"y\":40,\"width\":40,\"height\":80},\"color\":{\"red\":255,\"green\":0,\"blue\":0,\"alpha\":255},\"transform\":{\"a\":1,\"b\":0,\"c\":0,\"d\":1,\"tx\":20,\"ty\":0},\"opacity\":1,\"clip_chain_id\":0},{\"kind\":\"quad\",\"bounds\":{\"x\":80,\"y\":60,\"width\":60,\"height\":40},\"color\":{\"red\":0,\"green\":0,\"blue\":255,\"alpha\":255},\"transform\":{\"a\":1,\"b\":0,\"c\":0,\"d\":1,\"tx\":0,\"ty\":0},\"opacity\":0.5,\"clip_chain_id\":null}]}",w.scale];
     assert(call_op(9,token,0,0,snapshot)==0);
@@ -276,7 +500,7 @@ int main(void) {
     double stale_records[16 * 14] = {0};
     assert(gpui_macos_display_snapshot_v1(epoch,stale_records,16*14)==-10);
     assert(call_op(2,0,0,0,nil)==0);
-    printf("GPUI_MACOS_E2E {\"gpu_pixels\":true,\"grayscale_text\":true,\"unsupported_control_text_preserves_frame\":true,\"frame_readback\":true,\"test_input\":true,\"scroll_responder_precise_and_coarse\":true,\"clipboard_utf8_isolated\":true,\"cursor_kinds\":true,\"display_snapshot\":true,\"display_count\":%d,\"logical_coordinates\":true,\"resize\":true,\"wrong_thread\":true,\"churn\":32,\"stale_callbacks\":true,\"device_loss\":true,\"device_recovery\":true}\n", display_count);
+    printf("GPUI_MACOS_E2E {\"gpu_pixels\":true,\"grayscale_text\":true,\"unsupported_control_text_preserves_frame\":true,\"frame_readback\":true,\"test_input\":true,\"text_composition\":true,\"scroll_responder_precise_and_coarse\":true,\"clipboard_utf8_isolated\":true,\"cursor_kinds\":true,\"display_snapshot\":true,\"display_count\":%d,\"logical_coordinates\":true,\"resize\":true,\"wrong_thread\":true,\"churn\":32,\"stale_callbacks\":true,\"device_loss\":true,\"device_recovery\":true}\n", display_count);
   }
   return 0;
 }

@@ -16,6 +16,52 @@
 
 ### Migration
 
+## 0.10.0 - 2026-10-19
+
+This pre-1.0 feature release adds a bounded macOS text-composition transport.
+It does not add a general editor, Windows/Linux IME, accessibility, or a
+platform support-tier promotion.
+
+### Added
+
+- Add `primitives.CompositionEvent` (`Start`, `Update`, `Commit`, `Cancel`) and
+  `platform.EventKind::Composition`. The value is document-owner input, not
+  element-routed key/pointer input.
+- Add `platform/macos.Host::set_text_composition`,
+  `set_text_composition_caret`, and `finish_text_composition`. The macOS host
+  implements `NSTextInputClient`, bounds preedit/commit sizes, places the
+  candidate window from a caller-supplied logical caret rectangle, and resolves
+  Enter/Escape while marked text is active.
+- Add the opt-in `Host::post_test_composition` E2E hook. It drives the same
+  `NSTextInputClient` callbacks as AppKit.
+
+### Changed
+
+- macOS `keyDown` routes non-Command keys through `interpretKeyEvents` while
+  composition is enabled. Command shortcuts remain normal key events, and the
+  previous key path is unchanged when composition is disabled.
+
+### Fixed
+
+- Enter commits marked text without also reaching the application, and Escape
+  cancels marked text without clearing the application draft.
+
+### Migration
+
+- Exhaustive `EventKind` matches must handle `Composition`. The event is
+  additive on Apple platforms, but existing source matches may need a wildcard
+  or an explicit no-op arm.
+- The macOS composition client is disabled by default. Callers must enable it
+  per window and keep the caret rectangle current for candidate-window placement.
+
+### Limitations
+
+- Synthetic `NSTextInputClient` coverage passes in the native E2E. Real Kotoeri
+  qualification was not completed in the headless harness; do not claim Japanese
+  IME support until that run is recorded.
+- Windows IMM32, Linux/Wayland, X11, accessibility, and full editor behavior
+  remain unchanged.
+
 ## 0.9.0 - 2026-10-18
 
 This pre-1.0 feature release adds reusable Windows application helpers and

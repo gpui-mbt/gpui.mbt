@@ -68,3 +68,39 @@ test "scroll decoder preserves logical position, native deltas and modifiers" {
   assert_true(decode_scroll_event(0.0 / 0.0, 0.0, 0.0, 1.0, mods) is Err(_))
   assert_true(decode_scroll_event(0.0, 0.0, 0.0, 1.0 / 0.0, mods) is Err(_))
 }
+
+///|
+test "composition decoder preserves bounded transaction frames" {
+  assert_true(
+    decode_composition_event(0, "", 0.0)
+    is Ok(@platform.Composition(@primitives.Start)),
+  )
+  assert_true(
+    decode_composition_event(1, "にほんご", 4.0)
+    is Ok(
+      @platform.Composition(
+        @primitives.Update(text="にほんご", cursor_utf16=4)
+      )
+    ),
+  )
+  assert_true(
+    decode_composition_event(2, "日本語", 0.0)
+    is Ok(@platform.Composition(@primitives.Commit(text="日本語"))),
+  )
+  assert_true(
+    decode_composition_event(3, "", 0.0)
+    is Ok(@platform.Composition(@primitives.Cancel)),
+  )
+}
+
+///|
+test "composition decoder rejects malformed or unbounded frames" {
+  assert_true(decode_composition_event(1, "あ", -1.0) is Err(_))
+  assert_true(decode_composition_event(1, "あ", 2.0) is Err(_))
+  assert_true(decode_composition_event(1, "あ", 0.5) is Err(_))
+  assert_true(decode_composition_event(1, "あ", 0.0 / 0.0) is Err(_))
+  assert_true(decode_composition_event(1, "あ", 1.0 / 0.0) is Err(_))
+  assert_true(decode_composition_event(1, "a".repeat(16_385), 0.0) is Err(_))
+  assert_true(decode_composition_event(2, "a".repeat(65_537), 0.0) is Err(_))
+  assert_true(decode_composition_event(4, "", 0.0) is Err(_))
+}

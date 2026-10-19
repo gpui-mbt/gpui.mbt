@@ -105,6 +105,15 @@ int32_t gpui_macos_test_post_escape(int64_t window) {
   int32_t (*post)(int64_t) = dlsym(library, "gpui_macos_test_post_escape_v1");
   return post ? post(window) : 9;
 }
+int32_t gpui_macos_test_post_composition(int64_t window, int32_t kind,
+                                          int32_t cursor, const uint8_t *text,
+                                          int32_t text_length) {
+  int status = load();
+  if (status) return status;
+  int32_t (*post)(int64_t, int32_t, int32_t, const uint8_t *, int32_t) =
+      dlsym(library, "gpui_macos_test_post_composition_v1");
+  return post ? post(window, kind, cursor, text, text_length) : 9;
+}
 #else
 int32_t gpui_call(int32_t op, int64_t token, double x, double y, const uint8_t *bytes, int32_t length) {
   (void)op; (void)token; (void)x; (void)y; (void)bytes; (void)length; return 9;
@@ -137,4 +146,10 @@ int32_t gpui_macos_test_post_key(int64_t window, int32_t key_code,
   return 9;
 }
 int32_t gpui_macos_test_post_escape(int64_t window) { (void)window; return 9; }
+int32_t gpui_macos_test_post_composition(int64_t window, int32_t kind,
+                                          int32_t cursor, const uint8_t *text,
+                                          int32_t text_length) {
+  (void)window; (void)kind; (void)cursor; (void)text; (void)text_length;
+  return 9;
+}
 #endif

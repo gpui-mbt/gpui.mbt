@@ -480,6 +480,7 @@ fn apply_event(model : DemoModel, event : @platform.Event) -> DemoModel {
           updated.last_event = "scroll"
         }
       }
+    @platform.Composition(_) => ()
     @platform.Wake => ()
     @platform.Moved(..) => updated.last_event = "host moved"
     @platform.CloseRequested => updated.last_event = "close requested"

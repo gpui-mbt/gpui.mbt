@@ -69,6 +69,35 @@ pub fn Host::post_test_key(
 }
 
 ///|
+/// Post one composition frame through the same `NSTextInputClient` callbacks
+/// AppKit uses. Requires GPUI_NATIVE_E2E=1, a test-hooks dylib, and an enabled
+/// composition client.
+pub fn Host::post_test_composition(
+  self : Host,
+  window : @platform.WindowId,
+  event : @primitives.CompositionEvent,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  match self.check() {
+    Err(failure) => return Err(failure)
+    Ok(_) => ()
+  }
+  let (kind, cursor, text) = match event {
+    @primitives.Start => (0, 0, "")
+    @primitives.Update(text~, cursor_utf16~) => (1, cursor_utf16, text)
+    @primitives.Commit(text~) => (2, 0, text)
+    @primitives.Cancel => (3, 0, "")
+  }
+  let bytes = @utf8.encode(text)
+  if bytes.length() > 65_536 {
+    return Err(error(@diagnostics.ResourceExhausted, "post_test_composition"))
+  }
+  status(
+    test_post_composition(window.value(), kind, cursor, bytes, bytes.length()),
+    "post_test_composition",
+  )
+}
+
+///|
 /// Post an Escape key down/up pair to this host-owned window through AppKit's
 /// normal event route. Requires GPUI_NATIVE_E2E=1 and a test-hooks dylib.
 pub fn Host::post_test_escape(

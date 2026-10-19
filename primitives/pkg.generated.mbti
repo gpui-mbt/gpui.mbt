@@ -27,6 +27,15 @@ pub enum ColorError {
 pub fn ColorError::equal(Self, Self) -> Bool
 pub fn ColorError::not_equal(Self, Self) -> Bool
 
+pub(all) enum CompositionEvent {
+  Start
+  Update(text~ : String, cursor_utf16~ : Int)
+  Commit(text~ : String)
+  Cancel
+} derive(Eq)
+pub fn CompositionEvent::equal(Self, Self) -> Bool
+pub fn CompositionEvent::not_equal(Self, Self) -> Bool
+
 pub struct FloatColor {
   red : Double
   green : Double

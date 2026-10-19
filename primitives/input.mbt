@@ -86,6 +86,20 @@ pub fn Modifiers::is_empty(self : Modifiers) -> Bool {
 }
 
 ///|
+/// A platform input-method composition transaction. The document owner, not
+/// the element tree, applies these values. `cursor_utf16` is relative to
+/// `text` and counts UTF-16 code units.
+pub(all) enum CompositionEvent {
+  Start
+  Update(text~ : String, cursor_utf16~ : Int32)
+  Commit(text~ : String)
+  Cancel
+} derive(Eq)
+
+///|
+pub extend CompositionEvent with Eq::{not_equal, equal}
+
+///|
 /// Platform-neutral input values. Dispatch order and propagation belong to
 /// the later element/event system; these values carry no tree or window ID.
 pub(all) enum InputEvent {
