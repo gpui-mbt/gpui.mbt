@@ -28,8 +28,9 @@ package does not duplicate `TextSession`, `TextField`, shaping, or accessibility
   current epoch. A replacement may advance the epoch. The state carries the
   committed `TextDocument`, the logical caret rectangle, and an optional
   display-only preedit.
-- `cancel_text_input(epoch)` cancels the active composition and requests a
-  replacement epoch. It does not commit the preedit.
+- `cancel_text_input(epoch)` cancels the active composition and returns the
+  replacement epoch. It does not commit the preedit. The returned value is the
+  only valid epoch for later calls; a host is not required to increment it.
 - `end_text_input(epoch)` revokes the session. Repeated or stale epochs are
   rejected by the host.
 - `next_text_input(timeout_ms?)` drains one ordered observation. A timeout is

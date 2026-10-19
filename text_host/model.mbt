@@ -136,9 +136,11 @@ pub(open) trait TextInputHost {
     @diagnostics.FrameworkError,
   ]
 
-  /// Cancel the active composition and request a replacement epoch.
+  /// Cancel the active composition and return the replacement epoch. Callers
+  /// must use the returned value for every later operation; the host may choose
+  /// any unused value and is not required to increment monotonically.
   fn cancel_text_input(Self, UInt64) -> Result[
-    Unit,
+    UInt64,
     @diagnostics.FrameworkError,
   ]
 

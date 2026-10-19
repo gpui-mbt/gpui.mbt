@@ -28,10 +28,10 @@ impl @text_host.TextInputHost for TestHost with fn begin_text_input(
 ) {
   ignore(window)
   ignore(root)
-  if self.closed {
+  if self.closed || self.epoch != 0UL {
     Err(test_host_error("begin_text_input"))
   } else {
-    self.epoch = 1UL
+    self.epoch = 7UL
     Ok(self.epoch)
   }
 }
@@ -58,8 +58,8 @@ impl @text_host.TextInputHost for TestHost with fn cancel_text_input(
   if self.closed || epoch != self.epoch {
     Err(test_host_error("cancel_text_input"))
   } else {
-    self.epoch = self.epoch + 1UL
-    Ok(())
+    self.epoch = self.epoch + 5UL
+    Ok(self.epoch)
   }
 }
 
@@ -116,7 +116,8 @@ test "text input host owns the session epoch and ordered events" {
   let host = TestHost::new()
   let window = @platform.WindowId::new(7)
   let epoch = host.begin_text_input(window, 1UL).unwrap()
-  assert_eq(epoch, 1UL)
+  assert_eq(epoch, 7UL)
+  assert_true(host.begin_text_input(window, 1UL) is Err(_))
   host.events.push(
     @text_host.TextInputEvent::new(
       window,
@@ -139,7 +140,9 @@ test "text input host owns the session epoch and ordered events" {
   let committed = host.next_text_input().unwrap().unwrap()
   assert_true(committed.kind() is @text_host.Commit(text="日本"))
   assert_true(host.next_text_input() is Ok(None))
-  host.cancel_text_input(epoch).unwrap()
-  assert_true(host.end_text_input(2UL) is Ok(_))
+  let replacement = host.cancel_text_input(epoch).unwrap()
+  assert_eq(replacement, 12UL)
+  assert_true(host.end_text_input(epoch) is Err(_))
+  assert_true(host.end_text_input(replacement) is Ok(_))
   assert_true(host.begin_text_input(window, 1UL) is Err(_))
 }
