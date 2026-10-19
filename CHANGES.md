@@ -1,6 +1,6 @@
 # Changes
 
-## Unreleased
+## 0.10.1 - 2026-10-20
 
 ### Added
 

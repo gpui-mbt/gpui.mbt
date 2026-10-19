@@ -4,7 +4,7 @@ This document keeps project-state, support boundaries, and future work out of th
 
 ## Current position
 
-The module version is `0.9.0`. The repository contains usable headless UI foundations, experimental native slices for macOS, Ubuntu/Wayland, and Windows, and the Weekboard browser demo alongside an interaction lab. It does not currently make a production-support claim for any platform.
+The module version is `0.10.1`. The repository contains usable headless UI foundations, experimental native slices for macOS, Ubuntu/Wayland, and Windows, and the Weekboard browser demo alongside an interaction lab. It does not currently make a production-support claim for any platform.
 
 The portable codebase provides application/entity lifetimes, deterministic scheduling, flex layout, element trees, hit testing, pointer and focused key/text capture/bubble dispatch, focus, scroll state, drag gestures, quad scene generation, bounded text snapshot items, clip validation, transforms, opacity, and canonical scene snapshots. The native/browser examples exercise subsets of that shared model.
 
@@ -79,7 +79,7 @@ host-specific security integration remain open.
 - macOS: native AppKit/Metal slice with bounded CoreText grayscale scene text, copied text measurement, and an opt-in bounded text-composition transport implemented; a general editor, real Japanese IME qualification, and production gates remain open.
 - Ubuntu / Wayland: native Wayland/EGL/GLES2 slice with an experimental, bounded grayscale text-frame renderer; quad and bounded grayscale mixed-scene checks passed in hosted CI; production desktop gates remain open.
 - Browser / JavaScript: Canvas 2D Weekboard and interaction lab implemented; exact execution and test scope is recorded in [the browser guide](browser-demo.md).
-- Windows: experimental one-window Win32/D3D11 hardware-or-WARP slice, bounded grayscale text renderer, focused single-line text field, reusable Button fixture, and private default-off IMM32 text-session ingress implemented. The Button fixture passed portable checks and a bounded completed-frame pixel smoke; the current environment blocked real SendInput qualification, and UI Automation/Japanese IME acceptance remain open. See [the Windows guide](windows-native.md) and [Button fixture guide](windows-button.md).
+- Windows: experimental one-window Win32/D3D11 hardware-or-WARP slice, bounded grayscale text renderer, focused single-line text field, reusable Button fixture, private default-off IMM32 text-session ingress, and an opt-in bounded portable composition transport implemented. The Button fixture passed portable checks and a bounded completed-frame pixel smoke; composition has synthetic queue/WndProc coverage only, the current environment blocks real SendInput qualification, and UI Automation/real Japanese IME acceptance remain open. See [the Windows guide](windows-native.md) and [Button fixture guide](windows-button.md).
 - X11 / XWayland: experimental one-window Xlib/EGL/GLES2 backend with bounded grayscale text, direct-keyboard Compose input, clipboard/cursors, and frame readback implemented. It can connect to Xorg, Xvfb, or XWayland. IME, multiple windows, and fractional/per-monitor scaling are unsupported; native-display acceptance is separate from headless contract checks, and production desktop gates remain open. See [the X11 guide](../x11/README.md).
 
 These statements describe implementation and evidence, not a compatibility or support tier unless the release evidence ledger explicitly assigns one.
