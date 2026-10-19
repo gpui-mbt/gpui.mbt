@@ -1,5 +1,13 @@
 # Changes
 
+## 0.10.2 - 2026-10-20
+
+### Fixed
+
+- Preserve fresh Wayland composition raw keyboard input while an application
+  cancellation waits for text-input-v1 leave/rearm. Keep replacement-epoch
+  held-key ownership across re-entry without admitting stale forwarded input.
+
 ## 0.10.1 - 2026-10-20
 
 ### Added
