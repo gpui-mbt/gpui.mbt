@@ -355,6 +355,57 @@ int32_t gpui_windows_test_composition_staging(int32_t *failed_stage) {
               -GPUI_WINDOWS_RESOURCE,
       34);
 
+  /* An empty marked preview still produces a terminal Commit; the native
+   * association survives the finish so a later composition can restart. */
+  gpui_text_test_clear_ring(&g_host);
+  g_gpui_composition.armed = TRUE;
+  g_gpui_composition.window_id = 5;
+  g_gpui_composition.expected_himc = gpui_text_review_associated_context;
+  g_gpui_composition.composing = FALSE;
+  g_gpui_composition.commit_waiting_end = FALSE;
+  g_gpui_composition.awaiting_fresh_start = FALSE;
+  g_gpui_composition.suppress_ime_char_until_end = FALSE;
+  GPUI_COMPOSITION_TEST_REQUIRE(
+      gpui_composition_apply(&g_host, 0, NULL, 0, 0) == GPUI_WINDOWS_OK &&
+          g_host.event_count == 1 && g_gpui_composition.composing,
+      36);
+  GPUI_COMPOSITION_TEST_REQUIRE(
+      gpui_windows_finish_text_composition(77, 5, 1) == GPUI_WINDOWS_OK &&
+          g_host.event_count == 2 &&
+          gpui_composition_test_code(&g_host, 1) == 2 &&
+          gpui_composition_test_units(&g_host, 1) == 0 &&
+          !g_gpui_composition.composing &&
+          g_gpui_composition.awaiting_fresh_start &&
+          g_gpui_composition.expected_himc ==
+              gpui_text_review_associated_context,
+      37);
+
+  /* A delayed COMPOSITION from the finished transaction is ignored, while a
+   * fresh STARTCOMPOSITION reopens the same armed client. */
+  gpui_text_review_marked_text = japanese;
+  gpui_text_review_marked_units = 4;
+  gpui_text_review_cursor_position = 4;
+  GPUI_COMPOSITION_TEST_REQUIRE(
+      gpui_window_proc(g_host.hwnd, WM_IME_COMPOSITION, 0,
+                       GCS_COMPSTR | GCS_CURSORPOS) == 0 &&
+          g_host.event_count == 2 && !g_gpui_composition.composing,
+      38);
+  GPUI_COMPOSITION_TEST_REQUIRE(
+      gpui_window_proc(g_host.hwnd, WM_IME_STARTCOMPOSITION, 0, 0) == 0 &&
+          g_host.event_count == 3 && g_gpui_composition.composing &&
+          !g_gpui_composition.awaiting_fresh_start,
+      39);
+  GPUI_COMPOSITION_TEST_REQUIRE(
+      gpui_window_proc(g_host.hwnd, WM_IME_COMPOSITION, 0,
+                       GCS_COMPSTR | GCS_CURSORPOS) == 0 &&
+          g_host.event_count == 4 &&
+          gpui_composition_test_code(&g_host, 2) == 0 &&
+          gpui_composition_test_code(&g_host, 3) == 1 &&
+          gpui_composition_test_cursor(&g_host, 3) == 4,
+      40);
+  gpui_text_review_marked_text = NULL;
+  gpui_text_review_marked_units = 0;
+
   /* Queue exhaustion fails closed and keeps no partial record. */
   gpui_text_test_clear_ring(&g_host);
   g_gpui_composition.armed = TRUE;

@@ -31,6 +31,10 @@
   `WM_CHAR` / `WM_IME_CHAR` until the commit END, preventing duplicate key and
   text delivery. Focus loss, disable, destroy, and stop cancel native marked
   text.
+- Keep the IMM32 association after a portable finish so the next composition
+  can start without re-enabling the client. Delayed composition payloads are
+  ignored until a fresh start, an empty marked preview still produces a
+  terminal Commit, and a transport failure publishes Cancel before disarming.
 
 ### Deprecated
 

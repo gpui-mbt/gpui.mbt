@@ -394,7 +394,11 @@ static HIMC gpui_composition_acquire_context(gpui_windows_host *host,
   return context;
 }
 
-static void gpui_composition_disarm_native(gpui_windows_host *host) {
+/* Cancel the native preview and drain its messages. A successful portable
+ * finish keeps the association so the next composition can start without a
+ * caller re-enable; failure/focus-loss paths forget it. */
+static void gpui_composition_cancel_native(gpui_windows_host *host,
+                                           BOOL keep_context) {
   if (!host)
     return;
   g_gpui_composition.suppress_ime_messages = TRUE;
@@ -409,8 +413,13 @@ static void gpui_composition_disarm_native(gpui_windows_host *host) {
   }
   if (host->hwnd && g_gpui_imm.module)
     gpui_text_session_flush_ime_messages(host, host->hwnd);
-  g_gpui_composition.expected_himc = NULL;
+  if (!keep_context)
+    g_gpui_composition.expected_himc = NULL;
   g_gpui_composition.suppress_ime_messages = FALSE;
+}
+
+static void gpui_composition_disarm_native(gpui_windows_host *host) {
+  gpui_composition_cancel_native(host, FALSE);
 }
 
 static int32_t gpui_composition_reassociate(gpui_windows_host *host) {
@@ -451,6 +460,8 @@ static void gpui_composition_fail(gpui_windows_host *host, int32_t status) {
     return;
   if (!host->error)
     InterlockedExchange(&host->error, status);
+  if (g_gpui_composition.composing)
+    (void)gpui_composition_emit(host, 3, NULL, 0, 0);
   g_gpui_composition.composing = FALSE;
   g_gpui_composition.commit_waiting_end = FALSE;
   g_gpui_composition.suppress_ime_char_until_end = FALSE;
@@ -595,8 +606,10 @@ int32_t gpui_windows_finish_text_composition(int32_t token, int32_t window,
       g_gpui_composition.window_id != window)
     return GPUI_WINDOWS_STALE;
   if (commit) {
-    if (g_gpui_composition.composing &&
-        g_gpui_composition.marked_units > 0) {
+    /* An IMM32 composition can be active before it has marked text. Publish a
+     * terminal Commit even when the preview is empty so the caller is never
+     * left with a pending composition and no event. */
+    if (g_gpui_composition.composing) {
       status = gpui_composition_emit(
           &g_host, 2, g_gpui_composition.marked,
           g_gpui_composition.marked_units, 0);
@@ -612,7 +625,7 @@ int32_t gpui_windows_finish_text_composition(int32_t token, int32_t window,
   g_gpui_composition.commit_waiting_end = FALSE;
   g_gpui_composition.suppress_ime_char_until_end = FALSE;
   gpui_composition_clear_marked();
-  gpui_composition_disarm_native(&g_host);
+  gpui_composition_cancel_native(&g_host, TRUE);
   g_gpui_composition.awaiting_fresh_start = TRUE;
   return GPUI_WINDOWS_OK;
 }
@@ -689,6 +702,13 @@ static BOOL gpui_composition_wndproc(gpui_windows_host *host, HWND hwnd,
     if (wparam)
       lparam &= ~((LPARAM)ISC_SHOWUICOMPOSITIONWINDOW);
     *result = host->api.def_window_proc_w(hwnd, message, wparam, lparam);
+    return TRUE;
+  }
+  /* After a terminal commit/cancel or ENDCOMPOSITION, ignore delayed IMM32
+   * payloads until a fresh STARTCOMPOSITION proves new ownership. */
+  if (g_gpui_composition.awaiting_fresh_start &&
+      (message == WM_IME_COMPOSITION || message == WM_IME_CHAR)) {
+    *result = 0;
     return TRUE;
   }
   BOOL active = g_gpui_composition.composing ||
