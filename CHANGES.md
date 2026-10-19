@@ -4,6 +4,14 @@
 
 ### Added
 
+- Add an opt-in Windows IMM32 composition transport:
+  `windows.Host::set_text_composition`, `set_text_composition_caret`, and
+  `finish_text_composition`. Start, Update, Commit, and Cancel are published as
+  `platform.EventKind::Composition` on the ordinary `next_event` / `dispatch`
+  queue through a bounded UTF-8 sidecar.
+- Add the Windows `Host::post_test_composition` E2E hook and synthetic
+  composition staging for WndProc suppression, finish paths, candidate
+  geometry, and mutual exclusion with the private field session.
 - Add default-off Wayland text-input-v1 composition APIs on `ubuntu.Host`:
   `set_text_composition`, `set_text_composition_caret`, and
   `finish_text_composition`, with `Composition` events on `next_event`.
@@ -12,7 +20,21 @@
 
 ### Changed
 
+- Windows `Host::next_event` and `Host::dispatch` decode composition records
+  without changing the typed editor FIFO. The portable composition session and
+  `GPUI_WINDOWS_FIELD_IME` editor session cannot both be armed; the second
+  owner receives Busy.
+
 ### Fixed
+
+- Windows composition consumes Enter and Escape while active and suppresses
+  `WM_CHAR` / `WM_IME_CHAR` until the commit END, preventing duplicate key and
+  text delivery. Focus loss, disable, destroy, and stop cancel native marked
+  text.
+- Keep the IMM32 association after a portable finish so the next composition
+  can start without re-enabling the client. Delayed composition payloads are
+  ignored until a fresh start, an empty marked preview still produces a
+  terminal Commit, and a transport failure publishes Cancel before disarming.
 
 ### Deprecated
 
@@ -22,6 +44,12 @@
 
 ### Migration
 
+- Windows composition is opt-in per window and remains default-off. Callers
+  must enable it explicitly and keep the logical caret rectangle current for
+  candidate placement. Exhaustive `EventKind` matches already needed a
+  `Composition` arm since 0.10.0.
+- The public `TextInput` and `DirectKeyboardText` capabilities are unchanged;
+  do not infer text-input support from composition availability.
 - Composition and full `EditorEvent` sessions are mutually exclusive. Use
   ordinary `next_event` for composition; public `next_editor_event` returns
   `Busy` while composition owns ingress. Each event has its own native sequence
@@ -33,6 +61,12 @@
 
 ### Limitations
 
+- Windows composition evidence is synthetic (event queue, WndProc, and a fake
+  IMM layer). Physical Microsoft IME, candidate placement at real DPI, the dsh
+  desktop integration, and the full focus/settings/session-switch acceptance
+  remain pending.
+- No full editor, surrounding text, reconversion, clause styling, or
+  attributed replacement range is added.
 - Wayland text-input-v1 only; X11/XWayland and v2/v3 are unchanged. The existing
   transport retains its stricter 4096 UTF-8 byte ceiling, in addition to the
   portable 16,384/65,536 UTF-16 preedit/commit maxima.
