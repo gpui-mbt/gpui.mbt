@@ -480,8 +480,11 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
     cancel_key_repeat(h);
     if (h->ime.composition_enabled && key < GPUI_DIRECT_KEY_CAPACITY) {
       if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
-        if (!h->ime.composition_raw_symbols[key])
+        if (!h->ime.composition_raw_symbols[key] ||
+            h->ime.composition_raw_epochs[key] != h->ime.epoch) {
           h->ime.composition_raw_symbols[key] = sym;
+          h->ime.composition_raw_epochs[key] = h->ime.epoch;
+        }
       } else if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
         /* XKB resolves a release using current modifiers, which may no
          * longer match the symbol whose press owns the composition slot. */
