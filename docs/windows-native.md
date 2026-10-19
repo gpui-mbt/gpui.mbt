@@ -287,12 +287,60 @@ evidence of a real Japanese IME, candidate-window, or driver integration; that
 qualification remains pending. The public `DirectKeyboardText` and `TextInput`
 capabilities remain unsupported.
 
+### Opt-in portable text composition
+
+`windows.Host::set_text_composition`, `set_text_composition_caret`, and
+`finish_text_composition` add a bounded IMM32 transport for the portable
+`primitives.CompositionEvent` values. It is disabled by default and is separate
+from both the private field session above and the public `TextInput`
+capability. Only one IMM owner may be armed at a time: enabling composition
+while a field session is armed returns Busy, and `begin_text_session` returns
+Busy while composition is armed.
+
+Start, Update, Commit, and Cancel are published as `platform.EventKind::Composition`
+on the ordinary `next_event` / `dispatch` queue. The private ABI uses kind 17,
+the preedit cursor in field 4, UTF-16 units in field 5, code 0..3 in field 8,
+and a copied UTF-8 sidecar. Preedit text is capped at 16,384 UTF-16 units,
+commits at 65,536 units, and each sidecar at 256 KiB within the existing 1 MiB
+pending-payload budget and 4096-record queue.
+
+`set_text_composition_caret` takes logical client coordinates. The native side
+converts them with the window scale and applies `ImmSetCompositionWindow` and
+`ImmSetCandidateWindow` best-effort; a placement failure does not break an
+active composition. While a composition is active, Enter and Escape are
+consumed so the application does not receive a duplicate key event, and
+`WM_CHAR` / `WM_IME_CHAR` are suppressed until `WM_IME_ENDCOMPOSITION` so the
+committed text is not inserted twice. Focus loss, disable, destroy, and stop
+cancel the native composition and clear the stored marked text.
+
+The synthetic native E2E and the C-level WndProc staging test run only with
+both `GPUI_WINDOWS_E2E=1` and `GPUI_NATIVE_E2E=1`:
+
+```powershell
+moon test --package f4ah6o/gpui/windows --target native --deny-warn `
+  --no-parallelize --filter "Windows synthetic IME composition preserves event order"
+moon test --package f4ah6o/gpui/windows --target native --deny-warn `
+  --no-parallelize --filter "Windows IME composition staging suppresses duplicates"
+```
+
+`scripts/test_windows.ps1` runs both filters in the opt-in native profile. These
+are queue and WndProc qualifications, not physical IME acceptance. The physical
+procedure remains: run an interactive Windows 11 desktop with Microsoft IME,
+enable composition through the application's opt-in gate, type `にほんご`,
+convert and commit `日本語`, press Escape to cancel a preview, verify
+commit-then-send, and verify that focus loss, Settings, New, and session
+switches clear the native marked text. Candidate placement must be recorded at
+100% and 150% / 200% DPI. Synthetic passes must not be reported as physical
+acceptance.
+
 ## Remaining support gates
 
-This remains a one-window development slice. Real Japanese IME and candidate
-placement, UI Automation accessibility, menus, broad DPI/display coverage,
-automated physical-GPU coverage, fault-injected renderer recovery, sustained
-resource-lifetime testing, and performance evidence remain open. The
+This remains a one-window development slice. Physical Japanese IME behavior,
+candidate placement, UI Automation accessibility, menus, broad DPI/display
+coverage, automated physical-GPU coverage, fault-injected renderer recovery,
+sustained resource-lifetime testing, and performance evidence remain open. The
+portable composition transport has synthetic queue/WndProc coverage only; the
+dsh desktop integration and real Microsoft IME acceptance are still pending. The
 historical hosted run above verified deterministic D3D11 quad readback, but did
 not exercise the text renderer added later and does not establish physical GPU
 coverage or desktop performance. Clipboard evidence now includes a separate
@@ -314,6 +362,7 @@ established. Do not infer Tier 1 support from a successful build or smoke.
 | Current monitor snapshot | Native E2E checks real monitor bounds, work area, primary flag, and the monitor containing the live HWND; portable decoder tests cover copied values and malformed records |
 | DirectWrite/D3D11 mixed-frame text readback and rejection atomicity | Passed in local MSVC/D3D11 backend tests; validates renderer pixels, not exact field caret/selection pixels |
 | Field startup smoke (default and opt-in session) | Both passed locally through `FrameCompleted`; default epoch 0, experimental session epoch 1; no typing or IME behavior exercised |
+| Portable Windows composition transport | Synthetic Start/Update/Commit/Cancel ordering, sidecar copy, finish commit/cancel, WndProc duplicate suppression, candidate geometry, mutual exclusion with the field session, and queue exhaustion pass in the Windows package tests; no physical IME evidence |
 | Pinned local actrun execution of the Windows workflow and portable profile | Passed locally on 2026-10-07 against implementation source `dfa0695bc1903a55824635a5506f68b377548279`; native and portable run 1 both exited 0 with all required tasks successful. WasmGC, JavaScript, and Wasm tests were each 382/382; contracts 30/30 plus repository validation; Windows package 12/12; DirectWrite 4/4; field 12/12; native GPU/clipboard E2E and lifecycle 1/1 each; both startup smokes reached `FrameCompleted`. Manifest and task logs: `_build/windows-actrun/manifest.json` and adjacent logs |
 | Physical multi-monitor DPI, real IME, accessibility, multi-window and fault recovery | Pending |
 | Broad third-party clipboard application compatibility | Pending |

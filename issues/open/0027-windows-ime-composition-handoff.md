@@ -1,6 +1,6 @@
 # 0027: Windows IME composition transport and desktop integration
 
-Status: open — handoff ready; implementation and physical IME acceptance pending
+Status: open — gpui host transport implemented; dsh integration and physical IME acceptance pending
 Model: deepseek-v4.1-flash:1017-cloud
 Created: 2026-10-19
 Updated: 2026-10-19
@@ -146,18 +146,51 @@ field example 用にそのまま残す。
 
 ## 受け入れ条件
 
-- [ ] Windows host の `set_text_composition` / `set_text_composition_caret` /
+- [x] Windows host の `set_text_composition` / `set_text_composition_caret` /
   `finish_text_composition` が bounds を検証し、失敗時に composition を壊さない。
-- [ ] preedit / commit / cancel が `EventKind::Composition` として通常 queue に順序どおり出る。
-- [ ] composition 中に `TextInput` と commit が二重挿入しない。
-- [ ] composition 中の Enter / Escape がアプリへ二重配送されない。
+  （gpui host 実装済み。invalid caret は FFI 前に拒否し、active composition を維持する。）
+- [x] preedit / commit / cancel が `EventKind::Composition` として通常 queue に順序どおり出る。
+  （kind 17 + UTF-8 sidecar。portable と synthetic native E2E で確認。）
+- [x] composition 中に `TextInput` と commit が二重挿入しない。
+  （合成 WndProc staging で commit 後の `WM_CHAR` / `WM_IME_CHAR` を END まで抑制。）
+- [x] composition 中の Enter / Escape がアプリへ二重配送されない。
+  （合成 WndProc staging で `WM_KEYDOWN` / `WM_IME_KEYDOWN` を消費。）
 - [ ] focus loss / Settings / New / session switch / approval / response cancel で
-  native marked text が残らない。
+  native marked text が残らない。host-side の focus loss / disable / destroy / stop は
+  実装・staging 済みだが、dsh の Settings / New / session switch / approval 経路は未接続。
 - [ ] candidate window が composer caret 付近に出る（1x / 高 DPI を各 1 回）。
+  synthetic の DPI 変換は staging 済み。実機の candidate window は未確認。
 - [ ] synthetic native E2E と dsh offline E2E が Windows で pass する。
+  gpui synthetic native E2E は pass。dsh offline E2E は gpui 公開後の stage 2 で対応。
 - [ ] 実機 Microsoft IME の manual acceptance が記録される。synthetic pass を実機受入として
   扱わない。
-- [ ] `CHANGES.md` の Migration / Limitations に Windows の scope と未検証事項を書く。
+- [x] `CHANGES.md` の Migration / Limitations に Windows の scope と未検証事項を書く。
+
+## gpui.mbt implementation notes
+
+この変更は handoff order の stage 1（gpui host）だけを実装する。dsh の
+`desktop/windows/main.mbt` はまだ `supports_text_composition: false` で、gpui の
+公開後に stage 2 として接続する。
+
+- 公開 API: `windows/ime.mbt` の `Host::set_text_composition`、
+  `set_text_composition_caret`、`finish_text_composition`。
+- C boundary: `gpui_windows_set_text_composition`、
+  `gpui_windows_set_text_composition_caret`、`gpui_windows_finish_text_composition`、
+  `gpui_windows_composition_text_size`、`gpui_windows_composition_text_copy`。
+- event: 通常 queue の kind 17。field 4 = preedit cursor、field 5 = UTF-16 units、
+  field 8 = code (0 Start / 1 Update / 2 Commit / 3 Cancel)。UTF-8 は sidecar。
+- 上限: preedit 16,384 UTF-16 units、commit 65,536 units、sidecar 256 KiB、
+  pending payload 1 MiB、queue 4096 records。
+- 排他: composition-only session と `GPUI_WINDOWS_FIELD_IME` typed session は
+  同時に armed にできない。2 つ目の owner は Busy。
+- test hook: `Host::post_test_composition`。`GPUI_NATIVE_E2E=1` のみ許可し、
+  `GPUI_WINDOWS_E2E=1` の native test から駆動する。
+- 実装ファイル: `windows/ime.mbt`、`windows/text_composition.inc`、
+  `windows/text_composition_e2e.inc`、`windows/backend.c`、`windows/backend.h`、
+  `windows/backend.mbt`、`windows/testing.mbt`。
+- 検証: `windows/ime_wbtest.mbt`（portable）、
+  `windows/ime_e2e_wbtest.mbt`（synthetic native + C staging）、
+  `scripts/test_windows.ps1` の 2 つの composition filter。
 
 ## テスト計画
 
