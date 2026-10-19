@@ -353,4 +353,3 @@ pub fn TextVerticalAlign::not_equal(Self, Self) -> Bool
 // Type aliases
 
 // Traits
-

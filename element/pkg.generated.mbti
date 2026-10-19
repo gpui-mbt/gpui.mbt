@@ -540,4 +540,3 @@ pub(open) trait IntoElement {
 pub(open) trait Render {
   fn render(Self) -> Element
 }
-
