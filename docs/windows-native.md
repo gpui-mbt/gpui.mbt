@@ -311,7 +311,10 @@ active composition. While a composition is active, Enter and Escape are
 consumed so the application does not receive a duplicate key event, and
 `WM_CHAR` / `WM_IME_CHAR` are suppressed until `WM_IME_ENDCOMPOSITION` so the
 committed text is not inserted twice. Focus loss, disable, destroy, and stop
-cancel the native composition and clear the stored marked text.
+cancel the native composition and clear the stored marked text. A successful
+`finish_text_composition` keeps the IMM32 association so the same armed client
+can compose again; delayed `WM_IME_COMPOSITION` / `WM_IME_CHAR` payloads are
+ignored until a fresh `WM_IME_STARTCOMPOSITION`.
 
 The synthetic native E2E and the C-level WndProc staging test run only with
 both `GPUI_WINDOWS_E2E=1` and `GPUI_NATIVE_E2E=1`:
