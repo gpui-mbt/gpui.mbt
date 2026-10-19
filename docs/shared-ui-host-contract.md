@@ -48,10 +48,10 @@ Yami components are already implemented.
 | Row/column/container sizing; native `layout_item`, `NativeAppShell` | `layout.FlexItem`, `FlexContainer`, `layout_flex_tree`, `layout_flex_tree_with_device_scale`; `element.Element` layout bridge | Reuse the deterministic layout engine; do not introduce a Yami native flex engine. DOM layout needs its own semantic/layout acceptance. | Portable layout and separate conformance fixtures. |
 | Hit testing, capture/bubble routing and focused dispatch; native sample input owner | `element.ElementNode/ElementTree`, `hit_test`, `dispatch_pointer`, `dispatch_input`, `without_subtree`, `FocusOwner`, `ElementTree::with_layout_bounds(Prepainted)` | Same-topology, non-scroll bounds refresh preserves exact focus ownership; it is not general reconciliation. IDs/owner lineage, cancellation and focus synchronization remain explicit. No window pointer-leave event exists in `InputEvent`. | [Retained input geometry](element-layout-bounds.md), portable element tests; window delivery separately qualified. |
 | Grouped tab traversal, focus-visible and restoration; new Button/Dialog | `ElementTree::focus_next/focus_prev/is_focus_visible/restore_focus`, `InputModality`, `Element::with_tab_group_index`, `ElementNode::with_tab_group_index` | Reuse existing flat traversal and merged signed nested group-prefix ordering. Groups remain ordering metadata. Opt-in `FocusScopeSession` adds bounded modal lifetimes, revision admission, background/ancestor suppression and disappearance fallback with an explicit owner cancellation hook; actual Dialog/native delivery is unverified. | [Bounded focus traversal](conformance-focus-traversal.md), [tab groups](conformance-tab-groups.md), [focus scopes](focus-scopes.md), portable ownership and real-controller integration fixtures. |
-| Text values, directional ranges, composition; new TextField | `text.TextDocument`, `TextSelection`, `TextRange`, `TextComposition`; strict `utf8_offset/utf16_offset` | UTF-16 is current. Immutable branches do not enforce live owner/session freshness. **GP-01-SESSION** owns that missing shared host boundary. | Existing UTF-16/UTF-8 scalar-boundary and composition suites. |
-| Bounded editing, history and composition presentation; new TextField | `controls/text_field.TextField::handle_input/update_composition/update_composition_utf8/commit_composition/cancel_composition`, `revision`, `committed_document`, `caret_rect` | Reuse existing field transactions, undo/redo, cursor-stop admission and failure rollback. It is a bounded single-line LTR field, not general grapheme/bidi/multiline support. **GP-01-SESSION**, **GP-01-GEOMETRY**. | Portable field tests; backend-specific measurement and presentation separately tested. |
+| Text values, directional ranges, composition; new TextField | `text.TextDocument`, `TextSelection`, `TextRange`, `TextComposition`; strict `utf8_offset/utf16_offset` | UTF-16 is current. `text_session.TextSession` now supplies live owner/session freshness over these values; `text_host` supplies the optional native transport. Immutable branches alone do not carry host authority. **GP-01A**, **GP-01B**. | Existing UTF-16/UTF-8 scalar-boundary and composition suites. |
+| Bounded editing, history and composition presentation; new TextField | `controls/text_field.TextField::handle_input/update_composition/update_composition_utf8/commit_composition/cancel_composition`, `revision`, `committed_document`, `caret_rect` | Reuse existing field transactions, undo/redo, cursor-stop admission and failure rollback. It is a bounded single-line LTR field, not general grapheme/bidi/multiline support. **GP-01A**, **GP-01B**, **GP-01-GEOMETRY**. | Portable field tests; backend-specific measurement and presentation separately tested. |
 | Measured caret/hit geometry; new TextField native adapter | `text_layout.TextMeasurement/CaretGeometry/TextHit`, Linux Pango, Windows DirectWrite and macOS CoreText packages | Returned coordinates/UTF-16 offsets remain explicit. No public universal shaping/segmentation engine; capability-gate unsupported layouts. **GP-01-GEOMETRY**. | Headless native measurement is distinct from rendered caret or candidate-window evidence. |
-| Window lifetime, scale, events and frames; 3 native entrypoints | `platform.Backend`; `platform.Event` with window/sequence/scale; `platform/macos.Host`, `ubuntu.Host`, `windows.Host` | Existing host/window/rendering slices are reusable. Backend interface has no common begin/update/end text-session or semantic-action methods. **GP-01-SESSION**, **GP-03-AX**. | Existing exact-host window/frame profiles; this audit runs no window. |
+| Window lifetime, scale, events and frames; 3 native entrypoints | `platform.Backend`; `platform.Event` with window/sequence/scale; `platform/macos.Host`, `ubuntu.Host`, `windows.Host` | Existing host/window/rendering slices are reusable. `Backend` intentionally has no text-session methods; the additive `text_host.TextInputHost` trait carries epochs, committed state and ordered observations. **GP-01B**, **GP-03-AX**. | Existing exact-host window/frame profiles; this audit runs no window. |
 | Role/name/enabled/loading/focus and Invoke; new semantic adapter | `accessibility.AccessibilityModel::publish/resolve_action`, owned `NodeId`, immutable snapshots | Preserve semantic nodes independently of pixels. Only bounded roles/Invoke exist; value/selection/relation fields and native notifications are incomplete. Action intent is a validation receipt, not a one-shot executable token. **GP-03-SEMANTICS**, **GP-03-AX**. | Portable model and transport-free projection tests only. |
 
 Source entrypoints and generated public API inventories:
@@ -106,11 +106,16 @@ unsupported; these are two different facts.
 
 ### Bounded remaining work
 
-- **GP-01-SESSION**: define a shared public adapter over existing text/field
-  transactions with live window/root/field generations, revision, session and
-  ordered preview/commit/cancel outcomes. Reject stale/foreign/destroyed targets.
-  Preserve an observed OS commit instead of rewriting every blur to cancel.
-  Tie to [GP-01][gp01] and [0004](../issues/open/0004-platform-rendering-and-native-boundaries.md).
+- **GP-01A (shipped)**: `text_session.TextSession` owns the shared adapter over
+  existing text/field transactions with live window/root/field generations,
+  revision, session and ordered preview/commit/cancel outcomes. It rejects
+  stale/foreign/destroyed targets and preserves an observed OS commit instead of
+  rewriting every blur to cancel. See [text_session](../text_session/).
+- **GP-01B (this change)**: `text_host` defines the optional native transport
+  (`TextInputHost`, `TextInputState`, `TextInputEvent`) and
+  `Capability::TextInputGeometry`. Hosts implement it without changing
+  `platform.Backend`; an unanswered route returns `UnsupportedCapability`. See
+  [native text host](text-host-contract.md).
 - **GP-01-GEOMETRY**: expose which exact cursor-stop, shaping, candidate-rectangle
   and range capabilities the host supports; reuse strict conversions. Broader
   grapheme/bidi behavior is a separate gate. Tie to GP-01 and 0004.

@@ -1,0 +1,62 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/gpui/text_host"
+
+import {
+  "f4ah6o/gpui/diagnostics",
+  "f4ah6o/gpui/platform",
+  "f4ah6o/gpui/primitives",
+  "f4ah6o/gpui/text",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct TextInputEvent {
+  window : @platform.WindowId
+  sequence : Int64
+  epoch : UInt64
+  kind : TextInputEventKind
+}
+pub fn TextInputEvent::epoch(Self) -> UInt64
+pub fn TextInputEvent::kind(Self) -> TextInputEventKind
+pub fn TextInputEvent::new(@platform.WindowId, Int64, UInt64, TextInputEventKind) -> Self
+pub fn TextInputEvent::sequence(Self) -> Int64
+pub fn TextInputEvent::window(Self) -> @platform.WindowId
+
+pub(all) enum TextInputEventKind {
+  Preedit(text~ : String, cursor~ : Int)
+  Commit(text~ : String)
+  Cancel
+  Geometry(caret~ : @primitives.Rect, candidate~ : @primitives.Rect?)
+  FocusLost
+}
+
+pub struct TextInputState {
+  // private fields
+}
+pub fn TextInputState::caret(Self) -> @primitives.Rect
+pub fn TextInputState::document(Self) -> @text.TextDocument
+pub fn TextInputState::new(@text.TextDocument, @primitives.Rect) -> Self
+pub fn TextInputState::preedit(Self) -> TextPreedit?
+pub fn TextInputState::with_preedit(Self, TextPreedit?) -> Self
+
+pub(all) struct TextPreedit {
+  text : String
+  selection : @text.TextSelection
+}
+pub fn TextPreedit::new(String, @text.TextSelection) -> Self
+pub fn TextPreedit::selection(Self) -> @text.TextSelection
+pub fn TextPreedit::text(Self) -> String
+
+// Type aliases
+
+// Traits
+pub(open) trait TextInputHost {
+  fn begin_text_input(Self, @platform.WindowId, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
+  fn update_text_input(Self, UInt64, TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
+  fn cancel_text_input(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+  fn end_text_input(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+  fn next_text_input(Self, timeout_ms? : Int) -> Result[TextInputEvent?, @diagnostics.FrameworkError]
+}

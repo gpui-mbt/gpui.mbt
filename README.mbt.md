@@ -129,11 +129,16 @@ Subscriptions are explicitly canceled with `unsubscribe`. Deterministic timer te
 | `layout/` | Deterministic flex layout and recursive layout trees |
 | `element/` | Element trees, hit testing, event routing, focus, scroll state, drag gestures, and element-to-scene bridging |
 | `controls/button/` | Shared enabled, loading, focus, keyboard/pointer activation, and scene-paint semantics |
+| `controls/text_field/` | Bounded single-line document/selection editing, composition transactions, undo/redo and paint items |
+| `text_session/` | Live composition ownership, window/root/field generations, ordered preview/commit/cancel and observed end resolution |
+| `text_host/` | Optional native text transport: host-issued epochs, committed document, caret/candidate geometry and ordered events |
+| `accessibility/` | Portable semantic tree, node identities, roles, state and `Invoke` action validation |
 | `scene/` | Quad paint commands, bounded text snapshot items, validation, canonical snapshots, transforms, opacity, and clips |
 | `platform/` | Portable backend/window/event contracts plus the macOS backend |
 | `platform/macos_app/` | Reusable macOS app-layer CoreText labels, TextField callbacks, cursor state and window startup |
 | `platform/windows_app/` | Reusable Windows app-layer DirectWrite labels, TextField callbacks, cursor state and window startup |
 | `ubuntu/` | Ubuntu Wayland/EGL/GLES2 native backend |
+| `x11/` | Experimental Xlib/EGL/GLES2 native backend |
 | `windows/` | Experimental Win32/D3D11 WARP backend slice |
 | `capability/` | Typed semantic capabilities, validation, schema projection, and registry |
 | `mcp/` | Optional modern MCP inventory, schema projection, stateless wire router, and in-process dispatch adapter |
@@ -146,6 +151,7 @@ Subscriptions are explicitly canceled with `unsubscribe`. Deterministic timer te
 - [Product model](docs/product.md)
 - [Architecture and dependency boundaries](docs/architecture.md)
 - [Portable text value model](docs/text-model.md)
+- [Native text host contract](docs/text-host-contract.md)
 - [Linux text measurement and Ubuntu grayscale drawing](docs/linux-text.md)
 - [GPUI compatibility matrix](docs/compatibility.md)
 - [Device-scale layout boundaries](docs/conformance-device-scale.md)
