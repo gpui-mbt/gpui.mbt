@@ -19,9 +19,10 @@ static int ime_queued_valid(const struct host *h, int slot) {
 }
 static int ime_queued_stale(const struct host *h, int slot) {
   const struct ime_payload *data = h->ime_queue[slot];
+  if (data->composition_revoked) return 1;
   /* Left is cancellation of the captured target, deliberately deliverable
    * before blur and after the epoch advances. Consumer still checks target. */
-  if (data->kind == 23)
+  if (data->kind == 23 || data->kind >= 26)
     return 0;
   return !h->ime.requested || h->ime.exhausted || h->state ||
          data->epoch != h->ime.epoch || data->window != h->window ||
