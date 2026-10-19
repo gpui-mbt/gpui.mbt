@@ -782,7 +782,6 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         "layout",
         "scene",
         "element",
-        "text_host",
     }
     errors: list[str] = []
     module_prefix = module_name + "/"
