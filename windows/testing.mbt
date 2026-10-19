@@ -65,6 +65,17 @@ extern "C" fn native_test_post_click(
 ) -> Int32 = "gpui_windows_test_post_click"
 
 ///|
+#borrow(text)
+extern "C" fn native_test_post_composition(
+  host : Int32,
+  window : Int32,
+  kind : Int32,
+  cursor : Int32,
+  text : Bytes,
+  text_length : Int32,
+) -> Int32 = "gpui_windows_test_post_composition"
+
+///|
 fn test_modifier_bits(modifiers : @primitives.Modifiers) -> Int32 {
   let mut bits = 0
   if modifiers.shift() {
@@ -146,6 +157,54 @@ pub fn Host::post_test_key(
       test_modifier_bits(modifiers),
     ),
     "post_test_key",
+  )
+}
+
+///|
+/// Encode one synthetic composition frame as (kind, cursor, text).
+fn test_composition_encoding(
+  event : @primitives.CompositionEvent,
+) -> Result[(Int32, Int32, String), @diagnostics.FrameworkError] {
+  match event {
+    @primitives.Start => Ok((0, 0, ""))
+    @primitives.Update(text~, cursor_utf16~) =>
+      if cursor_utf16 < 0 || cursor_utf16 > text.length() {
+        Err(backend_error(3, "post_test_composition"))
+      } else {
+        Ok((1, cursor_utf16, text))
+      }
+    @primitives.Commit(text~) => Ok((2, 0, text))
+    @primitives.Cancel => Ok((3, 0, ""))
+  }
+}
+
+///|
+/// Post one synthetic composition frame through the same native state machine
+/// WndProc uses. Requires GPUI_NATIVE_E2E=1. This is a queue hook, not physical
+/// IME input.
+pub fn Host::post_test_composition(
+  self : Host,
+  window : @platform.WindowId,
+  event : @primitives.CompositionEvent,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  let (kind, cursor, text) = match test_composition_encoding(event) {
+    Err(error) => return Err(error)
+    Ok(encoded) => encoded
+  }
+  let bytes = @utf8.encode(text)
+  if bytes.length() > 65_536 {
+    return Err(backend_error(8, "post_test_composition"))
+  }
+  outcome(
+    native_test_post_composition(
+      self.token,
+      window.value().to_int(),
+      kind,
+      cursor,
+      bytes,
+      bytes.length(),
+    ),
+    "post_test_composition",
   )
 }
 
