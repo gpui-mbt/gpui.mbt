@@ -54,6 +54,8 @@ pub(all) enum Capability {
   Clipboard
   Cursor
   TextInput
+  /// Reports caret and candidate-window geometry for the active text session.
+  TextInputGeometry
   Accessibility
   Menus
   RendererRecovery

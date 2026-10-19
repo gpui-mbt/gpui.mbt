@@ -650,6 +650,9 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         # Live composition ownership wraps the existing portable editor and
         # shared window identifiers; native text transports remain OS leaves.
         "text_session": {"platform", "text", "text_layout", "controls/text_field"},
+        # Optional native text transport above platform values. Hosts implement
+        # it without changing the general Backend interface.
+        "text_host": {"diagnostics", "platform", "primitives", "text"},
         # Reusable button state stays portable above hit-testing and scene data.
         "controls/button": {"primitives", "element", "scene"},
         "controls/command_palette": {"text", "text_layout", "primitives", "element", "controls/text_field", "capability", "diagnostics", "scene"},

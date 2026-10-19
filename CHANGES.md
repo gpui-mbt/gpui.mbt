@@ -1,5 +1,15 @@
 # Changes
 
+## Unreleased
+
+### Added
+
+- Add the optional `text_host/` native text transport contract
+  (`TextInputHost`, `TextInputState`, `TextInputEvent`) between
+  `platform.Backend` and `text_session/`, plus
+  `Capability::TextInputGeometry`. The package is additive; existing hosts keep
+  returning `UnsupportedCapability` until they implement it.
+
 ## 0.10.1 - 2026-10-20
 
 ### Added
