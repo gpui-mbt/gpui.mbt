@@ -75,6 +75,16 @@ int32_t gpui_direct_keyboard_text_active(int32_t host);
 #define GPUI_EDITOR_EVENT_FIELDS (25 + 3 * GPUI_IME_MAX_STYLES)
 #define GPUI_EDITOR_MAX_PAYLOAD (2 * GPUI_IME_MAX_BYTES)
 #define GPUI_IME_QUEUE_BYTES (1024 * 1024)
+/* Bounded composition records: 26 start, 27 update, 28 commit, 29 cancel.
+ * Finish preserves opt-in and reactivates after the leave fence; disabling
+ * ends opt-in. Accepted records survive the session fence. */
+int32_t gpui_text_composition_mode(int32_t host, int32_t window, int32_t enabled);
+int32_t gpui_text_composition_caret(int32_t host, int32_t window,
+    int32_t x, int32_t y, int32_t width, int32_t height);
+int32_t gpui_text_composition_finish(int32_t host, int32_t window, int32_t commit);
+int32_t gpui_text_composition_active(int32_t host);
+int32_t gpui_test_post_composition(int32_t host, int32_t window, int32_t kind,
+    const uint8_t *text, int32_t length, int32_t cursor_utf16);
 int32_t gpui_text_session_begin(int32_t host, int32_t window,
     const uint8_t *text, int32_t length, int32_t cursor, int32_t anchor,
     int32_t x, int32_t y, int32_t width, int32_t height);

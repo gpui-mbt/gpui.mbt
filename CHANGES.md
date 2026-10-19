@@ -12,6 +12,11 @@
 - Add the Windows `Host::post_test_composition` E2E hook and synthetic
   composition staging for WndProc suppression, finish paths, candidate
   geometry, and mutual exclusion with the private field session.
+- Add default-off Wayland text-input-v1 composition APIs on `ubuntu.Host`:
+  `set_text_composition`, `set_text_composition_caret`, and
+  `finish_text_composition`, with `Composition` events on `next_event`.
+- Add a gated `post_test_composition` native transaction hook
+  (`GPUI_NATIVE_E2E=1`) and callback/queue/decoder regression tests.
 
 ### Changed
 
@@ -41,6 +46,14 @@
   `Composition` arm since 0.10.0.
 - The public `TextInput` and `DirectKeyboardText` capabilities are unchanged;
   do not infer text-input support from composition availability.
+- Composition and full `EditorEvent` sessions are mutually exclusive. Use
+  ordinary `next_event` for composition; public `next_editor_event` returns
+  `Busy` while composition owns ingress. Each event has its own native sequence
+  and captured window. Direct keyboard text is disarmed on opt-in.
+- `finish_text_composition` resolves cached preedit and fences the native epoch
+  while retaining opt-in; disabling ends the session. Re-enable direct text
+  explicitly when leaving composition mode. During a leave fence this request
+  is deferred until old IME input can no longer be admitted.
 
 ### Limitations
 
@@ -50,6 +63,15 @@
   remain pending.
 - No full editor, surrounding text, reconversion, clause styling, or
   attributed replacement range is added.
+- Wayland text-input-v1 only; X11/XWayland and v2/v3 are unchanged. The existing
+  transport retains its stricter 4096 UTF-8 byte ceiling, in addition to the
+  portable 16,384/65,536 UTF-16 preedit/commit maxima.
+- There is no surrounding-document contract. Commits carrying deletion or
+  postinsert cursor metadata are discarded and cancel an active preview;
+  they are not applied or advertised as supported.
+- Application-requested commit uses cached preedit, not an IME-selected
+  candidate. Candidate placement, physical IBus/Mozc and compositor E2E are
+  not qualified by callback fixtures. See [Wayland IME](docs/ubuntu-ime.md).
 
 ## 0.10.0 - 2026-10-19
 

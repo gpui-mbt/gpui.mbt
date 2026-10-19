@@ -66,7 +66,82 @@ static int ime_record(struct host *h, struct ime_payload *data) {
   h->ime_queue_bytes += sizeof(*copy);
   return GPUI_OK;
 }
+/* Convert at admission, not read time: each portable event receives its own
+ * monotonic sequence and retains its captured window across lifecycle fences. */
+static int composition_record(struct host *h, int kind,
+                              const struct ime_payload *source) {
+  struct ime_payload data = {0};
+  data.kind = kind;
+  if (source && (kind == 27 || kind == 28)) {
+    data.text_length = source->text_length;
+    memcpy(data.text, source->text, (size_t)data.text_length);
+    if (kind == 27) {
+      data.cursor_present = 1;
+      data.cursor = source->cursor_present && source->cursor >= 0
+          ? source->cursor : source->text_length;
+    }
+  }
+  return ime_record(h, &data);
+}
+static int composition_resolve(struct host *h, int commit) {
+  if (!h->ime.composition_preview)
+    return GPUI_OK;
+  int status = composition_record(h, commit ? 28 : 29,
+                                  &h->ime.composition_cache);
+  if (!status) {
+    h->ime.composition_preview = 0;
+    memset(&h->ime.composition_cache, 0, sizeof(h->ime.composition_cache));
+  }
+  return status;
+}
+/* An application cancel means the logical editor target may already have
+ * changed while earlier pointer/command events were being handled. Retract
+ * only unread composition records; natural focus callbacks retain FIFO. */
+static int composition_cancel_unread(struct host *h) {
+  int revoked = 0;
+  for (int i = 0; i < h->count; ++i) {
+    int slot = (h->read + i) % QUEUE_CAPACITY;
+    struct ime_payload *data = h->ime_queue[slot];
+    if (data && data->kind >= 26 && data->window == h->window &&
+        !data->composition_revoked) {
+      data->composition_revoked = 1;
+      revoked = 1;
+    }
+  }
+  if (h->ime.composition_preview) return composition_resolve(h, 0);
+  return revoked ? composition_record(h, 29, NULL) : GPUI_OK;
+}
+static int composition_transaction(struct host *h, struct ime_payload *data) {
+  if (data->kind == 20) {
+    if (!data->text_length)
+      return composition_resolve(h, 0);
+    if (!h->ime.composition_preview) {
+      /* Reserve both records before publishing Start. */
+      if (h->count > QUEUE_CAPACITY - 2 || h->seq > INT_MAX - 2 ||
+          h->ime_queue_bytes > GPUI_IME_QUEUE_BYTES - 2 * sizeof(*data))
+        return input_failure(h, GPUI_RESOURCE);
+      int status = composition_record(h, 26, NULL);
+      if (status) return status;
+    }
+    int status = composition_record(h, 27, data);
+    if (!status) {
+      h->ime.composition_cache = *data;
+      h->ime.composition_preview = 1;
+    }
+    return status;
+  }
+  /* Bounded composers never apply surrounding deletion or cursor movement.
+   * Reject the complete transaction and cancel the preview explicitly. */
+  if (data->delete_present || data->position_present)
+    return composition_resolve(h, 0);
+  int status = data->text_length ? composition_record(h, 28, data)
+                               : composition_resolve(h, 0);
+  if (!status) h->ime.composition_preview = 0;
+  return status;
+}
 static int ime_lifecycle_record(struct host *h, int kind) {
+  if (h->ime.composition_enabled)
+    return kind == 23 ? composition_resolve(h, 0) : GPUI_OK;
   if (h->ime.wire_epoch <= 0 || !h->ime.wire_seat || !h->window)
     return GPUI_OK;
   struct ime_payload data = {0};
@@ -249,6 +324,8 @@ static void ime_invalidate(struct host *h, int emit_leave, int deactivate) {
            h->ime.wire_epoch != h->ime.epoch)
     (void)ime_pending_left_record(h);
   h->ime.requested = 0;
+  memset(h->ime.composition_keys, 0, sizeof(h->ime.composition_keys));
+  memset(h->ime.composition_raw_symbols, 0, sizeof(h->ime.composition_raw_symbols));
   (void)ime_advance_epoch(h);
   h->ime.serial_floor = 0;
   if (deactivate)
@@ -283,6 +360,8 @@ static void ime_enter(void *data, struct zwp_text_input_v1 *proxy,
       h->ime.wire_epoch != h->ime.epoch)
     return;
   h->ime.phase = IME_ACTIVE;
+  memset(h->ime.composition_keys, 0, sizeof(h->ime.composition_keys));
+  memset(h->ime.composition_raw_symbols, 0, sizeof(h->ime.composition_raw_symbols));
   (void)ime_lifecycle_record(h, 22);
 }
 static void ime_leave(void *data, struct zwp_text_input_v1 *proxy) {
@@ -294,6 +373,14 @@ static void ime_leave(void *data, struct zwp_text_input_v1 *proxy) {
     ime_clear_stage(h);
     if (h->ime.requested)
       (void)ime_activate(h);
+    else if (h->ime.composition_direct_pending) {
+      h->ime.composition_direct_pending = 0;
+      h->ime.composition_stopping = 0;
+      int status = gpui_direct_keyboard_text_mode(h->token, h->window, 1);
+      if (status) (void)input_failure(h, status);
+    } else {
+      h->ime.composition_stopping = 0;
+    }
   } else if (h->ime.phase == IME_ACTIVE || h->ime.phase == IME_ACTIVATING ||
              h->ime.phase == IME_DRAINING_MODIFIERS) {
     /* Unexpected focus loss supersedes the pending drain/reactivation. */
@@ -363,7 +450,9 @@ static void ime_preedit_cursor(void *data, struct zwp_text_input_v1 *proxy,
   h->ime.stage.cursor = index;
 }
 static int ime_payload_valid(const struct ime_payload *data) {
-  if (data->kind < 20 || data->kind > 25 || data->window <= 0 ||
+  if (data->kind < 20 || data->kind > 29 || data->window <= 0 ||
+      (data->composition_revoked != 0 && data->composition_revoked != 1) ||
+      (data->composition_revoked && data->kind < 26) ||
       data->epoch <= 0 || !data->seat || data->proxy_generation <= 0 ||
       data->text_length < 0 || data->text_length > GPUI_IME_MAX_BYTES ||
       data->fallback_length < 0 || data->fallback_length > GPUI_IME_MAX_BYTES ||
@@ -379,6 +468,16 @@ static int ime_payload_valid(const struct ime_payload *data) {
       memchr(data->text, 0, (size_t)data->text_length) ||
       memchr(data->fallback, 0, (size_t)data->fallback_length))
     return 0;
+  if (data->kind >= 26) {
+    if (data->serial || data->fallback_length || data->delete_present ||
+        data->position_present || data->style_count)
+      return 0;
+    if (data->kind == 27)
+      return data->text_length > 0 && data->cursor_present &&
+             ime_boundary(data->text, data->text_length, data->cursor);
+    return !data->cursor_present &&
+           (data->kind == 28 || data->text_length == 0);
+  }
   if (data->kind == 22 || data->kind == 23)
     return data->serial == 0 && data->text_length == 0 &&
            data->fallback_length == 0 && !data->cursor_present &&
@@ -437,7 +536,8 @@ static void ime_preedit_string(void *data, struct zwp_text_input_v1 *proxy,
   if (status)
     (void)input_failure(h, status);
   else
-    (void)ime_record(h, &transaction);
+    (void)(h->ime.composition_enabled ? composition_transaction(h, &transaction)
+                                       : ime_record(h, &transaction));
 }
 static void ime_cursor_position(void *data, struct zwp_text_input_v1 *proxy,
                                int32_t index, int32_t anchor) {
@@ -488,11 +588,124 @@ static void ime_commit_string(void *data, struct zwp_text_input_v1 *proxy,
   if (status)
     (void)input_failure(h, status);
   else
-    (void)ime_record(h, &transaction);
+    (void)(h->ime.composition_enabled ? composition_transaction(h, &transaction)
+                                       : ime_record(h, &transaction));
+}
+/* text-input-v1 forwards a keysym, not a physical keycode. A modifier change
+ * can change its release symbol. Resolve only a unique held key, using case
+ * identity or the current bounded keyboard map's levels within one layout. */
+static int composition_same_key(struct host *h, xkb_keysym_t a, xkb_keysym_t b) {
+  if (!h->keymap) return 0;
+  xkb_keycode_t first = xkb_keymap_min_keycode(h->keymap);
+  xkb_keycode_t last = xkb_keymap_max_keycode(h->keymap);
+  if (last >= GPUI_DIRECT_KEY_CAPACITY + 8) return 0;
+  for (xkb_keycode_t key = first; key <= last; ++key) {
+    xkb_layout_index_t layouts = xkb_keymap_num_layouts_for_key(h->keymap, key);
+    for (xkb_layout_index_t layout = 0; layout < layouts; ++layout) {
+      int found_a = 0, found_b = 0;
+      xkb_level_index_t levels = xkb_keymap_num_levels_for_key(h->keymap, key, layout);
+      for (xkb_level_index_t level = 0; level < levels; ++level) {
+        const xkb_keysym_t *symbols = NULL;
+        int count = xkb_keymap_key_get_syms_by_level(h->keymap, key, layout, level, &symbols);
+        for (int i = 0; i < count; ++i) {
+          found_a |= symbols[i] == a;
+          found_b |= symbols[i] == b;
+        }
+      }
+      if (found_a && found_b) return 1;
+    }
+  }
+  return 0;
+}
+static void composition_key(struct host *h, uint32_t state,
+                            xkb_keysym_t symbol, int modifiers) {
+  int slot = -1, empty = -1;
+  for (int i = 0; i < 256; ++i) {
+    if (h->ime.composition_keys[i] == symbol && symbol) slot = i;
+    if (!h->ime.composition_keys[i]) empty = i;
+  }
+  if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
+    for (int pass = 0; slot < 0 && pass < 2; ++pass) {
+      for (int i = 0; i < 256; ++i) {
+        uint32_t held = h->ime.composition_keys[i];
+        if (held && (pass == 0
+              ? xkb_keysym_to_lower(held) == xkb_keysym_to_lower(symbol)
+              : composition_same_key(h, held, symbol))) {
+          if (slot >= 0) {
+            /* Ambiguous release cannot safely mutate either key owner. */
+            (void)input_failure(h, GPUI_INVALID);
+            return;
+          }
+          slot = i;
+        }
+      }
+    }
+    if (slot < 0) return;
+    symbol = h->ime.composition_keys[slot];
+    h->ime.composition_keys[slot] = 0;
+    if (h->ime.composition_key_consumed[slot]) {
+      h->ime.composition_key_consumed[slot] = 0;
+      return;
+    }
+  } else {
+    if (slot >= 0) return; /* Raw and forwarded delivery share ownership. */
+    if (empty < 0 || !symbol) {
+      (void)input_failure(h, GPUI_RESOURCE); return;
+    }
+    h->ime.composition_keys[empty] = symbol;
+    h->ime.composition_key_consumed[empty] = 0;
+  }
+  uint32_t scalar = xkb_keysym_to_utf32(symbol);
+  int printable = scalar >= 32 && scalar != 127 && !(modifiers & 14);
+  if (state == WL_KEYBOARD_KEY_STATE_PRESSED && printable) {
+    h->ime.composition_key_consumed[empty] = 1;
+    char text[8] = {0};
+    int length = xkb_keysym_to_utf8(symbol, text, sizeof(text));
+    if (length > 1) {
+      struct ime_payload data = {0};
+      data.text_length = length - 1;
+      memcpy(data.text, text, (size_t)data.text_length);
+      (void)composition_record(h, 28, &data);
+      h->ime.composition_preview = 0;
+    }
+    return;
+  }
+  if (state == WL_KEYBOARD_KEY_STATE_PRESSED && h->ime.composition_preview &&
+      (symbol == XKB_KEY_Return || symbol == XKB_KEY_KP_Enter ||
+       symbol == XKB_KEY_Escape)) {
+    if (composition_resolve(h, symbol != XKB_KEY_Escape)) return;
+    /* Reset the old native transaction before its delayed commit arrives. */
+    h->ime.composition_key_consumed[empty] = 2;
+    (void)gpui_text_session_cancel(h->token, h->window, h->ime.epoch);
+    return; /* resolving Enter/Escape is consumed, including its release */
+  }
+  int queue_slot = (h->read + h->count) % QUEUE_CAPACITY;
+  int previous_count = h->count;
+  int previous_modifiers = h->modifiers;
+  h->modifiers = modifiers;
+  direct_key_record(h, state == WL_KEYBOARD_KEY_STATE_PRESSED ? 11 : 12,
+                    symbol, scalar, h->direct_epoch, 0, 0);
+  h->modifiers = previous_modifiers;
+  if (h->count != previous_count)
+    h->direct_queue[queue_slot].composition_epoch = h->ime.epoch;
+}
+static int composition_pending_release(struct host *h, uint32_t state,
+                                       xkb_keysym_t symbol) {
+  if (!h->ime.composition_enabled || state != WL_KEYBOARD_KEY_STATE_RELEASED ||
+      !h->keyboard_focus_current || h->state || h->error)
+    return 0;
+  for (int i = 0; i < 256; ++i)
+    if (symbol && h->ime.composition_keys[i] == symbol &&
+        h->ime.composition_key_consumed[i] == 2) {
+      composition_key(h, state, symbol, h->modifiers);
+      return 1;
+    }
+  return 0;
 }
 static void ime_raw_keyboard_key(struct host *h, uint32_t state,
                                   xkb_keysym_t symbol) {
   ime_observe_modifier_release(h, state, symbol);
+  if (composition_pending_release(h, state, symbol)) return;
   if (!h->ime.requested || h->ime.exhausted || h->state || h->error ||
       !h->keyboard_focus_current || !h->ime.proxy || !h->window ||
       !h->seat_name || (h->ime.phase != IME_ACTIVE &&
@@ -503,6 +716,10 @@ static void ime_raw_keyboard_key(struct host *h, uint32_t state,
   if (state > WL_KEYBOARD_KEY_STATE_PRESSED || symbol > 0x1fffffff ||
       h->modifiers < 0 || h->modifiers > 15) {
     (void)input_failure(h, GPUI_INVALID);
+    return;
+  }
+  if (h->ime.composition_enabled) {
+    composition_key(h, state, symbol, h->modifiers);
     return;
   }
   struct ime_payload transaction = {0};
@@ -519,6 +736,8 @@ static void ime_keysym(void *data, struct zwp_text_input_v1 *proxy,
                        uint32_t state, uint32_t modifiers) {
   UNUSED(time);
   struct host *h = data;
+  /* Forwarded releases must pass the same current-target/serial checks as
+   * presses. An old release must never clear a replacement epoch owner. */
   if (proxy == h->ime.proxy && h->ime.proxy &&
       h->ime.phase == IME_DRAINING_MODIFIERS) {
     /* Only an issued serial of the captured old wire target can mark a
@@ -535,6 +754,14 @@ static void ime_keysym(void *data, struct zwp_text_input_v1 *proxy,
   if (!h->ime.modifiers_valid || (modifiers & ~h->ime.known_modifier_mask) ||
       symbol > 0x1fffffff || state > WL_KEYBOARD_KEY_STATE_PRESSED) {
     (void)input_failure(h, GPUI_INVALID);
+    return;
+  }
+  if (h->ime.composition_enabled) {
+    int bits = 0;
+    for (int i = 0; i < 4; ++i)
+      if (modifiers & h->ime.modifier_masks[i]) bits |= 1 << i;
+    h->ime.forwarded_modifiers = bits;
+    composition_key(h, state, symbol, bits);
     return;
   }
   struct ime_payload transaction = {0};
@@ -626,7 +853,8 @@ int32_t gpui_text_session_begin(int32_t token, int32_t window,
     return -GPUI_RESOURCE;
   if (!ime_document_valid(text, length, cursor, anchor, width, height))
     return -GPUI_INVALID;
-  if (h->ime.requested || h->direct_enabled)
+  if (h->ime.composition_enabled || h->ime.requested || h->direct_enabled ||
+      (!h->ime.composition_begin_internal && gpui_text_composition_active(token) > 0))
     return -GPUI_BUSY;
   status = ime_require_proxy(h);
   if (status)
@@ -636,6 +864,8 @@ int32_t gpui_text_session_begin(int32_t token, int32_t window,
     return -status;
   ime_set_document(h, text, length, cursor, anchor, x, y, width, height);
   h->ime.requested = h->ime.ever_enabled = 1;
+  h->ime.composition_direct_pending = 0;
+  h->ime.composition_stopping = 0;
   h->ime.panel_requested = 1;
   status = ime_activate(h);
   if (!status) {
@@ -737,4 +967,155 @@ int32_t gpui_text_session_panel(int32_t token, int32_t window, int32_t epoch,
       zwp_text_input_v1_hide_input_panel(h->ime.proxy);
   }
   return GPUI_OK;
+}
+
+int32_t gpui_text_composition_active(int32_t token) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return -status;
+  if (h->ime.composition_enabled) return 1;
+  for (int i = 0; i < h->count; ++i) {
+    int slot = (h->read + i) % QUEUE_CAPACITY;
+    if ((h->ime_queue[slot] && h->ime_queue[slot]->kind >= 26) ||
+        h->direct_queue[slot].composition_epoch ||
+        (h->ime.composition_ever_enabled && !h->ime.requested &&
+         h->direct_queue[slot].revoked)) return 1;
+  }
+  return 0;
+}
+int32_t gpui_text_composition_finish(int32_t token, int32_t window, int32_t commit) {
+  struct host *h;
+  int status = window_check(token, window, &h);
+  if (status) return status;
+  if (commit != 0 && commit != 1) return GPUI_INVALID;
+  if (!h->ime.composition_enabled) return GPUI_OK;
+  if (h->state) return GPUI_STOPPING;
+  if (h->ime.exhausted) return GPUI_RESOURCE;
+  if (h->error) return h->error;
+  status = commit ? composition_resolve(h, 1) : composition_cancel_unread(h);
+  if (status) return status;
+  if (!h->ime.requested) return GPUI_OK;
+  int epoch = gpui_text_session_cancel(token, window, h->ime.epoch);
+  return epoch < 0 ? -epoch : GPUI_OK;
+}
+int32_t gpui_text_composition_mode(int32_t token, int32_t window, int32_t enabled) {
+  struct host *h;
+  int status = window_check(token, window, &h);
+  if (status) return status;
+  if (enabled != 0 && enabled != 1) return GPUI_INVALID;
+  if (!enabled) {
+    if (!h->ime.composition_enabled) return GPUI_OK;
+    status = composition_cancel_unread(h);
+    if (status) return status;
+    ime_invalidate(h, 0, 1);
+    h->ime.composition_enabled = 0;
+    h->ime.composition_stopping = h->ime.phase == IME_DEACTIVATING;
+    memset(h->ime.composition_keys, 0, sizeof(h->ime.composition_keys));
+  memset(h->ime.composition_raw_symbols, 0, sizeof(h->ime.composition_raw_symbols));
+    return h->ime.exhausted ? GPUI_RESOURCE : h->error;
+  }
+  if (h->ime.composition_enabled && h->ime.requested) return GPUI_OK;
+  h->ime.composition_direct_pending = 0;
+  h->ime.composition_stopping = 0;
+  if (h->state) return GPUI_STOPPING;
+  if (h->error) return h->error;
+  if (h->ime.requested) return GPUI_BUSY;
+  if (h->ime.exhausted || h->ime.epoch == INT_MAX ||
+      h->ime.latest_serial == INT_MAX || h->direct_exhausted ||
+      (h->direct_enabled && h->direct_epoch == INT_MAX))
+    return GPUI_RESOURCE;
+  /* Initial opt-in may precede wl_keyboard.enter. Arm without protocol
+   * requests; keyboard_enter starts the empty session after focus is proven. */
+  if (!h->keyboard_focus_current) {
+    if (!h->ime.manager || !h->ime.manager_name || !h->surface)
+      return GPUI_UNSUPPORTED;
+    h->ime.composition_enabled = h->ime.composition_ever_enabled = 1;
+    if (h->ime.rect[2] <= 0 || h->ime.rect[3] <= 0) {
+      h->ime.rect[2] = h->ime.rect[3] = 1;
+    }
+    return GPUI_OK;
+  }
+  /* Only disarm direct input after capability validation. */
+  status = ime_require_proxy(h);
+  if (status) return status;
+  if (h->direct_enabled) {
+    status = advance_direct_epoch(h);
+    if (status) return status;
+    h->direct_enabled = 0;
+  }
+  h->ime.composition_enabled = 0;
+  int width = h->ime.rect[2] > 0 ? h->ime.rect[2] : 1;
+  int height = h->ime.rect[3] > 0 ? h->ime.rect[3] : 1;
+  h->ime.composition_begin_internal = 1;
+  int epoch = gpui_text_session_begin(token, window, NULL, 0, 0, 0,
+      h->ime.rect[0], h->ime.rect[1], width, height);
+  h->ime.composition_begin_internal = 0;
+  if (epoch < 0) return -epoch;
+  h->ime.composition_enabled = h->ime.composition_ever_enabled = 1;
+  return GPUI_OK;
+}
+int32_t gpui_text_composition_caret(int32_t token, int32_t window,
+    int32_t x, int32_t y, int32_t width, int32_t height) {
+  struct host *h;
+  int status = window_check(token, window, &h);
+  if (status) return status;
+  if (width <= 0 || height <= 0) return GPUI_INVALID;
+  if (!h->ime.composition_enabled) return GPUI_STALE;
+  if (h->state) return GPUI_STOPPING;
+  if (h->error) return h->error;
+  if (!h->ime.requested) {
+    h->ime.rect[0] = x; h->ime.rect[1] = y;
+    h->ime.rect[2] = width; h->ime.rect[3] = height;
+    return GPUI_OK;
+  }
+  int epoch = gpui_text_session_update(token, window, h->ime.epoch,
+      NULL, 0, 0, 0, x, y, width, height, 0);
+  return epoch < 0 ? -epoch : GPUI_OK;
+}
+/* Synthetic acceptance ingress only; no protocol or physical IME claim. */
+int32_t gpui_test_post_composition(int32_t token, int32_t window, int32_t kind,
+    const uint8_t *text, int32_t length, int32_t cursor_utf16) {
+  const char *gate = getenv("GPUI_NATIVE_E2E");
+  if (!gate || strcmp(gate, "1")) return GPUI_UNSUPPORTED;
+  struct host *h;
+  int status = window_check(token, window, &h);
+  if (status) return status;
+  if (h->state) return GPUI_STOPPING;
+  if (h->error) return h->error;
+  if (!h->ime.composition_enabled || !h->ime.requested) return GPUI_UNSUPPORTED;
+  if (kind < 0 || kind > 3 || length < 0 || length > GPUI_IME_MAX_BYTES ||
+      (!text && length) || !direct_utf8_valid(text, length) ||
+      (length && memchr(text, 0, (size_t)length)) ||
+      ((kind == 0 || kind == 3) && length) || cursor_utf16 < -1)
+    return GPUI_INVALID;
+  struct ime_payload data = {0};
+  data.text_length = length;
+  if (length) memcpy(data.text, text, (size_t)length);
+  if (kind == 1) {
+    int units = 0, cursor = -1;
+    for (int i = 0; i < length;) {
+      if (units == cursor_utf16) cursor = i;
+      unsigned byte = text[i];
+      int width = byte < 0x80 ? 1 : byte < 0xe0 ? 2 : byte < 0xf0 ? 3 : 4;
+      units += width == 4 ? 2 : 1;
+      i += width;
+    }
+    if (units == cursor_utf16 || cursor_utf16 == -1) cursor = length;
+    if (cursor < 0) return GPUI_INVALID;
+    data.kind = 20; data.cursor_present = 1; data.cursor = cursor;
+    return composition_transaction(h, &data);
+  }
+  if (cursor_utf16 != -1) return GPUI_INVALID;
+  if (kind == 0) {
+    if (h->ime.composition_preview) return GPUI_OK;
+    status = composition_record(h, 26, NULL);
+    if (!status) {
+      memset(&h->ime.composition_cache, 0, sizeof(h->ime.composition_cache));
+      h->ime.composition_preview = 1;
+    }
+    return status;
+  }
+  if (kind == 3) return composition_resolve(h, 0);
+  data.kind = 21;
+  return composition_transaction(h, &data);
 }
