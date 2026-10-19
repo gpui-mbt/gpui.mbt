@@ -170,3 +170,64 @@ IME clipboard operations are not part of this native Japanese qualification.
 Paste's cached owner guard is followed by a native epoch-validating external
 update before any pending paste presentation. Stale native ownership fails
 closed before presentation rather than claiming fresh clipboard focus.
+
+
+## Bounded composition transport (0028)
+
+`ubuntu.Host` additionally offers default-off `set_text_composition(window,
+true)`, `set_text_composition_caret(window, rect)`, and
+`finish_text_composition(window, commit)`. This is a document-owner transport,
+not a TextField/full-editor session. The application keeps its committed text,
+selection, undo, rendering, and focus policy.
+
+- Read `EventKind::Composition` through ordinary `next_event`. Conversion occurs
+  at native callback admission so Start and Update receive distinct increasing
+  sequence numbers in the same queue as pointer/window/key events. Captured
+  window identity survives terminal delivery.
+- Nonempty first preedit emits Start then Update; further preedit emits Update.
+  Empty preedit or focus loss cancels only an active preview. Native commit
+  emits Commit and clears preview without a later duplicate Cancel.
+- UTF-8 cursor offsets are validated at scalar boundaries and converted to
+  UTF-16. Absent/negative native cursor selects the end. Carets are integer
+  surface-logical coordinates with positive integer width and height.
+- Existing transport copies are limited to 4096 UTF-8 bytes. Portable preedit
+  and commit limits are also checked; this does not enlarge the editor ABI.
+- Full text sessions and composition cannot own ingress simultaneously.
+  `next_editor_event` returns Busy while composition owns the queue. Enabling
+  composition disarms direct text; printable forwarded input becomes Commit,
+  never a second TextInput. Ordinary command shortcuts remain key events.
+  Raw releases use the physical press symbol. Forwarded v1 releases are matched
+  to a unique held keysym by exact, case, then current-keymap level identity;
+  ambiguous matches fail with InvalidInput rather than releasing another key.
+  This bounded matching does not qualify arbitrary keyboard layouts or IME
+  repeat.
+- Application cancel/disable revokes unread composition for the old logical
+  target before publishing cancellation; already delivered commits are never
+  retracted. Window teardown clears opt-in so a replacement window must opt in
+  separately.
+- `finish_text_composition(true)` publishes the cached preedit once; v1 cannot
+  ask the IME to select/commit a candidate. Both finish modes fence delayed
+  callbacks via the existing deactivate/leave/reactivate epoch cycle and keep
+  opt-in enabled. Disable explicitly when leaving the composer. Direct-text
+  restoration during this fence is deferred until native leave.
+- Surrounding deletion and postinsert cursor transactions are unsupported:
+  discard the entire commit and cancel active preview. No document mutation is
+  inferred from these fields. Clause styles and fallback strings are not part
+  of the bounded portable value.
+
+### Validation boundary
+
+`sh scripts/test_ubuntu_ingress.sh` exercises production callbacks, staging,
+queue admission, lifecycle fences, mode exclusion, and synthetic hook bounds
+with mocked protocol requests. `moon test ubuntu --target native --deny-warn`
+checks the real FFI-linked decoder/API package. These are callback/transport
+checks, not actual compositor dispatch or an input-method acceptance run.
+
+The 2026-10-19 cloud run could not start a compositor socket: the default
+execution sandbox rejected AF_UNIX sockets, and the permitted escalated retry
+failed before process execution in the runtime sandbox setup. Headless Weston
+composition E2E and physical IBus 1.5.32 sync + Mozc candidate/commit/cancel
+acceptance are **NOT RUN**, including 1x/2x candidate placement. Keep the opt-in
+gate and use the existing manual profile above before making an IME support
+claim. `post_test_composition` requires `GPUI_NATIVE_E2E=1` and an enabled
+composition session; it is never evidence of physical typing.

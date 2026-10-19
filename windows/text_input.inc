@@ -16,6 +16,10 @@ static int32_t dispatch_messages(gpui_windows_host *host, int32_t timeout_ms);
  * FIFO records so the app can apply them before a later MSG is processed. */
 static BOOL gpui_text_session_dispatch_fenced(gpui_windows_host *host);
 
+/* Defined by text_composition.inc. The two IMM ownership modes are exclusive:
+ * a field session must not arm while the portable composer owns the HWND. */
+static BOOL gpui_composition_is_armed(void);
+
 #define GPUI_TEXT_EVENT_STARTED 20
 #define GPUI_TEXT_EVENT_MARKED 21
 #define GPUI_TEXT_EVENT_INSERTED 22
@@ -1927,7 +1931,7 @@ int32_t gpui_windows_session_begin(int32_t token, int32_t window,
     return -GPUI_WINDOWS_INVALID;
   if (g_host.editor_error)
     return -g_host.editor_error;
-  if (g_gpui_text_session.armed)
+  if (g_gpui_text_session.armed || gpui_composition_is_armed())
     return -GPUI_WINDOWS_BUSY;
   if (!g_host.api.get_focus || g_host.api.get_focus() != g_host.hwnd)
     return -GPUI_WINDOWS_BUSY;

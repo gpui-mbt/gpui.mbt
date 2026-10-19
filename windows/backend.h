@@ -74,6 +74,19 @@ int32_t gpui_windows_session_is_current(int32_t host, int32_t window,
                                         int32_t owner_generation);
 int32_t gpui_windows_next_editor(int32_t host, double *event_data,
                                  uint8_t *payload, int32_t payload_capacity);
+/* Opt-in portable IMM32 composition transport. Kind-17 records carry the
+ * preedit cursor in field 4, UTF-16 units in field 5, and code 0..3 in field 8;
+ * the copied UTF-8 text is retrieved with the two functions below. */
+int32_t gpui_windows_set_text_composition(int32_t host, int32_t window,
+                                          int32_t enabled);
+int32_t gpui_windows_set_text_composition_caret(int32_t host, int32_t window,
+                                                double x, double y,
+                                                double width, double height);
+int32_t gpui_windows_finish_text_composition(int32_t host, int32_t window,
+                                             int32_t commit);
+int32_t gpui_windows_composition_text_size(int32_t host);
+int32_t gpui_windows_composition_text_copy(int32_t host, uint8_t *output,
+                                           int32_t capacity);
 /* Synchronous owner-thread native focus query (1=true, 0=false, negative error). */
 int32_t gpui_windows_window_has_keyboard_focus(int32_t host, int32_t window);
 int32_t gpui_windows_present(int32_t host, int32_t window,
@@ -146,6 +159,10 @@ int32_t gpui_windows_test_post_key(int32_t host, int32_t window, int32_t kind,
                                    int32_t value, int32_t modifiers);
 int32_t gpui_windows_test_post_click(int32_t host, int32_t window, double x,
                                      double y);
+int32_t gpui_windows_test_post_composition(int32_t host, int32_t window,
+                                           int32_t kind, int32_t cursor,
+                                           const uint8_t *text,
+                                           int32_t text_length);
 /* CI-only WndProc shortcut regression and keyboard-layout probe. */
 int32_t gpui_windows_test_shortcut_wndproc(int32_t host, int32_t window,
                                            int32_t virtual_key,
@@ -156,6 +173,9 @@ int32_t gpui_windows_test_shortcut_layout(int32_t host, int32_t virtual_key,
 /* CI-only synthetic staging through the production IMM composition helpers. */
 int32_t gpui_windows_test_text_session_staging(int32_t *failed_stage,
                                               double *repeat_event);
+/* CI-only synthetic staging through the production portable composition
+ * helpers, WndProc suppression, finish paths, and candidate geometry. */
+int32_t gpui_windows_test_composition_staging(int32_t *failed_stage);
 /* CI-only pure-data regression for accepted wheel payloads and rejected queue
  * writes; no HWND or input injection is required. */
 int32_t gpui_windows_test_wheel_enqueue(void);

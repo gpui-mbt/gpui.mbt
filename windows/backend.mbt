@@ -490,20 +490,27 @@ pub fn Host::next_event(
   } else if status == 0 {
     Ok(None)
   } else {
-    match decode_event(buffer) {
-      None => Err(backend_error(2, "next_event"))
-      Some(kind) =>
-        Ok(
-          Some(
-            @platform.Event::new(
-              @platform.WindowId::new(Int64::from_int(buffer[1].to_int())),
-              buffer[2].to_int64(),
-              buffer[3],
-              kind,
-            ),
-          ),
-        )
+    let kind = if buffer[0] == 17.0 {
+      match decode_composition_buffer(self, buffer, "next_event") {
+        Err(error) => return Err(error)
+        Ok(kind) => kind
+      }
+    } else {
+      match decode_event(buffer) {
+        None => return Err(backend_error(2, "next_event"))
+        Some(kind) => kind
+      }
     }
+    Ok(
+      Some(
+        @platform.Event::new(
+          @platform.WindowId::new(Int64::from_int(buffer[1].to_int())),
+          buffer[2].to_int64(),
+          buffer[3],
+          kind,
+        ),
+      ),
+    )
   }
 }
 
@@ -519,17 +526,32 @@ pub fn Host::dispatch(
       let buffer = FixedArray::make(10, 0.0)
       let mut status = native_next(self.token, buffer)
       while status == 1 {
-        match decode_event(buffer) {
-          None => ()
-          Some(kind) =>
-            events.push(
-              @platform.Event::new(
-                @platform.WindowId::new(Int64::from_int(buffer[1].to_int())),
-                buffer[2].to_int64(),
-                buffer[3],
-                kind,
-              ),
-            )
+        if buffer[0] == 17.0 {
+          match decode_composition_buffer(self, buffer, "dispatch") {
+            Err(error) => return Err(error)
+            Ok(kind) =>
+              events.push(
+                @platform.Event::new(
+                  @platform.WindowId::new(Int64::from_int(buffer[1].to_int())),
+                  buffer[2].to_int64(),
+                  buffer[3],
+                  kind,
+                ),
+              )
+          }
+        } else {
+          match decode_event(buffer) {
+            None => ()
+            Some(kind) =>
+              events.push(
+                @platform.Event::new(
+                  @platform.WindowId::new(Int64::from_int(buffer[1].to_int())),
+                  buffer[2].to_int64(),
+                  buffer[3],
+                  kind,
+                ),
+              )
+          }
         }
         status = native_next(self.token, buffer)
       }

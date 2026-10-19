@@ -425,6 +425,36 @@
         "Source inspection verifies the selected contract and license context. Separate retained unchanged-main probes show the missing group API and second-Tab flat-order mismatch; implemented core checks and nine compiled mutation controls are recorded in docs/conformance-tab-groups.md. Full Rust/browser correspondence remains pending and is not established by core tests.",
         "No upstream implementation, test bodies, examples, screenshots or assets are copied into runtime or test fixtures. Native accessibility, GPU/native-window pixels, physical keyboard input, general CSS/GPUI parity and focus trapping are outside this slice."
       ]
+    },
+    {
+      "upstream_repository": "https://github.com/zed-industries/zed",
+      "upstream_revision": "5a5fbe79917971a4d52a96b6ddb04da198a5012e",
+      "upstream_paths": [
+        "crates/gpui/src/styled.rs"
+      ],
+      "license_expression": "Apache-2.0",
+      "license_evidence": [
+        {
+          "path": "crates/gpui/Cargo.toml",
+          "url": "https://github.com/zed-industries/zed/blob/5a5fbe79917971a4d52a96b6ddb04da198a5012e/crates/gpui/Cargo.toml",
+          "evidence": "The owning GPUI package declares Apache-2.0; public styling builders and actual headless layout are the behavioral reference. No implementation source or fixtures copied."
+        }
+      ],
+      "destination_paths": [
+        "layout/layout.mbt",
+        "layout/tree.mbt",
+        "layout/mixed_tree.mbt",
+        "layout/reverse_flow_test.mbt",
+        "element/reverse_flow_test.mbt",
+        "docs/conformance-reverse-flow.md"
+      ],
+      "method": "independent_from_behavior",
+      "material_deviations": [
+        "Reverse row/column main-axis placement preserves source order and physical-axis sizing. Explicit Start/End and distributed overflow behavior follow an independently authored actual GPUI headless comparison.",
+        "Existing default physical Start is retained; upstream absent justification is flex-relative start and corresponds to explicit End under reversal. No writing modes or source reordering added.",
+        "Device-scale boundary and binary64 arithmetic remain as documented; GPU pixels, native windows, physical input and full CSS/GPUI parity are outside scope.",
+        "This feature uses the explicit 5a5fbe7 runtime diagnostic reference, not a silent change to repository compatibility target d9afb216. The public FlowDirection enum gains two variants and external exhaustive matches may need updates."
+      ]
     }
   ]
 }

@@ -176,11 +176,15 @@ pub fn FlexWrap::wrap_reverse() -> Self
 pub enum FlowDirection {
   Row
   Column
+  RowReverse
+  ColumnReverse
 } derive(Eq)
 pub fn FlowDirection::column() -> Self
+pub fn FlowDirection::column_reverse() -> Self
 pub fn FlowDirection::equal(Self, Self) -> Bool
 pub fn FlowDirection::not_equal(Self, Self) -> Bool
 pub fn FlowDirection::row() -> Self
+pub fn FlowDirection::row_reverse() -> Self
 
 pub(all) enum GridColumnPlacement {
   AutoColumns(Int)

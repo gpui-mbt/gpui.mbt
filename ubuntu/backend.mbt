@@ -408,7 +408,7 @@ fn modifiers(bits : Int32) -> @primitives.Modifiers {
 ///|
 fn key(symbol : Int32, scalar : Int32) -> @primitives.Key? {
   match symbol {
-    0xff0d => Some(@primitives.Enter)
+    0xff0d | 0xff8d => Some(@primitives.Enter)
     0xff1b => Some(@primitives.Escape)
     0xff08 => Some(@primitives.Backspace)
     0xffff => Some(@primitives.Delete)
@@ -894,6 +894,18 @@ pub fn Host::next_event(
   self : Host,
   timeout_ms~ : Int32 = 16,
 ) -> Result[@platform.Event?, @diagnostics.FrameworkError] {
+  let composition = native_text_composition_active(self.token)
+  if composition < 0 {
+    return Err(backend_error(-composition, "next_event"))
+  }
+  if composition != 0 {
+    return match self.read_editor_event(timeout_ms~) {
+      Ok(Some(Platform(event))) => Ok(Some(event))
+      Ok(None) => Ok(None)
+      Ok(Some(TextSession(_, _))) => Err(backend_error(3, "next_event"))
+      Err(error) => Err(error)
+    }
+  }
   next_event_from_native(
     (buffer, text) => {
       native_next_v2(

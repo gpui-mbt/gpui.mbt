@@ -763,12 +763,12 @@ fn measure_item_intrinsic(
   let mut width = item.intrinsic.width()
   let mut height = item.intrinsic.height()
   let width_axis = match parent_direction {
-    Row => item.main
-    Column => item.cross
+    Row | RowReverse => item.main
+    Column | ColumnReverse => item.cross
   }
   let height_axis = match parent_direction {
-    Row => item.cross
-    Column => item.main
+    Row | RowReverse => item.cross
+    Column | ColumnReverse => item.main
   }
   let mut failure : TreeLayoutError? = None
   match (width_axis, node.children_style) {
@@ -820,7 +820,10 @@ fn measure_container_axis(
     Err(TreeTooDeep)
   } else {
     let axis_is_main = match (style.direction, axis) {
-      (Row, WidthAxis) | (Column, HeightAxis) => true
+      (Row, WidthAxis)
+      | (RowReverse, WidthAxis)
+      | (Column, HeightAxis)
+      | (ColumnReverse, HeightAxis) => true
       _ => false
     }
     let mut count = 0
@@ -885,7 +888,7 @@ fn measure_container_axis(
         }
         let gaps = if axis_is_main && count > 1 {
           (count - 1).to_double() *
-          (if style.direction is Row { style.gap_x } else { style.gap_y })
+          (if style.direction.is_row() { style.gap_x } else { style.gap_y })
         } else {
           0.0
         }

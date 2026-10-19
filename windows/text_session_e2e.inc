@@ -105,6 +105,16 @@ static int32_t gpui_text_review_ime_set_open_calls;
 static int32_t gpui_text_review_ime_set_conversion_calls;
 static WCHAR gpui_text_review_result_text[8];
 static int32_t gpui_text_review_result_units;
+static const WCHAR *gpui_text_review_marked_text;
+static int32_t gpui_text_review_marked_units;
+static int32_t gpui_text_review_cursor_position;
+static int32_t gpui_text_review_notify_calls;
+static DWORD gpui_text_review_notify_action;
+static DWORD gpui_text_review_notify_index;
+static COMPOSITIONFORM gpui_text_review_composition_form;
+static CANDIDATEFORM gpui_text_review_candidate_form;
+static BOOL gpui_text_review_composition_form_valid;
+static BOOL gpui_text_review_candidate_form_valid;
 
 static LONG_PTR WINAPI gpui_text_review_get_window_long_ptr(HWND hwnd,
                                                             int32_t index) {
@@ -279,21 +289,37 @@ static HIMC WINAPI gpui_text_review_associate_context(HWND hwnd,
 static LONG WINAPI gpui_text_review_get_composition_string(
     HIMC context, DWORD index, LPVOID buffer, DWORD bytes) {
   (void)context;
-  if (index != GCS_RESULTSTR || gpui_text_review_result_units <= 0)
+  if (index == GCS_CURSORPOS)
+    return (LONG)gpui_text_review_cursor_position;
+  const WCHAR *text = NULL;
+  int32_t units = 0;
+  if (index == GCS_RESULTSTR) {
+    text = gpui_text_review_result_text;
+    units = gpui_text_review_result_units;
+  } else if (index == GCS_COMPSTR) {
+    text = gpui_text_review_marked_text;
+    units = gpui_text_review_marked_units;
+  } else {
     return 0;
-  DWORD required =
-      (DWORD)gpui_text_review_result_units * (DWORD)sizeof(WCHAR);
+  }
+  if (!text || units <= 0)
+    return 0;
+  DWORD required = (DWORD)units * (DWORD)sizeof(WCHAR);
   if (!buffer)
     return (LONG)required;
   if (bytes < required)
     return -1;
-  memcpy(buffer, gpui_text_review_result_text, required);
+  memcpy(buffer, text, required);
   return (LONG)required;
 }
 
 static BOOL WINAPI gpui_text_review_set_composition_window(
     HIMC context, LPCOMPOSITIONFORM form) {
   (void)context;
+  if (form && form->dwStyle == CFS_FORCE_POSITION) {
+    gpui_text_review_composition_form = *form;
+    gpui_text_review_composition_form_valid = TRUE;
+  }
   return gpui_text_review_failed_form != 1 &&
          form->dwStyle == CFS_FORCE_POSITION;
 }
@@ -301,6 +327,10 @@ static BOOL WINAPI gpui_text_review_set_composition_window(
 static BOOL WINAPI gpui_text_review_set_candidate_window(
     HIMC context, LPCANDIDATEFORM form) {
   (void)context;
+  if (form && form->dwStyle == CFS_CANDIDATEPOS) {
+    gpui_text_review_candidate_form = *form;
+    gpui_text_review_candidate_form_valid = TRUE;
+  }
   return gpui_text_review_failed_form != 2 &&
          form->dwStyle == CFS_CANDIDATEPOS;
 }
@@ -308,9 +338,10 @@ static BOOL WINAPI gpui_text_review_set_candidate_window(
 static BOOL WINAPI gpui_text_review_notify_ime(HIMC context, DWORD action,
                                                 DWORD index, DWORD value) {
   (void)context;
-  (void)action;
-  (void)index;
   (void)value;
+  gpui_text_review_notify_calls++;
+  gpui_text_review_notify_action = action;
+  gpui_text_review_notify_index = index;
   return TRUE;
 }
 
@@ -361,6 +392,18 @@ static void gpui_text_review_setup_host(void) {
   ZeroMemory(gpui_text_review_result_text,
              sizeof(gpui_text_review_result_text));
   gpui_text_review_result_units = 0;
+  gpui_text_review_marked_text = NULL;
+  gpui_text_review_marked_units = 0;
+  gpui_text_review_cursor_position = 0;
+  gpui_text_review_notify_calls = 0;
+  gpui_text_review_notify_action = 0;
+  gpui_text_review_notify_index = 0;
+  ZeroMemory(&gpui_text_review_composition_form,
+             sizeof(gpui_text_review_composition_form));
+  ZeroMemory(&gpui_text_review_candidate_form,
+             sizeof(gpui_text_review_candidate_form));
+  gpui_text_review_composition_form_valid = FALSE;
+  gpui_text_review_candidate_form_valid = FALSE;
 }
 
 static BOOL gpui_text_review_queue(UINT message, WPARAM wparam) {

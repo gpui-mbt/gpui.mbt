@@ -39,6 +39,7 @@ int32_t gpui_windows_test_clipboard_diagnostics_disabled(void) {
 #define GPUI_MIXED_FRAME_STRIDE 25
 #define GPUI_MAX_TEXT_RUNS 64
 #define GPUI_MAX_FRAME_TEXT_BYTES 262144
+#define GPUI_COMPOSITION_MAX_TEXT_BYTES (65536 * 4)
 #define GPUI_WAKE_MESSAGE (WM_APP + 0x41)
 #define GPUI_EXIT_MESSAGE (WM_APP + 0x42)
 /* Reserved for the opt-in, scalar-only owner-thread IMM32 E2E bridge. */
@@ -229,6 +230,12 @@ typedef struct gpui_windows_host {
   int32_t editor_payload_bytes[GPUI_EVENT_CAPACITY];
   int32_t editor_payload_total;
   volatile LONG editor_error;
+  /* The last popped portable composition payload. The owner thread copies it
+   * out before the next pop; the queue slot's editor_payloads entry is the
+   * bounded sidecar that keeps ordering intact. */
+  uint8_t composition_text[GPUI_COMPOSITION_MAX_TEXT_BYTES];
+  int32_t composition_text_bytes;
+  BOOL composition_text_valid;
   BOOL class_registered;
   BOOL destroying;
   BOOL mouse_tracking;
@@ -1679,7 +1686,9 @@ static UINT update_mouse_buttons(UINT buttons, UINT message, WPARAM wparam) {
 /* The experimental editor transport shares `host->events` with ordinary
  * platform events. Keep its implementation in a Win32-only include. */
 #include "text_input.inc"
+#include "text_composition.inc"
 #include "text_session_e2e.inc"
+#include "text_composition_e2e.inc"
 
 static LRESULT CALLBACK gpui_window_proc(HWND hwnd, UINT message,
                                          WPARAM wparam, LPARAM lparam) {
@@ -1710,6 +1719,10 @@ static LRESULT CALLBACK gpui_window_proc(HWND hwnd, UINT message,
   if (gpui_text_ime_bridge_wndproc(host, hwnd, message, wparam, lparam,
                                   &ime_bridge_result))
     return ime_bridge_result;
+  LRESULT composition_result = 0;
+  if (gpui_composition_wndproc(host, hwnd, message, wparam, lparam,
+                               &composition_result))
+    return composition_result;
   LRESULT text_result = 0;
   if (gpui_text_session_wndproc(host, hwnd, message, wparam, lparam,
                                 &text_result))
@@ -1761,6 +1774,7 @@ static LRESULT CALLBACK gpui_window_proc(HWND hwnd, UINT message,
     emit_event(host, 6, 0, 0, 1, 0);
     return 0;
   case WM_KILLFOCUS:
+    gpui_composition_focus_lost(host);
     gpui_text_session_focus_lost(host);
     emit_event(host, 6, 0, 0, 0, 0);
     host->pending_high_surrogate = 0;
@@ -1928,6 +1942,7 @@ int32_t gpui_windows_start(int32_t abi_version) {
     goto busy;
   ZeroMemory(&g_host, sizeof(g_host));
   gpui_text_session_reset_host(&g_host);
+  gpui_composition_reset();
   g_host.token = InterlockedIncrement(&g_next_host);
   if (g_host.token <= 0) {
     InterlockedExchange(&g_host_claimed, 0);
@@ -2164,6 +2179,7 @@ int32_t gpui_windows_destroy(int32_t token, int32_t window) {
   HWND hwnd = g_host.hwnd;
   g_host.destroying = TRUE;
   discard_events_for(&g_host, window);
+  gpui_composition_forget_window(&g_host, window);
   gpui_text_session_focus_lost(&g_host);
   gpui_text_session_forget_window(&g_host, window);
   release_gpu(&g_host);
@@ -2790,6 +2806,19 @@ int32_t gpui_windows_next(int32_t token, double *event_data) {
   if (gpui_text_session_head_is_editor(&g_host))
     return -GPUI_WINDOWS_UNSUPPORTED;
   int32_t slot = g_host.event_read;
+  g_host.composition_text_valid = FALSE;
+  g_host.composition_text_bytes = 0;
+  if ((int32_t)g_host.events[slot][0] == 17) {
+    int32_t bytes = g_host.editor_payload_bytes[slot];
+    if (bytes < 0 || bytes > GPUI_COMPOSITION_MAX_TEXT_BYTES ||
+        (bytes > 0 && !g_host.editor_payloads[slot]))
+      return -GPUI_WINDOWS_RESOURCE;
+    if (bytes > 0)
+      memcpy(g_host.composition_text, g_host.editor_payloads[slot],
+             (size_t)bytes);
+    g_host.composition_text_bytes = bytes;
+    g_host.composition_text_valid = TRUE;
+  }
   memcpy(event_data, g_host.events[slot],
          sizeof(g_host.events[g_host.event_read]));
   gpui_text_session_discard_slot(&g_host, slot);
@@ -3361,6 +3390,7 @@ int32_t gpui_windows_stop(int32_t token) {
     HWND hwnd = g_host.hwnd;
     g_host.destroying = TRUE;
     discard_events_for(&g_host, window_id);
+    gpui_composition_forget_window(&g_host, window_id);
     gpui_text_session_focus_lost(&g_host);
     gpui_text_session_forget_window(&g_host, window_id);
     release_gpu(&g_host);
@@ -3378,6 +3408,7 @@ int32_t gpui_windows_stop(int32_t token) {
     g_host.api.unregister_class_w(GPUI_CLASS_NAME, g_host.instance);
     g_host.class_registered = FALSE;
   }
+  gpui_composition_shutdown(&g_host);
   gpui_text_session_shutdown(&g_host);
   api_release(&g_host);
   free(g_host.frame_pixels);
@@ -3742,6 +3773,42 @@ int32_t gpui_windows_next_editor(int32_t host, double *event_data,
   (void)payload_capacity;
   return -GPUI_WINDOWS_UNSUPPORTED;
 }
+int32_t gpui_windows_set_text_composition(int32_t host, int32_t window,
+                                          int32_t enabled) {
+  (void)host;
+  (void)window;
+  (void)enabled;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_set_text_composition_caret(int32_t host, int32_t window,
+                                                double x, double y,
+                                                double width, double height) {
+  (void)host;
+  (void)window;
+  (void)x;
+  (void)y;
+  (void)width;
+  (void)height;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_finish_text_composition(int32_t host, int32_t window,
+                                             int32_t commit) {
+  (void)host;
+  (void)window;
+  (void)commit;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_composition_text_size(int32_t host) {
+  (void)host;
+  return -GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_composition_text_copy(int32_t host, uint8_t *output,
+                                           int32_t capacity) {
+  (void)host;
+  (void)output;
+  (void)capacity;
+  return -GPUI_WINDOWS_UNSUPPORTED;
+}
 int32_t gpui_windows_session_begin(int32_t host, int32_t window,
                                    int32_t owner_generation,
                                    const uint8_t *text, int32_t text_length,
@@ -3993,6 +4060,10 @@ int32_t gpui_windows_test_text_session_staging(int32_t *failed_stage,
   (void)repeat_event;
   return GPUI_WINDOWS_UNSUPPORTED;
 }
+int32_t gpui_windows_test_composition_staging(int32_t *failed_stage) {
+  (void)failed_stage;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
 int32_t gpui_windows_test_wheel_enqueue(void) {
   return GPUI_WINDOWS_UNSUPPORTED;
 }
@@ -4011,6 +4082,18 @@ int32_t gpui_windows_test_post_click(int32_t host, int32_t window, double x,
   (void)window;
   (void)x;
   (void)y;
+  return GPUI_WINDOWS_UNSUPPORTED;
+}
+int32_t gpui_windows_test_post_composition(int32_t host, int32_t window,
+                                           int32_t kind, int32_t cursor,
+                                           const uint8_t *text,
+                                           int32_t text_length) {
+  (void)host;
+  (void)window;
+  (void)kind;
+  (void)cursor;
+  (void)text;
+  (void)text_length;
   return GPUI_WINDOWS_UNSUPPORTED;
 }
 int32_t gpui_windows_test_shortcut_wndproc(int32_t host, int32_t window,

@@ -649,7 +649,300 @@ static void bounds_exhaustion_and_validation(void) {
   assert(h->ime.exhausted && !h->ime.requested);
   finish(h);
 }
+static void bounded_composition_transport(void) {
+  struct host *h = fixture();
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 2) == GPUI_INVALID);
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  assert(gpui_text_composition_active(h->token) == 1);
+  assert(gpui_text_session_begin(h->token, h->window, NULL, 0, 0, 0,
+                                0, 0, 1, 1) == -GPUI_BUSY);
+  assert(gpui_direct_keyboard_text_mode(h->token, h->window, 1) == GPUI_BUSY);
+  ime_enter(h, h->ime.proxy, h->surface);
+  assert(h->count == 0); /* Entered is transport-only. */
+  assert(gpui_text_composition_caret(h->token, h->window, 4, 8, 0, 2) == GPUI_INVALID);
+  assert(sent_rectangle[2] == 1);
+  assert(gpui_text_composition_caret(h->token, h->window, -4, 8, 2, 20) == GPUI_OK);
+  ime_preedit_cursor(h, h->ime.proxy, 3);
+  ime_preedit_string(h, h->ime.proxy, sent_serial, "日本", "");
+  assert(h->count == 2 && h->ime.composition_preview);
+  assert(gpui_text_composition_finish(h->token, h->window, 1) == GPUI_OK);
+  assert(h->ime.requested && h->ime.composition_enabled);
+  ime_commit_string(h, h->ime.proxy, sent_serial, "late");
+  assert(h->count == 3 && gpui_text_composition_active(h->token) == 1);
+  int sequence = 0;
+  for (int kind = 26; kind <= 28; ++kind) {
+    assert(read_editor(h, data, bytes) == 1 && data[0] == kind);
+    assert(data[1] == 51 && data[2] > sequence); sequence = (int)data[2];
+    if (kind == 27) assert(data[17] == 3);
+    if (kind >= 27) assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  }
+  assert(gpui_text_composition_mode(h->token, h->window, 0) == GPUI_OK);
+  assert(gpui_text_composition_active(h->token) == 0);
+  assert(gpui_text_composition_finish(h->token, h->window, 1) == GPUI_OK);
+  assert(h->count == 0);
+  finish(h);
+}
+static void composition_keys_and_focus_fences(void) {
+  struct host *h = fixture();
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  char names[] = "Shift\0Control\0Mod1\0Mod4";
+  struct wl_array map = {sizeof(names), sizeof(names), names};
+  ime_modifiers_map(h, h->ime.proxy, &map);
+  ime_raw_keyboard_key(h, 1, XKB_KEY_a);
+  ime_keysym(h, h->ime.proxy, sent_serial, 0, XKB_KEY_a, 1, 0);
+  ime_raw_keyboard_key(h, 0, XKB_KEY_a);
+  ime_keysym(h, h->ime.proxy, sent_serial, 0, XKB_KEY_a, 0, 0);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 28 && bytes[0] == 'a');
+  assert(h->count == 0);
+  ime_preedit_string(h, h->ime.proxy, sent_serial, "preview", "");
+  ime_keysym(h, h->ime.proxy, sent_serial, 0, XKB_KEY_Return, 1, 0);
+  assert(h->ime.phase == IME_DEACTIVATING && !h->ime.composition_preview);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 26);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 27);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 28);
+  assert(h->count == 0);
+  ime_keysym(h, h->ime.proxy, 1, 0, XKB_KEY_Return, 0, 0);
+  ime_raw_keyboard_key(h, 0, XKB_KEY_Return);
+  assert(h->count == 0);
+  ime_leave(h, h->ime.proxy); ime_enter(h, h->ime.proxy, h->surface);
+  ime_raw_keyboard_key(h, 1, XKB_KEY_Return);
+  ime_raw_keyboard_key(h, 0, XKB_KEY_Return);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 11);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 12);
+  assert(h->count == 0);
+  ime_preedit_string(h, h->ime.proxy, sent_serial, "next", "");
+  keyboard_leave(h, h->keyboard, 0, h->surface);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 26);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 27);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 29);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 6 && data[8] == 0);
+  assert(h->count == 0);
+  finish(h);
+}
+static void composition_rejection_and_synthetic_bounds(void) {
+  struct host *h = fixture();
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  h->keyboard_focus_current = 0;
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  assert(!h->ime.requested && !h->ime.proxy);
+  assert(gpui_text_composition_caret(h->token, h->window, 12, 13, 2, 24) == GPUI_OK);
+  keyboard_enter(h, h->keyboard, 0, h->surface, NULL);
+  assert(h->ime.requested && sent_rectangle[0] == 12 && sent_rectangle[3] == 24);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 6);
+  ime_enter(h, h->ime.proxy, h->surface);
+  ime_preedit_string(h, h->ime.proxy, sent_serial, "old", "");
+  ime_delete_surrounding(h, h->ime.proxy, -1, 1);
+  ime_commit_string(h, h->ime.proxy, sent_serial, "unsupported");
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 26);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 27);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 29);
+  assert(h->count == 0 && !h->ime.composition_preview);
+  unsetenv("GPUI_NATIVE_E2E");
+  assert(gpui_test_post_composition(h->token, h->window, 1,
+      (const uint8_t *)"x", 1, 1) == GPUI_UNSUPPORTED);
+  setenv("GPUI_NATIVE_E2E", "1", 1);
+  const uint8_t astral[] = {0xf0, 0x9f, 0x98, 0x80};
+  assert(gpui_test_post_composition(h->token, h->window, 1, astral, 4, 1) == GPUI_INVALID);
+  assert(h->count == 0);
+  assert(gpui_test_post_composition(h->token, h->window, 1, astral, 4, 2) == GPUI_OK);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 26);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 27 && data[17] == 4);
+  ime_preedit_string(h, h->ime.proxy, sent_serial, "", "");
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 29);
+  assert(h->count == 0);
+  unsetenv("GPUI_NATIVE_E2E");
+  finish(h);
+}
+static void composition_restores_direct_after_leave(void) {
+  struct host *h = fixture();
+  h->xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(h->xkb);
+  struct xkb_rule_names names = {.layout = "us"};
+  h->keymap = xkb_keymap_new_from_names(h->xkb, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  assert(h->keymap);
+  h->keys = xkb_state_new(h->keymap); assert(h->keys);
+  h->direct_keymap_valid = 1;
+  const char compose[] = "<Multi_key> <a> <a> : \"a\"\n";
+  h->compose_table = xkb_compose_table_new_from_buffer(h->xkb, compose,
+      sizeof(compose) - 1, "C.UTF-8", XKB_COMPOSE_FORMAT_TEXT_V1,
+      XKB_COMPOSE_COMPILE_NO_FLAGS);
+  assert(h->compose_table);
+  assert(gpui_direct_keyboard_text_mode(h->token, h->window, 1) == GPUI_OK);
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  assert(!h->direct_enabled);
+  ime_enter(h, h->ime.proxy, h->surface);
+  assert(gpui_text_composition_mode(h->token, h->window, 0) == GPUI_OK);
+  assert(h->ime.phase == IME_DEACTIVATING);
+  assert(gpui_direct_keyboard_text_mode(h->token, h->window, 1) == GPUI_OK);
+  assert(!h->direct_enabled && h->ime.composition_direct_pending);
+  ime_commit_string(h, h->ime.proxy, sent_serial, "stale");
+  assert(h->count == 0);
+  ime_leave(h, h->ime.proxy);
+  assert(h->direct_enabled && !h->ime.composition_direct_pending);
+  release_compose(h);
+  xkb_state_unref(h->keys); xkb_keymap_unref(h->keymap); xkb_context_unref(h->xkb);
+  finish(h);
+}
+static void composition_app_cancel_revokes_unread_target(void) {
+  for (int disable = 0; disable <= 1; ++disable) {
+    struct host *h = fixture();
+    double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+    assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+    ime_enter(h, h->ime.proxy, h->surface);
+    /* App handles this click as New/session switch before draining old IME. */
+    event(h, 7, 1, 20, 30);
+    ime_preedit_string(h, h->ime.proxy, sent_serial, "OLD", "");
+    ime_commit_string(h, h->ime.proxy, sent_serial, "OLD");
+    assert(read_editor(h, data, bytes) == 1 && data[0] == 7);
+    int old_sequence = h->seq;
+    int status = disable ? gpui_text_composition_mode(h->token, h->window, 0)
+                         : gpui_text_composition_finish(h->token, h->window, 0);
+    assert(status == GPUI_OK);
+    if (disable)
+      assert(gpui_text_session_begin(h->token, h->window, NULL, 0, 0, 0,
+                                    0, 0, 1, 1) == -GPUI_BUSY);
+    assert(read_editor(h, data, bytes) == 1 && data[0] == 29 && data[2] > old_sequence);
+    assert(read_editor(h, data, bytes) == 0);
+    if (disable)
+      assert(gpui_text_session_begin(h->token, h->window, NULL, 0, 0, 0,
+                                    0, 0, 1, 1) > 0);
+    finish(h);
+  }
+  struct host *h = fixture();
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  ime_preedit_string(h, h->ime.proxy, sent_serial, "kept", "");
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 26);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 27);
+  ime_commit_string(h, h->ime.proxy, sent_serial, "kept");
+  /* Send preserves a native Commit already queued, without adding another. */
+  assert(gpui_text_composition_finish(h->token, h->window, 1) == GPUI_OK);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 28 && !memcmp(bytes, "kept", 4));
+  assert(read_editor(h, data, bytes) == 0);
+  /* A later app cancel cannot retract or duplicate the already delivered text. */
+  assert(gpui_text_composition_finish(h->token, h->window, 0) == GPUI_OK);
+  assert(read_editor(h, data, bytes) == 0);
+  finish(h);
+}
+static void composition_window_replacement_does_not_inherit_opt_in(void) {
+  struct host *h = fixture();
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  ime_preedit_string(h, h->ime.proxy, sent_serial, "old", "");
+  assert(gpui_destroy(h->token, h->window) == GPUI_OK);
+  assert(!h->ime.composition_enabled && !h->ime.composition_preview);
+  assert(!h->ime.composition_direct_pending && !h->ime.composition_stopping);
+  h->window = 52;
+  h->surface = (struct wl_surface *)(uintptr_t)106;
+  keyboard_enter(h, h->keyboard, 0, h->surface, NULL);
+  ime_leave(h, h->ime.proxy);
+  assert(!h->ime.requested && !h->ime.composition_enabled);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 29 && data[1] == 51);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 4 && data[1] == 51);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 6 && data[1] == 52);
+  assert(read_editor(h, data, bytes) == 0 && gpui_text_composition_active(h->token) == 0);
+  finish(h);
+}
+static void composition_release_retains_press_ownership(void) {
+  struct host *h = fixture();
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  /* Releasing Control before A must not swallow the command key release. */
+  composition_key(h, WL_KEYBOARD_KEY_STATE_PRESSED, XKB_KEY_a, 2);
+  composition_key(h, WL_KEYBOARD_KEY_STATE_RELEASED, XKB_KEY_a, 0);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 11);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 12);
+  assert(read_editor(h, data, bytes) == 0);
+  /* A text-producing press stays consumed even if modifiers change at release. */
+  composition_key(h, WL_KEYBOARD_KEY_STATE_PRESSED, XKB_KEY_b, 0);
+  composition_key(h, WL_KEYBOARD_KEY_STATE_RELEASED, XKB_KEY_b, 2);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 28);
+  assert(read_editor(h, data, bytes) == 0);
+  finish(h);
+}
+static void composition_stale_release_cannot_clear_new_key_owner(void) {
+  struct host *h = fixture();
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  int old_serial = sent_serial;
+  assert(gpui_text_composition_finish(h->token, h->window, 0) == GPUI_OK);
+  ime_leave(h, h->ime.proxy); ime_enter(h, h->ime.proxy, h->surface);
+  char names[] = "Shift\0Control\0Mod1\0Mod4";
+  struct wl_array map = { sizeof(names), sizeof(names), names };
+  ime_modifiers_map(h, h->ime.proxy, &map);
+  ime_raw_keyboard_key(h, WL_KEYBOARD_KEY_STATE_PRESSED, XKB_KEY_a);
+  ime_keysym(h, h->ime.proxy, old_serial, 0, XKB_KEY_a,
+             WL_KEYBOARD_KEY_STATE_RELEASED, 0);
+  ime_keysym(h, h->ime.proxy, sent_serial, 0, XKB_KEY_a,
+             WL_KEYBOARD_KEY_STATE_PRESSED, 0);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 28 && data[14] == 1);
+  assert(bytes[0] == 'a' && read_editor(h, data, bytes) == 0);
+  ime_keysym(h, h->ime.proxy, sent_serial, 0, XKB_KEY_a,
+             WL_KEYBOARD_KEY_STATE_RELEASED, 0);
+  assert(read_editor(h, data, bytes) == 0);
+  finish(h);
+}
+static void composition_raw_release_uses_physical_press_symbol(void) {
+  struct host *h = fixture();
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  direct_keyboard_key(h, 30, WL_KEYBOARD_KEY_STATE_PRESSED, XKB_KEY_A);
+  direct_keyboard_key(h, 30, WL_KEYBOARD_KEY_STATE_RELEASED, XKB_KEY_a);
+  direct_keyboard_key(h, 30, WL_KEYBOARD_KEY_STATE_PRESSED, XKB_KEY_A);
+  direct_keyboard_key(h, 30, WL_KEYBOARD_KEY_STATE_RELEASED, XKB_KEY_a);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 28 && bytes[0] == 'A');
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 28 && bytes[0] == 'A');
+  assert(read_editor(h, data, bytes) == 0);
+  keyboard_leave(h, h->keyboard, 0, h->surface);
+  assert(h->ime.composition_raw_symbols[30] == 0);
+  finish(h);
+}
+static void composition_forwarded_release_survives_shift_change(void) {
+  struct host *h = fixture();
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  char names[] = "Shift\0Control\0Mod1\0Mod4";
+  struct wl_array map = { sizeof(names), sizeof(names), names };
+  ime_modifiers_map(h, h->ime.proxy, &map);
+  for (int i = 0; i < 2; ++i) {
+    ime_keysym(h, h->ime.proxy, sent_serial, 0, XKB_KEY_A, 1, 1);
+    ime_keysym(h, h->ime.proxy, sent_serial, 0, XKB_KEY_a, 0, 0);
+    assert(read_editor(h, data, bytes) == 1 && data[0] == 28 && bytes[0] == 'A');
+    assert(read_editor(h, data, bytes) == 0);
+  }
+  struct xkb_context *context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  assert(context);
+  struct xkb_rule_names rules = { .layout = "us" };
+  h->keymap = xkb_keymap_new_from_names(context, &rules, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  assert(h->keymap);
+  for (int i = 0; i < 2; ++i) {
+    ime_keysym(h, h->ime.proxy, sent_serial, 0, XKB_KEY_exclam, 1, 1);
+    ime_keysym(h, h->ime.proxy, sent_serial, 0, XKB_KEY_1, 0, 0);
+    assert(read_editor(h, data, bytes) == 1 && data[0] == 28 && bytes[0] == '!');
+    assert(read_editor(h, data, bytes) == 0);
+  }
+  xkb_keymap_unref(h->keymap); h->keymap = NULL;
+  xkb_context_unref(context);
+  finish(h);
+}
 int main(void) {
+  composition_forwarded_release_survives_shift_change();
+  composition_raw_release_uses_physical_press_symbol();
+  composition_stale_release_cannot_clear_new_key_owner();
+  composition_release_retains_press_ownership();
+  bounded_composition_transport(); composition_keys_and_focus_fences();
+  composition_rejection_and_synthetic_bounds();
+  composition_restores_direct_after_leave();
+  composition_app_cancel_revokes_unread_target();
+  composition_window_replacement_does_not_inherit_opt_in();
   copies_staging_order_and_shared_serial(); independent_staging_survives_stale_peer_event();
   buffers_and_legacy_are_atomic();
   serial_epoch_and_reactivation_fences(); lifecycle_and_removed_proxies();

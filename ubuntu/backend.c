@@ -61,7 +61,7 @@ struct output {
   int entered, ready;
 };
 struct direct_event_meta {
-  int epoch, direct_origin, text_length, revoked;
+  int epoch, direct_origin, text_length, revoked, composition_epoch;
   uint8_t text[GPUI_DIRECT_TEXT_MAX_BYTES + 1];
 };
 struct key_repeat {
@@ -476,8 +476,20 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
   /* IME owns text exclusively. Preserve raw command keysyms when the
    * compositor sends wl_keyboard events (e.g. before an IME keyboard grab).
    * A leave fence excludes old-target keys; no scalar/text is derived. */
-  if (h->ime.requested || h->ime.phase != IME_INACTIVE) {
+  if (h->ime.composition_enabled || h->ime.requested || h->ime.phase != IME_INACTIVE) {
     cancel_key_repeat(h);
+    if (h->ime.composition_enabled && key < GPUI_DIRECT_KEY_CAPACITY) {
+      if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+        if (!h->ime.composition_raw_symbols[key])
+          h->ime.composition_raw_symbols[key] = sym;
+      } else if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
+        /* XKB resolves a release using current modifiers, which may no
+         * longer match the symbol whose press owns the composition slot. */
+        if (h->ime.composition_raw_symbols[key])
+          sym = h->ime.composition_raw_symbols[key];
+        h->ime.composition_raw_symbols[key] = 0;
+      }
+    }
     ime_raw_keyboard_key(h, state, sym);
     return;
   }
@@ -1164,6 +1176,8 @@ static void keyboard_enter(void *d, struct wl_keyboard *k, uint32_t serial,
   invalidate_input_serial(h, INPUT_SERIAL_KEYBOARD);
   h->keyboard_focus_current = h->surface && s == h->surface;
   event(h, 6, 1, 0, 0);
+  if (h->keyboard_focus_current && h->ime.composition_enabled && !h->ime.requested)
+    (void)gpui_text_composition_mode(h->token, h->window, 1);
 }
 static void keyboard_leave(void *d, struct wl_keyboard *k, uint32_t serial,
                            struct wl_surface *s) {
@@ -1173,6 +1187,7 @@ static void keyboard_leave(void *d, struct wl_keyboard *k, uint32_t serial,
   if (k != h->keyboard)
     return;
   ime_invalidate(h, 1, 1);
+  h->ime.composition_direct_pending = 0;
   reset_direct_text(h, 1, 0);
   h->modifiers = 0;
   h->keyboard_focus_current = 0;
@@ -1411,6 +1426,16 @@ static void release_renderer(struct host *h, int terminate_display) {
 static void release_gpu(struct host *h) { release_renderer(h, 0); }
 static void release_window(struct host *h) {
   ime_invalidate(h, 1, 1);
+  /* Composition opt-in belongs to this window, never its replacement. The
+   * already queued cancellation keeps the old captured window identity. */
+  h->ime.composition_enabled = h->ime.composition_preview = 0;
+  h->ime.composition_stopping = h->ime.composition_direct_pending = 0;
+  h->ime.composition_begin_internal = 0;
+  memset(&h->ime.composition_cache, 0, sizeof(h->ime.composition_cache));
+  memset(h->ime.composition_keys, 0, sizeof(h->ime.composition_keys));
+  memset(h->ime.composition_raw_symbols, 0, sizeof(h->ime.composition_raw_symbols));
+  memset(h->ime.composition_key_consumed, 0, sizeof(h->ime.composition_key_consumed));
+  memset(h->ime.rect, 0, sizeof(h->ime.rect));
   cancel_key_repeat(h);
   if (h->state == 0)
     reset_direct_text(h, 1, 0);
@@ -2003,7 +2028,7 @@ int32_t gpui_next(int32_t token, double *out) {
     int slot = (h->read + i) % QUEUE_CAPACITY;
     if (h->ime_queue[slot] || h->queue[slot][0] >= 20 ||
         h->queue[slot][0] == 13 || h->direct_queue[slot].direct_origin ||
-        h->direct_queue[slot].revoked)
+        h->direct_queue[slot].revoked || h->direct_queue[slot].composition_epoch)
       return -GPUI_UNSUPPORTED;
   }
   if (!h->count)
@@ -2019,6 +2044,10 @@ static int stale_direct_record(const struct host *h, int slot) {
     return 0;
   const struct direct_event_meta *meta = &h->direct_queue[slot];
   if (meta->revoked)
+    return 1;
+  if (meta->composition_epoch &&
+      (meta->composition_epoch != h->ime.epoch || !h->ime.composition_enabled ||
+       h->queue[slot][1] != h->window))
     return 1;
   if (h->state != 0 && (meta->direct_origin || h->ime.ever_enabled))
     return 1;
@@ -2098,8 +2127,19 @@ int32_t gpui_direct_keyboard_text_mode(int32_t token, int32_t window,
     return GPUI_INVALID;
   if (h->direct_exhausted || (h->ime.exhausted && h->ime.ever_enabled))
     return GPUI_RESOURCE;
+  if (!enabled) h->ime.composition_direct_pending = 0;
+  if (enabled && h->ime.composition_stopping &&
+      !h->ime.composition_enabled && !h->ime.requested &&
+      h->ime.phase == IME_DEACTIVATING) {
+    if (h->state) return GPUI_STOPPING;
+    if (!h->keyboard_focus_current) return GPUI_UNSUPPORTED;
+    status = require_direct_keyboard(h);
+    if (status) return status;
+    h->ime.composition_direct_pending = 1;
+    return GPUI_OK;
+  }
   if (enabled) {
-    if (h->ime.requested || h->ime.phase != IME_INACTIVE)
+    if (h->ime.composition_enabled || h->ime.requested || h->ime.phase != IME_INACTIVE)
       return GPUI_BUSY;
     if (h->state != 0)
       return GPUI_STOPPING;

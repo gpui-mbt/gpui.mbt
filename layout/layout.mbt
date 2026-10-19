@@ -17,6 +17,8 @@ pub extend LayoutError with Eq::{not_equal, equal}
 pub enum FlowDirection {
   Row
   Column
+  RowReverse
+  ColumnReverse
 } derive(Eq)
 
 ///|
@@ -30,6 +32,30 @@ pub fn FlowDirection::row() -> FlowDirection {
 ///|
 pub fn FlowDirection::column() -> FlowDirection {
   Column
+}
+
+///|
+/// Place source-order items right-to-left within each line. Justification
+/// retains its physical Start/End meaning.
+pub fn FlowDirection::row_reverse() -> FlowDirection {
+  RowReverse
+}
+
+///|
+/// Place source-order items bottom-to-top within each line. Justification
+/// retains its physical Start/End meaning.
+pub fn FlowDirection::column_reverse() -> FlowDirection {
+  ColumnReverse
+}
+
+///|
+fn FlowDirection::is_row(self : FlowDirection) -> Bool {
+  self is Row || self is RowReverse
+}
+
+///|
+fn FlowDirection::is_reverse(self : FlowDirection) -> Bool {
+  self is RowReverse || self is ColumnReverse
 }
 
 ///|
@@ -666,7 +692,7 @@ pub fn FlexContainer::with_align_content(
 
 ///|
 fn FlexContainer::main_gap(self : FlexContainer) -> Double {
-  if self.direction is Row {
+  if self.direction.is_row() {
     self.gap_x
   } else {
     self.gap_y
@@ -675,7 +701,7 @@ fn FlexContainer::main_gap(self : FlexContainer) -> Double {
 
 ///|
 fn FlexContainer::cross_gap(self : FlexContainer) -> Double {
-  if self.direction is Row {
+  if self.direction.is_row() {
     self.gap_y
   } else {
     self.gap_x
@@ -874,12 +900,12 @@ pub fn layout_flex(
       match @primitives.Rect::new(inner_x, inner_y, inner_width, inner_height) {
         Err(_) => Err(GeometryFailure)
         Ok(content_bounds) => {
-          let main_extent = if container.direction is Row {
+          let main_extent = if container.direction.is_row() {
             inner_width
           } else {
             inner_height
           }
-          let cross_extent = if container.direction is Row {
+          let cross_extent = if container.direction.is_row() {
             inner_height
           } else {
             inner_width
@@ -935,12 +961,12 @@ fn prepare_items(
             (Err(value), _) => error = Some(value)
             (_, Err(value)) => error = Some(value)
             (Ok(main_value), Ok(cross_value)) => {
-              let intrinsic_main = if container.direction is Row {
+              let intrinsic_main = if container.direction.is_row() {
                 item.intrinsic.width()
               } else {
                 item.intrinsic.height()
               }
-              let intrinsic_cross = if container.direction is Row {
+              let intrinsic_cross = if container.direction.is_row() {
                 item.intrinsic.height()
               } else {
                 item.intrinsic.width()
@@ -989,20 +1015,24 @@ fn main_spacing(
   justify : JustifyContent,
   count : Int32,
   leftover : Double,
+  reverse~ : Bool = false,
 ) -> (Double, Double) {
+  let physical_start = if reverse { leftover } else { 0.0 }
   match justify {
-    Start => (0.0, 0.0)
+    Start => (physical_start, 0.0)
     Center => (leftover / 2.0, 0.0)
-    End => (leftover, 0.0)
+    End => (if reverse { 0.0 } else { leftover }, 0.0)
     SpaceBetween =>
       if count > 1 && leftover > 0.0 {
         (0.0, leftover / (count - 1).to_double())
+      } else if leftover < 0.0 {
+        (physical_start, 0.0)
       } else {
         (0.0, 0.0)
       }
     SpaceAround | SpaceEvenly =>
       if count == 0 || leftover <= 0.0 {
-        (0.0, 0.0)
+        (physical_start, 0.0)
       } else if justify is SpaceAround {
         let space = leftover / count.to_double()
         (space / 2.0, space)
@@ -1011,6 +1041,75 @@ fn main_spacing(
         (space, space)
       }
   }
+}
+
+///|
+// Anchor reverse placement at the physical edge selected by justification.
+// For physical Start and safe distributed overflow, accumulate the source
+// suffix from zero rather than cancelling a huge extent or used size. Other
+// modes walk directly from the right/bottom edge. Source order stays intact.
+fn reverse_main_starts(
+  sizes : Array[Double],
+  extent : Double,
+  used : Double,
+  gap : Double,
+  justify : JustifyContent,
+) -> Array[Double] {
+  let leftover = extent - used
+  let (leading, between) = main_spacing(
+    justify,
+    sizes.length(),
+    leftover,
+    reverse=true,
+  )
+  let starts = sizes.map(_ => 0.0)
+  let anchor_start = justify is Start ||
+    (
+      leftover < 0.0 &&
+      (
+        justify is SpaceBetween ||
+        justify is SpaceAround ||
+        justify is SpaceEvenly
+      )
+    )
+  if anchor_start {
+    let mut cursor = 0.0
+    let mut index = sizes.length() - 1
+    while index >= 0 {
+      starts[index] = cursor
+      if index > 0 {
+        cursor += sizes[index] + gap + between
+      }
+      index -= 1
+    }
+  } else {
+    let mut edge = extent - leading
+    for index = 0; index < sizes.length(); index = index + 1 {
+      edge -= sizes[index]
+      starts[index] = edge
+      if index + 1 < sizes.length() {
+        edge -= gap + between
+      }
+    }
+  }
+  // Preserve both outer anchors for distributed fitting lines: subtracting
+  // a huge earlier item must not move the final near-edge item off its gap.
+  if sizes.length() > 1 &&
+    leftover >= 0.0 &&
+    (
+      justify is SpaceBetween ||
+      justify is SpaceAround ||
+      justify is SpaceEvenly
+    ) {
+    let mut cursor = leading
+    let mut index = sizes.length() - 1
+    while index > 0 {
+      starts[index] = cursor
+      cursor += sizes[index] + gap + between
+      index -= 1
+    }
+  }
+  starts
 }
 
 ///|
@@ -1038,7 +1137,19 @@ fn place_items(
           container.justify,
           count,
           leftover,
+          reverse=container.direction.is_reverse(),
         )
+        let reverse_starts = if container.direction.is_reverse() {
+          reverse_main_starts(
+            resolved,
+            main_extent,
+            used,
+            container.main_gap(),
+            container.justify,
+          )
+        } else {
+          []
+        }
         let mut cursor = leading
         let output : Array[LayoutBox] = []
         let mut any_overflow = exceeds_with_tolerance(used, main_extent)
@@ -1053,22 +1164,27 @@ fn place_items(
             AlignItems::Center => (cross_extent - cross_size) / 2.0
             AlignItems::End => cross_extent - cross_size
           }
-          let x = if container.direction is Row {
-            content_bounds.left() + cursor
+          let main_start = if container.direction.is_reverse() {
+            reverse_starts[index]
+          } else {
+            cursor
+          }
+          let x = if container.direction.is_row() {
+            content_bounds.left() + main_start
           } else {
             content_bounds.left() + cross_offset
           }
-          let y = if container.direction is Row {
+          let y = if container.direction.is_row() {
             content_bounds.top() + cross_offset
           } else {
-            content_bounds.top() + cursor
+            content_bounds.top() + main_start
           }
-          let width = if container.direction is Row {
+          let width = if container.direction.is_row() {
             main_size
           } else {
             cross_size
           }
-          let height = if container.direction is Row {
+          let height = if container.direction.is_row() {
             cross_size
           } else {
             main_size
@@ -1079,10 +1195,10 @@ fn place_items(
               // Measure leading overflow on the container's scale, so a
               // fractional exact-fit residue keeps the same tolerance.
               let overflow = exceeds_with_tolerance(
-                  main_extent - cursor,
+                  main_extent - main_start,
                   main_extent,
                 ) ||
-                exceeds_with_tolerance(cursor + main_size, main_extent) ||
+                exceeds_with_tolerance(main_start + main_size, main_extent) ||
                 exceeds_with_tolerance(cross_size, cross_extent)
               if overflow {
                 any_overflow = true
@@ -1333,7 +1449,19 @@ fn place_wrapped_lines(
       container.justify,
       line.length(),
       leftover,
+      reverse=container.direction.is_reverse(),
     )
+    let reverse_starts = if container.direction.is_reverse() {
+      reverse_main_starts(
+        sizes,
+        main_extent,
+        line_used,
+        container.main_gap(),
+        container.justify,
+      )
+    } else {
+      []
+    }
     let mut main_cursor = leading
     for item_index = 0; item_index < line.length(); item_index = item_index + 1 {
       let entry = line[item_index]
@@ -1367,22 +1495,27 @@ fn place_wrapped_lines(
           }
       }
       let cross_start = cross_line_start + cross_alignment
-      let x = if container.direction is Row {
-        content_bounds.left() + main_cursor
+      let main_start = if container.direction.is_reverse() {
+        reverse_starts[item_index]
+      } else {
+        main_cursor
+      }
+      let x = if container.direction.is_row() {
+        content_bounds.left() + main_start
       } else {
         content_bounds.left() + cross_start
       }
-      let y = if container.direction is Row {
+      let y = if container.direction.is_row() {
         content_bounds.top() + cross_start
       } else {
-        content_bounds.top() + main_cursor
+        content_bounds.top() + main_start
       }
-      let width = if container.direction is Row {
+      let width = if container.direction.is_row() {
         main_size
       } else {
         cross_size
       }
-      let height = if container.direction is Row {
+      let height = if container.direction.is_row() {
         cross_size
       } else {
         main_size
@@ -1391,10 +1524,10 @@ fn place_wrapped_lines(
         Err(_) => error = Some(GeometryFailure)
         Ok(bounds) => {
           let main_overflow = exceeds_with_tolerance(
-              main_extent - main_cursor,
+              main_extent - main_start,
               main_extent,
             ) ||
-            exceeds_with_tolerance(main_cursor + main_size, main_extent)
+            exceeds_with_tolerance(main_start + main_size, main_extent)
           let cross_overflow = exceeds_with_tolerance(
               cross_extent - cross_start,
               cross_extent,

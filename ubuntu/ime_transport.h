@@ -4,6 +4,7 @@
 struct ime_style { int index, length, style; };
 struct ime_payload {
   int kind, window, epoch, proxy_generation, serial;
+  int composition_revoked;
   uint32_t seat;
   int text_length, fallback_length, cursor_present, cursor;
   int delete_present, delete_index, delete_length;
@@ -25,6 +26,12 @@ struct ime_state {
   int document_length, cursor, anchor, rect[4];
   uint8_t document[GPUI_IME_MAX_BYTES + 1];
   struct ime_payload stage;
+  int composition_enabled, composition_preview, composition_ever_enabled;
+  int composition_stopping, composition_direct_pending, composition_begin_internal;
+  struct ime_payload composition_cache;
+  uint32_t composition_keys[256];
+  uint32_t composition_raw_symbols[GPUI_DIRECT_KEY_CAPACITY];
+  uint8_t composition_key_consumed[256];
   uint32_t modifier_masks[4], known_modifier_mask;
   int modifiers_valid, forwarded_modifiers;
   /* A logical fence may retain the old grab solely to drain genuine held

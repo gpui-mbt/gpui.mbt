@@ -472,6 +472,8 @@ fn decode_editor_event(
       Ok(None) => Ok(None)
       Ok(Some(kind)) => Ok(Some(Platform(make_event(data, kind))))
     }
+  } else if tag >= 26 && tag <= 29 {
+    decode_wayland_composition(data, bytes, operation)
   } else if tag < 20 || tag > 25 {
     Err(editor_decode_error(operation, "unknown editor event tag"))
   } else {
@@ -716,6 +718,21 @@ fn next_editor_event_from_native(
 pub fn Host::next_editor_event(
   self : Host,
   timeout_ms~ : Int32 = 16,
+) -> Result[EditorEvent?, @diagnostics.FrameworkError] {
+  let active = native_text_composition_active(self.token)
+  if active < 0 {
+    return Err(backend_error(-active, "next_editor_event"))
+  }
+  if active != 0 {
+    return Err(backend_error(5, "next_editor_event"))
+  }
+  self.read_editor_event(timeout_ms~)
+}
+
+///|
+fn Host::read_editor_event(
+  self : Host,
+  timeout_ms~ : Int32,
 ) -> Result[EditorEvent?, @diagnostics.FrameworkError] {
   next_editor_event_from_native(
     (buffer, payload) => {
