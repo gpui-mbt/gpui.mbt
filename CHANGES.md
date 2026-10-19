@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed
+
+- Preserve fresh Wayland composition raw keyboard input while an application
+  cancellation waits for text-input-v1 leave/rearm. Keep replacement-epoch
+  held-key ownership across re-entry without admitting stale forwarded input.
+
 ### Added
 
 - Add the optional `text_host/` native text transport contract

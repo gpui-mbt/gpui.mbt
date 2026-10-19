@@ -201,6 +201,13 @@ selection, undo, rendering, and focus policy.
   ambiguous matches fail with InvalidInput rather than releasing another key.
   This bounded matching does not qualify arbitrary keyboard layouts or IME
   repeat.
+- During application cancel/rearm, fresh raw `wl_keyboard` input for the still
+  focused window is admitted under the replacement epoch, including before
+  text-input-v1 `leave`. Held replacement keys survive re-entry for raw/forwarded
+  deduplication; old owners are retired. Forwarded text/key callbacks retain
+  the strict wire-epoch and serial fence. Focus loss and disable still revoke
+  admission. This correction has callback regression coverage; the original
+  x86 DSH hosted trace reproduced dropped `Cr` during this handshake.
 - Application cancel/disable revokes unread composition for the old logical
   target before publishing cancellation; already delivered commits are never
   retracted. Window teardown clears opt-in so a replacement window must opt in
