@@ -23,6 +23,9 @@ pub(all) enum EventKind {
   FocusChanged(Bool)
   VisibilityChanged(Bool)
   Input(@primitives.InputEvent)
+  /// A native input-method composition. The document owner applies it; it is
+  /// intentionally separate from routed key/pointer input.
+  Composition(@primitives.CompositionEvent)
   CloseRequested
   Destroyed
   FrameCompleted

@@ -60,3 +60,36 @@ test "event ingress validates scale and rejects work after teardown" {
   assert_eq(ingress.pending_count(), 0)
   assert_true(ingress.enqueue(@platform.Wake, 1.0) is Err(@platform.Closed))
 }
+
+///|
+test "event ingress keeps ordered composition transactions" {
+  let ingress = @platform.EventIngress::new(@platform.WindowId::new(10))
+  ignore(ingress.enqueue(@platform.Composition(@primitives.Start), 1.0))
+  ignore(
+    ingress.enqueue(
+      @platform.Composition(
+        @primitives.Update(text="にほんご", cursor_utf16=4),
+      ),
+      1.0,
+    ),
+  )
+  ignore(
+    ingress.enqueue(
+      @platform.Composition(@primitives.Commit(text="日本語")),
+      1.0,
+    ),
+  )
+  let drained = ingress.drain()
+  assert_eq(drained.length(), 3)
+  assert_true(drained[0].kind() is @platform.Composition(@primitives.Start))
+  assert_true(
+    drained[1].kind()
+    is @platform.Composition(
+      @primitives.Update(text="にほんご", cursor_utf16=4)
+    ),
+  )
+  assert_true(
+    drained[2].kind()
+    is @platform.Composition(@primitives.Commit(text="日本語")),
+  )
+}

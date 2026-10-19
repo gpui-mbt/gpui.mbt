@@ -45,8 +45,9 @@ CoreText scene labels, TextField measure/admit/hit callbacks, cursor state and a
 one-window startup helper. `script/build_macos_app.sh` packages a MoonBit package
 as a `.app` bundle and can run the opt-in synthetic smoke flow. See
 [Reusable native application runtime](app-runtime.md) for the API and limits.
-These helpers do not add committed text input/IME, native menus, or a general
-accessibility tree.
+These helpers do not add a general editor, native menus, or a general
+accessibility tree. The platform host separately provides the bounded
+composition transport described below.
 
 ## Implemented boundary
 
@@ -70,6 +71,7 @@ scene, and application event values contain no OS or GPU pointers.
 | metrics | Current logical size and backing scale; sampled before presenting to avoid using old queued resize metadata for a current drawable. |
 | display snapshot | `Host::display_snapshot()` returns a copied list capped at 16 screens. Full and visible frames use AppKit global screen points; mode dimensions are CoreGraphics pixels, scale is backing pixels per point, and refresh is optional when CoreGraphics reports no rate. Entries mark the primary screen and, when present, the screen containing a GPUI key window. Ordering is temporary and display IDs are not exposed. The call returns `Busy` if the screen set changes during sampling, `ResourceExhausted` above the cap, and `NativeFailure` when a CoreGraphics mode query fails. This is an on-demand, non-atomic snapshot with no display-change event. |
 | clipboard / cursor | UTF-8 string clipboard and arrow/pointing-hand/text cursors. Clipboard busy/conversion failures are typed. Native E2E uses a unique private pasteboard for roundtrip checks and dispatches each supported cursor kind; it does not read or replace the user's General Pasteboard. |
+| text composition | `set_text_composition` enables a per-window `NSTextInputClient`; non-Command keys then go through `interpretKeyEvents`. `start`/`update`/`commit`/`cancel` are published as `EventKind::Composition`, with preedit text and a UTF-16 cursor. `set_text_composition_caret` supplies the logical caret rectangle used by `firstRectForCharacterRange` for candidate placement. `finish_text_composition` commits or cancels marked text explicitly. Preedit is capped at 16,384 UTF-16 units and commit at 65,536; malformed or oversized frames return typed errors. Enter commits marked text without a second application key event, and Escape cancels it without forwarding Escape. Composition is off by default; Windows/Linux IME is not included. |
 | renderer recovery | Explicitly rebuilds the shared Metal device, queue and pipeline and rebinds every live `CAMetalLayer`, preserving logical window identities. Automatic recovery remains unimplemented. |
 
 Geometry remains logical until the native boundary. `CAMetalLayer.drawableSize`
@@ -121,7 +123,12 @@ pixels. The opt-in `GPUI_NATIVE_E2E=1` frame seam copies the completed drawable
 as bounded top-left RGBA8. `Host::post_test_click` and
 `Host::post_test_escape` send scoped NSEvents through the owned NSWindow for
 autonomous app-loop validation; they require the `--test-hooks` dylib and are
-not physical hardware input. A test-only Metal blit also checks
+not physical hardware input. `Host::post_test_composition` drives the real
+`setMarkedText`/`insertText`/`unmarkText` callbacks. The native E2E checks
+start/update/commit/cancel, a printable key routed through `interpretKeyEvents`,
+and Enter/Escape resolution without duplicate application keys. A real-Kotoeri
+run is opt-in (`GPUI_MACOS_REAL_IME=1`) and was not completed in the headless
+harness, so it is reported as NOT RUN rather than a pass. A test-only Metal blit also checks
 transform/clip/alpha/paint order and backing-pixel dimensions. Fault injection verifies DeviceLost reporting.
 The test source also removes device/queue/pipeline state, invokes explicit
 recovery and checks the following frame through pixel readback. Hosted execution
@@ -143,8 +150,8 @@ The MoonBit smoke executable uses the portable Backend interface and checks
 creation, two completed GPU frames, resize, close request, destruction and event
 sequence ordering. Headless tests verify portable key, scroll, and error
 adapters on all four MoonBit targets. Real display movement, physical scroll
-input, General Pasteboard exchange, visible cursor confirmation, Japanese IME,
-accessibility, shaping beyond bounded system-sans single lines,
+input, General Pasteboard exchange, visible cursor confirmation, real Japanese
+IME qualification, accessibility, shaping beyond bounded system-sans single lines,
 cross-thread command completion, hosted automated renderer recovery, sustained
 resource growth and performance remain pending.
 
