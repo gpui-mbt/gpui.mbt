@@ -263,8 +263,9 @@ int32_t gpui_windows_test_composition_staging(int32_t *failed_stage) {
   gpui_text_review_marked_units = 4;
   gpui_text_review_cursor_position = 4;
   GPUI_COMPOSITION_TEST_REQUIRE(
-      gpui_window_proc(g_host.hwnd, WM_IME_COMPOSITION, 0,
-                       GCS_COMPSTR | GCS_CURSORPOS) == 0 &&
+      gpui_window_proc(g_host.hwnd, WM_IME_STARTCOMPOSITION, 0, 0) == 0 &&
+          gpui_window_proc(g_host.hwnd, WM_IME_COMPOSITION, 0,
+                           GCS_COMPSTR | GCS_CURSORPOS) == 0 &&
           g_host.event_count == 2 &&
           gpui_composition_test_code(&g_host, 0) == 0 &&
           gpui_composition_test_code(&g_host, 1) == 1 &&
