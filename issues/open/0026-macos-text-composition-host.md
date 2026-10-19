@@ -41,7 +41,9 @@ application owns the document, selection, undo history, and rendering.
 - Reconversion, attributed replacement ranges, clause styling, and a full
   editor/selection/undo contract. These remain application or later-packet work.
 - Windows/Linux/X11 composition clients. The event value is platform-neutral,
-  but this increment implements only macOS.
+  but this increment implements only macOS. Handoffs:
+  [Windows 0027](0027-windows-ime-composition-handoff.md) and
+  [Wayland 0028](0028-wayland-ime-composition-handoff.md). X11/XIM remains out of scope.
 
 ## Constraints
 
