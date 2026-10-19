@@ -1,6 +1,6 @@
 # 0028: Wayland/Linux IME composition transport and desktop integration
 
-Status: open — handoff ready; implementation and physical IME acceptance pending
+Status: bounded implementation; compositor and physical IME acceptance pending
 Model: deepseek-v4.1-flash:1017-cloud
 Created: 2026-10-19
 Updated: 2026-10-19
@@ -240,3 +240,25 @@ python3 scripts/smoke-release-linux.py
 5. docs / CHANGES / status 更新。
 
 X11 は同じ branch に混ぜず、必要なら別 issue にする。
+
+
+## Implementation checkpoint (2026-10-19)
+
+Core implementation is in `ubuntu/composition.mbt` and the native shared queue.
+The native queue, rather than a read-time MoonBit expansion, assigns distinct
+sequence numbers to Start/Update and preserves ordinary event ordering. The
+existing editor transport remains independently usable and mutually exclusive.
+The transport retains its existing 4096 UTF-8 byte ceiling. Unsupported
+surrounding deletion/postinsert-position commits are discarded with preview
+cancellation; no full-document semantics are claimed.
+
+Finish keeps composition opt-in while fencing/rearming the native session, so
+applications can accept the terminal event and continue typing without a focus
+toggle. Disable ends mode and allows deferred direct-text restoration.
+
+Native callback fixtures and FFI-linked MoonBit tests are recorded separately
+from runtime acceptance in `docs/ubuntu-ime.md`. Compositor E2E was blocked by
+cloud Unix-socket restrictions and a pre-execution escalation setup failure;
+physical IBus/Mozc and candidate placement remain NOT RUN. The dsh integration
+is a separate companion change; do not mark its offline E2E complete based only
+on these core transport tests.
