@@ -70,7 +70,7 @@ partial grow/shrink, constrained redistribution, every content mode, overflow,
 builder order and snapshot preservation, validation and aggregate finiteness,
 nested styles, intrinsic sizing, device-scale rounding, and equal-gap controls.
 
-This does not add margins, percentage gaps, reverse main-axis flow, baseline
+This does not add margins, percentage gaps, baseline
 alignment, writing modes, flex order, or min-content negotiation. Logical
 geometry remains binary64 with the existing narrow arithmetic tolerance, rather
 than bit-identical upstream binary32 arithmetic. Full CSS/GPUI styling and

@@ -272,7 +272,7 @@ fn layout_mixed_children(
         }
         let mut width = item.intrinsic.width()
         let mut height = item.intrinsic.height()
-        let (width_dimension, height_dimension) = if style.direction is Row {
+        let (width_dimension, height_dimension) = if style.direction.is_row() {
           (item.main, item.cross)
         } else {
           (item.cross, item.main)
@@ -399,7 +399,10 @@ fn measure_mixed_container(
     return Err(TreeTooDeep)
   }
   let main_axis = match (style.direction, axis) {
-    (Row, WidthAxis) | (Column, HeightAxis) => true
+    (Row, WidthAxis)
+    | (RowReverse, WidthAxis)
+    | (Column, HeightAxis)
+    | (ColumnReverse, HeightAxis) => true
     _ => false
   }
   let mut count = 0
@@ -454,7 +457,7 @@ fn measure_mixed_container(
   }
   let gaps = if main_axis && count > 1 {
     (count - 1).to_double() *
-    (if style.direction is Row { style.gap_x } else { style.gap_y })
+    (if style.direction.is_row() { style.gap_x } else { style.gap_y })
   } else {
     0.0
   }
