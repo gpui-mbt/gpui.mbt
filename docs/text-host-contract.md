@@ -69,6 +69,24 @@ one of:
   retry the same operation after the host state settles; it must not retag a
   stale event as a new session.
 
+## Mapping from a platform event kind
+
+A host that already publishes native composition values as a platform event
+kind (for example AppKit `NSTextInputClient` start/update/commit/cancel) still
+implements `TextInputHost`; the event kind alone is not the trait. The adapter
+maps one observation stream as follows:
+
+- composition start: no `TextInputEvent`; the session epoch already identifies
+  the transaction.
+- preedit update: `Preedit(text~, cursor~)` with the UTF-16 cursor.
+- commit: `Commit(text~)` carrying the host-observed insertion.
+- cancel: `Cancel`.
+- window focus loss: `FocusLost`, followed by an explicit `end_text_input`.
+
+`begin_text_input`, `update_text_input`, `cancel_text_input` and
+`end_text_input` remain host methods because they carry owner state, caret
+geometry and epoch replacement. Do not flatten them into a stateless event.
+
 ## Relationship to text_session
 
 The intended adapter order is:
