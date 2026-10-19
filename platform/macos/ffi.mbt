@@ -73,3 +73,13 @@ extern "C" fn test_post_key(
   text : Bytes,
   text_length : Int32,
 ) -> Int32 = "gpui_macos_test_post_key"
+
+///|
+#borrow(text)
+extern "C" fn test_post_composition(
+  window : Int64,
+  kind : Int32,
+  cursor : Int32,
+  text : Bytes,
+  text_length : Int32,
+) -> Int32 = "gpui_macos_test_post_composition"
