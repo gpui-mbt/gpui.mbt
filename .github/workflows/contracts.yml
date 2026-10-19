@@ -78,7 +78,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: f4ah6o/Yami-kumo
-          ref: b7c0a63816445e95f12317933e9470d2fa64e8de
+          ref: ea3ee7ce8e507759c5afec582c1c9592f374f343
           path: _build/shared-ui-audit/yami
       - name: Compare both public Button APIs on each compiler target
         run: |
