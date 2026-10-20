@@ -213,6 +213,14 @@ pub fn TextHostQueue::has_parked(self : TextHostQueue) -> Bool {
 }
 
 ///|
+/// Drop queued text observations without changing the epoch or parked platform
+/// events. Hosts call this when the native route replaced its epoch, because
+/// records copied under the previous native epoch can no longer be applied.
+pub fn TextHostQueue::discard_text(self : TextHostQueue) -> Unit {
+  self.text = []
+}
+
+///|
 pub fn TextHostQueue::has_text(self : TextHostQueue) -> Bool {
   self.text.length() > 0
 }
