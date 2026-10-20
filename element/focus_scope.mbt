@@ -164,6 +164,37 @@ pub fn FocusScopeSession::scope_count(self : FocusScopeSession) -> Int32 {
 }
 
 ///|
+/// Current exact acquisition. Reading is allowed during dispatch callbacks and
+/// after terminal close; it never grants admission.
+pub fn FocusScopeSession::focused(self : FocusScopeSession) -> UInt64? {
+  self.state.val.tree.focused
+}
+
+///|
+/// Drop the current acquisition while every open scope keeps its boundary. An
+/// owner calls this when the window or keyboard target lost focus. A session
+/// that already has no focus and no owner is unchanged and keeps its revision.
+pub fn FocusScopeSession::clear_focus(
+  self : FocusScopeSession,
+  target : FocusScopeTarget,
+) -> Result[Unit, FocusScopeError] {
+  match self.validate(target) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let state = self.state.val
+  if state.tree.focused is None && state.tree.focus_owner() is None {
+    return Ok(())
+  }
+  let revision = match focus_scope_revision(state) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  self.state.val = { ..state, tree: state.tree.clear_focus(), revision, }
+  Ok(())
+}
+
+///|
 fn focus_scope_root(scopes : Array[FocusScopeFrame]) -> UInt64? {
   if scopes.length() == 0 {
     None
@@ -648,6 +679,107 @@ pub fn FocusScopeSession::refresh_layout(
       Ok(())
     }
   }
+}
+
+///|
+fn focus_scope_adopt_suffix(
+  state : FocusScopeState,
+  adopted : ElementTree,
+) -> Result[
+  (ElementTree, Array[FocusScopeFrame], Array[UInt64]),
+  FocusScopeError,
+] {
+  let mut first = state.scopes.length()
+  for index = 0; index < state.scopes.length(); index = index + 1 {
+    if first == state.scopes.length() &&
+      adopted.node(state.scopes[index].root) is None {
+      first = index
+    }
+  }
+  let scopes : Array[FocusScopeFrame] = []
+  for index = 0; index < first; index = index + 1 {
+    scopes.push(state.scopes[index])
+  }
+  let removed : Array[UInt64] = []
+  if first == state.scopes.length() {
+    return Ok((adopted, scopes, removed))
+  }
+  let mut tree = adopted
+  for index = first; index < state.scopes.length(); index = index + 1 {
+    let root = state.scopes[index].root
+    removed.push(root)
+    if tree.node(root) is Some(_) {
+      tree = match tree.without_subtree(root) {
+        Ok(value) => value
+        Err(error) => return Err(focus_scope_element_error(error))
+      }
+    }
+  }
+  let outer = state.scopes[first]
+  let tree = match
+    focus_scope_restore(tree, scopes, outer.previous, outer.fallback) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  Ok((tree, scopes, removed))
+}
+
+///|
+/// Adopt a rebuilt tree for this exact revision while keeping the live modal
+/// frames. This is frame adoption, not reconciliation: the caller asserts that
+/// every retained numeric id denotes the same binding as before. The session
+/// lineage is transplanted, so captured restore owners stay valid for surviving
+/// ids. A missing scope root revokes that suffix and restores once, in which
+/// case `focused` is ignored. Otherwise `focused` is the exact caller-requested
+/// acquisition and must be live, focusable and inside the active scope.
+pub fn FocusScopeSession::adopt_tree(
+  self : FocusScopeSession,
+  target : FocusScopeTarget,
+  tree : ElementTree,
+  focused : UInt64?,
+  cancel_interactions : (FocusScopeBoundary) -> Result[Unit, FocusScopeError],
+) -> Result[Unit, FocusScopeError] {
+  match self.validate(target) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let state = self.state.val
+  let revision = match focus_scope_revision(state) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let adopted : ElementTree = {
+    nodes: copy_nodes(tree.nodes),
+    focused: None,
+    lineage: state.tree.lineage,
+    owner: None,
+  }
+  let (tree, scopes, removed) = match focus_scope_adopt_suffix(state, adopted) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if removed.length() > 0 {
+    return self.publish_boundary(
+      { ..state, tree, scopes, revision, },
+      Removed,
+      removed,
+      cancel_interactions,
+    )
+  }
+  let tree = match focused {
+    None => tree.clear_focus()
+    Some(id) => {
+      if !focus_scope_admits(tree, focus_scope_root(scopes), id) {
+        return Err(OutsideScope)
+      }
+      match tree.with_focus(id) {
+        Err(error) => return Err(focus_scope_element_error(error))
+        Ok(value) => value
+      }
+    }
+  }
+  self.state.val = { ..state, tree, scopes, revision, }
+  Ok(())
 }
 
 ///|
