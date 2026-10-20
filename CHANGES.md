@@ -7,37 +7,36 @@
 - Publish a bounded macOS TextField accessibility projection:
   `Host::publish_text_field_accessibility` and
   `Host::revoke_text_field_accessibility`, with
-  `TextFieldAccessibilitySnapshot`. A window now keeps a registry of AX
-  elements, so a Button and a TextField can be exposed together; the TextField
-  element reports role, value, UTF-16 selection, editable state, focus and
-  frame. A negative or out-of-range selection is rejected before any native
-  call. AX actions, Dialog elements and assistive-technology acceptance remain
-  out of scope.
+  `TextFieldAccessibilitySnapshot`. A window keeps a registry of AX elements,
+  so a Button and a TextField can be exposed together; the TextField element
+  reports role, value, UTF-16 selection, editable state, focus and frame. A
+  negative or out-of-range selection is rejected before any native call. AX
+  actions, Dialog elements and assistive-technology acceptance remain out of
+  scope.
 - Add macOS test hooks for exact-source text-input harnesses:
   `Host::post_test_key_code` posts one ANSI key code with explicit characters
   through the owned `NSWindow`, so a live input method can process the key, and
   `Host::text_caret_screen` reads the caret rectangle the AppKit client reports
   to the input method. Both require `GPUI_NATIVE_E2E=1` and a test-hooks
-  library. They do not synthesize composition and are not IME evidence alone.  out of scope.- Add `text_host.TextHostQueue`, shared epoch/sequence/text/parked-event state  out of scope.- Add `text_host.TextHostQueue`, shared epoch/sequence/text/parked-event state- Add `windows.TextHostRoute`, an opt-in portable `TextInputHost` adapter over
+  library. They do not synthesize composition and are not IME evidence alone.
+- Add `text_host.TextHostQueue`, shared epoch/sequence/text/parked-event state
+  for hosts whose native route exposes one ordered editor stream. It bounds
+  parked platform records, keeps an unsupported-record failure readable instead
+  of substituting an insertion, and discards copied text when the host replaces
+  its native epoch.
+- Add `windows.TextHostRoute`, an opt-in portable `TextInputHost` adapter over
   the existing IMM32 editor session. It defers the native begin until the first
   update, maps Marked/empty-Inserted/Cancelled to Preedit/Commit/Cancel, parks
   ordinary platform records for a paired `next_platform_event`, and reports a
   replacement insert as `UnsupportedCapability` instead of flattening it.
   `Capability::TextInput` stays unadvertised until an exact-source IME run
   qualifies the route.
-
-## 0.10.4 - 2026-10-21
-
-### Added
-
-- Add `text_host.TextHostQueue`, shared epoch/sequence/text/parked-event state
->>>>>>> 089a35c (feat(windows): add an opt-in portable text-input route)
->>>>>>> 4d376ba (feat(windows): add an opt-in portable text-input route)
-  for hosts whose native route exposes one ordered editor stream. It bounds
-  parked platform records and keeps an unsupported-record failure readable
-  instead of substituting a successful insertion.
->>>>>>> 12731f0 (feat(text-host): add shared queue state for editor-stream hosts)
->>>>>>> 810d61c (feat(text-host): add shared queue state for editor-stream hosts)
+- Add `ubuntu.TextHostRoute`, an opt-in portable `TextInputHost` adapter over
+  the existing text-input-v1 session. It maps preedit and no-deletion commits,
+  forwards command keys as platform events in the paired `next_platform_event`
+  queue, and reports a commit that deletes surrounding text as
+  `UnsupportedCapability`. `Capability::TextInput` stays unadvertised until an
+  exact-source Wayland/IBus IME run qualifies the route.
 
 ## 0.10.3 - 2026-10-20
 
