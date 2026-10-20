@@ -91,6 +91,13 @@ extern "C" fn test_post_key(
 ) -> Int32 = "gpui_macos_test_post_key"
 
 ///|
+#borrow(output)
+extern "C" fn native_text_caret_screen(
+  window : Int64,
+  output : FixedArray[Double],
+) -> Int32 = "gpui_macos_text_caret_screen"
+
+///|
 #borrow(text)
 extern "C" fn test_post_composition(
   window : Int64,

@@ -1228,6 +1228,27 @@ int32_t gpui_macos_test_post_key_v1(int64_t token, int32_t key_code,
 #endif
 }
 
+int32_t gpui_macos_text_caret_screen_v1(int64_t token, double *output) {
+  if (![NSThread isMainThread]) return 18;
+  const char *enabled = getenv("GPUI_NATIVE_E2E");
+  if (!enabled || strcmp(enabled, "1") != 0) return 9;
+  if (!output) return 5;
+  GPWindow *target = windows[@(token)];
+  if (!target || !target.window || target.closing) return 10;
+  NSRect caret = target.ime_caret;
+  if (!isfinite(NSMinX(caret)) || !isfinite(NSMinY(caret)) ||
+      !isfinite(NSWidth(caret)) || !isfinite(NSHeight(caret)) ||
+      NSWidth(caret) <= 0 || NSHeight(caret) <= 0)
+    caret = NSMakeRect(0, 0, 1, 18);
+  NSRect in_window = [target.window.contentView convertRect:caret toView:nil];
+  NSRect screen = [target.window convertRectToScreen:in_window];
+  output[0] = screen.origin.x;
+  output[1] = screen.origin.y;
+  output[2] = screen.size.width;
+  output[3] = screen.size.height;
+  return 0;
+}
+
 int32_t gpui_macos_test_post_composition_v1(int64_t token, int32_t kind,
                                             int32_t cursor,
                                             const uint8_t *bytes,
