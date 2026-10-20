@@ -47,7 +47,11 @@ as a `.app` bundle and can run the opt-in synthetic smoke flow. See
 [Reusable native application runtime](app-runtime.md) for the API and limits.
 These helpers do not add a general editor, native menus, or a general
 accessibility tree. The platform host separately provides the bounded
-composition transport described below.
+composition transport described below, plus a bounded AppKit accessibility
+projection for one sample Button and one TextField per window. The projection
+publishes a role, value, UTF-16 selection, focus and frame; it does not expose
+AX actions beyond Button Invoke, Dialog elements, or assistive-technology
+acceptance.
 
 ## Implemented boundary
 
@@ -151,7 +155,8 @@ creation, two completed GPU frames, resize, close request, destruction and event
 sequence ordering. Headless tests verify portable key, scroll, and error
 adapters on all four MoonBit targets. Real display movement, physical scroll
 input, General Pasteboard exchange, visible cursor confirmation, real Japanese
-IME qualification, accessibility, shaping beyond bounded system-sans single lines,
+IME qualification, assistive-technology acceptance, Dialog AX, shaping beyond
+bounded system-sans single lines,
 cross-thread command completion, hosted automated renderer recovery, sustained
 resource growth and performance remain pending.
 

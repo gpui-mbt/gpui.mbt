@@ -41,7 +41,23 @@ fn accessibility_publish(
 }
 
 ///|
+fn accessibility_publish_field(
+  _window : Int64,
+  _binding : Int64,
+  _payload : Bytes,
+  _length : Int32,
+  _output : FixedArray[Int64],
+) -> Int32 {
+  9
+}
+
+///|
 fn accessibility_revoke(_window : Int64, _binding : Int64) -> Int32 {
+  9
+}
+
+///|
+fn accessibility_revoke_field(_window : Int64, _binding : Int64) -> Int32 {
   9
 }
 
