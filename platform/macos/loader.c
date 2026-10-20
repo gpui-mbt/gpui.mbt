@@ -174,4 +174,18 @@ int32_t gpui_macos_test_post_composition(int64_t window, int32_t kind,
   (void)window; (void)kind; (void)cursor; (void)text; (void)text_length;
   return 9;
 }
+int32_t gpui_macos_text_session(int32_t op, int64_t window, int64_t epoch,
+                                double *fields, const uint8_t *bytes,
+                                int32_t length) {
+  (void)op; (void)window; (void)epoch; (void)fields; (void)bytes; (void)length;
+  return 9;
+}
+int32_t gpui_macos_text_next(int64_t window, int64_t epoch, int32_t timeout_ms,
+                             double *fields, uint8_t *payload,
+                             int32_t capacity) {
+  (void)window; (void)epoch; (void)timeout_ms; (void)fields; (void)payload;
+  (void)capacity;
+  return 9;
+}
+int32_t gpui_macos_text_available(void) { return 0; }
 #endif
