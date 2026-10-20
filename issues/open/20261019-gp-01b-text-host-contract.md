@@ -1,7 +1,9 @@
 # GP-01B — native text host seam
 
-Status: open — macOS implementation shipped. `platform/macos.Host` implements
-`TextInputHost` with an epoch-tagged ordered queue; Linux and Windows keep their
+Status: open — macOS implementation shipped and consumed. `platform/macos.Host`
+implements `TextInputHost` with an epoch-tagged ordered queue, and the Yami
+native adapter (`f4ah6o/yami_kumo_native/ui`) imports `text_host` and applies
+observations through `Mounted::text_input`. Linux and Windows keep their
 host-local editor sessions. No real IME profile is claimed.
 
 Priority: P1
@@ -51,8 +53,9 @@ The `Backend` trait does not change. A host that does not implement
 
 ## 5. Acceptance
 
-- [ ] The new package is reachable from a non-test adapter without importing a
-      native host package. (Pending the Yami native adapter consumption.)
+- [x] The new package is reachable from a non-test adapter without importing a
+      native host package. (Yami `native/ui` imports `text_host` and exposes
+      `Mounted::text_input`; no host package import is involved.)
 - [x] Epoch, sequence and window are preserved in every event; a stale epoch is
       rejected by the host contract.
 - [x] `Capability::TextInputGeometry` is independent of `TextInput` and is not
