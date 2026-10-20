@@ -10,6 +10,12 @@
 
 ### Added
 
+- Add `element.FocusScopeSession::adopt_tree` for hosts that rebuild their
+  element tree every frame: it replaces the node set of the current revision,
+  keeps live modal frames and handles, transplants the focus lineage onto
+  surviving ids, and restores once when a scope root disappears. Add
+  `FocusScopeSession::clear_focus` and `FocusScopeSession::focused` for owners
+  that drop the acquisition on window blur without closing a scope.
 - Add the optional `text_host/` native text transport contract
   (`TextInputHost`, `TextInputState`, `TextInputEvent`) between
   `platform.Backend` and `text_session/`, plus
