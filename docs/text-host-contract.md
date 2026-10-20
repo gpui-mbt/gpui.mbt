@@ -132,6 +132,23 @@ candidate window position inside the input method.
   the live input method still processes the key. Neither hook synthesizes a
   composition or proves a real input method by itself.
 
+## Windows route (bounded)
+
+`windows.TextHostRoute` adapts the existing default-off IMM32 session. `Marked`
+becomes `Preedit` (a missing cursor becomes -1), `Inserted` with an empty
+replacement range becomes `Commit`, `Cancelled` becomes `Cancel`, and
+composition start/end produce no observation. A replacement insert cannot be
+represented by the insertion-only portable vocabulary, so the route fails with
+`UnsupportedCapability` and does not flatten it into an insertion.
+
+`begin_text_input` defers the native session until the first `update`, because
+IMM32 begin needs the document, caret and owner generation; the portable `root`
+provides `owner_generation`. `next_text_input` parks ordinary platform records
+for `next_platform_event`, so an application can pump both without losing
+input. A window focus loss emits `FocusLost` once. The route is opt-in:
+`Host::require_capability(TextInput)` stays unadvertised until an exact-source
+IME run qualifies it.
+
 ## Relationship to text_session
 
 The intended adapter order is:
