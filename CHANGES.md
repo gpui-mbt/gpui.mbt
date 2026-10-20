@@ -1,12 +1,6 @@
 # Changes
 
-## Unreleased
-
-### Fixed
-
-- Preserve fresh Wayland composition raw keyboard input while an application
-  cancellation waits for text-input-v1 leave/rearm. Keep replacement-epoch
-  held-key ownership across re-entry without admitting stale forwarded input.
+## 0.10.3 - 2026-10-20
 
 ### Added
 
@@ -26,6 +20,14 @@
   `platform.Backend` and `text_session/`, plus
   `Capability::TextInputGeometry`. The package is additive; existing hosts keep
   returning `UnsupportedCapability` until they implement it.
+
+## 0.10.2 - 2026-10-20
+
+### Fixed
+
+- Preserve fresh Wayland composition raw keyboard input while an application
+  cancellation waits for text-input-v1 leave/rearm. Keep replacement-epoch
+  held-key ownership across re-entry without admitting stale forwarded input.
 
 ## 0.10.1 - 2026-10-20
 
