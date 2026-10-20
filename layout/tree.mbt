@@ -504,6 +504,7 @@ fn snap_tree_item_to_device_scale(
         max_main,
         min_cross,
         max_cross,
+        align_self: item.align_self,
       })
   }
 }

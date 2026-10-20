@@ -1,5 +1,13 @@
 # Changes
 
+## Unreleased
+
+### Added
+
+- Add per-item `layout.AlignSelf` and `FlexItem::with_align_self` for inherited,
+  physical start/end, flex-relative start/end, center, and auto-size stretch.
+  Overrides survive recursive layout, device-scale preparation, and item builders.
+
 ## 0.10.4 - 2026-10-21
 
 ### Added
