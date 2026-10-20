@@ -69,6 +69,72 @@ pub fn Host::post_test_key(
 }
 
 ///|
+/// Post one key-down/key-up pair with an explicit ANSI key code and characters.
+/// The live input method processes the record exactly as it processes a physical
+/// key; only AppKit's hardware event source is replaced. Requires
+/// `GPUI_NATIVE_E2E=1` and a test-hooks dylib.
+pub fn Host::post_test_key_code(
+  self : Host,
+  window : @platform.WindowId,
+  key_code : Int32,
+  characters : String,
+  modifiers : @primitives.Modifiers,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  match self.check() {
+    Err(failure) => return Err(failure)
+    Ok(_) => ()
+  }
+  if key_code < 0 || key_code > 127 || characters.length() > 256 {
+    return Err(error(@diagnostics.InvalidInput, "post_test_key_code"))
+  }
+  let bytes = @utf8.encode(characters)
+  status(
+    test_post_key(
+      window.value(),
+      key_code,
+      test_modifier_bits(modifiers),
+      bytes,
+      bytes.length(),
+    ),
+    "post_test_key_code",
+  )
+}
+
+///|
+/// The logical caret rectangle in screen coordinates that the AppKit text
+/// client currently reports to the input method. The native side falls back to
+/// a one-by-eighteen logical rectangle when no caret was published. Requires
+/// `GPUI_NATIVE_E2E=1`.
+pub fn Host::text_caret_screen(
+  self : Host,
+  window : @platform.WindowId,
+) -> Result[@primitives.Rect, @diagnostics.FrameworkError] {
+  match self.check() {
+    Err(failure) => return Err(failure)
+    Ok(_) => ()
+  }
+  let output : FixedArray[Double] = FixedArray::make(4, 0.0)
+  match
+    status(
+      native_text_caret_screen(window.value(), output),
+      "text_caret_screen",
+    ) {
+    Err(failure) => Err(failure)
+    Ok(_) => {
+      for value in output {
+        if value.is_nan() || value.is_inf() {
+          return Err(error(@diagnostics.ConversionFailed, "text_caret_screen"))
+        }
+      }
+      match @primitives.Rect::new(output[0], output[1], output[2], output[3]) {
+        Err(_) => Err(error(@diagnostics.ConversionFailed, "text_caret_screen"))
+        Ok(rect) => Ok(rect)
+      }
+    }
+  }
+}
+
+///|
 /// Post one composition frame through the same `NSTextInputClient` callbacks
 /// AppKit uses. Requires GPUI_NATIVE_E2E=1, a test-hooks dylib, and an enabled
 /// composition client.

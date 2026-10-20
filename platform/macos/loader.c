@@ -137,6 +137,13 @@ int32_t gpui_macos_test_post_key(int64_t window, int32_t key_code,
       dlsym(library, "gpui_macos_test_post_key_v1");
   return post ? post(window, key_code, modifiers, text, text_length) : 9;
 }
+int32_t gpui_macos_text_caret_screen(int64_t window, double *output) {
+  int status = load();
+  if (status) return status;
+  int32_t (*read)(int64_t, double *) =
+      dlsym(library, "gpui_macos_text_caret_screen_v1");
+  return read ? read(window, output) : 9;
+}
 int32_t gpui_macos_test_post_escape(int64_t window) {
   int status = load();
   if (status) return status;
@@ -191,6 +198,9 @@ int32_t gpui_macos_test_post_key(int64_t window, int32_t key_code,
                                   int32_t text_length) {
   (void)window; (void)key_code; (void)modifiers; (void)text; (void)text_length;
   return 9;
+}
+int32_t gpui_macos_text_caret_screen(int64_t window, double *output) {
+  (void)window; (void)output; return 9;
 }
 int32_t gpui_macos_test_post_escape(int64_t window) { (void)window; return 9; }
 int32_t gpui_macos_test_post_composition(int64_t window, int32_t kind,

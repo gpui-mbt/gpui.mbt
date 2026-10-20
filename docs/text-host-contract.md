@@ -118,6 +118,11 @@ candidate window position inside the input method.
   `FocusLost` after the native `Cancel`.
 - `next_text_input` returns `Ok(None)` on timeout and never consumes ordinary
   platform events.
+- Test hooks expose an explicit ANSI key code with characters and the current
+  caret rectangle in screen coordinates. Both require `GPUI_NATIVE_E2E=1` and a
+  test-hooks library. The key hook replaces only AppKit's hardware event source:
+  the live input method still processes the key. Neither hook synthesizes a
+  composition or proves a real input method by itself.
 
 ## Relationship to text_session
 

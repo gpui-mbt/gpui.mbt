@@ -13,6 +13,12 @@
   frame. A negative or out-of-range selection is rejected before any native
   call. AX actions, Dialog elements and assistive-technology acceptance remain
   out of scope.
+- Add macOS test hooks for exact-source text-input harnesses:
+  `Host::post_test_key_code` posts one ANSI key code with explicit characters
+  through the owned `NSWindow`, so a live input method can process the key, and
+  `Host::text_caret_screen` reads the caret rectangle the AppKit client reports
+  to the input method. Both require `GPUI_NATIVE_E2E=1` and a test-hooks
+  library. They do not synthesize composition and are not IME evidence alone.
 
 ## 0.10.3 - 2026-10-20
 
