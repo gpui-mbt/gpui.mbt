@@ -661,7 +661,10 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         "layout": {"primitives"},
         "scene": {"primitives"},
         "platform": {"primitives", "diagnostics", "scene"},
-        "platform/macos": {"platform", "primitives", "diagnostics", "scene", "platform/testing"},
+        "platform/macos": {
+            "platform", "primitives", "diagnostics", "scene", "platform/testing",
+            "text_host",
+        },
         "platform/linux_text": {"text_layout", "text", "primitives"},
         "platform/windows_text": {"text", "text_layout", "primitives"},
         # Native text measurers are platform leaves. The frame-readback seam is

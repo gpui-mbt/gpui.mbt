@@ -47,4 +47,18 @@ int32_t gpui_macos_display_snapshot_v1(int64_t host, double *records,
                                        int32_t capacity);
 int32_t gpui_macos_display_snapshot(int64_t host, double *records,
                                     int32_t capacity);
+// Portable text-input session. Op 1 begins and returns the epoch in fields[0],
+// 2 replaces the logical caret rectangle from fields[0..3], 3 cancels the
+// composition and returns a replacement epoch in fields[0], 4 ends the session.
+// Records are ordered per session and tagged with the host-issued epoch.
+int32_t gpui_macos_text_session_v1(int32_t op, int64_t window, int64_t epoch,
+                                   double *fields, const uint8_t *bytes,
+                                   int32_t length);
+// One ordered record for an armed session: fields[0] present, [1] kind
+// (1 preedit, 2 commit, 3 cancel, 5 focus lost), [2] sequence, [3] epoch,
+// [4] UTF-16 cursor, [5] UTF-8 length; payload receives the text.
+int32_t gpui_macos_text_next_v1(int64_t window, int64_t epoch,
+                                int32_t timeout_ms, double *fields,
+                                uint8_t *payload, int32_t capacity);
+int32_t gpui_macos_text_available_v1(void);
 #endif

@@ -31,6 +31,15 @@ pub fn Host::post_test_key(
 }
 
 ///|
+pub fn Host::post_test_composition(
+  _self : Host,
+  _window : @platform.WindowId,
+  _event : @primitives.CompositionEvent,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  Err(test_hook_unavailable("post_test_composition"))
+}
+
+///|
 pub fn Host::post_test_escape(
   _self : Host,
   _window : @platform.WindowId,

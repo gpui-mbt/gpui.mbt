@@ -10,6 +10,11 @@
 
 ### Added
 
+- Implement `text_host.TextInputHost` for `platform/macos.Host` over the AppKit
+  composition client. An armed session owns enablement and an epoch-tagged,
+  ordered text queue that stays separate from `next_event`; the host advertises
+  `Capability::TextInput` when the loaded library exports the route and never
+  advertises `TextInputGeometry`. Window focus loss publishes `FocusLost`.
 - Add the optional `text_host/` native text transport contract
   (`TextInputHost`, `TextInputState`, `TextInputEvent`) between
   `platform.Backend` and `text_session/`, plus

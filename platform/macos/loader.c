@@ -72,6 +72,28 @@ int32_t gpui_macos_display_snapshot(int64_t host, double *records,
 }
 int64_t gpui_integer(int32_t field) { return api && pthread_main_np() ? api->integer(field) : 0; }
 double gpui_number(int32_t field) { return api && pthread_main_np() ? api->number(field) : 0; }
+int32_t gpui_macos_text_session(int32_t op, int64_t window, int64_t epoch,
+                                double *fields, const uint8_t *bytes,
+                                int32_t length) {
+  int status = load();
+  if (status) return status;
+  int32_t (*session)(int32_t, int64_t, int64_t, double *, const uint8_t *, int32_t) =
+      dlsym(library, "gpui_macos_text_session_v1");
+  return session ? session(op, window, epoch, fields, bytes, length) : 9;
+}
+int32_t gpui_macos_text_next(int64_t window, int64_t epoch, int32_t timeout_ms,
+                             double *fields, uint8_t *payload, int32_t capacity) {
+  int status = load();
+  if (status) return status;
+  int32_t (*next)(int64_t, int64_t, int32_t, double *, uint8_t *, int32_t) =
+      dlsym(library, "gpui_macos_text_next_v1");
+  return next ? next(window, epoch, timeout_ms, fields, payload, capacity) : 9;
+}
+int32_t gpui_macos_text_available(void) {
+  if (load()) return 0;
+  return dlsym(library, "gpui_macos_text_session_v1") &&
+         dlsym(library, "gpui_macos_text_next_v1") ? 1 : 0;
+}
 int32_t gpui_macos_frame_metrics(int64_t window, double *output) {
   int status = load();
   if (status) return status;

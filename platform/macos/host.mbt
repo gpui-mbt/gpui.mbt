@@ -2,12 +2,13 @@
 /// Single UI owner. All methods must execute on the macOS main thread.
 pub struct Host {
   priv marker : Int64
+  priv text : Ref[TextInputOwner]
 }
 
 ///|
 pub fn Host::start() -> Result[Host, @diagnostics.FrameworkError] {
   match status(call(1, 0, 0.0, 0.0, b"", 0), "start") {
-    Ok(_) => Ok({ marker: integer(9), })
+    Ok(_) => Ok({ marker: integer(9), text: Ref(text_input_owner()), })
     Err(error) => Err(error)
   }
 }
@@ -19,7 +20,7 @@ pub fn Host::start() -> Result[Host, @diagnostics.FrameworkError] {
 /// back to foreground startup.
 pub fn Host::start_background() -> Result[Host, @diagnostics.FrameworkError] {
   match status(call(17, 0, 0.0, 0.0, b"", 0), "start_background") {
-    Ok(_) => Ok({ marker: integer(9), })
+    Ok(_) => Ok({ marker: integer(9), text: Ref(text_input_owner()), })
     Err(error) => Err(error)
   }
 }

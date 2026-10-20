@@ -111,18 +111,21 @@ unsupported; these are two different facts.
   revision, session and ordered preview/commit/cancel outcomes. It rejects
   stale/foreign/destroyed targets and preserves an observed OS commit instead of
   rewriting every blur to cancel. See [text_session](../text_session/).
-- **GP-01B (this change)**: `text_host` defines the optional native transport
+- **GP-01B (implemented)**: `text_host` defines the optional native transport
   (`TextInputHost`, `TextInputState`, `TextInputEvent`) and
-  `Capability::TextInputGeometry`. Hosts implement it without changing
-  `platform.Backend`; an unanswered route returns `UnsupportedCapability`. See
-  [native text host](text-host-contract.md).
+  `Capability::TextInputGeometry`. `platform/macos.Host` implements it over the
+  AppKit composition client with an epoch-tagged, ordered text queue that stays
+  separate from `next_event`; Linux and Windows still expose only their
+  host-local editor sessions. An unanswered route returns
+  `UnsupportedCapability`. See [native text host](text-host-contract.md).
 - **GP-01-GEOMETRY**: expose which exact cursor-stop, shaping, candidate-rectangle
   and range capabilities the host supports; reuse strict conversions. Broader
   grapheme/bidi behavior is a separate gate. Tie to GP-01 and 0004.
 - **GP-02-L/W/M-IME**: adapt and qualify each OS against GP-01 separately. Linux
   and Windows are publication/ownership/qualification work over existing
-  experimental routes, not blank-slate editor projects. macOS needs its missing
-  native text client. Keep each OS result independent.
+  experimental routes, not blank-slate editor projects. macOS has the native text
+  client; real Kotoeri composition, candidate placement and AX remain
+  unqualified. Keep each OS result independent.
 - **GP-03-FOCUS**: portable `FocusScopeSession` now supplies the bounded live
   modal controller around existing focus/traversal. Hosts must wire its explicit
   cancellation hook, scoped input and Tab commands, and per-window ownership.

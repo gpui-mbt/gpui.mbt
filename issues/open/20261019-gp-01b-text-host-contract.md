@@ -1,7 +1,8 @@
 # GP-01B — native text host seam
 
-Status: open — contract implementation. The package and headless fixture are
-added; no native host implements the trait and no runtime profile is claimed.
+Status: open — macOS implementation shipped. `platform/macos.Host` implements
+`TextInputHost` with an epoch-tagged ordered queue; Linux and Windows keep their
+host-local editor sessions. No real IME profile is claimed.
 
 Priority: P1
 Decision date: 2026-10-19
@@ -35,7 +36,7 @@ The `Backend` trait does not change. A host that does not implement
 ## 3. Non-goals
 
 - No second text value model, history, focus model or shaping engine.
-- No macOS/Windows/Linux native implementation in this packet.
+- No Linux or Windows native implementation in this packet.
 - No `controls/dialog` package.
 - No claim that a headless fixture proves Japanese IME or candidate placement.
 
@@ -43,16 +44,19 @@ The `Backend` trait does not change. A host that does not implement
 
 - `moon test text_host --target all --deny-warn` (headless transport fixture).
 - `moon check --target all --deny-warn`.
+- `moon test platform/macos --target native` (record decoding and epoch bounds).
+- `script/test_macos.sh` (real `NSTextInputClient` callbacks through the test hook).
 - `python3 scripts/check_contracts.py` (new package edge and required manifest).
 - Existing `text_session`, `controls/text_field` and `element` tests stay green.
 
 ## 5. Acceptance
 
 - [ ] The new package is reachable from a non-test adapter without importing a
-      native host package.
-- [ ] Epoch, sequence and window are preserved in every event; a stale epoch is
+      native host package. (Pending the Yami native adapter consumption.)
+- [x] Epoch, sequence and window are preserved in every event; a stale epoch is
       rejected by the host contract.
-- [ ] `Capability::TextInputGeometry` is independent of `TextInput` and is not
+- [x] `Capability::TextInputGeometry` is independent of `TextInput` and is not
       advertised by hosts that cannot report reliable geometry.
-- [ ] The transport fixture proves ordered delivery and end/cancel ownership,
-      not OS behavior.
+- [x] The transport fixture proves ordered delivery and end/cancel ownership,
+      not OS behavior. The macOS E2E proves the same ordering through AppKit
+      callbacks; synthetic composition is not an IME pass.
