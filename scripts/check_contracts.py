@@ -688,7 +688,7 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         "examples/native_macos": {"platform/macos", "platform", "primitives", "diagnostics", "scene"},
         "ubuntu": {
             "accessibility", "platform", "platform/linux_text", "platform/testing",
-            "text", "primitives", "diagnostics", "scene",
+            "text", "text_host", "primitives", "diagnostics", "scene",
         },
         # Xlib/EGL is a separate native leaf. Shared rendering stays private;
         # neither backend imports the other, and portable packages cannot import it.
@@ -729,7 +729,7 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         },
         "windows": {
             "platform", "primitives", "diagnostics", "scene", "text",
-            "accessibility",
+            "text_host", "accessibility",
             "platform/windows_text", "platform/testing",
         },
         "examples/windows": {"windows", "platform", "primitives", "diagnostics", "scene"},
