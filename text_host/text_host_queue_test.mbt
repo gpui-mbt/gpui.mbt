@@ -95,3 +95,39 @@ test "text host queue rejects stale and duplicate operations" {
   assert_true(queue.take_parked() is None)
   assert_true(queue.take_text() is None)
 }
+
+///|
+test "text host queue bounds parking and survives cancel" {
+  let queue = @text_host.TextHostQueue::new()
+  let window = @platform.WindowId::new(1L)
+  let epoch = queue.begin(window).unwrap()
+  let first = @platform.Event::new(window, 1L, 1.0, @platform.Created)
+  assert_true(queue.park(first))
+  let second = @platform.Event::new(window, 2L, 1.0, @platform.FrameCompleted)
+  assert_true(queue.park(second))
+  let replaced = queue.cancel(epoch).unwrap()
+  assert_eq(replaced, epoch + 1UL)
+  // Cancel drops text observations but keeps ordinary platform records.
+  assert_eq(queue.take_parked().unwrap().sequence(), 1L)
+  assert_eq(queue.take_parked().unwrap().sequence(), 2L)
+  let bounded = @text_host.TextHostQueue::new()
+  let bounded_epoch = bounded.begin(window).unwrap()
+  let mut accepted = 0
+  for sequence in 1L..<1200L {
+    let event = @platform.Event::new(
+      window,
+      sequence,
+      1.0,
+      @platform.FrameCompleted,
+    )
+    if bounded.park(event) {
+      accepted += 1
+    }
+  }
+  assert_eq(accepted, 1024)
+  assert_true(bounded.end(bounded_epoch) is Ok(_))
+  let reused = bounded.begin(window).unwrap()
+  assert_true(reused > bounded_epoch)
+  assert_true(bounded.park(first))
+  assert_true(bounded.has_parked())
+}
