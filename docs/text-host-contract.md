@@ -1,8 +1,9 @@
 # Native text host contract (GP-01B)
 
-Status: additive contract in `text_host/`. The package is headless; no native
-host implements it in this change. A host that provides the trait still needs an
-exact-source runtime profile before it can claim text or IME support.
+Status: additive contract in `text_host/`, implemented by `platform/macos` over
+the AppKit `NSTextInputClient` client. Other hosts do not implement it yet. A
+host that provides the trait still needs an exact-source runtime profile before
+it can claim text or IME support.
 
 ## Why this package exists
 
@@ -88,6 +89,36 @@ maps one observation stream as follows:
 `end_text_input` remain host methods because they carry owner state, caret
 geometry and epoch replacement. Do not flatten them into a stateless event.
 
+## macOS route
+
+`platform/macos.Host` implements the trait over the existing AppKit composition
+client. The host advertises `Capability::TextInput` only when the loaded library
+exports the session and record operations. It does not advertise
+`TextInputGeometry`: AppKit reports the caret to the client but keeps the
+candidate window position inside the input method.
+
+- `begin_text_input` enables the client, makes the content view the first
+  responder, issues a fresh epoch, and rejects a second begin with `Busy`. The
+  client is window-scoped: the portable `root` stays the owner's routing identity
+  and this transport does not subdivide a window by root.
+- While a session is armed, composition records go to the host's ordered
+  text-input queue instead of `platform.EventKind::Composition`. Key and pointer
+  events keep using the ordinary `next_event` queue, so an owner pumps both.
+  The older `set_text_composition` operation is rejected with `Busy` while a
+  session is armed.
+- `update_text_input` installs the logical caret rectangle. The committed
+  document and the owner preedit are validated but not written back: the
+  `NSTextInputClient` route never queries the document, and republishing marked
+  text would inject a synthetic composition into the input method.
+- `cancel_text_input` discards the marked text without publishing a redundant
+  `Cancel`, invalidates the old epoch and returns the replacement. Records from
+  the replaced epoch are dropped before they can reach the owner.
+- `end_text_input` disables the client and drops the window's queued records;
+  window destruction and host stop do the same. Window focus loss publishes
+  `FocusLost` after the native `Cancel`.
+- `next_text_input` returns `Ok(None)` on timeout and never consumes ordinary
+  platform events.
+
 ## Relationship to text_session
 
 The intended adapter order is:
@@ -106,16 +137,19 @@ or a second text value model. UTF-16 remains the offset unit of
 
 ## Evidence boundary
 
-This package has a transport fixture and headless tests only. They establish
-the type contract, epoch ownership and ordered delivery; they do not establish a
-native window, Japanese composition, candidate placement, screen-reader
-behavior, or a platform support tier. Each OS route needs its own exact-source
-profile:
+The transport fixture and headless tests establish the type contract, epoch
+ownership and ordered delivery. The macOS route adds a host implementation and
+native E2E coverage that drives the real `NSTextInputClient` callbacks through
+the test hook. Neither establishes Japanese composition from a live input
+method, candidate placement, screen-reader behavior, or a platform support tier.
+Each OS route needs its own exact-source profile:
 
 - Linux/Wayland: text-input-v1 + IBus/Mozc profile, including candidate panel.
 - Windows: IMM32 route, with real IME and UIA recorded separately.
-- macOS: NSTextInputClient route on Apple Silicon, with real Kotoeri composition
-  and blur/cancel evidence.
+- macOS: `NSTextInputClient` route on Apple Silicon. The host, epochs, caret
+  update, cancel replacement and `FocusLost` are implemented and exercised with
+  synthetic composition. Real Kotoeri composition, candidate placement and AX
+  remain `NOT_RUN`.
 
 Unavailable profiles remain `NOT_RUN`. Build-only or synthetic-event results do
 not become `PASS`.

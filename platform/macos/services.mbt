@@ -72,6 +72,12 @@ pub fn Host::require_capability(
     | @platform.PointerKeyboard
     | @platform.Clipboard
     | @platform.Cursor => Ok(())
+    @platform.TextInput =>
+      if text_available() == 1 {
+        Ok(())
+      } else {
+        Err(error(@diagnostics.UnsupportedCapability, "require_capability"))
+      }
     _ => Err(error(@diagnostics.UnsupportedCapability, "require_capability"))
   }
 }

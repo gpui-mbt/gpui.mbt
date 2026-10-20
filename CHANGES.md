@@ -10,6 +10,11 @@
 
 ### Added
 
+- Implement `text_host.TextInputHost` for `platform/macos.Host` over the AppKit
+  composition client. An armed session owns enablement and an epoch-tagged,
+  ordered text queue that stays separate from `next_event`; the host advertises
+  `Capability::TextInput` when the loaded library exports the route and never
+  advertises `TextInputGeometry`. Window focus loss publishes `FocusLost`.
 - Add `element.FocusScopeSession::adopt_tree` for hosts that rebuild their
   element tree every frame: it replaces the node set of the current revision,
   keeps live modal frames and handles, transplants the focus lineage onto

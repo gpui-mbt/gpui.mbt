@@ -85,7 +85,7 @@ test "enhanced paint fails before native staging including mixed and oversized t
       clip_chain_id=None,
     ),
   ]
-  let host : Host = { marker: -1, }
+  let host : Host = { marker: -1, text: Ref(text_input_owner()), }
   for paint in enhanced {
     let overloaded : Array[@scene.SceneItem] = []
     for i = 0; i < 1025; i = i + 1 {
@@ -144,7 +144,7 @@ test "image paint fails atomically before native staging and host checks" {
     ),
     @scene.SceneItem::image(3, 7, 0, viewport, viewport, identity, 1.0, Some(7)).unwrap(),
   ]
-  let host : Host = { marker: -1, }
+  let host : Host = { marker: -1, text: Ref(text_input_owner()), }
   for image in images {
     let overloaded : Array[@scene.SceneItem] = []
     for i = 0; i < 1025; i = i + 1 {

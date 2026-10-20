@@ -193,6 +193,88 @@ static void verify_composition(int64_t token) {
   drain();
 }
 
+static void expect_text_record(int64_t token, int64_t epoch, int32_t timeout,
+                               double *fields, uint8_t *payload) {
+  for (int attempt = 0; attempt < 2; attempt++) {
+    assert(gpui_macos_text_next_v1(token, epoch, timeout, fields, payload,
+                                   65536) == 0);
+    if (fields[0] == 1.0 || timeout <= 0) return;
+  }
+}
+
+static void verify_text_session(int64_t token) {
+  GPWindow *window = windows[@(token)];
+  assert(window && window.window.contentView);
+  drain();
+  double epoch_field[1] = {0};
+  double fields[6] = {0};
+  uint8_t payload[65536] = {0};
+
+  assert(gpui_macos_text_session_v1(1, token, 0, epoch_field, NULL, 0) == 0);
+  int64_t epoch = (int64_t)epoch_field[0];
+  assert(epoch > 0);
+  assert(window.text_armed && window.ime_enabled);
+  assert(gpui_macos_text_session_v1(1, token, 0, epoch_field, NULL, 0) == 12);
+  /* The armed session owns enablement. */
+  assert(call_op(19, token, 0, 0, nil) == 12);
+
+  double caret[4] = {10.0, 20.0, 1.0, 18.0};
+  assert(gpui_macos_text_session_v1(2, token, epoch, caret, NULL, 0) == 0);
+  caret[2] = 0.0;
+  assert(gpui_macos_text_session_v1(2, token, epoch, caret, NULL, 0) == 5);
+
+  NSData *preedit = [@"にほんご" dataUsingEncoding:NSUTF8StringEncoding];
+  assert(gpui_macos_test_post_composition_v1(token, 1, 4, preedit.bytes,
+                                             (int32_t)preedit.length) == 0);
+  expect_text_record(token, epoch, 16, fields, payload);
+  assert(fields[1] == 1.0 && fields[3] == (double)epoch);
+  assert(fields[4] == 4.0 && fields[5] == (double)preedit.length);
+  assert(fields[2] == 1.0);
+  assert(memcmp(payload, preedit.bytes, preedit.length) == 0);
+
+  /* An armed session keeps composition off the ordinary event queue. */
+  for (int i = 0; i < 16; i++) {
+    assert(call_op(6, 0, 0, 0, nil) == 0);
+    assert(api->integer(1) != 17);
+  }
+
+  NSData *commit = [@"日本語" dataUsingEncoding:NSUTF8StringEncoding];
+  assert(gpui_macos_test_post_composition_v1(token, 2, 0, commit.bytes,
+                                             (int32_t)commit.length) == 0);
+  expect_text_record(token, epoch, 16, fields, payload);
+  assert(fields[1] == 2.0 && fields[3] == (double)epoch);
+  assert(fields[5] == (double)commit.length);
+  assert(fields[2] == 2.0);
+  assert(memcmp(payload, commit.bytes, commit.length) == 0);
+
+  /* A timeout is an empty successful read, and a stale epoch is rejected. */
+  expect_text_record(token, epoch, 0, fields, payload);
+  assert(fields[0] == 0.0);
+  assert(gpui_macos_text_next_v1(token, epoch + 1, 0, fields, payload,
+                                 65536) == 10);
+
+  /* Cancellation replaces the epoch and drops queued old-epoch records. */
+  assert(gpui_macos_test_post_composition_v1(token, 1, 4, preedit.bytes,
+                                             (int32_t)preedit.length) == 0);
+  double replacement[1] = {0};
+  assert(gpui_macos_text_session_v1(3, token, epoch, replacement, NULL, 0) == 0);
+  int64_t next_epoch = (int64_t)replacement[0];
+  assert(next_epoch != epoch && next_epoch > 0);
+  expect_text_record(token, next_epoch, 0, fields, payload);
+  assert(fields[0] == 0.0);
+  assert(gpui_macos_text_next_v1(token, epoch, 0, fields, payload, 65536) == 10);
+
+  /* End revokes the session and restores the ordinary enablement route. */
+  assert(gpui_macos_text_session_v1(4, token, next_epoch, NULL, NULL, 0) == 0);
+  assert(!window.text_armed && !window.ime_enabled);
+  assert(gpui_macos_text_session_v1(4, token, next_epoch, NULL, NULL, 0) == 10);
+  assert(gpui_macos_text_next_v1(token, next_epoch, 0, fields, payload,
+                                 65536) == 10);
+  assert(call_op(19, token, 1, 0, nil) == 0);
+  assert(call_op(19, token, 0, 0, nil) == 0);
+  drain();
+}
+
 static NSString *composition_text(void) {
   NSData *data = read_clipboard_bytes();
   return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"";
@@ -391,6 +473,7 @@ int main(void) {
     verify_scroll_delivery(token,kCGScrollEventUnitLine,NO,1,-2);
     verify_scroll_delivery(token,kCGScrollEventUnitPixel,YES,-4,7);
     verify_composition(token);
+    verify_text_session(token);
     verify_real_kotoeri(token);
     NSString *snapshot=[NSString stringWithFormat:
       @"{\"schema_version\":1,\"viewport\":{\"x\":0,\"y\":0,\"width\":320,\"height\":240},\"scale\":%g,\"resources\":[],\"clip_chains\":[{\"id\":0,\"rects\":[{\"x\":60,\"y\":60,\"width\":80,\"height\":40}]}],\"items\":[{\"kind\":\"quad\",\"bounds\":{\"x\":40,\"y\":40,\"width\":40,\"height\":80},\"color\":{\"red\":255,\"green\":0,\"blue\":0,\"alpha\":255},\"transform\":{\"a\":1,\"b\":0,\"c\":0,\"d\":1,\"tx\":20,\"ty\":0},\"opacity\":1,\"clip_chain_id\":0},{\"kind\":\"quad\",\"bounds\":{\"x\":80,\"y\":60,\"width\":60,\"height\":40},\"color\":{\"red\":0,\"green\":0,\"blue\":255,\"alpha\":255},\"transform\":{\"a\":1,\"b\":0,\"c\":0,\"d\":1,\"tx\":0,\"ty\":0},\"opacity\":0.5,\"clip_chain_id\":null}]}",w.scale];
@@ -500,7 +583,7 @@ int main(void) {
     double stale_records[16 * 14] = {0};
     assert(gpui_macos_display_snapshot_v1(epoch,stale_records,16*14)==-10);
     assert(call_op(2,0,0,0,nil)==0);
-    printf("GPUI_MACOS_E2E {\"gpu_pixels\":true,\"grayscale_text\":true,\"unsupported_control_text_preserves_frame\":true,\"frame_readback\":true,\"test_input\":true,\"text_composition\":true,\"scroll_responder_precise_and_coarse\":true,\"clipboard_utf8_isolated\":true,\"cursor_kinds\":true,\"display_snapshot\":true,\"display_count\":%d,\"logical_coordinates\":true,\"resize\":true,\"wrong_thread\":true,\"churn\":32,\"stale_callbacks\":true,\"device_loss\":true,\"device_recovery\":true}\n", display_count);
+    printf("GPUI_MACOS_E2E {\"gpu_pixels\":true,\"grayscale_text\":true,\"unsupported_control_text_preserves_frame\":true,\"frame_readback\":true,\"test_input\":true,\"text_composition\":true,\"portable_text_session\":true,\"scroll_responder_precise_and_coarse\":true,\"clipboard_utf8_isolated\":true,\"cursor_kinds\":true,\"display_snapshot\":true,\"display_count\":%d,\"logical_coordinates\":true,\"resize\":true,\"wrong_thread\":true,\"churn\":32,\"stale_callbacks\":true,\"device_loss\":true,\"device_recovery\":true}\n", display_count);
   }
   return 0;
 }

@@ -83,3 +83,28 @@ extern "C" fn test_post_composition(
   text : Bytes,
   text_length : Int32,
 ) -> Int32 = "gpui_macos_test_post_composition"
+
+///|
+#borrow(fields, bytes)
+extern "C" fn text_session(
+  op : Int32,
+  window : Int64,
+  epoch : Int64,
+  fields : FixedArray[Double],
+  bytes : Bytes,
+  length : Int32,
+) -> Int32 = "gpui_macos_text_session"
+
+///|
+#borrow(fields, payload)
+extern "C" fn text_next(
+  window : Int64,
+  epoch : Int64,
+  timeout_ms : Int32,
+  fields : FixedArray[Double],
+  payload : FixedArray[Byte],
+  capacity : Int32,
+) -> Int32 = "gpui_macos_text_next"
+
+///|
+extern "C" fn text_available() -> Int32 = "gpui_macos_text_available"

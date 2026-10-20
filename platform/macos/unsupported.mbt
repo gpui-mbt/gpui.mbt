@@ -52,3 +52,32 @@ fn accessibility_take_request(
 ) -> Int32 {
   9
 }
+
+///|
+fn text_session(
+  _op : Int32,
+  _window : Int64,
+  _epoch : Int64,
+  _fields : FixedArray[Double],
+  _bytes : Bytes,
+  _length : Int32,
+) -> Int32 {
+  9
+}
+
+///|
+fn text_next(
+  _window : Int64,
+  _epoch : Int64,
+  _timeout_ms : Int32,
+  _fields : FixedArray[Double],
+  _payload : FixedArray[Byte],
+  _capacity : Int32,
+) -> Int32 {
+  9
+}
+
+///|
+fn text_available() -> Int32 {
+  0
+}
