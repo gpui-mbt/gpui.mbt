@@ -201,7 +201,8 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn update_text_input(
     }
     self.started = true
   } else {
-    self.native_epoch = match
+    let previous = self.native_epoch
+    let next = match
       self.host.update_text_session(
         self.window.unwrap(),
         self.native_epoch,
@@ -212,6 +213,10 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn update_text_input(
       Err(error) => return Err(error)
       Ok(value) => value
     }
+    if next != previous {
+      self.queue.discard_text()
+    }
+    self.native_epoch = next
   }
   Ok(epoch)
 }
