@@ -18,6 +18,7 @@ pub struct TextHostQueue {
 }
 pub fn TextHostQueue::begin(Self, @platform.WindowId) -> Result[UInt64, @diagnostics.FrameworkError]
 pub fn TextHostQueue::cancel(Self, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
+pub fn TextHostQueue::discard_text(Self) -> Unit
 pub fn TextHostQueue::emit(Self, TextInputEventKind) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn TextHostQueue::end(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn TextHostQueue::epoch(Self) -> UInt64
