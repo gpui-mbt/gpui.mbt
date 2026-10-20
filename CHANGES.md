@@ -18,7 +18,12 @@
   through the owned `NSWindow`, so a live input method can process the key, and
   `Host::text_caret_screen` reads the caret rectangle the AppKit client reports
   to the input method. Both require `GPUI_NATIVE_E2E=1` and a test-hooks
-  library. They do not synthesize composition and are not IME evidence alone.
+  library. They do not synthesize composition and are not IME evidence alone.  out of scope.- Add `text_host.TextHostQueue`, shared epoch/sequence/text/parked-event state
+  for hosts whose native route exposes one ordered editor stream. It bounds
+  parked platform records and keeps an unsupported-record failure readable
+  instead of substituting a successful insertion.
+>>>>>>> 12731f0 (feat(text-host): add shared queue state for editor-stream hosts)
+>>>>>>> 810d61c (feat(text-host): add shared queue state for editor-stream hosts)
 
 ## 0.10.3 - 2026-10-20
 

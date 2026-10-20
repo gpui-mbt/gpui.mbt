@@ -18,6 +18,14 @@ implements `TextInputHost`; an application adapter feeds the ordered observation
 into `TextSession` and keeps the existing `TextField` as the value model. The
 package does not duplicate `TextSession`, `TextField`, shaping, or accessibility.
 
+`TextHostQueue` is the shared state for hosts whose native route exposes one
+ordered editor stream instead of a separate text queue. It owns the host-issued
+epoch, observation sequence, pending text observations, bounded parked platform
+events and a sticky unsupported-record failure. A host adapter maps its native
+records into `emit`/`park` and exposes `take_text`/`take_parked`; it remains
+responsible for begin/update/cancel/end against its own session. Parking is
+bounded and a full queue reports failure instead of dropping a record.
+
 ## Host obligations
 
 `TextInputHost` is separate from `platform.Backend`. Implementing it is opt-in;
