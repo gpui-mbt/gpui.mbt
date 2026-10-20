@@ -167,6 +167,58 @@ pub fn AlignItems::stretch() -> AlignItems {
 }
 
 ///|
+/// Per-item cross-axis alignment. Auto inherits the container's alignment.
+/// Start/End are physical; FlexStart/FlexEnd follow wrap-reverse. Stretch
+/// resizes only auto cross dimensions and retains cross-axis min/max limits.
+pub enum AlignSelf {
+  Auto
+  Start
+  Center
+  End
+  Stretch
+  FlexStart
+  FlexEnd
+} derive(Eq)
+
+///|
+pub extend AlignSelf with Eq::{not_equal, equal}
+
+///|
+pub fn AlignSelf::auto() -> AlignSelf {
+  Auto
+}
+
+///|
+pub fn AlignSelf::start() -> AlignSelf {
+  Start
+}
+
+///|
+pub fn AlignSelf::center() -> AlignSelf {
+  Center
+}
+
+///|
+pub fn AlignSelf::end() -> AlignSelf {
+  End
+}
+
+///|
+pub fn AlignSelf::stretch() -> AlignSelf {
+  Stretch
+}
+
+///|
+pub fn AlignSelf::flex_start() -> AlignSelf {
+  FlexStart
+}
+
+///|
+pub fn AlignSelf::flex_end() -> AlignSelf {
+  FlexEnd
+}
+
+///|
 /// Cross-axis placement of wrapped lines. Start and End are flex-relative,
 /// including under wrap-reverse; Center and End retain signed overflow space.
 /// Stretch is the default. Distributed modes preserve natural line sizes;
@@ -378,6 +430,7 @@ pub struct FlexItem {
   max_main : Double?
   min_cross : Double
   max_cross : Double?
+  align_self : AlignSelf
 }
 
 ///|
@@ -398,6 +451,7 @@ pub fn FlexItem::new(
     max_main: None,
     min_cross: 0.0,
     max_cross: None,
+    align_self: AlignSelf::Auto,
   }
 }
 
@@ -424,6 +478,7 @@ pub fn FlexItem::with_intrinsic(
     max_main: self.max_main,
     min_cross: self.min_cross,
     max_cross: self.max_cross,
+    align_self: self.align_self,
   }
 }
 
@@ -449,6 +504,7 @@ pub fn FlexItem::with_flex(
       max_main: self.max_main,
       min_cross: self.min_cross,
       max_cross: self.max_cross,
+      align_self: self.align_self,
     })
   }
 }
@@ -473,6 +529,7 @@ pub fn FlexItem::with_main_limits(
       max_main: max,
       min_cross: self.min_cross,
       max_cross: self.max_cross,
+      align_self: self.align_self,
     })
   }
 }
@@ -497,7 +554,66 @@ pub fn FlexItem::with_cross_limits(
       max_main: self.max_main,
       min_cross: min,
       max_cross: max,
+      align_self: self.align_self,
     })
+  }
+}
+
+///|
+/// Override this item's cross-axis placement, or use Auto to inherit again.
+pub fn FlexItem::with_align_self(
+  self : FlexItem,
+  align_self : AlignSelf,
+) -> FlexItem {
+  {
+    id: self.id,
+    main: self.main,
+    cross: self.cross,
+    intrinsic: self.intrinsic,
+    grow: self.grow,
+    shrink: self.shrink,
+    min_main: self.min_main,
+    max_main: self.max_main,
+    min_cross: self.min_cross,
+    max_cross: self.max_cross,
+    align_self,
+  }
+}
+
+///|
+fn FlexItem::effective_align(
+  self : FlexItem,
+  inherited : AlignItems,
+) -> AlignSelf {
+  match self.align_self {
+    AlignSelf::Auto =>
+      match inherited {
+        AlignItems::Start => AlignSelf::FlexStart
+        AlignItems::Center => AlignSelf::Center
+        AlignItems::End => AlignSelf::FlexEnd
+        AlignItems::Stretch => AlignSelf::Stretch
+      }
+    value => value
+  }
+}
+
+///|
+fn cross_alignment_offset(
+  align : AlignSelf,
+  free : Double,
+  wrap_reverse : Bool,
+) -> Double {
+  match align {
+    AlignSelf::Auto | AlignSelf::Start => 0.0
+    AlignSelf::Center => free / 2.0
+    AlignSelf::End => free
+    AlignSelf::FlexStart | AlignSelf::Stretch =>
+      if wrap_reverse {
+        free
+      } else {
+        0.0
+      }
+    AlignSelf::FlexEnd => if wrap_reverse { 0.0 } else { free }
   }
 }
 
@@ -978,7 +1094,7 @@ fn prepare_items(
               let cross = match cross_value {
                 Some(value) => value
                 None =>
-                  if container.align is Stretch &&
+                  if item.effective_align(container.align) is AlignSelf::Stretch &&
                     container.wrap is FlexWrap::NoWrap {
                     cross_extent
                   } else {
@@ -1159,11 +1275,11 @@ fn place_items(
           let entry = prepared[index]
           let main_size = resolved[index]
           let cross_size = entry.cross
-          let cross_offset = match container.align {
-            AlignItems::Start | Stretch => 0.0
-            AlignItems::Center => (cross_extent - cross_size) / 2.0
-            AlignItems::End => cross_extent - cross_size
-          }
+          let cross_offset = cross_alignment_offset(
+            entry.item.effective_align(container.align),
+            cross_extent - cross_size,
+            false,
+          )
           let main_start = if container.direction.is_reverse() {
             reverse_starts[index]
           } else {
@@ -1466,34 +1582,19 @@ fn place_wrapped_lines(
     for item_index = 0; item_index < line.length(); item_index = item_index + 1 {
       let entry = line[item_index]
       let main_size = sizes[item_index]
-      let cross_size = if container.align is AlignItems::Stretch &&
+      let align = entry.item.effective_align(container.align)
+      let cross_size = if align is AlignSelf::Stretch &&
         entry.item.cross is Dimension::Auto {
         clamp_once(line_cross, entry.item.min_cross, entry.item.max_cross)
       } else {
         entry.cross
       }
       let cross_free = line_cross - cross_size
-      let cross_alignment = match container.align {
-        AlignItems::Start =>
-          if container.wrap is FlexWrap::WrapReverse {
-            cross_free
-          } else {
-            0.0
-          }
-        AlignItems::Center => cross_free / 2.0
-        AlignItems::End =>
-          if container.wrap is FlexWrap::WrapReverse {
-            0.0
-          } else {
-            cross_free
-          }
-        AlignItems::Stretch =>
-          if container.wrap is FlexWrap::WrapReverse {
-            cross_free
-          } else {
-            0.0
-          }
-      }
+      let cross_alignment = cross_alignment_offset(
+        align,
+        cross_free,
+        container.wrap is FlexWrap::WrapReverse,
+      )
       let cross_start = cross_line_start + cross_alignment
       let main_start = if container.direction.is_reverse() {
         reverse_starts[item_index]

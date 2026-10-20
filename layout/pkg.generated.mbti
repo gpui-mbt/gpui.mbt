@@ -57,6 +57,25 @@ pub fn AlignItems::not_equal(Self, Self) -> Bool
 pub fn AlignItems::start() -> Self
 pub fn AlignItems::stretch() -> Self
 
+pub enum AlignSelf {
+  Auto
+  Start
+  Center
+  End
+  Stretch
+  FlexStart
+  FlexEnd
+} derive(Eq)
+pub fn AlignSelf::auto() -> Self
+pub fn AlignSelf::center() -> Self
+pub fn AlignSelf::end() -> Self
+pub fn AlignSelf::equal(Self, Self) -> Bool
+pub fn AlignSelf::flex_end() -> Self
+pub fn AlignSelf::flex_start() -> Self
+pub fn AlignSelf::not_equal(Self, Self) -> Bool
+pub fn AlignSelf::start() -> Self
+pub fn AlignSelf::stretch() -> Self
+
 pub enum Dimension {
   Auto
   Points(Double)
@@ -101,9 +120,11 @@ pub struct FlexItem {
   max_main : Double?
   min_cross : Double
   max_cross : Double?
+  align_self : AlignSelf
 }
 pub fn FlexItem::id(Self) -> UInt64
 pub fn FlexItem::new(UInt64, Dimension, Dimension, @primitives.Size) -> Self
+pub fn FlexItem::with_align_self(Self, AlignSelf) -> Self
 pub fn FlexItem::with_cross_limits(Self, Double, Double?) -> Result[Self, LayoutError]
 pub fn FlexItem::with_flex(Self, Double, Double) -> Result[Self, LayoutError]
 pub fn FlexItem::with_intrinsic(Self, @primitives.Size) -> Self
