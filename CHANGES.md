@@ -18,7 +18,21 @@
   through the owned `NSWindow`, so a live input method can process the key, and
   `Host::text_caret_screen` reads the caret rectangle the AppKit client reports
   to the input method. Both require `GPUI_NATIVE_E2E=1` and a test-hooks
-  library. They do not synthesize composition and are not IME evidence alone.  out of scope.- Add `text_host.TextHostQueue`, shared epoch/sequence/text/parked-event state
+  library. They do not synthesize composition and are not IME evidence alone.  out of scope.- Add `text_host.TextHostQueue`, shared epoch/sequence/text/parked-event state  out of scope.- Add `text_host.TextHostQueue`, shared epoch/sequence/text/parked-event state- Add `windows.TextHostRoute`, an opt-in portable `TextInputHost` adapter over
+  the existing IMM32 editor session. It defers the native begin until the first
+  update, maps Marked/empty-Inserted/Cancelled to Preedit/Commit/Cancel, parks
+  ordinary platform records for a paired `next_platform_event`, and reports a
+  replacement insert as `UnsupportedCapability` instead of flattening it.
+  `Capability::TextInput` stays unadvertised until an exact-source IME run
+  qualifies the route.
+
+## 0.10.4 - 2026-10-21
+
+### Added
+
+- Add `text_host.TextHostQueue`, shared epoch/sequence/text/parked-event state
+>>>>>>> 089a35c (feat(windows): add an opt-in portable text-input route)
+>>>>>>> 4d376ba (feat(windows): add an opt-in portable text-input route)
   for hosts whose native route exposes one ordered editor stream. It bounds
   parked platform records and keeps an unsupported-record failure readable
   instead of substituting a successful insertion.
