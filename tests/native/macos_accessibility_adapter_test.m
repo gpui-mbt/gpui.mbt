@@ -26,6 +26,15 @@ extern void gpui_macos_ax_test_set_notification_hook(
 - (NSArray *)accessibilityChildren;
 @end
 
+/* The adapter's element classes are private to accessibility.m. */
+@interface NSObject (GPUI_AXTestElement)
+@property(readonly) int64_t bindingToken;
+- (BOOL)isAccessibilityEditable;
+- (NSRange)accessibilitySelectedTextRange;
+- (NSInteger)accessibilityNumberOfCharacters;
+- (NSString *)accessibilitySelectedText;
+@end
+
 static void fail(const char *message) {
   fprintf(stderr, "FAIL: %s\n", message);
   exit(1);
@@ -200,6 +209,8 @@ static void test_projection_and_press(NSWindow *window, int64_t *binding_out) {
 }
 
 static int focused_element_notifications = 0;
+static int value_notifications = 0;
+static int selection_notifications = 0;
 static id last_focused_element;
 
 static void notification_hook(id element,
@@ -208,6 +219,12 @@ static void notification_hook(id element,
                          NSAccessibilityFocusedUIElementChangedNotification]) {
     focused_element_notifications += 1;
     last_focused_element = element;
+  } else if ([notification isEqualToString:
+                                NSAccessibilityValueChangedNotification]) {
+    value_notifications += 1;
+  } else if ([notification
+                 isEqualToString:NSAccessibilitySelectedTextChangedNotification]) {
+    selection_notifications += 1;
   }
 }
 
@@ -333,6 +350,165 @@ static void test_availability_update_purges_queue(NSWindow *window) {
           "loading state should be observable");
 }
 
+static id ax_child_with_role(NSWindow *window, NSString *role) {
+  for (id element in ((GPView *)window.contentView).accessibilityChildren)
+    if ([[element accessibilityRole] isEqualToString:role]) return element;
+  return nil;
+}
+
+static int32_t publish_field_raw(NSWindow *window, int64_t existing,
+                                 const char *bytes, int64_t *binding_out) {
+  id delegate = window.delegate;
+  int64_t token = 0;
+  if ([delegate respondsToSelector:@selector(token)])
+    token = ((int64_t (*)(id, SEL))[delegate methodForSelector:@selector(token)])(
+        delegate, @selector(token));
+  return gpui_macos_ax_publish_field_v1(
+      token, existing, (const uint8_t *)bytes, (int32_t)strlen(bytes),
+      binding_out);
+}
+
+static void make_field_payload(char *bytes, size_t size, const char *value,
+                               int start, int length, BOOL focused,
+                               BOOL editable) {
+  snprintf(bytes, size,
+           "{\"version\":1,\"role\":\"text_field\","
+           "\"label\":\"Name\",\"value\":\"%s\","
+           "\"left\":20,\"top\":90,\"width\":240,\"height\":32,"
+           "\"focused\":%s,\"editable\":%s,"
+           "\"selection_start\":%d,\"selection_length\":%d}",
+           value, focused ? "true" : "false", editable ? "true" : "false",
+           start, length);
+}
+
+static int64_t publish_field(NSWindow *window, int64_t existing,
+                             const char *value, int start, int length,
+                             BOOL focused, BOOL editable) {
+  char bytes[4096];
+  make_field_payload(bytes, sizeof(bytes), value, start, length, focused,
+                     editable);
+  int64_t binding = 0;
+  int32_t status = publish_field_raw(window, existing, bytes, &binding);
+  if (status != 0 || binding <= 0) {
+    fprintf(stderr, "field publish failed: status=%d binding=%lld\n", status,
+            (long long)binding);
+    fail("field publish should return a binding");
+  }
+  return binding;
+}
+
+static void expect_field_rejected(NSWindow *window, int64_t existing,
+                                  const char *bytes) {
+  int64_t binding = -1;
+  int32_t status = publish_field_raw(window, existing, bytes, &binding);
+  require(status == 5, "invalid text-field payload should be rejected");
+  require(binding == -1, "rejected payload must not write a binding");
+}
+
+static void test_text_field_projection(NSWindow *window) {
+  extern int32_t gpui_macos_ax_test_child_count_v1(int64_t);
+  id button = ax_child_with_role(window, NSAccessibilityButtonRole);
+  require(button != nil, "the button should remain published");
+  int64_t button_binding = ((NSObject *)button).bindingToken;
+  int64_t enabled_binding = publish(window, button_binding, YES, NO, NO, 0);
+  button = ax_child_with_role(window, NSAccessibilityButtonRole);
+  require(button != nil, "the enabled button should remain published");
+  int64_t binding = publish_field(window, 0, "hello", 2, 2, YES, YES);
+  require(binding != enabled_binding, "field should use its own binding token");
+  require(gpui_macos_ax_test_child_count_v1(401) == 2,
+          "button and field should be exposed together");
+  id field = ax_child_with_role(window, NSAccessibilityTextFieldRole);
+  require(field != nil, "the view should expose one AX text field");
+  require([field isAccessibilityElement], "field element should be live");
+  require([[field accessibilityValue] isEqualToString:@"hello"],
+          "field value should be projected");
+  require([field isAccessibilityEditable], "editable should be projected");
+  require([field accessibilityNumberOfCharacters] == 5,
+          "field length should be projected");
+  NSRange selection = [field accessibilitySelectedTextRange];
+  require(selection.location == 2 && selection.length == 2,
+          "UTF-16 selection should be projected");
+  require([[field accessibilitySelectedText] isEqualToString:@"ll"],
+          "selected text should match the range");
+  require([[field accessibilityLabel] isEqualToString:@"Name"],
+          "field label should be projected");
+  require([[field accessibilityIdentifier]
+              isEqualToString:@"gpui.mbt.macos-text-field"],
+          "field identifier should be stable");
+  NSRect frame = [field accessibilityFrame];
+  require(fabs(frame.size.width - 240) < 1.0 &&
+              fabs(frame.size.height - 32) < 1.0,
+          "field AX frame should preserve logical dimensions");
+
+  int values_before = value_notifications;
+  int selections_before = selection_notifications;
+  int64_t updated =
+      publish_field(window, binding, "hello world", 6, 5, YES, YES);
+  require(updated == binding, "updating the same field should keep its token");
+  require(value_notifications == values_before + 1,
+          "value change should notify once");
+  require(selection_notifications == selections_before + 1,
+          "selection change should notify once");
+  require([field accessibilityValue] == nil ||
+              [[field accessibilityValue] isEqualToString:@"hello world"],
+          "field value should update in place");
+  selection = [field accessibilitySelectedTextRange];
+  require(selection.location == 6 && selection.length == 5,
+          "updated selection should be observable");
+
+  int focused_before = focused_element_notifications;
+  publish_field(window, updated, "hello world", 6, 5, NO, YES);
+  require(focused_element_notifications == focused_before + 1,
+          "dropping field focus should notify once");
+
+  int64_t ignored = 0;
+  require(publish_field_raw(window, 0, "{}", &ignored) == 5,
+          "existing field with a zero binding should conflict");
+  require(publish_field_raw(window, updated + 1,
+                            "{\"version\":1,\"role\":\"text_field\","
+                            "\"label\":\"Name\",\"value\":\"x\","
+                            "\"left\":20,\"top\":90,\"width\":240,"
+                            "\"height\":32,\"focused\":false,"
+                            "\"editable\":true,\"selection_start\":0,"
+                            "\"selection_length\":0}",
+                            &ignored) == 10,
+          "a valid payload for a stale binding should be rejected");
+  require(publish_field_raw(window, updated + 1,
+                            "{\"version\":1,\"role\":\"text_field\"}",
+                            &ignored) == 5,
+          "invalid payload should be rejected before binding checks");
+
+  char bytes[4096];
+  make_field_payload(bytes, sizeof(bytes), "hello", 4, 2, NO, YES);
+  expect_field_rejected(window, updated, bytes);
+  make_field_payload(bytes, sizeof(bytes), "hello", 0, 0, YES, YES);
+  bytes[strlen(bytes) - 1] = ' ';
+  expect_field_rejected(window, updated, bytes);
+  snprintf(bytes, sizeof(bytes),
+           "{\"version\":1,\"role\":\"text_field\",\"label\":\"Name\","
+           "\"value\":\"x\",\"left\":20,\"top\":90,\"width\":240,"
+           "\"height\":32,\"focused\":false,\"editable\":true,"
+           "\"selection_start\":0.5,\"selection_length\":0}");
+  expect_field_rejected(window, updated, bytes);
+
+  require(gpui_macos_ax_revoke_field_v1(401, updated + 1) == 10,
+          "stale field binding should be rejected");
+  require(gpui_macos_ax_revoke_field_v1(401, updated) == 0,
+          "field revoke should succeed");
+  require(gpui_macos_ax_test_child_count_v1(401) == 1,
+          "field revoke should leave the button published");
+  require(ax_child_with_role(window, NSAccessibilityTextFieldRole) == nil,
+          "revoked field should disappear from the AX children");
+  require([button accessibilityPerformPress],
+          "button Invoke should still enqueue after a field revoke");
+  int64_t returned = 0;
+  require(gpui_macos_ax_take_request_v1(401, &returned) == 1 &&
+              returned == enabled_binding,
+          "button request should remain intact");
+  require(gpui_macos_ax_revoke_field_v1(401, 0) == 0,
+          "revoking without a field should be idempotent");
+}
+
 static void test_close_and_reopen(NSWindow *window) {
   require(gpui_macos_ax_revoke_v1(401, 0) == 0,
           "previous native test binding should be retired");
@@ -372,6 +548,7 @@ int main(void) {
     test_projection_and_press(window, &binding);
     test_queue_capacity_and_resize(window, binding);
     test_availability_update_purges_queue(window);
+    test_text_field_projection(window);
     test_close_and_reopen(window);
     puts("PASS: macOS AX projection, numeric schema, queue, revocation, and lifecycle");
   }

@@ -1,5 +1,19 @@
 # Changes
 
+## 0.10.4 - 2026-10-21
+
+### Added
+
+- Publish a bounded macOS TextField accessibility projection:
+  `Host::publish_text_field_accessibility` and
+  `Host::revoke_text_field_accessibility`, with
+  `TextFieldAccessibilitySnapshot`. A window now keeps a registry of AX
+  elements, so a Button and a TextField can be exposed together; the TextField
+  element reports role, value, UTF-16 selection, editable state, focus and
+  frame. A negative or out-of-range selection is rejected before any native
+  call. AX actions, Dialog elements and assistive-technology acceptance remain
+  out of scope.
+
 ## 0.10.3 - 2026-10-20
 
 ### Added
