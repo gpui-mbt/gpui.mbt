@@ -13,6 +13,28 @@ import {
 // Errors
 
 // Types and methods
+pub struct TextHostQueue {
+  // private fields
+}
+pub fn TextHostQueue::begin(Self, @platform.WindowId) -> Result[UInt64, @diagnostics.FrameworkError]
+pub fn TextHostQueue::cancel(Self, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
+pub fn TextHostQueue::discard_text(Self) -> Unit
+pub fn TextHostQueue::emit(Self, TextInputEventKind) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn TextHostQueue::end(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn TextHostQueue::epoch(Self) -> UInt64
+pub fn TextHostQueue::fail(Self, @diagnostics.ErrorCode) -> Unit
+pub fn TextHostQueue::failure(Self) -> @diagnostics.ErrorCode?
+pub fn TextHostQueue::has_parked(Self) -> Bool
+pub fn TextHostQueue::has_text(Self) -> Bool
+pub fn TextHostQueue::is_active(Self) -> Bool
+pub fn TextHostQueue::new() -> Self
+pub fn TextHostQueue::park(Self, @platform.Event) -> Bool
+pub fn TextHostQueue::reset(Self) -> Unit
+pub fn TextHostQueue::state(Self) -> TextInputState?
+pub fn TextHostQueue::take_parked(Self) -> @platform.Event?
+pub fn TextHostQueue::take_text(Self) -> TextInputEvent?
+pub fn TextHostQueue::update(Self, UInt64, TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
+
 pub(all) struct TextInputEvent {
   window : @platform.WindowId
   sequence : Int64
@@ -56,7 +78,7 @@ pub fn TextPreedit::text(Self) -> String
 pub(open) trait TextInputHost {
   fn begin_text_input(Self, @platform.WindowId, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
   fn update_text_input(Self, UInt64, TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
-  fn cancel_text_input(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+  fn cancel_text_input(Self, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
   fn end_text_input(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
   fn next_text_input(Self, timeout_ms? : Int) -> Result[TextInputEvent?, @diagnostics.FrameworkError]
 }
