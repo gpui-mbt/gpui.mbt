@@ -8,11 +8,18 @@
   a MoonBit script that moon compiles to WebAssembly and runs with `moonrun`.
   Native and LLVM builds no longer require Python or Node, and macOS consumers
   still receive the CoreText, CoreGraphics and CoreFoundation link flags.
+- Replace the Python Linux C toolchain wrappers with POSIX shell scripts.
+  `script/linux_text_cc.sh` discovers PangoFT2 and Fontconfig flags through
+  `pkg-config`, and `script/ar`/`script/ranlib` forward to `AR`/`RANLIB`, so
+  Linux native builds no longer require Python.
 
 ### Migration
 
 - Native builds require a moon toolchain that supports `.mbtx` prebuild scripts;
   the toolchain pinned in CI does. No interpreter has to be installed.
+- Linux native builds use `script/linux_text_cc.sh`; `moon.pkg` files that named
+  the removed `script/linux_text_cc.py` must update their `cc` and `stub-cc`
+  paths. `script/ar` and `script/ranlib` keep their names.
 
 ## 0.10.5 - 2026-10-21
 

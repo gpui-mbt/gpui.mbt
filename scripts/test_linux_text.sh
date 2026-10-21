@@ -37,19 +37,19 @@ sh scripts/check_linux_text_fonts.sh
 # Exercise the private raster ABI directly as well as its MoonBit provider.
 # The same compiler wrapper used by native packages supplies real distro
 # PangoFT2/Fontconfig cflags and link libraries to this consumer harness.
-script/linux_text_cc.py -std=c11 -Wall -Wextra -Werror \
+script/linux_text_cc.sh -std=c11 -Wall -Wextra -Werror \
   tests/linux_text/raster_test.c platform/linux_text/linux_text.c \
   -o "$build_root/raster-test" -pthread -lm
 env -u DISPLAY -u WAYLAND_DISPLAY "$build_root/raster-test"
 
-script/linux_text_cc.py -std=c11 -Wall -Wextra -Werror \
+script/linux_text_cc.sh -std=c11 -Wall -Wextra -Werror \
   tests/linux_text/field_admission_test.c platform/linux_text/linux_text.c \
   -o "$build_root/field-admission-test" -pthread -lm
 env -u DISPLAY -u WAYLAND_DISPLAY "$build_root/field-admission-test"
 
 # Origin-aware masks keep the old ABI stable and carry exact fractional UV
 # crop independently of the unshifted Pango layout grid.
-script/linux_text_cc.py -std=c11 -Wall -Wextra -Werror \
+script/linux_text_cc.sh -std=c11 -Wall -Wextra -Werror \
   tests/linux_text/origin_raster_test.c platform/linux_text/linux_text.c \
   -o "$build_root/origin-raster-test" -pthread -lm
 env -u DISPLAY -u WAYLAND_DISPLAY "$build_root/origin-raster-test"
