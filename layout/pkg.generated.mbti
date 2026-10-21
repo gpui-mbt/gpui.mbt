@@ -289,10 +289,14 @@ pub enum JustifyContent {
   SpaceBetween
   SpaceAround
   SpaceEvenly
+  FlexStart
+  FlexEnd
 } derive(Eq)
 pub fn JustifyContent::center() -> Self
 pub fn JustifyContent::end() -> Self
 pub fn JustifyContent::equal(Self, Self) -> Bool
+pub fn JustifyContent::flex_end() -> Self
+pub fn JustifyContent::flex_start() -> Self
 pub fn JustifyContent::not_equal(Self, Self) -> Bool
 pub fn JustifyContent::space_around() -> Self
 pub fn JustifyContent::space_between() -> Self

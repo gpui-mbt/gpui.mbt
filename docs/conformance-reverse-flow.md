@@ -22,7 +22,7 @@ claimed by this addition.
   All three distributed modes fall back to physical start on overflow.
 - The existing default remains explicit physical Start. Upstream GPUI with no
   authored justification defaults to flex-relative start; for reverse flow that
-  corresponds to this API's explicit End. This is a documented default-policy
+  corresponds to this API's explicit `flex_start()` (or physical End). This is a documented default-policy
   difference, not a claim that absent styles are equivalent.
 - Authored dimensions/gaps and final absolute edges continue using the existing
   opt-in device-scale boundary. Raw layout stays binary64; bit-identical binary32
@@ -56,3 +56,12 @@ geometry while preserving source and paint order.
 No upstream implementation, fixture, or asset was copied. This is headless
 geometry and portable routing evidence, not GPU pixels, native-window rendering,
 physical input, RTL writing modes, full CSS flexbox, or general GPUI parity.
+
+## Explicit flow-relative justification
+
+`JustifyContent::flex_start()` / `flex_end()` follow the main-axis flow edge,
+including row-reverse, column-reverse and each wrapped line. They preserve signed
+overflow and do not change physical `start()` / `end()` or the existing default.
+The bounded follow-up tests cover both axes, wrap policies, device-scale tree
+preparation, empty/singleton containers and cancellation-resistant near-edge
+placement at large finite magnitudes. This does not add CSS writing modes.
