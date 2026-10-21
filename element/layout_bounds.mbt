@@ -3,7 +3,8 @@
 /// This is a bounded same-topology, non-scroll operation, not reconciliation:
 /// positional preorder IDs/parents, input metadata (including exact deferred
 /// priorities), and root viewport bounds
-/// must match exactly. A scroll viewport in either tree is unsupported.
+/// must match exactly. Opt-in root-box frames compare their retained physical
+/// viewports instead of authored root geometry; mixing modes is rejected. A scroll viewport in either tree is unsupported.
 ///
 /// Validation finishes before any bounds are copied. Success retains this
 /// tree's exact focus acquisition and lineage, all non-bounds node fields
@@ -18,8 +19,16 @@ pub fn ElementTree::with_layout_bounds(
   if self.nodes.length() != fresh.length() || fresh.length() == 0 {
     return Err(LayoutBoundsMismatch)
   }
-  if self.nodes[0].bounds != prepainted.viewport_bounds {
-    return Err(LayoutBoundsMismatch)
+  match (self.physical_viewport, prepainted.tree.physical_viewport) {
+    (None, None) =>
+      if self.nodes[0].bounds != prepainted.viewport_bounds {
+        return Err(LayoutBoundsMismatch)
+      }
+    (Some(retained), Some(fresh)) =>
+      if retained != fresh {
+        return Err(LayoutBoundsMismatch)
+      }
+    _ => return Err(LayoutBoundsMismatch)
   }
   for index = 0; index < self.nodes.length(); index = index + 1 {
     let retained = self.nodes[index]

@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add opt-in authored flex-root border-box sizing with independently retained
+  physical viewport for snapshots, pointer eligibility and scrolling. Existing
+  fixed-viewport root APIs remain unchanged. See `docs/root-box-viewport.md`.
+
 - Add `JustifyContent::flex_start` and `flex_end` for flow-relative main-axis
   alignment, including reverse and wrapped lines. Physical start/end defaults
   remain unchanged.

@@ -19,6 +19,7 @@ pub enum ElementError {
   AlreadyPrepainted
   InvalidQueryShape
   UnsupportedQueryComposition
+  UnsupportedRootBoxComposition
   UnsupportedGridScroll
   InvalidAnchoredShape
   UnsupportedAnchoredComposition
@@ -338,6 +339,7 @@ pub fn DispatchOutcome::was_stopped(self : DispatchOutcome) -> Bool {
 /// paint order. Deferred groups paint after ordinary nodes, in ascending
 /// priority order with stable discovery ties. Nested groups are independent.
 pub struct ElementTree {
+  priv physical_viewport : @primitives.Rect?
   priv nodes : Array[ElementNode]
   focused : UInt64?
   priv lineage : UInt64
@@ -516,7 +518,13 @@ pub fn ElementTree::new(
       match allocate_focus_identity() {
         None => Err(FocusIdentityExhausted)
         Some(lineage) =>
-          Ok({ nodes: owned, focused: None, lineage, owner: None, })
+          Ok({
+            nodes: owned,
+            focused: None,
+            lineage,
+            owner: None,
+            physical_viewport: None,
+          })
       }
   }
 }
@@ -790,6 +798,7 @@ pub fn ElementTree::with_focus(
           None => Err(FocusIdentityExhausted)
           Some(acquisition) =>
             Ok({
+              physical_viewport: self.physical_viewport,
               nodes: self.nodes,
               focused: Some(id),
               lineage: self.lineage,
@@ -818,6 +827,7 @@ pub fn ElementTree::with_focus_owner(
           Err(NotFocusable)
         } else {
           Ok({
+            physical_viewport: self.physical_viewport,
             nodes: self.nodes,
             focused: Some(owner.id),
             lineage: self.lineage,
@@ -915,6 +925,7 @@ pub fn ElementTree::without_subtree(
       }
     }
     Ok({
+      physical_viewport: self.physical_viewport,
       nodes: kept,
       focused,
       lineage: self.lineage,
@@ -929,7 +940,13 @@ pub fn ElementTree::without_subtree(
 
 ///|
 pub fn ElementTree::clear_focus(self : ElementTree) -> ElementTree {
-  { nodes: self.nodes, focused: None, lineage: self.lineage, owner: None, }
+  {
+    physical_viewport: self.physical_viewport,
+    nodes: self.nodes,
+    focused: None,
+    lineage: self.lineage,
+    owner: None,
+  }
 }
 
 ///|

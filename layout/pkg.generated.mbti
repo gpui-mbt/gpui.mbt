@@ -12,6 +12,10 @@ pub const MAX_GRID_CELLS : Int = 4096
 
 pub fn layout_flex(FlexContainer, Array[FlexItem]) -> Result[FlexLayout, LayoutError]
 
+pub fn layout_flex_root_box(UInt64, @primitives.Size, FlexTreeStyle, Array[FlexTreeNode]) -> Result[FlexTreeLayout, TreeLayoutError]
+
+pub fn layout_flex_root_box_with_device_scale(UInt64, @primitives.Size, FlexTreeStyle, Array[FlexTreeNode], Double) -> Result[FlexTreeLayout, TreeLayoutError]
+
 pub fn layout_flex_tree(UInt64, @primitives.Size, FlexTreeStyle, Array[FlexTreeNode]) -> Result[FlexTreeLayout, TreeLayoutError]
 
 pub fn layout_flex_tree_with_device_scale(UInt64, @primitives.Size, FlexTreeStyle, Array[FlexTreeNode], Double) -> Result[FlexTreeLayout, TreeLayoutError]

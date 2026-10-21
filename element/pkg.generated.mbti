@@ -169,6 +169,8 @@ pub fn Element::new(@layout.FlexItem) -> Self
 pub fn Element::opacity(Self) -> Double
 pub fn Element::render(Self) -> Self
 pub fn Element::request_layout(Self, @primitives.Size) -> Result[RequestedLayout, ElementError]
+pub fn Element::request_layout_root_box(Self, @primitives.Size) -> Result[RequestedLayout, ElementError]
+pub fn Element::request_layout_root_box_with_device_scale(Self, @primitives.Size, Double) -> Result[RequestedLayout, ElementError]
 pub fn Element::request_layout_with_device_scale(Self, @primitives.Size, Double) -> Result[RequestedLayout, ElementError]
 pub fn Element::root(UInt64, @layout.FlexTreeStyle) -> Self
 pub fn Element::tab_group_index(Self) -> Int?
@@ -208,6 +210,7 @@ pub enum ElementError {
   AlreadyPrepainted
   InvalidQueryShape
   UnsupportedQueryComposition
+  UnsupportedRootBoxComposition
   UnsupportedGridScroll
   InvalidAnchoredShape
   UnsupportedAnchoredComposition
