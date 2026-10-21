@@ -48,10 +48,11 @@ as a `.app` bundle and can run the opt-in synthetic smoke flow. See
 These helpers do not add a general editor, native menus, or a general
 accessibility tree. The platform host separately provides the bounded
 composition transport described below, plus a bounded AppKit accessibility
-projection for one sample Button and one TextField per window. The projection
-publishes a role, value, UTF-16 selection, focus and frame; it does not expose
-AX actions beyond Button Invoke, Dialog elements, or assistive-technology
-acceptance.
+projection for one sample Button, one TextField and one Dialog per window. The
+projection publishes a role, value, UTF-16 selection, focus and frame for the
+field, a modal group carrying the open dialog's title for the dialog, and a
+press action for the sample Button; it does not expose field value writes,
+dialog actions, or assistive-technology acceptance.
 
 ## Implemented boundary
 
@@ -160,7 +161,7 @@ sequence ordering. Headless tests verify portable key, scroll, and error
 adapters on all four MoonBit targets. Real display movement, physical scroll
 input, General Pasteboard exchange, visible cursor confirmation, physical
 keyboard composition, candidate anchoring, assistive-technology acceptance,
-Dialog AX, shaping beyond bounded system-sans single lines,
+dialog AX actions, shaping beyond bounded system-sans single lines,
 cross-thread command completion, hosted automated renderer recovery, sustained
 resource growth and performance remain pending.
 

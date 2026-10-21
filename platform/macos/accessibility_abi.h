@@ -12,8 +12,14 @@ int32_t gpui_macos_ax_publish_field_v1(int64_t window_token,
                                        int64_t existing_binding_token,
                                        const uint8_t *bytes, int32_t length,
                                        int64_t *out_binding_token);
+int32_t gpui_macos_ax_publish_dialog_v1(int64_t window_token,
+                                        int64_t existing_binding_token,
+                                        const uint8_t *bytes, int32_t length,
+                                        int64_t *out_binding_token);
 int32_t gpui_macos_ax_revoke_v1(int64_t window_token,
                                 int64_t binding_token);
+int32_t gpui_macos_ax_revoke_dialog_v1(int64_t window_token,
+                                       int64_t binding_token);
 int32_t gpui_macos_ax_revoke_field_v1(int64_t window_token,
                                       int64_t binding_token);
 int32_t gpui_macos_ax_take_request_v1(int64_t window_token,
@@ -28,7 +34,13 @@ int32_t gpui_macos_ax_publish_field(int64_t window_token,
                                     int64_t existing_binding_token,
                                     const uint8_t *bytes, int32_t length,
                                     int64_t *out_binding_token);
+int32_t gpui_macos_ax_publish_dialog(int64_t window_token,
+                                     int64_t existing_binding_token,
+                                     const uint8_t *bytes, int32_t length,
+                                     int64_t *out_binding_token);
 int32_t gpui_macos_ax_revoke(int64_t window_token, int64_t binding_token);
+int32_t gpui_macos_ax_revoke_dialog(int64_t window_token,
+                                    int64_t binding_token);
 int32_t gpui_macos_ax_revoke_field(int64_t window_token,
                                    int64_t binding_token);
 int32_t gpui_macos_ax_take_request(int64_t window_token,

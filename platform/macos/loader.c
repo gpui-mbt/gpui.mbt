@@ -57,6 +57,15 @@ int32_t gpui_macos_ax_publish_field(int64_t window, int64_t binding,
       dlsym(library, "gpui_macos_ax_publish_field_v1");
   return publish ? publish(window, binding, bytes, length, output) : 9;
 }
+int32_t gpui_macos_ax_publish_dialog(int64_t window, int64_t binding,
+                                     const uint8_t *bytes, int32_t length,
+                                     int64_t *output) {
+  int status = load();
+  if (status) return status;
+  int32_t (*publish)(int64_t, int64_t, const uint8_t *, int32_t, int64_t *) =
+      dlsym(library, "gpui_macos_ax_publish_dialog_v1");
+  return publish ? publish(window, binding, bytes, length, output) : 9;
+}
 int32_t gpui_macos_ax_revoke(int64_t window, int64_t binding) {
   int status = load();
   if (status) return status;
@@ -69,6 +78,13 @@ int32_t gpui_macos_ax_revoke_field(int64_t window, int64_t binding) {
   if (status) return status;
   int32_t (*revoke)(int64_t, int64_t) =
       dlsym(library, "gpui_macos_ax_revoke_field_v1");
+  return revoke ? revoke(window, binding) : 9;
+}
+int32_t gpui_macos_ax_revoke_dialog(int64_t window, int64_t binding) {
+  int status = load();
+  if (status) return status;
+  int32_t (*revoke)(int64_t, int64_t) =
+      dlsym(library, "gpui_macos_ax_revoke_dialog_v1");
   return revoke ? revoke(window, binding) : 9;
 }
 int32_t gpui_macos_ax_take_request(int64_t window, int64_t *output) {
@@ -177,10 +193,19 @@ int32_t gpui_macos_ax_publish_field(int64_t window, int64_t binding,
   (void)window; (void)binding; (void)bytes; (void)length; (void)output;
   return 9;
 }
+int32_t gpui_macos_ax_publish_dialog(int64_t window, int64_t binding,
+                                     const uint8_t *bytes, int32_t length,
+                                     int64_t *output) {
+  (void)window; (void)binding; (void)bytes; (void)length; (void)output;
+  return 9;
+}
 int32_t gpui_macos_ax_revoke(int64_t window, int64_t binding) {
   (void)window; (void)binding; return 9;
 }
 int32_t gpui_macos_ax_revoke_field(int64_t window, int64_t binding) {
+  (void)window; (void)binding; return 9;
+}
+int32_t gpui_macos_ax_revoke_dialog(int64_t window, int64_t binding) {
   (void)window; (void)binding; return 9;
 }
 int32_t gpui_macos_ax_take_request(int64_t window, int64_t *output) {

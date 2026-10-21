@@ -291,3 +291,112 @@ pub fn Host::revoke_text_field_accessibility(
     "revoke_text_field_accessibility",
   )
 }
+
+///|
+/// A copied macOS projection for one modal Dialog AX element.
+///
+/// The title and frame describe the open dialog. The application still owns
+/// dismissal, initial focus and the dialog lifecycle; AppKit receives only a
+/// revocable transport token and copied attributes.
+pub struct DialogAccessibilitySnapshot {
+  title : String
+  bounds : @primitives.Rect
+  focused : Bool
+}
+
+///|
+pub fn DialogAccessibilitySnapshot::new(
+  title : String,
+  bounds : @primitives.Rect,
+  focused : Bool,
+) -> DialogAccessibilitySnapshot {
+  { title, bounds, focused, }
+}
+
+///|
+struct MacAXDialogPayload {
+  version : Int32
+  role : String
+  title : String
+  left : Double
+  top : Double
+  width : Double
+  height : Double
+  focused : Bool
+} derive(ToJson)
+
+///|
+pub extend MacAXDialogPayload with ToJson::{to_json}
+
+///|
+fn macos_ax_dialog_payload(snapshot : DialogAccessibilitySnapshot) -> Bytes {
+  let size = snapshot.bounds.size()
+  let value = MacAXDialogPayload::{
+    version: 1,
+    role: "dialog",
+    title: snapshot.title,
+    left: snapshot.bounds.left(),
+    top: snapshot.bounds.top(),
+    width: size.width(),
+    height: size.height(),
+    focused: snapshot.focused,
+  }
+  @utf8.encode(@json.to_json(value).stringify())
+}
+
+///|
+/// Publish the copied Dialog attributes to AppKit and return their current
+/// revocable transport binding. Pass zero to create a new binding; pass the
+/// existing binding to update the same live dialog. An empty or oversized
+/// title is rejected before any native call, and a window exposes at most one
+/// dialog element at a time.
+pub fn Host::publish_dialog_accessibility(
+  self : Host,
+  window : @platform.WindowId,
+  existing_binding : Int64,
+  snapshot : DialogAccessibilitySnapshot,
+) -> Result[Int64, @diagnostics.FrameworkError] {
+  match self.check() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  if snapshot.title.trim().is_empty() || snapshot.title.length() > 4096 {
+    return Err(error(@diagnostics.InvalidInput, "publish_dialog_accessibility"))
+  }
+  let bytes = macos_ax_dialog_payload(snapshot)
+  let output : FixedArray[Int64] = FixedArray::make(1, Int64::from_int(0))
+  let result = accessibility_publish_dialog(
+    window.value(),
+    existing_binding,
+    bytes,
+    bytes.length(),
+    output,
+  )
+  match status(result, "publish_dialog_accessibility") {
+    Err(error) => Err(error)
+    Ok(_) =>
+      if output[0] > 0 {
+        Ok(output[0])
+      } else {
+        Err(error(@diagnostics.NativeFailure, "publish_dialog_accessibility"))
+      }
+  }
+}
+
+///|
+/// Revoke the current native Dialog element. A zero binding revokes any current
+/// dialog element for this window.
+pub fn Host::revoke_dialog_accessibility(
+  self : Host,
+  window : @platform.WindowId,
+  binding : Int64,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  match self.check() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  status(
+    accessibility_revoke_dialog(window.value(), binding),
+    "revoke_dialog_accessibility",
+  )
+}
