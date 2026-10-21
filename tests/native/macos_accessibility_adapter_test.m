@@ -211,6 +211,7 @@ static void test_projection_and_press(NSWindow *window, int64_t *binding_out) {
 static int focused_element_notifications = 0;
 static int value_notifications = 0;
 static int selection_notifications = 0;
+static int title_notifications = 0;
 static id last_focused_element;
 
 static void notification_hook(id element,
@@ -225,6 +226,9 @@ static void notification_hook(id element,
   } else if ([notification
                  isEqualToString:NSAccessibilitySelectedTextChangedNotification]) {
     selection_notifications += 1;
+  } else if ([notification
+                 isEqualToString:NSAccessibilityTitleChangedNotification]) {
+    title_notifications += 1;
   }
 }
 
@@ -509,6 +513,135 @@ static void test_text_field_projection(NSWindow *window) {
           "revoking without a field should be idempotent");
 }
 
+static int32_t publish_dialog_raw(NSWindow *window, int64_t existing,
+                                  const char *bytes, int64_t *binding_out) {
+  id delegate = window.delegate;
+  int64_t token = 0;
+  if ([delegate respondsToSelector:@selector(token)])
+    token = ((int64_t (*)(id, SEL))[delegate methodForSelector:@selector(token)])(
+        delegate, @selector(token));
+  return gpui_macos_ax_publish_dialog_v1(
+      token, existing, (const uint8_t *)bytes, (int32_t)strlen(bytes),
+      binding_out);
+}
+
+static int64_t publish_dialog(NSWindow *window, int64_t existing,
+                              const char *title, BOOL focused) {
+  char bytes[8192];
+  snprintf(bytes, sizeof(bytes),
+           "{\"version\":1,\"role\":\"dialog\",\"title\":\"%s\","
+           "\"left\":20,\"top\":30,\"width\":320,\"height\":120,"
+           "\"focused\":%s}",
+           title, focused ? "true" : "false");
+  int64_t binding = 0;
+  int32_t result = publish_dialog_raw(window, existing, bytes, &binding);
+  if (result != 0 || binding <= 0) {
+    fprintf(stderr, "dialog publish failed: status=%d window=%lld\n", result,
+            (long long)existing);
+    fail("dialog publish should return a binding");
+  }
+  return binding;
+}
+
+static void test_dialog_projection(NSWindow *window) {
+  extern int32_t gpui_macos_ax_test_child_count_v1(int64_t);
+  require(gpui_macos_ax_test_child_count_v1(401) == 1,
+          "dialog test starts with the button published");
+
+  int focused_before = focused_element_notifications;
+  int64_t binding = publish_dialog(window, 0, "Save changes?", YES);
+  require(binding > 0, "focused dialog should publish with a transport token");
+  require(gpui_macos_ax_test_child_count_v1(401) == 2,
+          "button and dialog should be exposed together");
+  id dialog = ax_child_with_role(window, NSAccessibilityGroupRole);
+  require(dialog != nil, "the view should expose one AX dialog group");
+  require([dialog isAccessibilityElement], "dialog element should be live");
+  require([[dialog accessibilitySubrole] isEqualToString:NSAccessibilityDialogSubrole],
+          "dialog subrole should be AXDialog");
+  require([[dialog accessibilityTitle] isEqualToString:@"Save changes?"],
+          "dialog title should come from the shared snapshot");
+  require([[dialog accessibilityIdentifier]
+              isEqualToString:@"gpui.mbt.macos-dialog"],
+          "dialog identifier should be stable");
+  require([dialog isAccessibilityFocused], "dialog focus should be projected");
+  require(focused_element_notifications == focused_before + 1,
+          "gaining dialog focus should notify app observers once");
+  NSRect frame = [dialog accessibilityFrame];
+  require(fabs(frame.size.width - 320) < 1.0 &&
+              fabs(frame.size.height - 120) < 1.0,
+          "dialog AX frame should preserve logical dimensions");
+
+  int titles_before = title_notifications;
+  int64_t updated = publish_dialog(window, binding, "Delete this name?", YES);
+  require(updated == binding, "updating the same dialog should keep its token");
+  require(title_notifications == titles_before + 1,
+          "a title change should notify once");
+  require([[dialog accessibilityTitle] isEqualToString:@"Delete this name?"],
+          "dialog title should update in place");
+
+  int dropped_before = focused_element_notifications;
+  publish_dialog(window, updated, "Delete this name?", NO);
+  require(focused_element_notifications == dropped_before + 1,
+          "dropping dialog focus should notify once");
+
+  int64_t ignored = 0;
+  require(publish_dialog_raw(window, 0,
+                             "{\"version\":1,\"role\":\"dialog\","
+                             "\"title\":\"Duplicate\",\"left\":20,\"top\":30,"
+                             "\"width\":320,\"height\":120,\"focused\":false}",
+                             &ignored) == 12,
+          "a second dialog with a zero binding should conflict");
+  require(publish_dialog_raw(window, updated + 1,
+                             "{\"version\":1,\"role\":\"dialog\","
+                             "\"title\":\"Stale\",\"left\":20,\"top\":30,"
+                             "\"width\":320,\"height\":120,\"focused\":false}",
+                             &ignored) == 10,
+          "a valid payload for a stale dialog binding should be rejected");
+
+  char bytes[8192];
+  snprintf(bytes, sizeof(bytes),
+           "{\"version\":1,\"role\":\"dialog\",\"title\":\"\","
+           "\"left\":20,\"top\":30,\"width\":320,\"height\":120,"
+           "\"focused\":false}");
+  require(publish_dialog_raw(window, updated, bytes, &ignored) == 5,
+          "an empty dialog title should be rejected");
+  snprintf(bytes, sizeof(bytes),
+           "{\"version\":1,\"role\":\"button\",\"title\":\"Wrong\","
+           "\"left\":20,\"top\":30,\"width\":320,\"height\":120,"
+           "\"focused\":false}");
+  require(publish_dialog_raw(window, updated, bytes, &ignored) == 5,
+          "a non-dialog role should be rejected");
+  snprintf(bytes, sizeof(bytes),
+           "{\"version\":1,\"role\":\"dialog\",\"title\":\"Missing focus\","
+           "\"left\":20,\"top\":30,\"width\":320,\"height\":120}");
+  require(publish_dialog_raw(window, updated, bytes, &ignored) == 5,
+          "a dialog payload without the focused attribute should be rejected");
+  int title_length = 0;
+  title_length += snprintf(bytes + title_length, sizeof(bytes) - (size_t)title_length,
+                           "{\"version\":1,\"role\":\"dialog\",\"title\":\"");
+  for (int index = 0; index < 4097; index++)
+    bytes[title_length++] = 'a';
+  snprintf(bytes + title_length, sizeof(bytes) - (size_t)title_length,
+           "\",\"left\":20,\"top\":30,\"width\":320,\"height\":120,"
+           "\"focused\":false}");
+  require(publish_dialog_raw(window, updated, bytes, &ignored) == 5,
+          "an oversized dialog title should be rejected");
+
+  require(gpui_macos_ax_revoke_dialog_v1(401, updated) == 0,
+          "dialog revoke should succeed");
+  require(gpui_macos_ax_test_child_count_v1(401) == 1,
+          "dialog revoke should leave the button published");
+  require(ax_child_with_role(window, NSAccessibilityGroupRole) == nil,
+          "revoked dialog should disappear from the AX children");
+  require(gpui_macos_ax_revoke_dialog_v1(401, 0) == 0,
+          "revoking without a dialog should be idempotent");
+
+  int64_t again = publish_dialog(window, 0, "Save changes?", NO);
+  require(again != updated, "a reopened dialog should use a new binding");
+  require(gpui_macos_ax_revoke_dialog_v1(401, again) == 0,
+          "reopened dialog should revoke cleanly");
+}
+
 static void test_close_and_reopen(NSWindow *window) {
   require(gpui_macos_ax_revoke_v1(401, 0) == 0,
           "previous native test binding should be retired");
@@ -549,6 +682,7 @@ int main(void) {
     test_queue_capacity_and_resize(window, binding);
     test_availability_update_purges_queue(window);
     test_text_field_projection(window);
+    test_dialog_projection(window);
     test_close_and_reopen(window);
     puts("PASS: macOS AX projection, numeric schema, queue, revocation, and lifecycle");
   }

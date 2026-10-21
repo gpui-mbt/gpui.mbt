@@ -44,6 +44,16 @@ extern "C" fn accessibility_publish_field(
 ) -> Int32 = "gpui_macos_ax_publish_field"
 
 ///|
+#borrow(payload, output)
+extern "C" fn accessibility_publish_dialog(
+  window : Int64,
+  binding : Int64,
+  payload : Bytes,
+  length : Int32,
+  output : FixedArray[Int64],
+) -> Int32 = "gpui_macos_ax_publish_dialog"
+
+///|
 extern "C" fn accessibility_revoke(window : Int64, binding : Int64) -> Int32 = "gpui_macos_ax_revoke"
 
 ///|
@@ -51,6 +61,12 @@ extern "C" fn accessibility_revoke_field(
   window : Int64,
   binding : Int64,
 ) -> Int32 = "gpui_macos_ax_revoke_field"
+
+///|
+extern "C" fn accessibility_revoke_dialog(
+  window : Int64,
+  binding : Int64,
+) -> Int32 = "gpui_macos_ax_revoke_dialog"
 
 ///|
 #borrow(output)
