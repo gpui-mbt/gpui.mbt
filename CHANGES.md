@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add `JustifyContent::flex_start` and `flex_end` for flow-relative main-axis
+  alignment, including reverse and wrapped lines. Physical start/end defaults
+  remain unchanged.
+
 - Add per-item `layout.AlignSelf` and `FlexItem::with_align_self` for inherited,
   physical start/end, flex-relative start/end, center, and auto-size stretch.
   Overrides survive recursive layout, device-scale preparation, and item builders.

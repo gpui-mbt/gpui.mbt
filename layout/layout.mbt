@@ -95,6 +95,8 @@ pub enum JustifyContent {
   SpaceBetween
   SpaceAround
   SpaceEvenly
+  FlexStart
+  FlexEnd
 } derive(Eq)
 
 ///|
@@ -132,6 +134,20 @@ pub fn JustifyContent::space_around() -> JustifyContent {
 /// An overflowing line falls back to start; a fitting singleton is centered.
 pub fn JustifyContent::space_evenly() -> JustifyContent {
   SpaceEvenly
+}
+
+///|
+/// Anchor at the flex main-start edge (right/bottom for reverse flow).
+/// Unlike physical `start`, this follows the container's flow direction.
+pub fn JustifyContent::flex_start() -> JustifyContent {
+  FlexStart
+}
+
+///|
+/// Anchor at the flex main-end edge (left/top for reverse flow).
+/// Negative free space is preserved: overflow stays opposite this edge.
+pub fn JustifyContent::flex_end() -> JustifyContent {
+  FlexEnd
 }
 
 ///|
@@ -1135,6 +1151,8 @@ fn main_spacing(
 ) -> (Double, Double) {
   let physical_start = if reverse { leftover } else { 0.0 }
   match justify {
+    FlexStart => (0.0, 0.0)
+    FlexEnd => (leftover, 0.0)
     Start => (physical_start, 0.0)
     Center => (leftover / 2.0, 0.0)
     End => (if reverse { 0.0 } else { leftover }, 0.0)
@@ -1180,6 +1198,7 @@ fn reverse_main_starts(
   )
   let starts = sizes.map(_ => 0.0)
   let anchor_start = justify is Start ||
+    justify is FlexEnd ||
     (
       leftover < 0.0 &&
       (
