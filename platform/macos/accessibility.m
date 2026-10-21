@@ -24,6 +24,7 @@
 enum {
   GPUIAX_ROLE_BUTTON = 1,
   GPUIAX_ROLE_TEXT_FIELD = 2,
+  GPUIAX_ROLE_DIALOG = 3,
 };
 
 @interface GPWindow : NSObject
@@ -91,6 +92,9 @@ static id gpui_ax_focus_fallback(NSView *view, GPUIAXElement *excluded,
 @property(nonatomic, copy) NSString *value;
 @property(nonatomic) BOOL editable;
 @property(nonatomic) NSRange selectedRange;
+@end
+
+@interface GPUIAXDialogElement : GPUIAXElement
 @end
 
 static NSMutableDictionary<NSNumber *, GPUIAXElement *> *gpui_ax_registry(
@@ -384,6 +388,24 @@ static void gpui_ax_install_observers(void) {
 }
 @end
 
+@implementation GPUIAXDialogElement
+- (NSInteger)axRole {
+  return GPUIAX_ROLE_DIALOG;
+}
+
+- (NSAccessibilityRole)accessibilityRole {
+  return [self isLive] ? NSAccessibilityGroupRole : nil;
+}
+
+- (NSAccessibilitySubrole)accessibilitySubrole {
+  return [self isLive] ? NSAccessibilityDialogSubrole : nil;
+}
+
+- (NSString *)accessibilityIdentifier {
+  return [self isLive] ? @"gpui.mbt.macos-dialog" : nil;
+}
+@end
+
 static BOOL gpui_ax_boolean(NSDictionary *dictionary, NSString *key,
                             BOOL *value) {
   id candidate = dictionary[key];
@@ -517,6 +539,31 @@ static NSDictionary *gpui_ax_decode_field_payload(const uint8_t *bytes,
   return dictionary;
 }
 
+static NSDictionary *gpui_ax_decode_dialog_payload(const uint8_t *bytes,
+                                                   int32_t length) {
+  NSDictionary *dictionary = gpui_ax_json(bytes, length);
+  if (!dictionary) return nil;
+  NSSet *expected = [NSSet setWithArray:@[
+    @"version", @"role", @"title", @"left", @"top", @"width", @"height",
+    @"focused",
+  ]];
+  if (![[NSSet setWithArray:dictionary.allKeys] isEqualToSet:expected])
+    return nil;
+  int64_t version = 0;
+  NSString *role = dictionary[@"role"];
+  NSString *title = dictionary[@"title"];
+  NSRect frame = NSZeroRect;
+  BOOL focused = NO;
+  if (!gpui_ax_integer(dictionary, @"version", 1, 1, &version) ||
+      version != 1 || ![role isKindOfClass:NSString.class] ||
+      ![role isEqualToString:@"dialog"] ||
+      ![title isKindOfClass:NSString.class] || title.length == 0 ||
+      title.length > 4096 || !gpui_ax_frame(dictionary, &frame) ||
+      !gpui_ax_boolean(dictionary, @"focused", &focused))
+    return nil;
+  return dictionary;
+}
+
 static GPUIAXElement *gpui_ax_create_element(NSWindow *window, GPView *view,
                                              NSInteger role,
                                              int64_t window_token,
@@ -525,10 +572,18 @@ static GPUIAXElement *gpui_ax_create_element(NSWindow *window, GPView *view,
     *error = 13;
     return nil;
   }
-  GPUIAXElement *element =
-      role == GPUIAX_ROLE_TEXT_FIELD
-          ? (GPUIAXElement *)[GPUIAXTextFieldElement new]
-          : (GPUIAXElement *)[GPUIAXButtonElement new];
+  GPUIAXElement *element = nil;
+  switch (role) {
+    case GPUIAX_ROLE_TEXT_FIELD:
+      element = (GPUIAXElement *)[GPUIAXTextFieldElement new];
+      break;
+    case GPUIAX_ROLE_DIALOG:
+      element = (GPUIAXElement *)[GPUIAXDialogElement new];
+      break;
+    default:
+      element = (GPUIAXElement *)[GPUIAXButtonElement new];
+      break;
+  }
   element.windowToken = window_token;
   element.bindingToken = ++gpui_ax_next_binding_token;
   element.ownerWindow = window;
@@ -730,6 +785,87 @@ int32_t gpui_macos_ax_revoke_field_v1(int64_t window_token,
 }
 
 /* Returns 0 for no request, 1 for one live request, or an ErrorCode ordinal. */
+int32_t gpui_macos_ax_publish_dialog_v1(int64_t window_token,
+                                        int64_t existing_binding_token,
+                                        const uint8_t *bytes, int32_t length,
+                                        int64_t *out_binding_token) {
+  if (![NSThread isMainThread]) return 18;
+  if (!out_binding_token || existing_binding_token < 0) return 5;
+  @autoreleasepool {
+    NSWindow *window = gpui_ax_find_window(window_token);
+    if (!window || !window.contentView) return 10;
+    NSDictionary *payload = gpui_ax_decode_dialog_payload(bytes, length);
+    if (!payload) return 5;
+    GPView *view = (GPView *)window.contentView;
+    GPUIAXDialogElement *current = (GPUIAXDialogElement *)
+        gpui_ax_role_element(view, GPUIAX_ROLE_DIALOG);
+    GPUIAXDialogElement *previous = current;
+    BOOL previous_focused = previous && previous.focused;
+    NSString *previous_title = previous ? previous.label : nil;
+
+    if (existing_binding_token != 0 && current &&
+        current.bindingToken != existing_binding_token)
+      return 10;
+    if (existing_binding_token == 0 && current) return 12;
+    double left = [payload[@"left"] doubleValue];
+    double top = [payload[@"top"] doubleValue];
+    double width = [payload[@"width"] doubleValue];
+    double height = [payload[@"height"] doubleValue];
+    NSRect frame = NSMakeRect(left, top, width, height);
+    BOOL focused = [payload[@"focused"] boolValue];
+    NSString *title = payload[@"title"];
+    if (current && !NSEqualRects(current.logicalFrame, frame)) {
+      gpui_ax_forget_element(view, current);
+      current = nil;
+    }
+
+    BOOL created = NO;
+    if (!current) {
+      int64_t failure = 0;
+      current = (GPUIAXDialogElement *)gpui_ax_create_element(
+          window, view, GPUIAX_ROLE_DIALOG, window_token, &failure);
+      if (!current) return (int32_t)failure;
+      created = YES;
+    }
+    current.label = title;
+    current.logicalFrame = frame;
+    current.focused = focused;
+    current.revoked = NO;
+    *out_binding_token = current.bindingToken;
+    gpui_ax_install_observers();
+    BOOL focused_element_changed =
+        (previous_focused != focused) || (previous_focused && previous != current);
+    if (created) {
+      gpui_ax_post_notification(view,
+                                NSAccessibilityLayoutChangedNotification);
+    } else if (![previous_title isEqualToString:title]) {
+      gpui_ax_post_notification(
+          current, NSAccessibilityTitleChangedNotification);
+    }
+    if (focused_element_changed)
+      gpui_ax_post_notification(
+          focused ? current : gpui_ax_focus_fallback(view, current, previous),
+          NSAccessibilityFocusedUIElementChangedNotification);
+    return 0;
+  }
+}
+
+int32_t gpui_macos_ax_revoke_dialog_v1(int64_t window_token,
+                                       int64_t binding_token) {
+  if (![NSThread isMainThread]) return 18;
+  if (binding_token < 0) return 5;
+  @autoreleasepool {
+    NSWindow *window = gpui_ax_find_window(window_token);
+    if (!window) return 0;
+    GPUIAXElement *current =
+        gpui_ax_role_element(window.contentView, GPUIAX_ROLE_DIALOG);
+    if (!current) return 0;
+    if (binding_token != 0 && current.bindingToken != binding_token) return 10;
+    gpui_ax_remove_element(window.contentView, current);
+    return 0;
+  }
+}
+
 int32_t gpui_macos_ax_take_request_v1(int64_t window_token,
                                      int64_t *out_binding_token) {
   if (![NSThread isMainThread]) return 18;

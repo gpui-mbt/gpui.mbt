@@ -25,6 +25,13 @@ pub struct ButtonAccessibilitySnapshot {
 }
 pub fn ButtonAccessibilitySnapshot::new(String, @primitives.Rect, Bool, Bool, Bool, Int) -> Self
 
+pub struct DialogAccessibilitySnapshot {
+  title : String
+  bounds : @primitives.Rect
+  focused : Bool
+}
+pub fn DialogAccessibilitySnapshot::new(String, @primitives.Rect, Bool) -> Self
+
 pub(all) struct DisplayInfo {
   frame_x_points : Double
   frame_y_points : Double
@@ -64,6 +71,7 @@ pub fn Host::post_test_escape(Self, @platform.WindowId) -> Result[Unit, @diagnos
 pub fn Host::post_test_key(Self, @platform.WindowId, @primitives.Key, @primitives.Modifiers) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::present(Self, @platform.WindowId, @scene.SceneSnapshot) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::publish_button_accessibility(Self, @platform.WindowId, Int64, ButtonAccessibilitySnapshot) -> Result[Int64, @diagnostics.FrameworkError]
+pub fn Host::publish_dialog_accessibility(Self, @platform.WindowId, Int64, DialogAccessibilitySnapshot) -> Result[Int64, @diagnostics.FrameworkError]
 pub fn Host::publish_text_field_accessibility(Self, @platform.WindowId, Int64, TextFieldAccessibilitySnapshot) -> Result[Int64, @diagnostics.FrameworkError]
 pub fn Host::read_clipboard(Self) -> Result[String, @diagnostics.FrameworkError]
 pub fn Host::recover_renderer(Self, @platform.WindowId) -> Result[Unit, @diagnostics.FrameworkError]
@@ -71,6 +79,7 @@ pub fn Host::request_close(Self, @platform.WindowId) -> Result[Unit, @diagnostic
 pub fn Host::request_exit(Self) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::require_capability(Self, @platform.Capability) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::revoke_button_accessibility(Self, @platform.WindowId, Int64) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::revoke_dialog_accessibility(Self, @platform.WindowId, Int64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::revoke_text_field_accessibility(Self, @platform.WindowId, Int64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::set_cursor(Self, @platform.Cursor) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::set_size(Self, @platform.WindowId, Double, Double) -> Result[Unit, @diagnostics.FrameworkError]
@@ -92,6 +101,9 @@ pub impl @text_host.TextInputHost for Host
 
 type MacAXButtonPayload derive(ToJson)
 pub fn MacAXButtonPayload::to_json(Self) -> Json
+
+type MacAXDialogPayload derive(ToJson)
+pub fn MacAXDialogPayload::to_json(Self) -> Json
 
 type MacAXTextFieldPayload derive(ToJson)
 pub fn MacAXTextFieldPayload::to_json(Self) -> Json
