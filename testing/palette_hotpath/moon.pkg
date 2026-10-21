@@ -20,7 +20,7 @@ options(
   "native-stub": [ "clock.c" ],
   link: {
     "native": {
-      "cc": "script/linux_text_cc.py",
+      "cc": "script/linux_text_cc.sh",
       "cc-flags": "-O2 -std=c11 -Wall -Wextra",
       "cc-link-flags": "-lpthread -lm",
     },

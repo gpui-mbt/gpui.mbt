@@ -158,8 +158,8 @@ fi
         self.assertIn("f4ah6o/gpui/platform/macos_app", (module / "moon.pkg").read_text())
         self.assertIn("require_grayscale_raster().unwrap()", (module / "main.mbt").read_text())
         self.assertEqual(
-            (fixture / "script/macos_text_prebuild.py").read_bytes(),
-            (ROOT / "script/macos_text_prebuild.py").read_bytes(),
+            (fixture / "script/macos_text_prebuild.mbtx").read_bytes(),
+            (ROOT / "script/macos_text_prebuild.mbtx").read_bytes(),
         )
 
 

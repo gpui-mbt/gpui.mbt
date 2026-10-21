@@ -17,10 +17,12 @@ On macOS 13 or newer, install the pinned MoonBit toolchain from
 ./script/test_macos.sh             # native GPU/input/lifecycle E2E + smoke
 ```
 
-Moon runs the module pre-build configuration for native and LLVM builds, so
-Python 3 is required to build GPUI for either backend. The hook emits CoreText
-framework link flags only for macOS native builds; built executables do not
-depend on Python at runtime.
+Moon runs the module pre-build configuration for native and LLVM builds. The
+hook is the MoonBit script `script/macos_text_prebuild.mbtx`, which moon
+compiles to WebAssembly and runs with the bundled `moonrun`, so native builds
+need no Python or Node runtime. The hook emits CoreText framework link flags
+only for macOS native builds; built executables do not depend on the toolchain
+at runtime.
 
 Click the quad or press Space to toggle its color; Escape requests close.
 The window's close button emits `CloseRequested`; application policy then calls

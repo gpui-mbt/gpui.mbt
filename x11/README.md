@@ -35,7 +35,7 @@ handler; this adapter does not change global locale or install an IO-error handl
 ## Build and checks
 
 Dependencies: X11 development headers, EGL/GLES2, xkbcommon, PangoFT2 >=1.50,
-fontconfig, pthread, and a C11 compiler. `script/linux_text_cc.py` discovers Linux
+fontconfig, pthread, and a C11 compiler. `script/linux_text_cc.sh` discovers Linux
 text flags through pkg-config. No Wayland protocol generation is needed by this
 package alone. Both backends can be linked together: all X11 FFI exports have the
 `gpui_x11_` prefix.

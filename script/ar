@@ -1,14 +1,15 @@
-#!/usr/bin/env python3
-"""Forward MoonBit's package archive step to the selected Linux ar tool."""
+#!/bin/sh
+# Forward MoonBit's package archive step to the selected Linux ar tool.
+set -u
+set -f
 
-import os
-import shlex
-import subprocess
-import sys
-
-
-value = os.environ.get("AR", "ar")
-tool = [value] if os.path.isfile(value) else shlex.split(value)
-if not tool:
-    raise SystemExit("AR must name an archiver")
-raise SystemExit(subprocess.run([*tool, *sys.argv[1:]], check=False).returncode)
+tool=${AR-ar}
+if [ -z "$tool" ]; then
+  printf '%s\n' "AR must name an archiver" >&2
+  exit 1
+fi
+if [ -f "$tool" ]; then
+  exec "$tool" "$@"
+else
+  exec $tool "$@"
+fi

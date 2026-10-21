@@ -13,5 +13,5 @@ source = "."
 description = "An independent MoonBit implementation of the GPUI programming model."
 
 options(
-  "--moonbit-unstable-prebuild": "script/macos_text_prebuild.py",
+  "--moonbit-unstable-prebuild": "script/macos_text_prebuild.mbtx",
 )
