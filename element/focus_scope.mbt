@@ -750,6 +750,7 @@ pub fn FocusScopeSession::adopt_tree(
   }
   let adopted : ElementTree = {
     nodes: copy_nodes(tree.nodes),
+    physical_viewport: tree.physical_viewport,
     focused: None,
     lineage: state.tree.lineage,
     owner: None,
