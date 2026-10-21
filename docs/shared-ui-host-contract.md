@@ -128,8 +128,10 @@ unsupported; these are two different facts.
 - **GP-02-L/W/M-IME**: adapt and qualify each OS against GP-01 separately. Linux
   and Windows are publication/ownership/qualification work over existing
   experimental routes, not blank-slate editor projects. macOS has the native text
-  client; real Kotoeri composition, candidate placement and AX remain
-  unqualified. Keep each OS result independent.
+  client; a live Kotoeri run through the Yami-kumo sample on 2026-10-21 recorded
+  preedit, commit, committed-document and candidate-visibility `PASS` with
+  synthetic HID posting, while candidate anchoring, physical-keyboard entry and
+  AX editing remain unqualified. Keep each OS result independent.
 - **GP-03-FOCUS**: portable `FocusScopeSession` now supplies the bounded live
   modal controller around existing focus/traversal. Hosts must wire its explicit
   cancellation hook, scoped input and Tab commands, and per-window ownership.

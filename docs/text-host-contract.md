@@ -170,16 +170,20 @@ or a second text value model. UTF-16 remains the offset unit of
 The transport fixture and headless tests establish the type contract, epoch
 ownership and ordered delivery. The macOS route adds a host implementation and
 native E2E coverage that drives the real `NSTextInputClient` callbacks through
-the test hook. Neither establishes Japanese composition from a live input
-method, candidate placement, screen-reader behavior, or a platform support tier.
+the test hook. Neither establishes composition from physical keystrokes,
+candidate placement, screen-reader behavior, or a platform support tier.
 Each OS route needs its own exact-source profile:
 
 - Linux/Wayland: text-input-v1 + IBus/Mozc profile, including candidate panel.
 - Windows: IMM32 route, with real IME and UIA recorded separately.
-- macOS: `NSTextInputClient` route on Apple Silicon. The host, epochs, caret
-  update, cancel replacement and `FocusLost` are implemented and exercised with
-  synthetic composition. Real Kotoeri composition, candidate placement and AX
-  remain `NOT_RUN`.
+- macOS: `NSTextInputClient` route on Apple Silicon, with `platform/macos.Host`
+  implementing `TextInputHost` over an epoch-tagged, ordered queue. The host,
+  epochs, caret update, cancel replacement and `FocusLost` are implemented. A
+  live Kotoeri run through the Yami-kumo native sample on 2026-10-21 recorded
+  preedit, commit (`日本語`), committed-document and candidate-visibility
+  `PASS`; it posted synthetic HID events rather than physical keystrokes, so
+  candidate anchoring, physical-keyboard entry and accessibility remain
+  `NOT_RUN`. The TextField AX observation is a separate bounded service.
 
 Unavailable profiles remain `NOT_RUN`. Build-only or synthetic-event results do
 not become `PASS`.
