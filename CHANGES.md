@@ -1,6 +1,6 @@
 # Changes
 
-## Unreleased
+## 0.10.5 - 2026-10-21
 
 ### Added
 
@@ -15,6 +15,14 @@
 - Add per-item `layout.AlignSelf` and `FlexItem::with_align_self` for inherited,
   physical start/end, flex-relative start/end, center, and auto-size stretch.
   Overrides survive recursive layout, device-scale preparation, and item builders.
+
+- Publish a bounded macOS Dialog accessibility projection:
+  `Host::publish_dialog_accessibility` and
+  `Host::revoke_dialog_accessibility`, with `DialogAccessibilitySnapshot`. An
+  open dialog is exposed as one group with the `AXDialog` subrole carrying its
+  title, focus and frame; the element is revoked when the application closes
+  the dialog. A window keeps at most one dialog element. Dialog actions,
+  field value writes and assistive-technology acceptance remain out of scope.
 
 ## 0.10.4 - 2026-10-21
 
