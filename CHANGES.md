@@ -1,5 +1,19 @@
 # Changes
 
+## Unreleased
+
+### Fixed
+
+- Replace the Python macOS prebuild hook with `script/macos_text_prebuild.mbtx`,
+  a MoonBit script that moon compiles to WebAssembly and runs with `moonrun`.
+  Native and LLVM builds no longer require Python or Node, and macOS consumers
+  still receive the CoreText, CoreGraphics and CoreFoundation link flags.
+
+### Migration
+
+- Native builds require a moon toolchain that supports `.mbtx` prebuild scripts;
+  the toolchain pinned in CI does. No interpreter has to be installed.
+
 ## 0.10.5 - 2026-10-21
 
 ### Added

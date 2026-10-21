@@ -9,9 +9,9 @@ The backend is not a Windows support-tier claim.
 ## Build and run
 
 Use the pinned MoonBit `0.10.14+7d59c7ec9` toolchain and a Visual Studio native
-tools environment. Install Python 3 with `python3` available on `PATH`; Moon
-invokes the module's prebuild hook for native builds, including Windows, where
-the macOS-specific hook is a no-op. From PowerShell:
+tools environment. Moon invokes the module's MoonBit prebuild hook for native
+builds, including Windows, where the macOS-specific hook is a no-op; no
+additional interpreter is needed. From PowerShell:
 
 ```powershell
 ./scripts/test_windows.ps1

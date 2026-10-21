@@ -1,0 +1,15 @@
+import {
+  "moonbitlang/core/env",
+}
+
+fn main {
+  let host = @env.get_env_var("MOON_HOST_OS")
+  let backend = @env.get_env_var("MOON_BACKEND")
+  if host == Some("macos") && backend == Some("native") {
+    println(
+      "{\"link_configs\":[{\"package\":\"f4ah6o/gpui/platform/macos_text\",\"link_flags\":\"-framework CoreText -framework CoreGraphics -framework CoreFoundation\"}]}",
+    )
+  } else {
+    println("{}")
+  }
+}
