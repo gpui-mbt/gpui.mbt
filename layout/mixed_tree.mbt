@@ -423,6 +423,9 @@ fn measure_mixed_container(
       if !valid_limits(minimum, limit) {
         return Err(Flex(InvalidMinMax))
       }
+      if main_axis && !(item.flex_basis is FlexBasis::Auto) {
+        return Err(UnsupportedIntrinsicFlexBasis)
+      }
       let value = match resolve_dimension(dimension, None) {
         Err(error) => return Err(Flex(error))
         Ok(Some(value)) => value

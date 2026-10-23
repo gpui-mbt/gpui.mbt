@@ -12,6 +12,7 @@ pub(all) enum TreeLayoutError {
   Grid(GridLayoutError)
   MismatchedItem
   UnsupportedIntrinsicGrid
+  UnsupportedIntrinsicFlexBasis
 } derive(Eq)
 
 ///|
@@ -594,6 +595,14 @@ fn snap_tree_item_to_device_scale(
   item : FlexItem,
   scale_factor : Double,
 ) -> Result[FlexItem, LayoutError] {
+  let flex_basis = match item.flex_basis {
+    Auto => FlexBasis::Auto
+    Points(value) =>
+      match snap_authored_length_to_device_grid(value, scale_factor) {
+        Ok(snapped) => FlexBasis::Points(snapped)
+        Err(error) => return Err(error)
+      }
+  }
   let main = match snap_dimension_to_device_scale(item.main, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
@@ -647,6 +656,7 @@ fn snap_tree_item_to_device_scale(
         min_cross,
         max_cross,
         align_self: item.align_self,
+        flex_basis,
       })
   }
 }
@@ -984,6 +994,9 @@ fn measure_container_axis(
         }
         if !valid_limits(minimum, maximum_value) {
           failure = Some(Flex(InvalidMinMax))
+        } else if axis_is_main && !(item.flex_basis is FlexBasis::Auto) {
+          // Intrinsic flex-base negotiation is outside this definite-size API.
+          failure = Some(UnsupportedIntrinsicFlexBasis)
         } else {
           match resolve_dimension(dimension, None) {
             Err(error) => failure = Some(Flex(error))

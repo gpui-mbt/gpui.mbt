@@ -91,6 +91,15 @@ pub fn Dimension::not_equal(Self, Self) -> Bool
 pub fn Dimension::percent(Double) -> Result[Self, LayoutError]
 pub fn Dimension::points(Double) -> Result[Self, LayoutError]
 
+pub enum FlexBasis {
+  Auto
+  Points(Double)
+} derive(Eq)
+pub fn FlexBasis::auto() -> Self
+pub fn FlexBasis::equal(Self, Self) -> Bool
+pub fn FlexBasis::not_equal(Self, Self) -> Bool
+pub fn FlexBasis::points(Double) -> Result[Self, LayoutError]
+
 pub struct FlexContainer {
   direction : FlowDirection
   wrap : FlexWrap
@@ -125,12 +134,14 @@ pub struct FlexItem {
   min_cross : Double
   max_cross : Double?
   align_self : AlignSelf
+  flex_basis : FlexBasis
 }
 pub fn FlexItem::id(Self) -> UInt64
 pub fn FlexItem::new(UInt64, Dimension, Dimension, @primitives.Size) -> Self
 pub fn FlexItem::with_align_self(Self, AlignSelf) -> Self
 pub fn FlexItem::with_cross_limits(Self, Double, Double?) -> Result[Self, LayoutError]
 pub fn FlexItem::with_flex(Self, Double, Double) -> Result[Self, LayoutError]
+pub fn FlexItem::with_flex_basis(Self, FlexBasis) -> Self
 pub fn FlexItem::with_intrinsic(Self, @primitives.Size) -> Self
 pub fn FlexItem::with_main_limits(Self, Double, Double?) -> Result[Self, LayoutError]
 
@@ -365,6 +376,7 @@ pub(all) enum TreeLayoutError {
   Grid(GridLayoutError)
   MismatchedItem
   UnsupportedIntrinsicGrid
+  UnsupportedIntrinsicFlexBasis
 } derive(Eq)
 pub fn TreeLayoutError::equal(Self, Self) -> Bool
 pub fn TreeLayoutError::not_equal(Self, Self) -> Bool
