@@ -433,6 +433,34 @@ pub fn Insets::left(self : Insets) -> Double {
 }
 
 ///|
+/// Independent flex base size. Auto uses the main dimension, then intrinsic
+/// size. Only absolute point bases are supported; percentages and content
+/// basis values are deliberately not represented by this bounded API.
+pub enum FlexBasis {
+  Auto
+  Points(Double)
+} derive(Eq)
+
+///|
+pub extend FlexBasis with Eq::{not_equal, equal}
+
+///|
+pub fn FlexBasis::auto() -> FlexBasis {
+  Auto
+}
+
+///|
+pub fn FlexBasis::points(value : Double) -> Result[FlexBasis, LayoutError] {
+  if !finite(value) {
+    Err(NonFiniteValue)
+  } else if value < 0.0 {
+    Err(NegativeValue)
+  } else {
+    Ok(Points(value))
+  }
+}
+
+///|
 /// One child participating in a flex line. Auto main/cross dimensions use the
 /// intrinsic size unless container alignment stretches an auto cross dimension.
 pub struct FlexItem {
@@ -447,6 +475,7 @@ pub struct FlexItem {
   min_cross : Double
   max_cross : Double?
   align_self : AlignSelf
+  flex_basis : FlexBasis
 }
 
 ///|
@@ -468,6 +497,7 @@ pub fn FlexItem::new(
     min_cross: 0.0,
     max_cross: None,
     align_self: AlignSelf::Auto,
+    flex_basis: FlexBasis::Auto,
   }
 }
 
@@ -495,6 +525,7 @@ pub fn FlexItem::with_intrinsic(
     min_cross: self.min_cross,
     max_cross: self.max_cross,
     align_self: self.align_self,
+    flex_basis: self.flex_basis,
   }
 }
 
@@ -521,6 +552,7 @@ pub fn FlexItem::with_flex(
       min_cross: self.min_cross,
       max_cross: self.max_cross,
       align_self: self.align_self,
+      flex_basis: self.flex_basis,
     })
   }
 }
@@ -546,6 +578,7 @@ pub fn FlexItem::with_main_limits(
       min_cross: self.min_cross,
       max_cross: self.max_cross,
       align_self: self.align_self,
+      flex_basis: self.flex_basis,
     })
   }
 }
@@ -571,6 +604,7 @@ pub fn FlexItem::with_cross_limits(
       min_cross: min,
       max_cross: max,
       align_self: self.align_self,
+      flex_basis: self.flex_basis,
     })
   }
 }
@@ -593,6 +627,35 @@ pub fn FlexItem::with_align_self(
     min_cross: self.min_cross,
     max_cross: self.max_cross,
     align_self,
+    flex_basis: self.flex_basis,
+  }
+}
+
+///|
+/// Set an independent flex base size while preserving the authored main and
+/// cross dimensions. Auto restores the previous main/intrinsic resolution.
+pub fn FlexItem::with_flex_basis(
+  self : FlexItem,
+  flex_basis : FlexBasis,
+) -> FlexItem {
+  { ..self, flex_basis, }
+}
+
+///|
+fn FlexItem::resolved_flex_basis(
+  self : FlexItem,
+  fallback : Double,
+) -> Result[Double, LayoutError] {
+  match self.flex_basis {
+    Auto => Ok(fallback)
+    Points(value) =>
+      if !finite(value) {
+        Err(NonFiniteValue)
+      } else if value < 0.0 {
+        Err(NegativeValue)
+      } else {
+        Ok(value)
+      }
   }
 }
 
@@ -1103,9 +1166,17 @@ fn prepare_items(
               } else {
                 item.intrinsic.width()
               }
-              let basis = match main_value {
+              let fallback = match main_value {
                 Some(value) => value
                 None => intrinsic_main
+              }
+              let basis = match item.resolved_flex_basis(fallback) {
+                Ok(value) => value
+                Err(value) => {
+                  error = Some(value)
+                  index += 1
+                  continue
+                }
               }
               let cross = match cross_value {
                 Some(value) => value

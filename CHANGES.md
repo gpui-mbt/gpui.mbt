@@ -1,5 +1,14 @@
 # Changes
 
+## Unreleased
+
+### Added
+
+- Add independent Auto/finite nonnegative point `FlexBasis` on flex items.
+  Preserve it through builders, recursive layout and device-scale preparation;
+  explicitly reject intrinsic-main-axis basis sizing outside this bounded slice.
+  See `docs/flex-basis.md`.
+
 ## 0.10.6 - 2026-10-22
 
 ### Fixed
