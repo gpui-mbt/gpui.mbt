@@ -61,9 +61,9 @@ fn device_grid_tree_item(
 
 ///|
 test "device-grid authored lengths, measured sizes, and negative absolute edges use distinct rules" {
-  assert_true(snap_authored_length_to_device_grid(10.75, 2.0) is Ok(10.5))
-  assert_true(snap_authored_length_to_device_grid(10.76, 2.0) is Ok(11.0))
-  assert_true(ceil_measured_length_to_device_grid(10.1, 2.0) is Ok(10.5))
+  assert_true(authored_length_in_device_pixels(10.75, 2.0) is Ok(21.0))
+  assert_true(authored_length_in_device_pixels(10.76, 2.0) is Ok(22.0))
+  assert_true(measured_length_in_device_pixels(10.1, 2.0) is Ok(21.0))
   let snapped = match
     snap_absolute_rect_to_device_grid(
       device_grid_rect(-0.25, -0.75, 0.75, 1.0),
@@ -77,7 +77,7 @@ test "device-grid authored lengths, measured sizes, and negative absolute edges 
   assert_eq(snapped.size().width(), 0.5)
   assert_eq(snapped.size().height(), 0.5)
   assert_true(
-    snap_authored_length_to_device_grid(-0.25, 2.0) is Err(NegativeValue),
+    authored_length_in_device_pixels(-0.25, 2.0) is Err(NegativeValue),
   )
 }
 
@@ -282,11 +282,19 @@ test "pre-edge-snap bounds retain solved phase with sparse identity lookup" {
       assert_true(result.bounds_before_edge_snap(99) == None)
       assert_true(
         result.root_bounds() ==
-        snap_absolute_rect_to_device_grid(root, scale).unwrap(),
+        logical_rect_from_device_pixels(
+          device_grid_rect(phase, phase, 100, 40),
+          scale,
+          snap_edges=true,
+        ).unwrap(),
       )
       phase_assert_bounds(
         result.items()[0].bounds(),
-        snap_absolute_rect_to_device_grid(raw, scale).unwrap(),
+        logical_rect_from_device_pixels(
+          device_grid_rect(phase + 39.5, phase, 21, 10),
+          scale,
+          snap_edges=true,
+        ).unwrap(),
       )
       for (id, bounds) in result.before_edge_snap {
         let mut count = 0
@@ -356,7 +364,11 @@ test "flex pre-edge-snap metadata follows quantized metrics and unchanged fallba
       phase_assert_bounds(result.bounds_before_edge_snap(2).unwrap(), raw)
       phase_assert_bounds(
         result.items()[0].bounds(),
-        snap_absolute_rect_to_device_grid(raw, scale).unwrap(),
+        logical_rect_from_device_pixels(
+          device_grid_rect((100 - width) / 2, 0, width, 10),
+          scale,
+          snap_edges=true,
+        ).unwrap(),
       )
       assert_true(result.bounds_before_edge_snap(99) == None)
       let raw_item = result.bounds_before_edge_snap(2).unwrap()

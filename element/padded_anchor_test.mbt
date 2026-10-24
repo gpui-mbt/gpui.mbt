@@ -87,7 +87,12 @@ test "measured leaf anchor follows actual decorated auto owner layout" {
       anchor_assert_rect(leaf, ordinary.node(3).unwrap().bounds())
       anchor_assert_point(
         attachment.origin(),
-        anchor_point(leaf.left(), leaf.bottom()),
+        // Reconstruct the snapped device edge before division, rather than
+        // adding two logical quotients and introducing a subpixel residue.
+        anchor_point(
+          leaf.left(),
+          (leaf.top() * scale + leaf.size().height() * scale) / scale,
+        ),
       )
       anchor_assert_point(popup.origin(), attachment.origin())
       assert_true(attachment.left() > owner.left())

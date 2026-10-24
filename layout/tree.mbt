@@ -508,14 +508,22 @@ fn layout_flex_tree_with_device_scale_and_root_sizing(
   } else if scale_factor <= 0.0 {
     Err(Flex(NegativeValue))
   } else {
-    match snap_tree_style_to_device_scale(root_style, scale_factor) {
+    let device_root_size = match
+      @primitives.Size::new(
+        root_size.width() * scale_factor,
+        root_size.height() * scale_factor,
+      ) {
+      Ok(value) => value
+      Err(_) => return Err(Flex(NonFiniteValue))
+    }
+    match prepare_tree_style_in_device_pixels(root_style, scale_factor) {
       Err(error) => Err(Flex(error))
       Ok(snapped_root_style) => {
         let snapped_nodes : Array[FlexTreeNode] = []
         let mut failure : TreeLayoutError? = None
         for node in nodes {
           if failure is None {
-            match snap_tree_item_to_device_scale(node.item, scale_factor) {
+            match prepare_tree_item_in_device_pixels(node.item, scale_factor) {
               Err(error) => failure = Some(Flex(error))
               Ok(item) =>
                 match node.children_style {
@@ -526,7 +534,8 @@ fn layout_flex_tree_with_device_scale_and_root_sizing(
                       children_style: None,
                     })
                   Some(style) =>
-                    match snap_tree_style_to_device_scale(style, scale_factor) {
+                    match
+                      prepare_tree_style_in_device_pixels(style, scale_factor) {
                       Err(error) => failure = Some(Flex(error))
                       Ok(children_style) =>
                         snapped_nodes.push({
@@ -544,31 +553,49 @@ fn layout_flex_tree_with_device_scale_and_root_sizing(
           None =>
             match
               layout_flex_tree_with_root_sizing(
-                root_id, root_size, snapped_root_style, snapped_nodes, root_sizing,
+                root_id, device_root_size, snapped_root_style, snapped_nodes, root_sizing,
               ) {
               Err(error) => Err(error)
               Ok(layout) => {
                 let root_bounds = match
-                  snap_absolute_rect_to_device_grid(
+                  logical_rect_from_device_pixels(
+                    layout.root_bounds,
+                    scale_factor,
+                    snap_edges=true,
+                  ) {
+                  Ok(bounds) => bounds
+                  Err(error) => return Err(Flex(error))
+                }
+                let before_edge_snap : Array[(UInt64, @primitives.Rect)] = []
+                let raw_root = match
+                  logical_rect_from_device_pixels(
                     layout.root_bounds,
                     scale_factor,
                   ) {
                   Ok(bounds) => bounds
                   Err(error) => return Err(Flex(error))
                 }
-                let before_edge_snap : Array[(UInt64, @primitives.Rect)] = []
-                if root_bounds != layout.root_bounds {
-                  before_edge_snap.push((layout.root_id, layout.root_bounds))
+                if root_bounds != raw_root {
+                  before_edge_snap.push((layout.root_id, raw_root))
                 }
                 let items : Array[TreeLayoutBox] = []
                 for item in layout.items {
                   let bounds = match
-                    snap_absolute_rect_to_device_grid(item.bounds, scale_factor) {
+                    logical_rect_from_device_pixels(
+                      item.bounds,
+                      scale_factor,
+                      snap_edges=true,
+                    ) {
                     Ok(bounds) => bounds
                     Err(error) => return Err(Flex(error))
                   }
-                  if bounds != item.bounds {
-                    before_edge_snap.push((item.id, item.bounds))
+                  let raw_bounds = match
+                    logical_rect_from_device_pixels(item.bounds, scale_factor) {
+                    Ok(bounds) => bounds
+                    Err(error) => return Err(Flex(error))
+                  }
+                  if bounds != raw_bounds {
+                    before_edge_snap.push((item.id, raw_bounds))
                   }
                   items.push({ id: item.id, bounds, overflow: item.overflow, })
                 }
@@ -591,53 +618,55 @@ fn layout_flex_tree_with_device_scale_and_root_sizing(
 }
 
 ///|
-fn snap_tree_item_to_device_scale(
+fn prepare_tree_item_in_device_pixels(
   item : FlexItem,
   scale_factor : Double,
 ) -> Result[FlexItem, LayoutError] {
   let flex_basis = match item.flex_basis {
     Auto => FlexBasis::Auto
+    Percent(ratio) => FlexBasis::Percent(ratio)
     Points(value) =>
-      match snap_authored_length_to_device_grid(value, scale_factor) {
+      match authored_length_in_device_pixels(value, scale_factor) {
         Ok(snapped) => FlexBasis::Points(snapped)
         Err(error) => return Err(error)
       }
   }
-  let main = match snap_dimension_to_device_scale(item.main, scale_factor) {
+  let main = match prepare_dimension_in_device_pixels(item.main, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let cross = match snap_dimension_to_device_scale(item.cross, scale_factor) {
+  let cross = match
+    prepare_dimension_in_device_pixels(item.cross, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let min_main = match
-    snap_authored_length_to_device_grid(item.min_main, scale_factor) {
+    authored_length_in_device_pixels(item.min_main, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let max_main = match
-    snap_optional_length_to_device_scale(item.max_main, scale_factor) {
+    prepare_optional_length_in_device_pixels(item.max_main, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let min_cross = match
-    snap_authored_length_to_device_grid(item.min_cross, scale_factor) {
+    authored_length_in_device_pixels(item.min_cross, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let max_cross = match
-    snap_optional_length_to_device_scale(item.max_cross, scale_factor) {
+    prepare_optional_length_in_device_pixels(item.max_cross, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let intrinsic_width = match
-    ceil_measured_length_to_device_grid(item.intrinsic.width(), scale_factor) {
+    measured_length_in_device_pixels(item.intrinsic.width(), scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let intrinsic_height = match
-    ceil_measured_length_to_device_grid(item.intrinsic.height(), scale_factor) {
+    measured_length_in_device_pixels(item.intrinsic.height(), scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -662,14 +691,14 @@ fn snap_tree_item_to_device_scale(
 }
 
 ///|
-fn snap_dimension_to_device_scale(
+fn prepare_dimension_in_device_pixels(
   dimension : Dimension,
   scale_factor : Double,
 ) -> Result[Dimension, LayoutError] {
   match dimension {
     Auto => Ok(Auto)
     Points(value) =>
-      match snap_authored_length_to_device_grid(value, scale_factor) {
+      match authored_length_in_device_pixels(value, scale_factor) {
         Ok(snapped) => Ok(Points(snapped))
         Err(error) => Err(error)
       }
@@ -678,14 +707,14 @@ fn snap_dimension_to_device_scale(
 }
 
 ///|
-fn snap_optional_length_to_device_scale(
+fn prepare_optional_length_in_device_pixels(
   value : Double?,
   scale_factor : Double,
 ) -> Result[Double?, LayoutError] {
   match value {
     None => Ok(None)
     Some(value) =>
-      match snap_authored_length_to_device_grid(value, scale_factor) {
+      match authored_length_in_device_pixels(value, scale_factor) {
         Ok(snapped) => Ok(Some(snapped))
         Err(error) => Err(error)
       }
@@ -693,32 +722,19 @@ fn snap_optional_length_to_device_scale(
 }
 
 ///|
-fn snap_layout_insets_to_device_scale(
+fn prepare_insets_in_device_pixels(
   insets : Insets,
   scale_factor : Double,
   stroke : Bool,
 ) -> Result[Insets, LayoutError] {
   let snap = fn(value) {
     if stroke && value > 0.0 {
-      match snap_authored_length_to_device_grid(value, scale_factor) {
+      match authored_length_in_device_pixels(value, scale_factor) {
         Err(error) => Err(error)
-        Ok(snapped) => {
-          let one_device_pixel = 1.0 / scale_factor
-          if !finite(one_device_pixel) {
-            Err(NonFiniteValue)
-          } else {
-            Ok(
-              if snapped < one_device_pixel {
-                one_device_pixel
-              } else {
-                snapped
-              },
-            )
-          }
-        }
+        Ok(snapped) => Ok(if snapped < 1.0 { 1.0 } else { snapped })
       }
     } else {
-      snap_authored_length_to_device_grid(value, scale_factor)
+      authored_length_in_device_pixels(value, scale_factor)
     }
   }
   let top = match snap(insets.top()) {
@@ -741,27 +757,27 @@ fn snap_layout_insets_to_device_scale(
 }
 
 ///|
-fn snap_tree_style_to_device_scale(
+fn prepare_tree_style_in_device_pixels(
   style : FlexTreeStyle,
   scale_factor : Double,
 ) -> Result[FlexTreeStyle, LayoutError] {
   let gap_x = match
-    snap_authored_length_to_device_grid(style.gap_x, scale_factor) {
+    authored_length_in_device_pixels(style.gap_x, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let gap_y = match
-    snap_authored_length_to_device_grid(style.gap_y, scale_factor) {
+    authored_length_in_device_pixels(style.gap_y, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let padding = match
-    snap_layout_insets_to_device_scale(style.padding, scale_factor, false) {
+    prepare_insets_in_device_pixels(style.padding, scale_factor, false) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let border = match
-    snap_layout_insets_to_device_scale(style.border, scale_factor, true) {
+    prepare_insets_in_device_pixels(style.border, scale_factor, true) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
