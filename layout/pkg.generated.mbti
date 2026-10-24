@@ -94,10 +94,12 @@ pub fn Dimension::points(Double) -> Result[Self, LayoutError]
 pub enum FlexBasis {
   Auto
   Points(Double)
+  Percent(Double)
 } derive(Eq)
 pub fn FlexBasis::auto() -> Self
 pub fn FlexBasis::equal(Self, Self) -> Bool
 pub fn FlexBasis::not_equal(Self, Self) -> Bool
+pub fn FlexBasis::percent(Double) -> Result[Self, LayoutError]
 pub fn FlexBasis::points(Double) -> Result[Self, LayoutError]
 
 pub struct FlexContainer {

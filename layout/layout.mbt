@@ -434,11 +434,12 @@ pub fn Insets::left(self : Insets) -> Double {
 
 ///|
 /// Independent flex base size. Auto uses the main dimension, then intrinsic
-/// size. Only absolute point bases are supported; percentages and content
-/// basis values are deliberately not represented by this bounded API.
+/// size. Percent is a ratio of the definite container inner main extent;
+/// content and intrinsic-parent basis sizing are not represented by this API.
 pub enum FlexBasis {
   Auto
   Points(Double)
+  Percent(Double)
 } derive(Eq)
 
 ///|
@@ -457,6 +458,19 @@ pub fn FlexBasis::points(value : Double) -> Result[FlexBasis, LayoutError] {
     Err(NegativeValue)
   } else {
     Ok(Points(value))
+  }
+}
+
+///|
+/// Set a ratio of the containing inner main extent (1.0 means 100%). Ratios
+/// above one are valid; flex shrink and main limits apply after resolution.
+pub fn FlexBasis::percent(ratio : Double) -> Result[FlexBasis, LayoutError] {
+  if !finite(ratio) {
+    Err(NonFiniteValue)
+  } else if ratio < 0.0 {
+    Err(NegativeValue)
+  } else {
+    Ok(Percent(ratio))
   }
 }
 
@@ -645,6 +659,7 @@ pub fn FlexItem::with_flex_basis(
 fn FlexItem::resolved_flex_basis(
   self : FlexItem,
   fallback : Double,
+  main_extent : Double,
 ) -> Result[Double, LayoutError] {
   match self.flex_basis {
     Auto => Ok(fallback)
@@ -655,6 +670,12 @@ fn FlexItem::resolved_flex_basis(
         Err(NegativeValue)
       } else {
         Ok(value)
+      }
+    Percent(ratio) =>
+      match resolve_dimension(Dimension::Percent(ratio), Some(main_extent)) {
+        Ok(Some(resolved)) => Ok(resolved)
+        Ok(None) => Err(IndefinitePercentage)
+        Err(error) => Err(error)
       }
   }
 }
@@ -926,9 +947,9 @@ pub fn LayoutBox::overflow(self : LayoutBox) -> Bool {
 }
 
 ///|
-/// Round an authored nonnegative length to the nearest device pixel, with
-/// midpoint ties toward zero. The result remains in logical pixels.
-fn snap_authored_length_to_device_grid(
+// Authored lengths are snapped once before layout; do not divide back into
+// logical units until the complete layout has been solved.
+fn authored_length_in_device_pixels(
   value : Double,
   scale_factor : Double,
 ) -> Result[Double, LayoutError] {
@@ -941,20 +962,13 @@ fn snap_authored_length_to_device_grid(
     if !finite(device_value) {
       Err(NonFiniteValue)
     } else {
-      let result = round_half_toward_zero(device_value) / scale_factor
-      if finite(result) {
-        Ok(result)
-      } else {
-        Err(NonFiniteValue)
-      }
+      Ok(round_half_toward_zero(device_value))
     }
   }
 }
 
 ///|
-/// Round a nonnegative measured size upward to the next device pixel. The
-/// result remains in logical pixels.
-fn ceil_measured_length_to_device_grid(
+fn measured_length_in_device_pixels(
   value : Double,
   scale_factor : Double,
 ) -> Result[Double, LayoutError] {
@@ -967,13 +981,37 @@ fn ceil_measured_length_to_device_grid(
     if !finite(device_value) {
       Err(NonFiniteValue)
     } else {
-      let result = device_value.ceil() / scale_factor
-      if finite(result) {
-        Ok(result)
-      } else {
-        Err(NonFiniteValue)
-      }
+      Ok(device_value.ceil())
     }
+  }
+}
+
+///|
+// Keep layout in device units through final edge snapping. Dividing each
+// authored metric before solving introduces recurring fractions at scales such
+// as 1.5 and can move an exact half-pixel edge just above its tie.
+fn logical_rect_from_device_pixels(
+  bounds : @primitives.Rect,
+  scale_factor : Double,
+  snap_edges~ : Bool = false,
+) -> Result[@primitives.Rect, LayoutError] {
+  let bounds = if snap_edges {
+    match snap_absolute_rect_to_device_grid(bounds, 1.0) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+  } else {
+    bounds
+  }
+  match
+    @primitives.Rect::new(
+      bounds.left() / scale_factor,
+      bounds.top() / scale_factor,
+      bounds.size().width() / scale_factor,
+      bounds.size().height() / scale_factor,
+    ) {
+    Ok(value) => Ok(value)
+    Err(_) => Err(GeometryFailure)
   }
 }
 
@@ -1170,7 +1208,8 @@ fn prepare_items(
                 Some(value) => value
                 None => intrinsic_main
               }
-              let basis = match item.resolved_flex_basis(fallback) {
+              let basis = match
+                item.resolved_flex_basis(fallback, main_extent) {
                 Ok(value) => value
                 Err(value) => {
                   error = Some(value)

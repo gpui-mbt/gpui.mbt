@@ -70,7 +70,7 @@ pub fn layout_mixed_tree_at(
       if scale <= 0.0 {
         return Err(Flex(NegativeValue))
       }
-      match snap_mixed_style(root_style, scale) {
+      match prepare_mixed_style_in_device_pixels(root_style, scale) {
         Ok(style) => style
         Err(error) => return Err(error)
       }
@@ -82,18 +82,18 @@ pub fn layout_mixed_tree_at(
       Some(scale) => {
         let item = match node.item {
           FlexChild(item) =>
-            match snap_tree_item_to_device_scale(item, scale) {
+            match prepare_tree_item_in_device_pixels(item, scale) {
               Ok(item) => FlexChild(item)
               Err(error) => return Err(Flex(error))
             }
           GridChild(item) => {
             let width = match
-              snap_dimension_to_device_scale(item.width, scale) {
+              prepare_dimension_in_device_pixels(item.width, scale) {
               Ok(value) => value
               Err(error) => return Err(Flex(error))
             }
             let height = match
-              snap_dimension_to_device_scale(item.height, scale) {
+              prepare_dimension_in_device_pixels(item.height, scale) {
               Ok(value) => value
               Err(error) => return Err(Flex(error))
             }
@@ -103,7 +103,7 @@ pub fn layout_mixed_tree_at(
         let children_style = match node.children_style {
           None => None
           Some(style) =>
-            match snap_mixed_style(style, scale) {
+            match prepare_mixed_style_in_device_pixels(style, scale) {
               Ok(style) => Some(style)
               Err(error) => return Err(error)
             }
@@ -112,13 +112,27 @@ pub fn layout_mixed_tree_at(
       }
     }
   }
+  let root_bounds = match scale_factor {
+    None => root_bounds
+    Some(scale) =>
+      match
+        @primitives.Rect::new(
+          root_bounds.left() * scale,
+          root_bounds.top() * scale,
+          root_bounds.size().width() * scale,
+          root_bounds.size().height() * scale,
+        ) {
+        Ok(bounds) => bounds
+        Err(_) => return Err(Flex(NonFiniteValue))
+      }
+  }
   let root_bounds = match root_size {
     None => root_bounds
     Some(size) => {
       let width = match scale_factor {
         None => size.width()
         Some(scale) =>
-          match snap_authored_length_to_device_grid(size.width(), scale) {
+          match authored_length_in_device_pixels(size.width(), scale) {
             Ok(value) => value
             Err(error) => return Err(Flex(error))
           }
@@ -126,7 +140,7 @@ pub fn layout_mixed_tree_at(
       let height = match scale_factor {
         None => size.height()
         Some(scale) =>
-          match snap_authored_length_to_device_grid(size.height(), scale) {
+          match authored_length_in_device_pixels(size.height(), scale) {
             Ok(value) => value
             Err(error) => return Err(Flex(error))
           }
@@ -161,21 +175,31 @@ pub fn layout_mixed_tree_at(
         final_items.push(item)
       }
     Some(scale) => {
-      final_root = match snap_absolute_rect_to_device_grid(root_bounds, scale) {
+      final_root = match
+        logical_rect_from_device_pixels(root_bounds, scale, snap_edges=true) {
         Ok(bounds) => bounds
         Err(error) => return Err(Flex(error))
       }
-      if final_root != root_bounds {
-        before_edge_snap.push((root_id, root_bounds))
+      let raw_root = match logical_rect_from_device_pixels(root_bounds, scale) {
+        Ok(bounds) => bounds
+        Err(error) => return Err(Flex(error))
+      }
+      if final_root != raw_root {
+        before_edge_snap.push((root_id, raw_root))
       }
       for item in output {
         let bounds = match
-          snap_absolute_rect_to_device_grid(item.bounds, scale) {
+          logical_rect_from_device_pixels(item.bounds, scale, snap_edges=true) {
           Ok(bounds) => bounds
           Err(error) => return Err(Flex(error))
         }
-        if bounds != item.bounds {
-          before_edge_snap.push((item.id, item.bounds))
+        let raw_bounds = match
+          logical_rect_from_device_pixels(item.bounds, scale) {
+          Ok(bounds) => bounds
+          Err(error) => return Err(Flex(error))
+        }
+        if bounds != raw_bounds {
+          before_edge_snap.push((item.id, raw_bounds))
         }
         final_items.push({ ..item, bounds, })
       }
@@ -191,34 +215,32 @@ pub fn layout_mixed_tree_at(
 }
 
 ///|
-fn snap_mixed_style(
+fn prepare_mixed_style_in_device_pixels(
   style : MixedTreeStyle,
   scale : Double,
 ) -> Result[MixedTreeStyle, TreeLayoutError] {
   match style {
     FlexStyle(style) =>
-      match snap_tree_style_to_device_scale(style, scale) {
+      match prepare_tree_style_in_device_pixels(style, scale) {
         Ok(style) => Ok(FlexStyle(style))
         Err(error) => Err(Flex(error))
       }
     GridStyle(style) => {
-      let gap_x = match
-        snap_authored_length_to_device_grid(style.gap_x, scale) {
+      let gap_x = match authored_length_in_device_pixels(style.gap_x, scale) {
         Ok(value) => value
         Err(error) => return Err(Flex(error))
       }
-      let gap_y = match
-        snap_authored_length_to_device_grid(style.gap_y, scale) {
+      let gap_y = match authored_length_in_device_pixels(style.gap_y, scale) {
         Ok(value) => value
         Err(error) => return Err(Flex(error))
       }
       let padding = match
-        snap_layout_insets_to_device_scale(style.padding, scale, false) {
+        prepare_insets_in_device_pixels(style.padding, scale, false) {
         Ok(value) => value
         Err(error) => return Err(Flex(error))
       }
       let border = match
-        snap_layout_insets_to_device_scale(style.border, scale, true) {
+        prepare_insets_in_device_pixels(style.border, scale, true) {
         Ok(value) => value
         Err(error) => return Err(Flex(error))
       }
