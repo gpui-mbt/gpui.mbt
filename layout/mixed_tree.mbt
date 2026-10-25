@@ -161,7 +161,14 @@ pub fn layout_mixed_tree_at(
   let overflow = Ref(false)
   match
     layout_mixed_children(
-      root_id, root_bounds, style, prepared, output, overflow, 0,
+      root_id,
+      root_bounds,
+      style,
+      prepared,
+      output,
+      overflow,
+      0,
+      scale_factor is Some(_),
     ) {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -258,6 +265,7 @@ fn layout_mixed_children(
   output : Array[TreeLayoutBox],
   overflow : Ref[Bool],
   depth : Int32,
+  device_grid : Bool,
 ) -> Result[Unit, TreeLayoutError] {
   if depth > MAX_FLEX_TREE_DEPTH {
     return Err(TreeTooDeep)
@@ -328,7 +336,17 @@ fn layout_mixed_children(
         Ok(value) => value
         Err(error) => return Err(Flex(error))
       }
-      match layout_flex(container, items) {
+      match
+        layout_flex_internal(
+          container,
+          items,
+          device_grid &&
+          (if style.direction.is_row() {
+            bounds.left() == 0.0
+          } else {
+            bounds.top() == 0.0
+          }),
+        ) {
         Err(error) => return Err(Flex(error))
         Ok(layout) => {
           overflow.val = overflow.val || layout.overflow
@@ -366,6 +384,7 @@ fn layout_mixed_children(
             output,
             overflow,
             depth + 1,
+            device_grid,
           ) {
           Err(error) => return Err(error)
           Ok(_) => ()

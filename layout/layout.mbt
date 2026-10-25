@@ -1113,6 +1113,15 @@ pub fn layout_flex(
   container : FlexContainer,
   items : Array[FlexItem],
 ) -> Result[FlexLayout, LayoutError] {
+  layout_flex_internal(container, items, false)
+}
+
+///|
+fn layout_flex_internal(
+  container : FlexContainer,
+  items : Array[FlexItem],
+  device_grid : Bool,
+) -> Result[FlexLayout, LayoutError] {
   if has_duplicate_ids(items) {
     Err(DuplicateId)
   } else {
@@ -1151,10 +1160,12 @@ pub fn layout_flex(
                 FlexWrap::NoWrap =>
                   place_items(
                     container, prepared, content_bounds, main_extent, cross_extent,
+                    device_grid,
                   )
                 FlexWrap::Wrap | FlexWrap::WrapReverse =>
                   place_wrapped_items(
                     container, prepared, content_bounds, main_extent, cross_extent,
+                    device_grid,
                   )
               }
           }
@@ -1359,12 +1370,80 @@ fn reverse_main_starts(
 }
 
 ///|
+// Taffy evaluates fitting distributed lines in f32, adding the physical
+// content origin before each per-item alignment offset. Only device-grid
+// zero-flex lines opt into this compatibility path; raw Double geometry and
+// very large extents retain the numerically stable layout path above.
+fn device_distributed_starts(
+  sizes : Array[Double],
+  extent : Double,
+  origin : Double,
+  gap : Double,
+  justify : JustifyContent,
+  reverse : Bool,
+) -> Array[Double]? {
+  if sizes.length() <= 1 ||
+    !(justify is SpaceBetween ||
+    justify is SpaceAround ||
+    justify is SpaceEvenly) {
+    return None
+  }
+  let limit = 16777216.0
+  if extent > limit || origin.abs() > limit || gap > limit {
+    return None
+  }
+  let mut sum : Float = 0.0
+  for size in sizes {
+    if size > limit || Float::from_double(size).to_double() != size {
+      return None
+    }
+    sum = sum + Float::from_double(size)
+  }
+  let count = Float::from_int(sizes.length())
+  let gap_f = Float::from_double(gap)
+  let used = gap_f * (count - 1.0) + sum
+  let free = Float::from_double(extent) - used
+  if free <= 0.0 || used.to_double() > limit {
+    return None
+  }
+  let between : Float = match justify {
+    SpaceBetween => free / (count - 1.0)
+    SpaceAround => free / count
+    _ => free / (count + 1.0)
+  }
+  let leading : Float = match justify {
+    SpaceBetween => 0.0
+    SpaceAround => between / 2.0
+    _ => between
+  }
+  let starts = sizes.map(_ => 0.0)
+  let mut cursor = Float::from_double(origin)
+  let mut ordinal = 0
+  while ordinal < sizes.length() {
+    let index = if reverse { sizes.length() - 1 - ordinal } else { ordinal }
+    let offset = if ordinal == 0 { leading } else { gap_f + between }
+    let start = cursor + offset
+    let size = Float::from_double(sizes[index])
+    if round_half_toward_zero((start + size).to_double()) !=
+      round_half_toward_zero(start.to_double() + sizes[index]) {
+      return None
+    }
+    starts[index] = start.to_double()
+    // Match Taffy's grouping: cursor += offset + margin(0) + size.
+    cursor = cursor + (offset + Float::from_double(sizes[index]))
+    ordinal += 1
+  }
+  Some(starts)
+}
+
+///|
 fn place_items(
   container : FlexContainer,
   prepared : Array[PreparedItem],
   content_bounds : @primitives.Rect,
   main_extent : Double,
   cross_extent : Double,
+  device_grid : Bool,
 ) -> Result[FlexLayout, LayoutError] {
   let count = prepared.length()
   let gaps = if count > 1 {
@@ -1385,6 +1464,28 @@ fn place_items(
           leftover,
           reverse=container.direction.is_reverse(),
         )
+        let device_starts = if device_grid &&
+          prepared.all(entry => {
+            entry.item.grow == 0.0 &&
+            entry.item.shrink == 0.0 &&
+            !(entry.item.flex_basis is Percent(_)) &&
+            !(entry.item.main is Dimension::Percent(_))
+          }) {
+          device_distributed_starts(
+            resolved,
+            main_extent,
+            if container.direction.is_row() {
+              content_bounds.left()
+            } else {
+              content_bounds.top()
+            },
+            container.main_gap(),
+            container.justify,
+            container.direction.is_reverse(),
+          )
+        } else {
+          None
+        }
         let reverse_starts = if container.direction.is_reverse() {
           reverse_main_starts(
             resolved,
@@ -1416,14 +1517,20 @@ fn place_items(
             cursor
           }
           let x = if container.direction.is_row() {
-            content_bounds.left() + main_start
+            match device_starts {
+              Some(starts) => starts[index]
+              None => content_bounds.left() + main_start
+            }
           } else {
             content_bounds.left() + cross_offset
           }
           let y = if container.direction.is_row() {
             content_bounds.top() + cross_offset
           } else {
-            content_bounds.top() + main_start
+            match device_starts {
+              Some(starts) => starts[index]
+              None => content_bounds.top() + main_start
+            }
           }
           let width = if container.direction.is_row() {
             main_size
@@ -1475,6 +1582,7 @@ fn place_wrapped_items(
   content_bounds : @primitives.Rect,
   main_extent : Double,
   cross_extent : Double,
+  device_grid : Bool,
 ) -> Result[FlexLayout, LayoutError] {
   let lines : Array[Array[PreparedItem]] = []
   let mut current : Array[PreparedItem] = []
@@ -1572,7 +1680,7 @@ fn place_wrapped_items(
             }
             place_wrapped_lines(
               container, lines, resolved_lines, used_main, line_cross_sizes, cross_total,
-              content_bounds, main_extent, cross_extent,
+              content_bounds, main_extent, cross_extent, device_grid,
             )
           }
         }
@@ -1592,6 +1700,7 @@ fn place_wrapped_lines(
   content_bounds : @primitives.Rect,
   main_extent : Double,
   cross_extent : Double,
+  device_grid : Bool,
 ) -> Result[FlexLayout, LayoutError] {
   let line_offsets : Array[Double] = Array::make(lines.length(), 0.0)
   let cross_free = cross_extent - cross_total
@@ -1697,6 +1806,28 @@ fn place_wrapped_lines(
       leftover,
       reverse=container.direction.is_reverse(),
     )
+    let device_starts = if device_grid &&
+      line.all(entry => {
+        entry.item.grow == 0.0 &&
+        entry.item.shrink == 0.0 &&
+        !(entry.item.flex_basis is Percent(_)) &&
+        !(entry.item.main is Dimension::Percent(_))
+      }) {
+      device_distributed_starts(
+        sizes,
+        main_extent,
+        if container.direction.is_row() {
+          content_bounds.left()
+        } else {
+          content_bounds.top()
+        },
+        container.main_gap(),
+        container.justify,
+        container.direction.is_reverse(),
+      )
+    } else {
+      None
+    }
     let reverse_starts = if container.direction.is_reverse() {
       reverse_main_starts(
         sizes,
@@ -1732,14 +1863,20 @@ fn place_wrapped_lines(
         main_cursor
       }
       let x = if container.direction.is_row() {
-        content_bounds.left() + main_start
+        match device_starts {
+          Some(starts) => starts[item_index]
+          None => content_bounds.left() + main_start
+        }
       } else {
         content_bounds.left() + cross_start
       }
       let y = if container.direction.is_row() {
         content_bounds.top() + cross_start
       } else {
-        content_bounds.top() + main_start
+        match device_starts {
+          Some(starts) => starts[item_index]
+          None => content_bounds.top() + main_start
+        }
       }
       let width = if container.direction.is_row() {
         main_size

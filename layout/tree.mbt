@@ -418,6 +418,7 @@ fn layout_flex_tree_with_root_sizing(
   root_style : FlexTreeStyle,
   nodes : Array[FlexTreeNode],
   root_sizing : FlexRootSizing,
+  device_grid~ : Bool = false,
 ) -> Result[FlexTreeLayout, TreeLayoutError] {
   match validate_tree_preorder(root_id, nodes) {
     Err(error) => Err(error)
@@ -431,7 +432,7 @@ fn layout_flex_tree_with_root_sizing(
           )
           match
             layout_tree_children(
-              root_id, root_bounds, root_style, nodes, output, overflow, 0,
+              root_id, root_bounds, root_style, nodes, output, overflow, 0, device_grid,
             ) {
             Err(error) => Err(error)
             Ok(_) =>
@@ -553,7 +554,12 @@ fn layout_flex_tree_with_device_scale_and_root_sizing(
           None =>
             match
               layout_flex_tree_with_root_sizing(
-                root_id, device_root_size, snapped_root_style, snapped_nodes, root_sizing,
+                root_id,
+                device_root_size,
+                snapped_root_style,
+                snapped_nodes,
+                root_sizing,
+                device_grid=true,
               ) {
               Err(error) => Err(error)
               Ok(layout) => {
@@ -803,6 +809,7 @@ fn layout_tree_children(
   output : Array[TreeLayoutBox],
   overflow : Ref[Bool],
   depth : Int32,
+  device_grid : Bool,
 ) -> Result[Unit, TreeLayoutError] {
   let direct_nodes : Array[FlexTreeNode] = []
   for node in nodes {
@@ -826,7 +833,17 @@ fn layout_tree_children(
           measure_direct_items(direct_nodes, style.direction, nodes, depth) {
           Err(error) => Err(error)
           Ok(direct_items) =>
-            match layout_flex(container, direct_items) {
+            match
+              layout_flex_internal(
+                container,
+                direct_items,
+                device_grid &&
+                (if style.direction.is_row() {
+                  parent_bounds.left() == 0.0
+                } else {
+                  parent_bounds.top() == 0.0
+                }),
+              ) {
               Err(error) => Err(Flex(error))
               Ok(line) => {
                 if line.overflow() {
@@ -873,6 +890,7 @@ fn layout_tree_children(
                                 output,
                                 overflow,
                                 depth + 1,
+                                device_grid,
                               ) {
                               Err(error) => failure = Some(error)
                               Ok(_) => ()
