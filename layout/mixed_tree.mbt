@@ -427,6 +427,23 @@ fn measure_mixed_container(
     | (ColumnReverse, HeightAxis) => true
     _ => false
   }
+  let zero_flex_mode = if main_axis {
+    let items : Array[FlexItem] = []
+    for node in nodes {
+      if node.parent == parent {
+        match node.item {
+          FlexChild(item) => items.push(item)
+          _ => return Err(MismatchedItem)
+        }
+      }
+    }
+    match intrinsic_zero_flex_mode(style, items) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  } else {
+    false
+  }
   let mut count = 0
   let mut total = 0.0
   let mut maximum = 0.0
@@ -445,19 +462,34 @@ fn measure_mixed_container(
       if !valid_limits(minimum, limit) {
         return Err(Flex(InvalidMinMax))
       }
-      if main_axis && !(item.flex_basis is FlexBasis::Auto) {
-        return Err(UnsupportedIntrinsicFlexBasis)
-      }
-      let value = match resolve_dimension(dimension, None) {
+      let resolved = match resolve_dimension(dimension, None) {
         Err(error) => return Err(Flex(error))
-        Ok(Some(value)) => value
-        Ok(None) =>
-          match measure_mixed_child(node, axis, nodes, depth + 1) {
-            Ok(value) => value
-            Err(error) => return Err(error)
-          }
+        Ok(value) => value
       }
-      let value = clamp_once(value, minimum, limit)
+      let value = if zero_flex_mode && item.flex_basis is Points(_) {
+        match intrinsic_point_contribution(item, resolved) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+      } else {
+        match resolved {
+          Some(value) => value
+          None =>
+            match measure_mixed_child(node, axis, nodes, depth + 1) {
+              Ok(value) => value
+              Err(error) => return Err(error)
+            }
+        }
+      }
+      let value = if zero_flex_mode {
+        if value < minimum {
+          minimum
+        } else {
+          value
+        }
+      } else {
+        clamp_once(value, minimum, limit)
+      }
       if main_axis {
         total += value
       } else if value > maximum {
