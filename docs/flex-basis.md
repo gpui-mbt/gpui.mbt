@@ -19,12 +19,33 @@ Recursive layout and mixed flex trees retain it. Device-scale preparation snaps
 point basis with the same authored-length policy as point dimensions, before
 final absolute-edge rounding.
 
-This bounded API does not represent content basis. Explicit basis
-inside a container whose main axis is being intrinsically measured is rejected
-with `TreeLayoutError::UnsupportedIntrinsicFlexBasis`; indefinite/content flex
-basis sizing is not claimed. Existing Auto intrinsic behavior is unchanged.
+## Bounded intrinsic parents
+
+An auto-main-size parent supports Auto and point bases in a nowrap line when
+**every direct child has zero grow and zero shrink**. Both pure and mixed trees
+use the same rule. A point child's max-content contribution is the maximum of
+its basis, its definite authored main size (if any), and its minimum main size.
+An Auto child's contribution uses its authored/intrinsic main size floored by
+its minimum. Gaps, padding and border are then added to the parent extent.
+
+A child's maximum main size bounds its final box, **not** this zero-flex
+max-content contribution. For example, authored width 40, point basis 60 and
+maximum width 24 contribute 60 to the parent but produce a 24-wide child. A zero
+basis can likewise leave a positive parent contribution when the authored main
+size is positive. Point bases with an Auto authored main size do not use the
+intrinsic fallback as an additional preferred size.
+
+This also corrects the max-limit contribution of Auto-only, nowrap, zero-flex
+lines. Existing Auto-only flexible/wrapped intrinsic approximation is otherwise
+unchanged. Point bases in wrapped intrinsic lines or in lines with any nonzero
+grow/shrink factor still return `TreeLayoutError::UnsupportedIntrinsicFlexBasis`.
+Percentage basis on an intrinsically measured main axis remains unsupported;
+percentage authored dimensions without a definite containing extent remain
+indefinite. Content basis is not represented. Text/min-content negotiation,
+margins and general CSS intrinsic sizing are not claimed.
 
 Validation is covered by `layout/flex_basis_test.mbt`,
-`layout/flex_basis_wbtest.mbt`, and `layout/percent_basis_test.mbt`. External GPUI
+`layout/flex_basis_wbtest.mbt`, `layout/percent_basis_test.mbt`, and
+`layout/intrinsic_basis_test.mbt`. External GPUI
 differential evidence is maintained in the separate gpui-conformance repository,
 not inferred from these unit tests.

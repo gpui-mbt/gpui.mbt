@@ -127,7 +127,7 @@ test "recursive device grid retains and snaps point basis" {
 }
 
 ///|
-test "intrinsic flex containers explicitly reject point basis in pure and mixed trees" {
+test "intrinsic flex containers reject point basis with default shrink negotiation" {
   let style = @layout.FlexTreeStyle::new(@layout.FlowDirection::row())
   let branch = tree_auto_item(
     2,

@@ -435,7 +435,8 @@ pub fn Insets::left(self : Insets) -> Double {
 ///|
 /// Independent flex base size. Auto uses the main dimension, then intrinsic
 /// size. Percent is a ratio of the definite container inner main extent;
-/// content and intrinsic-parent basis sizing are not represented by this API.
+/// content basis is not represented. Intrinsic point bases require nowrap
+/// lines whose direct children all have zero grow and shrink.
 pub enum FlexBasis {
   Auto
   Points(Double)

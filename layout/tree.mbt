@@ -975,6 +975,50 @@ priv enum MeasureAxis {
 }
 
 ///|
+// Point bases in a nowrap, completely inflexible intrinsic line have a
+// bounded max-content contribution. Other intrinsic flex negotiation is not
+// implemented. Auto-only flexible/wrapped lines retain prior measurement.
+fn intrinsic_zero_flex_mode(
+  style : FlexTreeStyle,
+  items : Array[FlexItem],
+) -> Result[Bool, TreeLayoutError] {
+  let mut has_points = false
+  for item in items {
+    match item.flex_basis {
+      Auto => ()
+      Points(_) => has_points = true
+      Percent(_) => return Err(UnsupportedIntrinsicFlexBasis)
+    }
+  }
+  let mut bounded = style.wrap is NoWrap
+  for item in items {
+    if item.grow != 0.0 || item.shrink != 0.0 {
+      bounded = false
+    }
+  }
+  if has_points && !bounded {
+    Err(UnsupportedIntrinsicFlexBasis)
+  } else {
+    Ok(bounded)
+  }
+}
+
+///|
+// The preferred authored main size can enlarge a zero-flex child's intrinsic
+// contribution beyond its point basis. Its max-main limit bounds the eventual
+// child box, not this contribution (pinned GPUI/Taffy max-content behavior).
+fn intrinsic_point_contribution(
+  item : FlexItem,
+  preferred : Double?,
+) -> Result[Double, TreeLayoutError] {
+  let authored = preferred.unwrap_or(0.0)
+  match item.resolved_flex_basis(authored, 0.0) {
+    Err(error) => Err(Flex(error))
+    Ok(basis) => Ok(if basis > authored { basis } else { authored })
+  }
+}
+
+///|
 /// Measure only the requested physical axis. This is important for mixed
 /// definite/auto containers: a percentage on a definite orthogonal axis is
 /// left for layout, while a percentage against the measured auto axis fails.
@@ -995,6 +1039,20 @@ fn measure_container_axis(
       | (ColumnReverse, HeightAxis) => true
       _ => false
     }
+    let zero_flex_mode = if axis_is_main {
+      let items : Array[FlexItem] = []
+      for node in nodes {
+        if node.parent == parent_id {
+          items.push(node.item)
+        }
+      }
+      match intrinsic_zero_flex_mode(style, items) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+    } else {
+      false
+    }
     let mut count = 0
     let mut total = 0.0
     let mut maximum = 0.0
@@ -1010,22 +1068,31 @@ fn measure_container_axis(
         }
         if !valid_limits(minimum, maximum_value) {
           failure = Some(Flex(InvalidMinMax))
-        } else if axis_is_main && !(item.flex_basis is FlexBasis::Auto) {
-          // Intrinsic flex-base negotiation is outside this definite-size API.
-          failure = Some(UnsupportedIntrinsicFlexBasis)
         } else {
           match resolve_dimension(dimension, None) {
             Err(error) => failure = Some(Flex(error))
             Ok(resolved) => {
-              let natural = match resolved {
-                Some(value) => Ok(value)
-                None =>
-                  measure_child_intrinsic_axis(node, axis, nodes, depth + 1)
+              let natural = if zero_flex_mode && item.flex_basis is Points(_) {
+                intrinsic_point_contribution(item, resolved)
+              } else {
+                match resolved {
+                  Some(value) => Ok(value)
+                  None =>
+                    measure_child_intrinsic_axis(node, axis, nodes, depth + 1)
+                }
               }
               match natural {
                 Err(error) => failure = Some(error)
                 Ok(value) => {
-                  let bounded = clamp_once(value, minimum, maximum_value)
+                  let bounded = if zero_flex_mode {
+                    if value < minimum {
+                      minimum
+                    } else {
+                      value
+                    }
+                  } else {
+                    clamp_once(value, minimum, maximum_value)
+                  }
                   if !finite(bounded) {
                     failure = Some(Flex(NonFiniteValue))
                   } else if axis_is_main {

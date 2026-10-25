@@ -4,6 +4,12 @@
 
 ### Added
 
+- Support bounded intrinsic point flex-basis in pure and mixed trees for
+  nowrap lines with zero grow/shrink on every direct child. Preserve the
+  distinction between max-content parent contributions and limited child boxes;
+  correct the corresponding Auto-only zero-flex maximum-limit contribution.
+  Other intrinsic point negotiation and indefinite percentages remain rejected.
+
 - Add independent Auto/finite nonnegative point `FlexBasis` on flex items.
   Preserve it through builders, recursive layout and device-scale preparation;
   explicitly reject intrinsic-main-axis basis sizing outside this bounded slice.
