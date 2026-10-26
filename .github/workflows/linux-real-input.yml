@@ -1,0 +1,41 @@
+name: Linux real OS-input acceptance
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-os-input:
+    runs-on: ubuntu-24.04
+    container: debian:13
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install declared Debian host prerequisites
+        run: |
+          prerequisites_failed() {
+            mkdir -p "$RUNNER_TEMP/gpui-input-evidence"
+            echo '{"status":"NOT_RUN","reason":"Host prerequisite installation failed before acceptance runner"}' > "$RUNNER_TEMP/gpui-input-evidence/acceptance.json"
+          }
+          trap prerequisites_failed ERR
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git curl build-essential pkg-config python3 python3-pil dbus-daemon libegl1 libgles2 libgl1-mesa-dri libgbm1 libx11-6 libxtst6 libxfont2 libxrender1 libxext6 libxfixes3 libxau6 libxdmcp6 libpixman-1-0 libepoxy0 libdrm2 libudev1 libinput10 libxcb1 libxcursor1 libxkbcommon0 libwayland-client0 libwayland-server0 libwayland-cursor0 libwayland-egl1 imagemagick tesseract-ocr tesseract-ocr-eng
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Run locked real-input catalog
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          python3 infra/linux-desktop/ci-acceptance.py \
+            --profile-root "$RUNNER_TEMP/gpui-desktop" \
+            --output "$RUNNER_TEMP/gpui-input-evidence"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: linux-real-input-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/gpui-input-evidence/
+          if-no-files-found: error

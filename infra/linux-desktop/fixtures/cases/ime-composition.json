@@ -4,7 +4,7 @@
   "description": "Real Japanese preedit, candidate conversion, commit and cancel.",
   "platform": "linux-x11-weston",
   "disposition": "unsupported",
-  "reason": "GPUI host IME adapter is unimplemented. Version 1 intentionally has no fabricated composition events; a future real-adapter case must cover preedit/candidates/commit/cancel. Japanese literals and paste do not establish IME.",
+  "reason": "This direct-keyboard catalog does not execute the separate experimental text-input-v1 IME owner. Real Japanese preedit/candidates/commit/cancel and held shortcuts require wayland-ime/gpui_probe.py with a newly qualified exact-current Weston desktop-shell/IBus/Mozc recovery deployment. NOT_RUN in this catalog; Japanese literals and paste do not establish IME.",
   "timeout_ms": 15000,
   "initial": {
     "text": "Hello 日本",
