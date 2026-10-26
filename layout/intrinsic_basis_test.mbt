@@ -156,7 +156,6 @@ test "intrinsic points reject flex negotiation and wrapping in pure and mixed tr
       [child.with_flex(0, 1).unwrap()],
       [child, auto.with_flex(1, 0).unwrap()],
       [child, auto.with_flex(0, 1).unwrap()],
-      [child.with_flex_basis(@layout.FlexBasis::percent(0.5).unwrap())],
     ] {
     for result in intrinsic_basis_results(direction, style, children, 1) {
       assert_true(

@@ -584,6 +584,11 @@ fn layout_flex_tree_with_device_scale_and_root_sizing(
                 if root_bounds != raw_root {
                   before_edge_snap.push((layout.root_id, raw_root))
                 }
+                let precision_ids = intrinsic_percent_precision_ids(
+                  root_id,
+                  Some(root_style.direction),
+                  nodes,
+                )
                 let items : Array[TreeLayoutBox] = []
                 for item in layout.items {
                   let bounds = match
@@ -594,6 +599,14 @@ fn layout_flex_tree_with_device_scale_and_root_sizing(
                     ) {
                     Ok(bounds) => bounds
                     Err(error) => return Err(Flex(error))
+                  }
+                  let bounds = match
+                    intrinsic_percent_logical_bounds(
+                      bounds,
+                      precision_ids.contains(item.id),
+                    ) {
+                    Ok(value) => value
+                    Err(error) => return Err(error)
                   }
                   let raw_bounds = match
                     logical_rect_from_device_pixels(item.bounds, scale_factor) {
@@ -993,19 +1006,18 @@ priv enum MeasureAxis {
 }
 
 ///|
-// Point bases in a nowrap, completely inflexible intrinsic line have a
+// Explicit bases in a nowrap, completely inflexible intrinsic line have a
 // bounded max-content contribution. Other intrinsic flex negotiation is not
 // implemented. Auto-only flexible/wrapped lines retain prior measurement.
 fn intrinsic_zero_flex_mode(
   style : FlexTreeStyle,
   items : Array[FlexItem],
 ) -> Result[Bool, TreeLayoutError] {
-  let mut has_points = false
+  let mut has_explicit_basis = false
   for item in items {
     match item.flex_basis {
       Auto => ()
-      Points(_) => has_points = true
-      Percent(_) => return Err(UnsupportedIntrinsicFlexBasis)
+      Points(_) | Percent(_) => has_explicit_basis = true
     }
   }
   let mut bounded = style.wrap is NoWrap
@@ -1014,7 +1026,7 @@ fn intrinsic_zero_flex_mode(
       bounded = false
     }
   }
-  if has_points && !bounded {
+  if has_explicit_basis && !bounded {
     Err(UnsupportedIntrinsicFlexBasis)
   } else {
     Ok(bounded)
@@ -1037,9 +1049,36 @@ fn intrinsic_point_contribution(
 }
 
 ///|
+// An unresolved percentage basis uses the authored main size during intrinsic
+// measurement, but is retained for final layout against the measured parent.
+// Only definite authored sizes and empty Auto leaves are qualified here;
+// content-dependent and nested Auto fallback remain explicitly unsupported.
+fn intrinsic_percent_contribution(
+  item : FlexItem,
+  preferred : Double?,
+  has_children : Bool,
+  direction : FlowDirection,
+) -> Result[Double, TreeLayoutError] {
+  let intrinsic_main = if direction.is_row() {
+    item.intrinsic.width()
+  } else {
+    item.intrinsic.height()
+  }
+  match preferred {
+    Some(value) => Ok(value)
+    None =>
+      if has_children || intrinsic_main != 0.0 {
+        Err(UnsupportedIntrinsicFlexBasis)
+      } else {
+        Ok(0.0)
+      }
+  }
+}
+
+///|
 /// Measure only the requested physical axis. This is important for mixed
 /// definite/auto containers: a percentage on a definite orthogonal axis is
-/// left for layout, while a percentage against the measured auto axis fails.
+/// left for layout, while an authored percentage dimension against the measured auto axis fails.
 fn measure_container_axis(
   parent_id : UInt64,
   style : FlexTreeStyle,
@@ -1092,6 +1131,13 @@ fn measure_container_axis(
             Ok(resolved) => {
               let natural = if zero_flex_mode && item.flex_basis is Points(_) {
                 intrinsic_point_contribution(item, resolved)
+              } else if zero_flex_mode && item.flex_basis is Percent(_) {
+                intrinsic_percent_contribution(
+                  item,
+                  resolved,
+                  node.children_style is Some(_),
+                  style.direction,
+                )
               } else {
                 match resolved {
                   Some(value) => Ok(value)
@@ -1274,4 +1320,88 @@ fn copy_tree_boxes(values : Array[TreeLayoutBox]) -> Array[TreeLayoutBox] {
     copy.push(value)
   }
   copy
+}
+
+///|
+// Select only subtrees that were previously rejected: a Percent basis on the
+// intrinsically measured main axis of a nested flex container. Orientation is
+// resolved in physical axes, so an Auto orthogonal cross axis is not enough.
+// Preorder validation has already run before this helper is used.
+fn intrinsic_percent_precision_ids(
+  root_id : UInt64,
+  root_direction : FlowDirection?,
+  nodes : Array[FlexTreeNode],
+) -> Array[UInt64] {
+  let selected : Array[UInt64] = []
+  for node in nodes {
+    if selected.contains(node.parent) {
+      selected.push(node.id())
+    } else {
+      match node.children_style {
+        None => ()
+        Some(style) => {
+          let mut parent_direction = if node.parent == root_id {
+            root_direction
+          } else {
+            None
+          }
+          for parent in nodes {
+            if parent.id() == node.parent {
+              parent_direction = parent.children_style.map(fn(value) {
+                value.direction
+              })
+            }
+          }
+          match parent_direction {
+            None => ()
+            Some(direction) => {
+              let axis = if direction.is_row() == style.direction.is_row() {
+                node.item.main
+              } else {
+                node.item.cross
+              }
+              if axis is Auto {
+                let mut has_percent = false
+                for child in nodes {
+                  if child.parent == node.id() &&
+                    child.item.flex_basis is Percent(_) {
+                    has_percent = true
+                  }
+                }
+                if has_percent {
+                  selected.push(node.id())
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  selected
+}
+
+///|
+// GPUI exposes Pixels as f32, including the final device-to-logical division.
+// Apply that representation only to newly supported intrinsic-Percent
+// subtrees in device-scale entry points. Raw Double layout and saved unsnapped
+// rectangles retain their prior precision; unrelated siblings are unchanged.
+fn intrinsic_percent_logical_bounds(
+  bounds : @primitives.Rect,
+  selected : Bool,
+) -> Result[@primitives.Rect, TreeLayoutError] {
+  if !selected {
+    Ok(bounds)
+  } else {
+    match
+      @primitives.Rect::new(
+        Float::from_double(bounds.left()).to_double(),
+        Float::from_double(bounds.top()).to_double(),
+        Float::from_double(bounds.size().width()).to_double(),
+        Float::from_double(bounds.size().height()).to_double(),
+      ) {
+      Ok(value) => Ok(value)
+      Err(_) => Err(GeometryFailure)
+    }
+  }
 }

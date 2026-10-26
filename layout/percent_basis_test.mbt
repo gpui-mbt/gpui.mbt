@@ -177,7 +177,7 @@ test "nested percentages resolve against allocated parent in pure and mixed tree
 }
 
 ///|
-test "intrinsic main axis still rejects percentage basis in pure and mixed trees" {
+test "intrinsic percentage basis rejects default shrink negotiation in pure and mixed trees" {
   let style = @layout.FlexTreeStyle::new(@layout.FlowDirection::row())
   let parent = tree_auto_item(
     2,
