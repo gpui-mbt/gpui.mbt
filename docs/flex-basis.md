@@ -21,7 +21,7 @@ final absolute-edge rounding.
 
 ## Bounded intrinsic parents
 
-An auto-main-size parent supports Auto and point bases in a nowrap line when
+An auto-main-size parent supports Auto, point and percentage bases in a nowrap line when
 **every direct child has zero grow and zero shrink**. Both pure and mixed trees
 use the same rule. A point child's max-content contribution is the maximum of
 its basis, its definite authored main size (if any), and its minimum main size.
@@ -39,13 +39,31 @@ This also corrects the max-limit contribution of Auto-only, nowrap, zero-flex
 lines. Existing Auto-only flexible/wrapped intrinsic approximation is otherwise
 unchanged. Point bases in wrapped intrinsic lines or in lines with any nonzero
 grow/shrink factor still return `TreeLayoutError::UnsupportedIntrinsicFlexBasis`.
-Percentage basis on an intrinsically measured main axis remains unsupported;
-percentage authored dimensions without a definite containing extent remain
+A percentage basis is indefinite during intrinsic measurement: its contribution
+uses the definite authored main size (floored by the minimum, not capped by the
+maximum), or zero for an empty Auto leaf. The ratio is retained and resolves
+against the eventual parent's inner extent during final layout, including the
+space occupied by gaps. Thus even a zero ratio can have a positive authored
+parent contribution, and ratios above one can overflow the measured parent.
+Both pure and mixed trees use this two-stage behavior. Percentage bases with
+wrapping or any nonzero grow/shrink are rejected just like point bases.
+
+Percentage basis with an Auto authored main size is currently qualified only
+for empty-main-axis leaves (zero intrinsic main extent, no child style). A
+definite orthogonal cross size does not count as intrinsic main content. Nonempty
+intrinsic content or nested Auto children remain explicitly unsupported.
+Percentage authored dimensions without a definite containing extent remain
 indefinite. Content basis is not represented. Text/min-content negotiation,
 margins and general CSS intrinsic sizing are not claimed.
 
 Validation is covered by `layout/flex_basis_test.mbt`,
 `layout/flex_basis_wbtest.mbt`, `layout/percent_basis_test.mbt`, and
-`layout/intrinsic_basis_test.mbt`. External GPUI
+`layout/intrinsic_basis_test.mbt`, and `layout/intrinsic_percent_basis_test.mbt`. External GPUI
 differential evidence is maintained in the separate gpui-conformance repository,
 not inferred from these unit tests.
+
+Device-scale entry points expose final snapped coordinates/sizes in GPUI's f32
+logical representation for these newly supported intrinsic-Percent subtrees.
+Eligibility follows the measured physical main axis, not merely any Auto axis.
+Unrelated siblings, previously supported definite-parent Percent layouts, raw
+Double entry points, and `bounds_before_edge_snap` retain their existing behavior.

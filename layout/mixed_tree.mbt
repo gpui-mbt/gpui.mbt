@@ -194,11 +194,38 @@ pub fn layout_mixed_tree_at(
       if final_root != raw_root {
         before_edge_snap.push((root_id, raw_root))
       }
+      let precision_nodes : Array[FlexTreeNode] = []
+      for node in nodes {
+        let item = match node.item {
+          FlexChild(value) => value
+          GridChild(_) => FlexItem::new(node.id(), Auto, Auto, zero)
+        }
+        let children_style = match node.children_style {
+          Some(FlexStyle(value)) => Some(value)
+          _ => None
+        }
+        precision_nodes.push({ item, parent: node.parent, children_style, })
+      }
+      let root_direction = match root_style {
+        FlexStyle(value) => Some(value.direction)
+        GridStyle(_) => None
+      }
+      let precision_ids = intrinsic_percent_precision_ids(
+        root_id, root_direction, precision_nodes,
+      )
       for item in output {
         let bounds = match
           logical_rect_from_device_pixels(item.bounds, scale, snap_edges=true) {
           Ok(bounds) => bounds
           Err(error) => return Err(Flex(error))
+        }
+        let bounds = match
+          intrinsic_percent_logical_bounds(
+            bounds,
+            precision_ids.contains(item.id),
+          ) {
+          Ok(value) => value
+          Err(error) => return Err(error)
         }
         let raw_bounds = match
           logical_rect_from_device_pixels(item.bounds, scale) {
@@ -487,6 +514,17 @@ fn measure_mixed_container(
       }
       let value = if zero_flex_mode && item.flex_basis is Points(_) {
         match intrinsic_point_contribution(item, resolved) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+      } else if zero_flex_mode && item.flex_basis is Percent(_) {
+        match
+          intrinsic_percent_contribution(
+            item,
+            resolved,
+            node.children_style is Some(_),
+            style.direction,
+          ) {
           Err(error) => return Err(error)
           Ok(value) => value
         }
