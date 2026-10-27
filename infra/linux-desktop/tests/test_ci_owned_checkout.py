@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('ci_owned_checkout', HERE/'ci-owned-checkout.py')
@@ -20,6 +21,11 @@ class OwnedCheckoutTests(unittest.TestCase):
         self.runner = self.root/'runner'
         self.source.mkdir()
         self.runner.mkdir()
+        self.home = self.runner/'gpui-ime-home'
+        self.home.mkdir(mode=0o700)
+        environment = patch.dict(os.environ, HOME=str(self.home), GIT_CONFIG_GLOBAL=str(self.home/'.gitconfig'))
+        environment.start()
+        self.addCleanup(environment.stop)
         subprocess.run(['git', 'init', '-q', str(self.source)], check=True)
         ci.git(self.source, 'config', 'user.name', 'Fixture')
         ci.git(self.source, 'config', 'user.email', 'fixture@example.invalid')
@@ -52,6 +58,57 @@ class OwnedCheckoutTests(unittest.TestCase):
     def test_symlink_destination_rejected(self):
         (self.runner/'gpui-ime-iac').symlink_to(self.root/'missing')
         with self.assertRaises(ValueError):
+            ci.clone(self.source, self.runner)
+
+    def test_file_transport_trust_is_exact_for_strict_git_directory(self):
+        original = subprocess.run
+        strict_env = dict(os.environ, GIT_TEST_ASSUME_DIFFERENT_OWNER='1')
+        denied = original(['git', '-C', str(self.source/'.git'), 'rev-parse', 'HEAD'],
+                          capture_output=True, text=True, env=strict_env, timeout=30)
+        self.assertNotEqual(denied.returncode, 0)
+        self.assertIn('dubious ownership', denied.stderr)
+        accepted = original(['git', '-c', 'safe.directory='+str(self.source/'.git'),
+                             '-C', str(self.source/'.git'), 'rev-parse', 'HEAD'],
+                            capture_output=True, text=True, env=strict_env, timeout=30)
+        self.assertEqual(accepted.returncode, 0)
+        seen = []
+        def strict_clone(command, **kwargs):
+            if 'clone' in command:
+                seen.append(command)
+            return original(command, **kwargs)
+        with patch.object(ci.subprocess, 'run', side_effect=strict_clone):
+            result = ci.clone(self.source, self.runner)
+        self.assertEqual(ci.identity(Path(result['checkout'])), ci.identity(self.source))
+        trust = subprocess.check_output(['git', 'config', '--file', str(self.home/'.gitconfig'),
+                                         '--get-all', 'safe.directory'], text=True).splitlines()
+        self.assertEqual(trust, [str(self.source/'.git')])
+        self.assertNotIn('*', trust)
+        self.assertEqual(seen[0][:2], ['git', 'clone'])
+
+    def test_indirect_git_directory_rejected_before_clone(self):
+        original = self.source/'.git'
+        elsewhere = self.root/'git-directory'
+        original.rename(elsewhere)
+        original.symlink_to(elsewhere, target_is_directory=True)
+        with patch.object(ci.subprocess, 'run') as run:
+            with self.assertRaisesRegex(ValueError, 'source .git'):
+                ci.clone(self.source, self.runner)
+            run.assert_not_called()
+
+    def test_worktree_git_pointer_is_rejected(self):
+        original = self.source/'.git'
+        elsewhere = self.root/'git-directory'
+        original.rename(elsewhere)
+        original.write_text('gitdir: '+str(elsewhere)+'\n')
+        with self.assertRaisesRegex(ValueError, 'source .git'):
+            ci.clone(self.source, self.runner)
+
+    def test_foreign_home_or_symlink_config_is_rejected(self):
+        with patch.dict(os.environ, HOME=str(self.root/'foreign')):
+            with self.assertRaisesRegex(ValueError, 'CI HOME'):
+                ci.clone(self.source, self.runner)
+        (self.home/'.gitconfig').symlink_to(self.root/'foreign-config')
+        with self.assertRaisesRegex(ValueError, 'Git configuration'):
             ci.clone(self.source, self.runner)
 
     def test_workflow_both_phases_use_owned_checkout(self):

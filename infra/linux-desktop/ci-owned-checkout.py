@@ -26,7 +26,23 @@ def clone(source, runner_temp):
     destination = runner_temp/'gpui-ime-iac'
     if destination.exists() or destination.is_symlink():
         raise ValueError('refusing existing owned checkout')
+    source_git = source/'.git'
+    if source_git.is_symlink() or source_git.resolve() != source_git or not source_git.is_dir():
+        raise ValueError('source .git must be a direct canonical directory')
     expected = identity(source)
+    # file:// upload-pack checks .git rather than the worktree. Transport can
+    # sanitize command-level config, so persist this one exact entry only in
+    # the fresh task HOME established by the nonroot setup.
+    home = runner_temp/'gpui-ime-home'
+    if (Path(os.environ['HOME']) != home or home.resolve() != home or home.is_symlink()
+            or not home.is_dir() or home.stat().st_uid != os.geteuid()
+            or home.stat().st_mode & 0o777 != 0o700):
+        raise ValueError('expected private owned CI HOME')
+    config = home/'.gitconfig'
+    if config.is_symlink() or (config.exists() and (not config.is_file() or config.stat().st_uid != os.geteuid())):
+        raise ValueError('unsafe private Git configuration')
+    subprocess.run(['git', 'config', '--file', str(config), '--add', 'safe.directory', str(source_git)],
+                   check=True, timeout=30)
     subprocess.run(['git', 'clone', '--no-local', '--depth', '1', '--no-checkout',
                     source.as_uri(), str(destination)], check=True, timeout=120)
     destination.chmod(0o700)
