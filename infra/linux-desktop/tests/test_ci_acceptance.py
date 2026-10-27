@@ -87,6 +87,24 @@ class AcceptanceReportTests(unittest.TestCase):
             self.assertEqual(self.report()['status'], 'FAIL')
             path.write_bytes(original)
 
+    def test_xvfb_setup_failure_before_app_and_input_is_not_run(self):
+        self.fixture('error')
+        path = self.root / 'cases' / 'summary.json'
+        data = json.loads(path.read_text())
+        for row in data['results']:
+            if row['status'] != 'error':
+                continue
+            row['error'] = 'RuntimeError: owned Xvfb exited before readiness'
+            base = self.root / 'cases' / row['case_id']
+            (base / 'app.log').unlink()
+            (base / 'events.jsonl').write_bytes(b'')
+        path.write_text(json.dumps(data))
+        result = self.report([{'name': 'input-e2e', 'returncode': 1}])
+        self.assertEqual((result['status'], result['passed'], result['not_run']), ('NOT_RUN', 0, 9))
+        # Once actual events exist, never hide an execution failure as NOT_RUN.
+        (self.root / 'cases' / 'basic-text-shift' / 'events.jsonl').write_text('event')
+        self.assertEqual(self.report()['status'], 'FAIL')
+
     def test_failed_stage_cannot_be_overruled_by_case_success(self):
         self.fixture()
         self.assertEqual(self.report([{'name': 'input-e2e', 'returncode': 2}])['status'], 'FAIL')

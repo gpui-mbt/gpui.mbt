@@ -36,6 +36,15 @@ def summarize(cases, directory, stages):
                 row['reason'] = 'No completed case result; consult stage logs.'
             else:
                 base = directory / 'cases' / case['id']
+                # Setup stopped before app launch and before any injected event.
+                events = base / 'events.jsonl'
+                if (record.get('status') == 'error' and
+                        record.get('error') == 'RuntimeError: owned Xvfb exited before readiness' and
+                        not (base / 'app.log').exists() and
+                        (not events.exists() or events.stat().st_size == 0)):
+                    row.update(reason=record['error'], runner_status='error', infrastructure_failure=True)
+                    results.append(row)
+                    continue
                 required = {'case.json', 'result.json', 'focused.png', 'final.png',
                             'app.log', 'weston.log', 'xvfb.log', 'events.jsonl'}
                 required.update('step-' + step['id'] + '.png' for step in case['steps'])
