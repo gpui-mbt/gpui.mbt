@@ -98,6 +98,17 @@ def main(argv=None):
         run('input-e2e', [sys.executable, HERE / 'case_runner.py', '--candidate', output / 'candidate', '--all', '--output', output / 'cases'], env=env)
     except (OSError, RuntimeError) as error:
         write(output / 'blocked.json', {'error': str(error), 'unexecuted_coverage': 'NOT_RUN'})
+        # Keep loader failures visible even when bootstrap captured child stderr.
+        prefix = root / 'prefix'
+        env = os.environ.copy()
+        env['LD_LIBRARY_PATH'] = str(prefix / 'usr/lib/x86_64-linux-gnu')
+        with (output / 'link-diagnostics.log').open('w') as log:
+            for relative in ('usr/lib/x86_64-linux-gnu/libgtk-3-0t64/gtk-query-immodules-3.0',
+                             'usr/bin/weston', 'usr/bin/mousepad', 'usr/bin/ibus-daemon'):
+                binary = prefix / relative
+                if binary.is_file():
+                    log.write(str(binary) + '\n'); log.flush()
+                    subprocess.run(['ldd', str(binary)], env=env, stdout=log, stderr=subprocess.STDOUT)
     finally:
         for name in ('installed.json', 'field-build.json'):
             if (root / name).is_file():
