@@ -30,6 +30,8 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
+          # Checkout uses a temporary HOME; trust only this mounted CI checkout.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           python3 infra/linux-desktop/ci-acceptance.py \
             --profile-root "$RUNNER_TEMP/gpui-desktop" \
             --output "$RUNNER_TEMP/gpui-input-evidence"
