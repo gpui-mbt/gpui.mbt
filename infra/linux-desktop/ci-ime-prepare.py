@@ -42,6 +42,23 @@ def disjoint_roots(repo, root, evidence):
         raise ValueError('closure and evidence directories must be fresh')
 
 
+def create_owned_parent(root):
+    runner_temp = Path(os.environ['RUNNER_TEMP'])
+    if (not runner_temp.is_absolute() or runner_temp.resolve() != runner_temp
+            or not runner_temp.is_dir()
+            or root != runner_temp / 'gpui-ime-owned/closure'):
+        raise ValueError('owned parent requires the exact canonical CI closure path')
+    parent = root.parent
+    # mkdir without exist_ok rejects existing directories and dangling symlinks.
+    parent.mkdir(mode=0o700)
+    info = parent.stat()
+    if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) != 0o700:
+        raise ValueError('fresh parent ownership/mode mismatch')
+    return {'parent': str(parent), 'uid': info.st_uid, 'gid': info.st_gid,
+            'mode': stat.S_IMODE(info.st_mode), 'effective_uid': os.geteuid(),
+            'runner_temp_uid': runner_temp.stat().st_uid}
+
+
 def inventory(root):
     """No link following; retain exact Unix link text/modes and reject IPC nodes."""
     rows = []
@@ -92,12 +109,25 @@ def export_closure(root, output, source, stages):
         archive.add(root, arcname='closure', recursive=True)
     if inventory(root) != rows:
         raise RuntimeError('closure changed during export; no readiness record')
+    structure = {'member_type_counts': {}, 'hardlinks': [], 'root': None}
+    with tarfile.open(tar_path, 'r:gz') as archive:
+        for member in archive:
+            kind = ('directory' if member.isdir() else 'symlink' if member.issym()
+                    else 'hardlink' if member.islnk() else 'file' if member.isfile() else 'special')
+            structure['member_type_counts'][kind] = structure['member_type_counts'].get(kind, 0) + 1
+            if member.islnk():
+                structure['hardlinks'].append({'name': member.name, 'target': member.linkname})
+            if member.name == 'closure':
+                structure['root'] = {'mode': member.mode, 'uid': member.uid, 'gid': member.gid}
+    write(output / 'archive-structure.json', structure)
+
     metadata = {'schema_version': 1, 'preparation_status': 'PREPARED', 'native_status': 'NOT_RUN',
                 'approved_for_execution': False, 'required_next_step': 'Independent pin review before any restore/execute stage',
                 'exact_restore_root': str(root), 'source': source, 'stages': stages,
                 'container_image': CONTAINER_IMAGE,
                 'runtime_archive': {'name': tar_path.name, 'size': tar_path.stat().st_size, 'sha256': digest(tar_path)},
                 'inventory_sha256': digest(output / 'closure-inventory.json'),
+                'archive_structure_sha256': digest(output / 'archive-structure.json'),
                 'scope': 'Build only. No sockets, compositor, OS input, IME conversion, or acceptance execution.',
                 'external_dependencies': 'Host/container libraries remain external; host package inventory and exact image are recorded. Absolute symlinks are retained, not silently rebased.'}
     write(output / 'prepare-result.json', metadata)
@@ -108,11 +138,15 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, required=True)
     parser.add_argument('--evidence', type=Path, required=True)
+    parser.add_argument('--create-owned-parent', action='store_true')
     args = parser.parse_args(argv)
     root, evidence = args.root.absolute(), args.evidence.absolute()
     disjoint_roots(REPO, root, evidence)
+    ownership = create_owned_parent(root) if args.create_owned_parent else None
     root.mkdir(parents=True)
     evidence.mkdir(parents=True)
+    if ownership is not None:
+        write(evidence / 'parent-ownership.json', ownership)
     stages = []
     write(evidence / 'prepare-result.json', {'preparation_status': 'INCOMPLETE', 'native_status': 'NOT_RUN', 'approved_for_execution': False})
     def run(name, command, cwd=REPO):

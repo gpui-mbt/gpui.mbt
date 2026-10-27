@@ -42,7 +42,7 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           python3 infra/linux-desktop/ci-ime-prepare.py \
-            --root "$RUNNER_TEMP/gpui-ime-closure" \
+            --create-owned-parent --root "$RUNNER_TEMP/gpui-ime-owned/closure" \
             --evidence "$RUNNER_TEMP/gpui-ime-review"
       - name: Separate runtime archive from review evidence
         if: always()

@@ -55,6 +55,12 @@ class PrepareTests(unittest.TestCase):
         archive = self.output / result['runtime_archive']['name']
         self.assertEqual(ci.digest(archive), result['runtime_archive']['sha256'])
         self.assertEqual(str(self.root), result['exact_restore_root'])
+        structure_path = self.output / 'archive-structure.json'
+        self.assertEqual(ci.digest(structure_path), result['archive_structure_sha256'])
+        structure = json.loads(structure_path.read_text())
+        self.assertEqual(structure['member_type_counts']['symlink'], 1)
+        self.assertEqual(structure['root']['uid'], os.geteuid())
+        self.assertEqual(structure['hardlinks'], [])
         with tarfile.open(archive) as bundle:
             self.assertEqual(bundle.getmember('closure/engine').mode, 0o755)
             self.assertTrue(bundle.getmember('closure/link').issym())
@@ -114,6 +120,24 @@ class PrepareTests(unittest.TestCase):
         ]}}))
         with self.assertRaisesRegex(RuntimeError, 'build tool changed'):
             ci.host_identities(manifest)
+
+    def test_fresh_owned_ci_parent_is_private_and_never_adopted(self):
+        root = self.base/'gpui-ime-owned/closure'
+        with patch.dict(os.environ, RUNNER_TEMP=str(self.base)):
+            receipt = ci.create_owned_parent(root)
+            self.assertEqual(receipt['uid'], os.geteuid())
+            self.assertEqual(receipt['mode'], 0o700)
+            self.assertFalse(root.exists())
+            with self.assertRaises(FileExistsError):
+                ci.create_owned_parent(root)
+            with self.assertRaises(ValueError):
+                ci.create_owned_parent(self.base/'foreign/closure')
+
+    def test_owned_parent_rejects_symlink(self):
+        (self.base/'gpui-ime-owned').symlink_to(self.base/'absent', target_is_directory=True)
+        with patch.dict(os.environ, RUNNER_TEMP=str(self.base)):
+            with self.assertRaises(FileExistsError):
+                ci.create_owned_parent(self.base/'gpui-ime-owned/closure')
 
     def test_git_failure_leaves_explicit_not_run_receipt(self):
         with patch.object(ci.subprocess, 'check_output',
