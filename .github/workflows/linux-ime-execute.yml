@@ -4,6 +4,7 @@ on:
     paths:
       - '.github/workflows/linux-ime-execute.yml'
       - 'infra/linux-desktop/ci-ime-execute.py'
+      - 'infra/linux-desktop/ci-owned-checkout.py'
       - 'infra/linux-desktop/wayland-ime/recovery/hosted.review.json'
       - 'infra/linux-desktop/wayland-ime/recovery/hosted.recipe.lock.json'
 permissions:
@@ -29,13 +30,19 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Create exact fresh owned IaC checkout
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          set -o pipefail
+          mkdir "$RUNNER_TEMP/gpui-ime-execution"
+          python3 infra/linux-desktop/ci-owned-checkout.py --source "$GITHUB_WORKSPACE" | tee "$RUNNER_TEMP/gpui-ime-execution/owned-checkout.json"
       - name: Verify fixed reviewed artifact metadata
         id: receipt
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          python3 infra/linux-desktop/ci-ime-execute.py metadata --evidence "$RUNNER_TEMP/gpui-ime-execution"
+          python3 "$RUNNER_TEMP/gpui-ime-iac/infra/linux-desktop/ci-ime-execute.py" metadata --evidence "$RUNNER_TEMP/gpui-ime-execution"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           repository: gpui-mbt/gpui.mbt
@@ -56,7 +63,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python3 infra/linux-desktop/ci-ime-execute.py execute             --review "$RUNNER_TEMP/gpui-ime-download-review"             --runtime "$RUNNER_TEMP/gpui-ime-download-runtime"             --evidence "$RUNNER_TEMP/gpui-ime-execution"
+          python3 "$RUNNER_TEMP/gpui-ime-iac/infra/linux-desktop/ci-ime-execute.py" execute             --review "$RUNNER_TEMP/gpui-ime-download-review"             --runtime "$RUNNER_TEMP/gpui-ime-download-runtime"             --evidence "$RUNNER_TEMP/gpui-ime-execution"
       - name: Preserve missing-stage status
         if: always()
         run: |
