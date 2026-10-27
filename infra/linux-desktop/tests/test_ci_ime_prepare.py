@@ -1,0 +1,154 @@
+import importlib.util
+import json
+import os
+from pathlib import Path
+import tarfile
+import tempfile
+import unittest
+from unittest.mock import patch
+
+HERE = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location('ci_ime_prepare', HERE / 'ci-ime-prepare.py')
+ci = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(ci)
+
+
+class PrepareTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.base = Path(self.temp.name)
+        self.root = self.base / 'closure'
+        self.output = self.base / 'evidence'
+
+    def fixture(self):
+        self.root.mkdir()
+        self.output.mkdir()
+        binary = self.root / 'engine'
+        binary.write_bytes(b'not-an-executable-test-fixture')
+        binary.chmod(0o755)
+        (self.root / 'link').symlink_to('engine')
+
+    def test_roots_must_be_fresh_disjoint_and_canonical(self):
+        repo = self.base / 'repo'
+        repo.mkdir()
+        ci.disjoint_roots(repo, self.root, self.output)
+        for root, evidence in [(repo, self.output), (repo / 'build', self.output),
+                               (self.root, self.root / 'evidence')]:
+            with self.assertRaises(ValueError):
+                ci.disjoint_roots(repo, root, evidence)
+        self.root.mkdir()
+        with self.assertRaises(ValueError):
+            ci.disjoint_roots(repo, self.root, self.output)
+        link = self.base / 'alias'
+        link.symlink_to(repo, target_is_directory=True)
+        with self.assertRaises(ValueError):
+            ci.disjoint_roots(link, self.base / 'new', self.output)
+
+    def test_export_never_claims_native_pass_or_approval(self):
+        self.fixture()
+        with patch.dict(os.environ, GPUI_CONTAINER_IMAGE=ci.CONTAINER_IMAGE):
+            result = ci.export_closure(self.root, self.output, {'sha': 'test', 'tree': 'tree'}, [])
+        self.assertEqual(result['preparation_status'], 'PREPARED')
+        self.assertEqual(result['native_status'], 'NOT_RUN')
+        self.assertIs(result['approved_for_execution'], False)
+        archive = self.output / result['runtime_archive']['name']
+        self.assertEqual(ci.digest(archive), result['runtime_archive']['sha256'])
+        self.assertEqual(str(self.root), result['exact_restore_root'])
+        structure_path = self.output / 'archive-structure.json'
+        self.assertEqual(ci.digest(structure_path), result['archive_structure_sha256'])
+        structure = json.loads(structure_path.read_text())
+        self.assertEqual(structure['member_type_counts']['symlink'], 1)
+        self.assertEqual(structure['root']['uid'], os.geteuid())
+        self.assertEqual(structure['hardlinks'], [])
+        with tarfile.open(archive) as bundle:
+            self.assertEqual(bundle.getmember('closure/engine').mode, 0o755)
+            self.assertTrue(bundle.getmember('closure/link').issym())
+            self.assertEqual(bundle.getmember('closure/link').linkname, 'engine')
+            self.assertTrue(all(not name.startswith('/') and '..' not in Path(name).parts
+                                for name in bundle.getnames()))
+
+    def test_unidentified_container_and_failed_stage_are_not_prepared(self):
+        self.fixture()
+        with patch.dict(os.environ, GPUI_CONTAINER_IMAGE='unverified'):
+            with self.assertRaises(ValueError):
+                ci.export_closure(self.root, self.output, {}, [])
+        with patch.dict(os.environ, GPUI_CONTAINER_IMAGE=ci.CONTAINER_IMAGE):
+            with self.assertRaises(ValueError):
+                ci.export_closure(self.root, self.output, {}, [{'returncode': 1}])
+        self.assertFalse((self.output / 'prepare-result.json').exists())
+
+    def test_special_files_cannot_enter_closure(self):
+        self.fixture()
+        os.mkfifo(self.root / 'fifo')
+        with self.assertRaises(ValueError):
+            ci.inventory(self.root)
+
+    def test_inventory_does_not_follow_external_symlinks(self):
+        self.fixture()
+        outside = self.base / 'outside'
+        outside.mkdir()
+        (outside / 'private').write_text('not part of closure')
+        (self.root / 'external').symlink_to(outside, target_is_directory=True)
+        rows = ci.inventory(self.root)
+        self.assertEqual(next(row for row in rows if row['path'] == 'external')['target'], str(outside))
+        self.assertFalse(any('private' in row['path'] for row in rows))
+
+    def test_review_and_runtime_uploads_are_single_disjoint_paths(self):
+        workflow = (HERE.parents[1] / '.github/workflows/linux-ime-prepare.yml').read_text()
+        review_section = workflow.split('name: linux-ime-review-', 1)[1].split('if-no-files-found:', 1)[0]
+        runtime_section = workflow.split('name: linux-ime-runtime-', 1)[1]
+        self.assertIn('path: ${{ runner.temp }}/gpui-ime-review/', review_section)
+        self.assertNotIn('path: |', review_section)
+        self.assertEqual(review_section.count('${{ runner.temp }}'), 1)
+        self.assertNotIn('runtime-closure.tar.gz', review_section)
+        self.assertIn('path: ${{ runner.temp }}/gpui-ime-runtime/runtime-closure.tar.gz', runtime_section)
+        self.assertIn('mkdir "$RUNNER_TEMP/gpui-ime-runtime"', workflow)
+        self.assertIn('mv "$RUNNER_TEMP/gpui-ime-review/runtime-closure.tar.gz" "$RUNNER_TEMP/gpui-ime-runtime/runtime-closure.tar.gz"', workflow)
+        separation = workflow.split('name: Separate runtime archive from review evidence', 1)[1].split('- name:', 1)[0]
+        self.assertIn('if: always()', separation)
+        self.assertIn('if [ -f "$RUNNER_TEMP/gpui-ime-review/runtime-closure.tar.gz" ]; then', separation)
+        self.assertNotIn('|| true', separation)
+        self.assertLess(workflow.index('name: Separate runtime archive'), workflow.index('name: linux-ime-review-'))
+
+    def test_host_tools_must_match_captured_build_identity(self):
+        manifest = self.base / 'field-build.json'
+        tool = self.base / 'compiler'
+        tool.write_bytes(b'changed')
+        manifest.write_text(json.dumps({'runtime': {'files': [
+            {'role': 'tool:cc', 'path': str(tool), 'sha256': 'old'}
+        ]}}))
+        with self.assertRaisesRegex(RuntimeError, 'build tool changed'):
+            ci.host_identities(manifest)
+
+    def test_fresh_owned_ci_parent_is_private_and_never_adopted(self):
+        root = self.base/'gpui-ime-owned/closure'
+        with patch.dict(os.environ, RUNNER_TEMP=str(self.base)):
+            receipt = ci.create_owned_parent(root)
+            self.assertEqual(receipt['uid'], os.geteuid())
+            self.assertEqual(receipt['mode'], 0o700)
+            self.assertFalse(root.exists())
+            with self.assertRaises(FileExistsError):
+                ci.create_owned_parent(root)
+            with self.assertRaises(ValueError):
+                ci.create_owned_parent(self.base/'foreign/closure')
+
+    def test_owned_parent_rejects_symlink(self):
+        (self.base/'gpui-ime-owned').symlink_to(self.base/'absent', target_is_directory=True)
+        with patch.dict(os.environ, RUNNER_TEMP=str(self.base)):
+            with self.assertRaises(FileExistsError):
+                ci.create_owned_parent(self.base/'gpui-ime-owned/closure')
+
+    def test_git_failure_leaves_explicit_not_run_receipt(self):
+        with patch.object(ci.subprocess, 'check_output',
+                          side_effect=ci.subprocess.CalledProcessError(1, 'git')):
+            code = ci.main(['--root', str(self.root), '--evidence', str(self.output)])
+        self.assertEqual(code, 1)
+        result = json.loads((self.output / 'prepare-result.json').read_text())
+        self.assertEqual(result['preparation_status'], 'FAIL')
+        self.assertEqual(result['native_status'], 'NOT_RUN')
+        self.assertFalse(result['approved_for_execution'])
+
+
+if __name__ == '__main__':
+    unittest.main()
