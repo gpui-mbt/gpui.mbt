@@ -43,6 +43,19 @@ class CaseFormatTests(unittest.TestCase):
             self.assertTrue(cases.runnable(fixture(name)))
             self.assertEqual(fixture(name)["oracle"]["kind"], "presented_state")
 
+    def test_history_cases_have_explicit_navigation_group_barrier(self):
+        # The TextField contract coalesces adjacent typing; End closes a group
+        # even at the existing boundary. Presentation timing is not a barrier.
+        for name in ('undo-redo', 'undo-branch-edit'):
+            case = fixture(name)
+            events = case['steps'][0]['events']
+            self.assertEqual(events[-3:], [
+                {'type': 'key', 'keysym': 'b', 'modifiers': []},
+                {'type': 'key', 'keysym': 'End', 'modifiers': []},
+                {'type': 'key', 'keysym': 'c', 'modifiers': []}])
+            self.assertEqual(case['steps'][1]['expect'], {
+                'text': 'ab', 'selection': {'anchor': 2, 'head': 2}, 'focused': True})
+
     def test_six_keys_have_predeclared_text_selection_and_fourteen_events(self):
         case = fixture()
         self.assertEqual(case["initial"], {"text": "Hello 日本", "selection": {"anchor": 8, "head": 8}, "focused": True})
