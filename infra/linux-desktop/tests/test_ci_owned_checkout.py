@@ -60,7 +60,7 @@ class OwnedCheckoutTests(unittest.TestCase):
         self.assertNotIn('chown', workflow)
         clone_step = workflow.split('name: Create exact fresh owned IaC checkout', 1)[1].split('- name:', 1)[0]
         self.assertIn('set -o pipefail', clone_step)
-        self.assertIn('mkdir "$RUNNER_TEMP/gpui-ime-execution"', clone_step)
+        self.assertIn('Create fresh nonroot CI account', workflow)
         self.assertNotIn('mkdir -p', clone_step)
         self.assertIn('| tee "$RUNNER_TEMP/gpui-ime-execution/owned-checkout.json"', clone_step)
         self.assertLess(workflow.index('Create exact fresh owned IaC checkout'), workflow.index('Verify fixed reviewed artifact metadata'))

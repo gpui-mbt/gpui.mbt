@@ -109,11 +109,11 @@
   },
   "inventory_sha256": "5920f2dbca4ec8a256ffb3f2a81045f71892d126a9e7e0c5a84dada5a690135c",
   "prepare_result_sha256": "6ef6331d926bf62e0b4d57344e2a4fba86a6fe76e8d98dafd06c004b3f4081a2",
-  "recipe_sha256": "4f8648ee3e416a7a9cb337bf998058ea35f40816c4acb052c4a8645c2e422b73",
+  "recipe_sha256": "9b26c3e0754eab2dd5d6559234796b22cdbe2741857e2c2667a6efd6be3e1b5c",
   "repository": "gpui-mbt/gpui.mbt",
   "review_artifact_digest": "sha256:0fb7876ed9d396fc1912a84a578d4dce5b661aa1d65ae5f3fa1381a3e0f711ec",
   "review_artifact_id": 12706040730,
-  "review_status": "Independent gpt-6.1-sol/xhigh Approve-equivalent 2026-10-27: code 928ea6bc8a37ab081cb7c49a7e86b87387bf7b86, exact owned IaC clone, recipe and unchanged prepare5 artifact pins reviewed; P1/P2 none. Full runtime validation remains required; not a native PASS.",
+  "review_status": "Independent gpt-6.1-sol/xhigh Approve-equivalent 2026-10-27: code 26752d35876c88ced433ab943349e2f41dffd715, fresh verified nonroot CI account, 41 source pins and unchanged prepare5 artifact pins reviewed; 66 tests passed; P1/P2 none. Full runtime validation remains required; not a native PASS.",
   "runtime_artifact_digest": "sha256:214cc925cc05372bffa0619b9d6a33a18deb0f42598e54a37bc658652a56f9f6",
   "runtime_sha256": "a72a2bbff3088874835cc48d84eb17ecafe5f14a4f25837d6b3f9b2546097c83",
   "schema_version": 1

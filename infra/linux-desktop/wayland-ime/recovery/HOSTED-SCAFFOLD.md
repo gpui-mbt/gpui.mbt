@@ -49,3 +49,15 @@ child environment excludes that token. A qualified-partial harness result stays
 qualified-partial and exits 2, rather than becoming a green full acceptance.
 Input traces, frames and cleanup proofs are validated by the existing harness;
 its output and logs are always uploaded through one evidence-directory path.
+
+## Nonroot CI execution contract
+
+The pinned Mozc source rejects both real UID 0 and effective UID 0. Root performs
+only apt/account setup. The observed nonzero UID/GID owning both the fixed runner
+temp and original checkout selects a fresh dedicated account (bounded normal-user
+IDs, no existing name/UID/GID adoption). Only newly created private HOME and
+evidence directories change ownership; shared directories are never modified.
+Clone, metadata and restore/bind/native run under that account via runuser.
+Every phase checks real/effective IDs, supplementary groups, HOME, image and
+paths; the final phase also checks read access to root-downloaded artifacts.
+The original restore, ownership, peer and semantic checks remain unchanged.
