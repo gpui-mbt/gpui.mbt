@@ -44,6 +44,13 @@ jobs:
           python3 infra/linux-desktop/ci-ime-prepare.py \
             --root "$RUNNER_TEMP/gpui-ime-closure" \
             --evidence "$RUNNER_TEMP/gpui-ime-review"
+      - name: Separate runtime archive from review evidence
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/gpui-ime-review/runtime-closure.tar.gz" ]; then
+            mkdir "$RUNNER_TEMP/gpui-ime-runtime"
+            mv "$RUNNER_TEMP/gpui-ime-review/runtime-closure.tar.gz" "$RUNNER_TEMP/gpui-ime-runtime/runtime-closure.tar.gz"
+          fi
       - name: Preserve setup failure status
         if: always()
         run: |
@@ -55,16 +62,12 @@ jobs:
         if: always()
         with:
           name: linux-ime-review-${{ github.event.pull_request.head.sha || github.sha }}
-          path: |
-            ${{ runner.temp }}/gpui-ime-review/*.json
-            ${{ runner.temp }}/gpui-ime-review/*.log
-            ${{ runner.temp }}/gpui-ime-review/source.tar.gz
-            ${{ runner.temp }}/gpui-ime-review/review/**
+          path: ${{ runner.temp }}/gpui-ime-review/
           if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: success()
         with:
           name: linux-ime-runtime-${{ github.event.pull_request.head.sha || github.sha }}
-          path: ${{ runner.temp }}/gpui-ime-review/runtime-closure.tar.gz
+          path: ${{ runner.temp }}/gpui-ime-runtime/runtime-closure.tar.gz
           compression-level: 0
           if-no-files-found: error

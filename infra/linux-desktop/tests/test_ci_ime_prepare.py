@@ -1,4 +1,3 @@
-import glob
 import importlib.util
 import json
 import os
@@ -89,27 +88,22 @@ class PrepareTests(unittest.TestCase):
         self.assertEqual(next(row for row in rows if row['path'] == 'external')['target'], str(outside))
         self.assertFalse(any('private' in row['path'] for row in rows))
 
-    def test_review_upload_allowlist_excludes_large_runtime_archive(self):
+    def test_review_and_runtime_uploads_are_single_disjoint_paths(self):
         workflow = (HERE.parents[1] / '.github/workflows/linux-ime-prepare.yml').read_text()
         review_section = workflow.split('name: linux-ime-review-', 1)[1].split('if-no-files-found:', 1)[0]
-        patterns = [line.strip().replace('${{ runner.temp }}', str(self.base))
-                    for line in review_section.splitlines() if '${{ runner.temp }}' in line]
-        review = self.base / 'gpui-ime-review'
-        (review / 'review/mozc-build/artifacts').mkdir(parents=True)
-        wanted = ['prepare-result.json', 'closure-inventory.json', 'host.log', 'source.tar.gz',
-                  'review/mozc-build/artifacts/ibus-engine-mozc']
-        for name in wanted + ['runtime-closure.tar.gz']:
-            (review / name).write_text('fixture')
-        selected = {Path(name) for pattern in patterns for name in glob.glob(pattern, recursive=True)
-                    if Path(name).is_file()}
-        self.assertEqual(selected, {review / name for name in wanted})
-        self.assertNotIn(review / 'runtime-closure.tar.gz', selected)
-        # No recursive root or exclusion pattern: upload implementations must not
-        # accidentally re-include the huge tar when traversing the root directory.
-        self.assertTrue(all(not pattern.startswith('!') and pattern != str(review) + '/'
-                            for pattern in patterns))
         runtime_section = workflow.split('name: linux-ime-runtime-', 1)[1]
-        self.assertIn('gpui-ime-review/runtime-closure.tar.gz', runtime_section)
+        self.assertIn('path: ${{ runner.temp }}/gpui-ime-review/', review_section)
+        self.assertNotIn('path: |', review_section)
+        self.assertEqual(review_section.count('${{ runner.temp }}'), 1)
+        self.assertNotIn('runtime-closure.tar.gz', review_section)
+        self.assertIn('path: ${{ runner.temp }}/gpui-ime-runtime/runtime-closure.tar.gz', runtime_section)
+        self.assertIn('mkdir "$RUNNER_TEMP/gpui-ime-runtime"', workflow)
+        self.assertIn('mv "$RUNNER_TEMP/gpui-ime-review/runtime-closure.tar.gz" "$RUNNER_TEMP/gpui-ime-runtime/runtime-closure.tar.gz"', workflow)
+        separation = workflow.split('name: Separate runtime archive from review evidence', 1)[1].split('- name:', 1)[0]
+        self.assertIn('if: always()', separation)
+        self.assertIn('if [ -f "$RUNNER_TEMP/gpui-ime-review/runtime-closure.tar.gz" ]; then', separation)
+        self.assertNotIn('|| true', separation)
+        self.assertLess(workflow.index('name: Separate runtime archive'), workflow.index('name: linux-ime-review-'))
 
     def test_host_tools_must_match_captured_build_identity(self):
         manifest = self.base / 'field-build.json'
