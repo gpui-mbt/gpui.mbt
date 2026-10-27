@@ -4,7 +4,7 @@
   "description": "A new edit after undo invalidates the redo branch.",
   "platform": "linux-x11-weston",
   "disposition": "supported",
-  "reason": "Predeclared semantic checkpoints exercised through real private-display OS input. Requires the accepted read-only presented-state observer and matching completed compositor frame; current candidate build identity is verified externally. Native qualification is recorded separately.",
+  "reason": "Predeclared semantic checkpoints exercised through real private-display OS input. Requires the accepted read-only presented-state observer and matching completed compositor frame; current candidate build identity is verified externally. Native qualification is recorded separately. The explicit End before c is an accepted navigation history-group barrier (docs/linux-text-field.md); adjacent typing otherwise coalesces. Expected undo ab is declared from that contract, not captured output.",
   "timeout_ms": 15000,
   "initial": {
     "text": "Hello 日本",
@@ -43,6 +43,11 @@
         {
           "type": "key",
           "keysym": "b",
+          "modifiers": []
+        },
+        {
+          "type": "key",
+          "keysym": "End",
           "modifiers": []
         },
         {
