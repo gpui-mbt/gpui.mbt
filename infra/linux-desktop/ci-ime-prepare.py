@@ -60,6 +60,25 @@ def inventory(root):
     return rows
 
 
+def host_identities(field_build):
+    """Capture bytes only, using the build manifest's actual tool resolution."""
+    manifest = json.loads(field_build.read_text())
+    tools = {}
+    for role in ('cc', 'fc-list', 'pkg-config'):
+        row = next(row for row in manifest['runtime']['files'] if row.get('role') == 'tool:' + role)
+        resolved = Path(row['path']).resolve(strict=True)
+        actual = digest(resolved)
+        if actual != row['sha256']:
+            raise RuntimeError('build tool changed after capture: ' + role)
+        tools[role] = {'path': str(resolved), 'sha256': actual, 'location': 'host'}
+    executables = {}
+    for name in ('/usr/bin/convert', '/usr/bin/dbus-daemon', '/usr/bin/python3'):
+        resolved = Path(name).resolve(strict=True)
+        executables[name] = {'resolved_path': str(resolved), 'sha256': digest(resolved)}
+    return {'approved_for_execution': False, 'host_executables': executables,
+            'build_tools': tools, 'field_build_sha256': digest(field_build)}
+
+
 def export_closure(root, output, source, stages):
     if os.environ.get('GPUI_CONTAINER_IMAGE') != CONTAINER_IMAGE:
         raise ValueError('exact reviewed container identity is required')
@@ -137,7 +156,18 @@ def main(argv=None):
             destination = evidence / 'review/locks' / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(desktop / relative, destination)
+        write(evidence / 'host-executables.json', host_identities(profile / 'field-build.json'))
         result = export_closure(root, evidence, source, stages)
+        result['pins_for_independent_review'] = {
+            role: {'path': relative, 'sha256': digest(root / relative)}
+            for role, relative in {
+                'engine': 'mozc-build/artifacts/ibus-engine-mozc',
+                'component': 'mozc-build/artifacts/mozc.xml',
+                'build_result': 'mozc-build/build-result.json',
+                'candidate_field_build': 'profile/field-build.json',
+            }.items()
+        }
+        result['host_executables_sha256'] = digest(evidence / 'host-executables.json')
         result['host_inventory_sha256'] = digest(evidence / 'host.log')
         result['source_archive_sha256'] = digest(evidence / 'source.tar.gz')
         result['review_files'] = inventory(evidence / 'review')

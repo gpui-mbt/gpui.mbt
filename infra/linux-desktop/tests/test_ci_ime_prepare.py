@@ -1,3 +1,4 @@
+import glob
 import importlib.util
 import json
 import os
@@ -87,6 +88,38 @@ class PrepareTests(unittest.TestCase):
         rows = ci.inventory(self.root)
         self.assertEqual(next(row for row in rows if row['path'] == 'external')['target'], str(outside))
         self.assertFalse(any('private' in row['path'] for row in rows))
+
+    def test_review_upload_allowlist_excludes_large_runtime_archive(self):
+        workflow = (HERE.parents[1] / '.github/workflows/linux-ime-prepare.yml').read_text()
+        review_section = workflow.split('name: linux-ime-review-', 1)[1].split('if-no-files-found:', 1)[0]
+        patterns = [line.strip().replace('${{ runner.temp }}', str(self.base))
+                    for line in review_section.splitlines() if '${{ runner.temp }}' in line]
+        review = self.base / 'gpui-ime-review'
+        (review / 'review/mozc-build/artifacts').mkdir(parents=True)
+        wanted = ['prepare-result.json', 'closure-inventory.json', 'host.log', 'source.tar.gz',
+                  'review/mozc-build/artifacts/ibus-engine-mozc']
+        for name in wanted + ['runtime-closure.tar.gz']:
+            (review / name).write_text('fixture')
+        selected = {Path(name) for pattern in patterns for name in glob.glob(pattern, recursive=True)
+                    if Path(name).is_file()}
+        self.assertEqual(selected, {review / name for name in wanted})
+        self.assertNotIn(review / 'runtime-closure.tar.gz', selected)
+        # No recursive root or exclusion pattern: upload implementations must not
+        # accidentally re-include the huge tar when traversing the root directory.
+        self.assertTrue(all(not pattern.startswith('!') and pattern != str(review) + '/'
+                            for pattern in patterns))
+        runtime_section = workflow.split('name: linux-ime-runtime-', 1)[1]
+        self.assertIn('gpui-ime-review/runtime-closure.tar.gz', runtime_section)
+
+    def test_host_tools_must_match_captured_build_identity(self):
+        manifest = self.base / 'field-build.json'
+        tool = self.base / 'compiler'
+        tool.write_bytes(b'changed')
+        manifest.write_text(json.dumps({'runtime': {'files': [
+            {'role': 'tool:cc', 'path': str(tool), 'sha256': 'old'}
+        ]}}))
+        with self.assertRaisesRegex(RuntimeError, 'build tool changed'):
+            ci.host_identities(manifest)
 
     def test_git_failure_leaves_explicit_not_run_receipt(self):
         with patch.object(ci.subprocess, 'check_output',

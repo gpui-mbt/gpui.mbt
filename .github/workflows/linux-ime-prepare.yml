@@ -56,8 +56,10 @@ jobs:
         with:
           name: linux-ime-review-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
-            ${{ runner.temp }}/gpui-ime-review/
-            !${{ runner.temp }}/gpui-ime-review/runtime-closure.tar.gz
+            ${{ runner.temp }}/gpui-ime-review/*.json
+            ${{ runner.temp }}/gpui-ime-review/*.log
+            ${{ runner.temp }}/gpui-ime-review/source.tar.gz
+            ${{ runner.temp }}/gpui-ime-review/review/**
           if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: success()
