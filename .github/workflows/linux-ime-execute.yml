@@ -1,0 +1,72 @@
+name: Linux IME reviewed execution
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/linux-ime-execute.yml'
+      - 'infra/linux-desktop/ci-ime-execute.py'
+      - 'infra/linux-desktop/wayland-ime/recovery/hosted.review.json'
+      - 'infra/linux-desktop/wayland-ime/recovery/hosted.recipe.lock.json'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  reviewed-ime:
+    runs-on: ubuntu-24.04
+    container: debian:13@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308
+    timeout-minutes: 30
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      GPUI_CONTAINER_IMAGE: debian:13@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install official prerequisites
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git curl build-essential pkg-config python3 python3-pil dbus-daemon libgtk-3-0t64 libgtk2.0-0t64 libgspell-1-3 weston gir1.2-gtk-3.0 gir1.2-ibus-1.0 libunwind8 libgl1 x11-xkb-utils libegl1 libgles2 libgl1-mesa-dri libgbm1 libx11-6 libxtst6 libxfont2 libxrender1 libxext6 libxfixes3 libxau6 libxdmcp6 libpixman-1-0 libepoxy0 libdrm2 libudev1 libinput10 libxcb1 libxcursor1 libxkbcommon0 libwayland-client0 libwayland-server0 libwayland-cursor0 libwayland-egl1 imagemagick tesseract-ocr tesseract-ocr-eng patch xz-utils
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify fixed reviewed artifact metadata
+        id: receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          python3 infra/linux-desktop/ci-ime-execute.py metadata --evidence "$RUNNER_TEMP/gpui-ime-execution"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          repository: gpui-mbt/gpui.mbt
+          run-id: ${{ steps.receipt.outputs.artifact_run_id }}
+          artifact-ids: ${{ steps.receipt.outputs.review_artifact_id }}
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpui-ime-download-review
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          repository: gpui-mbt/gpui.mbt
+          run-id: ${{ steps.receipt.outputs.artifact_run_id }}
+          artifact-ids: ${{ steps.receipt.outputs.artifact_id }}
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpui-ime-download-runtime
+      - name: Restore reviewed closure and run existing native acceptance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 infra/linux-desktop/ci-ime-execute.py execute             --review "$RUNNER_TEMP/gpui-ime-download-review"             --runtime "$RUNNER_TEMP/gpui-ime-download-runtime"             --evidence "$RUNNER_TEMP/gpui-ime-execution"
+      - name: Preserve missing-stage status
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/gpui-ime-execution"
+          if [ ! -f "$RUNNER_TEMP/gpui-ime-execution/execution-status.json" ]; then
+            echo '{"native_status":"NOT_RUN","reason":"Execution setup failed; inspect workflow logs"}' > "$RUNNER_TEMP/gpui-ime-execution/execution-status.json"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: linux-ime-execution-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/gpui-ime-execution/
+          if-no-files-found: error
