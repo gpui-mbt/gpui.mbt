@@ -13,7 +13,12 @@ QUOTE = r'"(?:[^"\\]|\\.)*"'
 KEYS = {'n': (110, 49), 'i': (105, 23), 'h': (104, 35), 'o': (111, 24),
         'space': (32, 57), 'Up': (65362, 103), 'Return': (65293, 28), 'Escape': (65307, 1)}
 INTENDED = list('nihonn') + ['space', 'space', 'Up', 'Return'] + list('nihonn') + ['space', 'Escape', 'Escape']
-WAYLAND_LINE = re.compile(r'^\[[0-9]+\.[0-9]+\] \{[^{}\r\n]+\} [^\r\n]*\n?$', re.M)
+# libwayland 1.23.1 connection.c:wl_closure_print uses "[%7u.%03u] ".
+# An unsigned integral field has at least one digit, hence at most six ASCII
+# padding spaces. Preserve historical unpadded captures; never accept \s.
+# https://github.com/wayland-mirror/wayland/blob/1.23.1/src/connection.c#L1422
+WAYLAND_TIMESTAMP = r'\[ {0,6}[0-9]+\.[0-9]+\]'
+WAYLAND_LINE = re.compile(r'^' + WAYLAND_TIMESTAMP + r' \{[^{}\r\n]+\} [^\r\n]*\n?$', re.M)
 INPUT_FILES = ('ibus-wayland-snapshot.log', 'editor-snapshot.log', 'events.jsonl',
                'gpui-registry.log', 'probe.snapshot.py', 'evidence.snapshot.py',
                'deployment.snapshot.json', 'inherited-wayland-socket.txt')
@@ -33,7 +38,7 @@ def sha(path):
 
 
 def text_events(log, interface, outgoing):
-    expression = re.compile(r'^\[[0-9]+\.[0-9]+\] \{[^{}\r\n]+\} ' +
+    expression = re.compile(r'^' + WAYLAND_TIMESTAMP + r' \{[^{}\r\n]+\} ' +
         (r' -> ' if outgoing else '') + re.escape(interface) + r'(?:#|@)(\d+)\.' +
         r'(preedit_string|commit_string)\((\d+), (' + QUOTE + r')(?:, (' + QUOTE + r'))?\)$', re.M)
     records = []

@@ -188,6 +188,10 @@ class GpuiProbeTests(unittest.TestCase):
             ui+=wl(f'zwp_input_method_v1#8.deactivate(zwp_input_method_context_v1#{n+10})')+wl(f'zwp_input_method_v1#8.activate(new id zwp_input_method_context_v1#{n+11})')+wl(f' -> zwp_input_method_context_v1#{n+11}.grab_keyboard(new id wl_keyboard#{n+1})')
             gpui+=wl(' -> zwp_text_input_v1#9.deactivate(seat)')+wl('zwp_text_input_v1#9.leave()')+wl(' -> zwp_text_input_v1#9.activate(seat,surface)')+wl('zwp_text_input_v1#9.enter(surface)')
         self.assertEqual(len(e.held_modifier_ordering(ui,gpui,injected)),3)
+        self.assertEqual(len(e.held_modifier_ordering(ui.replace('[1000.', '[   1000.'),
+                                                     gpui.replace('[1000.', '[   1000.'), injected)),3)
+        with self.assertRaises(e.evidence.EvidenceError):
+            e.held_modifier_ordering(ui.replace('[1000.', '[\t1000.'), gpui, injected)
         altered=[]
         altered.append(ui.replace('.modifiers(2, 0, 0, 0, 0)','.modifiers(2, 4, 0, 0, 0)'))
         altered.append(ui.replace('deactivate(zwp_input_method_context_v1#11)','deactivate(zwp_input_method_context_v1#99)'))

@@ -118,7 +118,7 @@ def presentation_frame_ready(log,presentation):
     commits=list(re.finditer(r'wl_surface(?:#|@)'+surface+r'\.commit\(\)',prefix))
     if not commits:return {'ready':False,'reason':'accepted main-surface commit absent'}
     commit=commits[-1];previous=commits[-2].end() if len(commits)>1 else 0
-    requests=list(re.finditer(r'^\[[0-9]+\.[0-9]+\] \{Default Queue\}  -> wl_surface(?:#|@)'+surface+r'\.frame\(new id wl_callback(?:#|@)(\d+)\)$',prefix[previous:commit.start()],re.M))
+    requests=list(re.finditer(r'^'+evidence.WAYLAND_TIMESTAMP+r' \{Default Queue\}  -> wl_surface(?:#|@)'+surface+r'\.frame\(new id wl_callback(?:#|@)(\d+)\)$',prefix[previous:commit.start()],re.M))
     ids=[int(m[1]) for m in requests]
     if len(ids)!=1:return {'ready':False,'reason':'one exact own Default Queue frame request not yet bound'}
     observer_end=log.find('\n',observer_at)
@@ -126,7 +126,7 @@ def presentation_frame_ready(log,presentation):
     tail=log[observer_end+1:]
     done=[]
     for callback in ids:
-        match=re.search(r'^\[[0-9]+\.[0-9]+\] \{Default Queue\} wl_callback(?:#|@)'+str(callback)+r'\.done\(\d+\)$',tail,re.M)
+        match=re.search(r'^'+evidence.WAYLAND_TIMESTAMP+r' \{Default Queue\} wl_callback(?:#|@)'+str(callback)+r'\.done\(\d+\)$',tail,re.M)
         if match:done.append({'callback':callback,'line':log[:observer_end+1+match.start()].count('\n')+1})
     return {'ready':len(done)==len(ids),'surface':int(surface),'presentation':presentation,
         'request_line':prefix[:previous+requests[0].start()].count('\n')+1,
@@ -218,9 +218,9 @@ def held_modifier_ordering(ui,gpui,injected):
     require(len(gpui_activations)==len(intervals),'native/GPUI activation generations differ')
     def time_at(log,pos):
         line=log[log.rfind('\n',0,pos)+1:]
-        m=re.match(r'\[([0-9]+\.[0-9]+)\]',line)
+        m=re.match(evidence.WAYLAND_TIMESTAMP,line)
         require(m is not None,'official timestamp missing from held lifecycle')
-        return float(m[1])
+        return float(m[0][1:-1])
     audit=[]
     for stage in ('select-all','undo','redo'):
         indexes=[i for i,e in enumerate(injected) if e[0]==stage]

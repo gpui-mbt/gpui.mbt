@@ -109,11 +109,11 @@
   },
   "inventory_sha256": "5920f2dbca4ec8a256ffb3f2a81045f71892d126a9e7e0c5a84dada5a690135c",
   "prepare_result_sha256": "6ef6331d926bf62e0b4d57344e2a4fba86a6fe76e8d98dafd06c004b3f4081a2",
-  "recipe_sha256": "dd51d0365f21421395e94a63447b9cb6e963a5fdaeb671b857b36af698681f1e",
+  "recipe_sha256": "564afee4caaa3c6175e108f4304c0e07b823c7f642a7a47ff2565ea8561520cd",
   "repository": "gpui-mbt/gpui.mbt",
   "review_artifact_digest": "sha256:0fb7876ed9d396fc1912a84a578d4dce5b661aa1d65ae5f3fa1381a3e0f711ec",
   "review_artifact_id": 12706040730,
-  "review_status": "Independent gpt-6.1-sol/xhigh Approve-equivalent 2026-10-27: code 4029c1ed8a5019312c9197bea832e48a94bb8b7a, exact canonical file-transport trust in private CI HOME, 41 source pins and unchanged prepare5 artifact pins reviewed; 70 tests passed; P1/P2 none. Full runtime validation remains required; not a native PASS.",
+  "review_status": "Independent gpt-6.1-sol/xhigh Approve-equivalent 2026-10-27: code 5d031ffbad32c19f10244d82ae53fe6a08670de3, official bounded ASCII Wayland timestamp padding with unchanged semantic correlation; 32 focused tests passed, test_probe baseline failures unchanged; P1/P2 none. Source pins and unchanged prepare5 artifact pins reviewed. Offline frame correlation is not pixel/native PASS.",
   "runtime_artifact_digest": "sha256:214cc925cc05372bffa0619b9d6a33a18deb0f42598e54a37bc658652a56f9f6",
   "runtime_sha256": "a72a2bbff3088874835cc48d84eb17ecafe5f14a4f25837d6b3f9b2546097c83",
   "schema_version": 1
