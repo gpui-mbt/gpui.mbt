@@ -34,8 +34,7 @@ jobs:
           core-version: 0.10.15+943464bfa
       - name: Prepare Ubuntu native system boundary
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libx11-dev libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev libpango1.0-dev libfontconfig1-dev fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
+          python3 scripts/install_contract_dependencies.py
           dpkg-query -W libpango1.0-dev libpango-1.0-0 libpangoft2-1.0-0 libfontconfig1-dev libfontconfig1 fontconfig fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-color-emoji
           pkg-config --modversion pangoft2 fontconfig
           sh scripts/prepare_ubuntu.sh

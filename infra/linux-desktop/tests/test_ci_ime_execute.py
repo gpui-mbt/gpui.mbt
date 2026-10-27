@@ -104,7 +104,7 @@ class ExecuteOrchestrationTests(unittest.TestCase):
                     ci.save(output/'result.json', result)
                 return ci.subprocess.CompletedProcess(command, code)
             return ci.subprocess.CompletedProcess(command, 0)
-        with patch.object(ci.gate, 'restore', return_value=self.root), patch.object(ci.subprocess, 'run', side_effect=fake_run), patch.dict('os.environ', GH_TOKEN='secret-fixture'):
+        with patch.object(ci.gate, 'create_owned_parent', return_value={'fixture': True}), patch.object(ci.gate, 'restore', return_value=self.root), patch.object(ci.subprocess, 'run', side_effect=fake_run), patch.dict('os.environ', GH_TOKEN='secret-fixture'):
             return ci.execute(self.approved, self.review, self.runtime, self.evidence)
 
     def test_full_pass_requires_flags_and_scrubs_every_child_token(self):

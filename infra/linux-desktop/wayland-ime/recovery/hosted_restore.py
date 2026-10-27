@@ -6,6 +6,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import stat
 import tarfile
 
 HERE = Path(__file__).resolve().parent
@@ -53,6 +54,22 @@ def relative(name):
     require(not p.is_absolute() and '..' not in p.parts and str(p) == name and name != '.',
             'non-canonical archive path')
     return p
+
+
+def create_owned_parent(approved):
+    require(approved.get('approved_for_execution') is True, 'parent creation has no explicit approval')
+    runner_temp = Path(os.environ['RUNNER_TEMP'])
+    require(runner_temp.is_absolute() and runner_temp.resolve() == runner_temp and runner_temp.is_dir(),
+            'canonical runner temp is required')
+    root = Path(approved['exact_restore_root'])
+    require(root == runner_temp/'gpui-ime-owned/closure', 'receipt does not identify the fixed owned-parent closure')
+    parent = root.parent
+    parent.mkdir(mode=0o700)  # Never adopt or modify an existing parent/symlink.
+    info = parent.stat()
+    require(info.st_uid == os.geteuid() and stat.S_IMODE(info.st_mode) == 0o700, 'new parent ownership/mode mismatch')
+    return {'parent': str(parent), 'uid': info.st_uid, 'gid': info.st_gid,
+            'mode': stat.S_IMODE(info.st_mode), 'effective_uid': os.geteuid(),
+            'runner_temp_uid': runner_temp.stat().st_uid}
 
 
 def restore(archive, inventory, approved):
@@ -107,11 +124,14 @@ def restore(archive, inventory, approved):
         root.mkdir(mode=0o700)
         # Every parent is a real directory; links are created only after files.
         for name in sorted(members, key=lambda n: (len(PurePosixPath(n).parts), n)):
-            row, member = by_name[name], members[name]
-            path = root / name
-            if row['kind'] == 'directory':
-                path.mkdir(mode=0o700)
-            elif row['kind'] == 'file':
+            if by_name[name]['kind'] == 'directory':
+                (root / name).mkdir(mode=0o700)
+        # Preserve archive order for regular-file reads: reordering by depth
+        # repeatedly rewinds/decompresses large gzip archives.
+        for name, member in members.items():
+            row = by_name[name]
+            if row['kind'] == 'file':
+                path = root / name
                 with tar.extractfile(member) as src, path.open('xb') as dst:
                     shutil.copyfileobj(src, dst)
                 path.chmod(row['mode'])

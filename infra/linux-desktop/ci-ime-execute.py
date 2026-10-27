@@ -91,6 +91,7 @@ def execute(approved, review, runtime, evidence):
                  prepared.get('container_image') == gate.IMAGE, 'prepared path/image mismatch')
     gate.require(prepared['runtime_archive']['sha256'] == approved['runtime_sha256'] and
                  prepared['inventory_sha256'] == approved['inventory_sha256'], 'prepared archive/inventory mismatch')
+    save(evidence/'parent-ownership.json', gate.create_owned_parent(approved))
     root = gate.restore(runtime/'runtime-closure.tar.gz', review/'closure-inventory.json', approved)
     stages = []
     child_env = os.environ.copy()
