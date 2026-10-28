@@ -280,6 +280,22 @@ def diagnostic_inventory(log):
         'first_native_activation_line':activation,'unexpected_or_post_activation_diagnostics':False}
 
 
+def validate_input_manifest(root, report, deployment):
+    """Exact schema set, including the existing recovery owner receipt contract."""
+    hashes=report.get('evidence_inputs',{})
+    version=report.get('evidence_schema_version',1)
+    require(version in (1,2),'unsupported evidence schema')
+    expected=set(INPUT_FILES if version==2 else HISTORICAL_INPUT_FILES)
+    owned=deployment.get('kind')=='native-ime-recovery-baseline' or report.get('task_owner') is not None
+    if owned: expected.add('task-owner.snapshot.json')
+    require(set(hashes)==expected,'complete GPUI evidence manifest missing')
+    if owned:
+        from recovery import baseline_utilities
+        baseline_utilities.validate_task_owner_receipt(root,report,
+            require_cleanup=report.get('status') in ('passed','qualified-partial'))
+    return version
+
+
 def qualify(root,report,deployment):
     root=Path(root)
     require(report.get('xopen_attempts')==1,'sole authenticated XOpenDisplay gate missing')
@@ -288,9 +304,7 @@ def qualify(root,report,deployment):
     for gate in ('runtime_bind_verified','conversion_verified','cancel_verified','history_verified','blur_refocus_verified'):
         require(report.get(gate) is True,'live GPUI gate failed: '+gate)
     hashes=report.get('evidence_inputs',{})
-    version=report.get('evidence_schema_version',1)
-    require(version in (1,2),'unsupported evidence schema')
-    require(set(hashes)==set(INPUT_FILES if version==2 else HISTORICAL_INPUT_FILES),'complete GPUI evidence manifest missing')
+    version=validate_input_manifest(root,report,deployment)
     if version==2:
         captured=json.loads((root/'current-candidate-verification.snapshot.json').read_text())
         require(captured==report['candidate_verification'],'current candidate verification snapshot differs')
