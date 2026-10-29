@@ -164,7 +164,7 @@ def verify_candidate_layout(runtime, profile_root, candidate_repo, recipe):
 
 
 def construct(*, profile_root, mozc_build_root, candidate_repo, candidate_build_root,
-              candidate_manifest, output_root, output, expected):
+              candidate_manifest, output_root, output, expected, recipe_variant='legacy'):
     """Read and bind explicit roots/hashes. Returns bytes to review, not a pass."""
     require(type(expected) is dict and set(expected) == EXPECTED_FIELDS, 'exact four reviewed build hashes required')
     for value in expected.values(): candidate_bundle.sha(value, 'explicit reviewed build')
@@ -179,9 +179,26 @@ def construct(*, profile_root, mozc_build_root, candidate_repo, candidate_build_
         for runtime in (profile_root, mozc_build_root, candidate_build_root):
             require(source != runtime and source not in runtime.parents and runtime not in source.parents, 'source and runtime roots must not overlap')
     output_root, output = output_location(output_root, output, roots)
+    require(recipe_variant in ('legacy', 'hosted'), 'unsupported recipe variant')
     recipe_path = HERE/'recipe.lock.json'
+    if recipe_variant == 'hosted':
+        sys.path.insert(0, str(HERE))
+        import hosted_restore
+        approved = hosted_restore.receipt()
+        require(approved is not None and approved['expected'] == expected, 'missing matching hosted review receipt')
+        recipe_path = HERE/'hosted.recipe.lock.json'
+        matched(recipe_path, approved['recipe_sha256'])
+        require(os.environ.get('GPUI_CONTAINER_IMAGE') == hosted_restore.IMAGE, 'hosted container identity is missing')
+        closure = Path(approved['exact_restore_root'])
+        require((profile_root, mozc_build_root, candidate_repo, candidate_build_root, Path(candidate_manifest)) ==
+                (closure/'profile', closure/'mozc-build', closure/'source', closure/'app-build', closure/'profile/field-build.json'),
+                'hosted canonical roots differ')
+        candidate_source = build_manifest.capture_source(candidate_repo)
+        require(candidate_source.get('head') == approved['candidate_source_sha'] and candidate_source.get('tree') == approved['candidate_source_tree'], 'hosted candidate source differs')
     recipe = load(recipe_path)
     require(recipe.get('schema_version') == 1 and recipe.get('kind') == 'native-ime-recovery-recipe' and recipe.get('native_qualified') is False, 'unsupported recovery recipe')
+    if recipe_variant == 'hosted':
+        require('wayland-ime/recovery/hosted_restore.py' in recipe['source_files'], 'hosted verifier source is not pinned')
     require(bool(recipe['source_files']), 'recovery source closure has not been frozen')
     require(REQUIRED_SOURCE_FILES <= set(recipe['source_files']), 'incomplete public recovery source closure')
     pins = {}
@@ -212,6 +229,8 @@ def construct(*, profile_root, mozc_build_root, candidate_repo, candidate_build_
     pins[str(profile_root/'config/fonts.conf')] = sha(profile_root/'config/fonts.conf')
     pins[str(installed_path)] = sha(installed_path)
     pins[str(recipe_path)] = sha(recipe_path)
+    if recipe_variant == 'hosted':
+        pins[str(HERE/'hosted.review.json')] = sha(HERE/'hosted.review.json')
 
     result_path = mozc_build_root/'build-result.json'
     matched(result_path, expected['mozc_build_result'])
@@ -274,6 +293,8 @@ def construct(*, profile_root, mozc_build_root, candidate_repo, candidate_build_
             'candidate_manifest':str(candidate_manifest),'output_root':str(output_root),'output':str(output),'expected':expected},
         'historical_deployment_unchanged_sha256':recipe['historical_deployment_sha256'],
         'qualification_scope':'New reviewed recovery closure. Native qualification is pending; host ABI/dynamic libraries and approved native launch context remain prerequisites. Not a hermetic OS image.'}
+    if recipe_variant == 'hosted':
+        result['recovery_inputs']['recipe_variant'] = recipe_variant
     require(source_snapshot == build_manifest.capture_source(iac_repo), 'IaC source changed during recovery binding')
     return result
 
@@ -303,6 +324,7 @@ def prepare(**arguments):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--recipe-variant', choices=('legacy', 'hosted'), default='legacy')
     parser.add_argument('--check',type=Path,help='reverify an already prepared new recovery deployment without native launch')
     for name in ('profile-root','mozc-build-root','candidate-repo','candidate-build-root','candidate-manifest','output-root','output'):
         parser.add_argument('--'+name,type=Path)
@@ -313,6 +335,7 @@ def main():
     else:
         arguments={name:getattr(args,name) for name in ('profile_root','mozc_build_root','candidate_repo','candidate_build_root','candidate_manifest','output_root','output')}
         require(all(arguments.values()), 'all explicit source/runtime/output roots are required')
+        if args.recipe_variant == 'hosted': arguments['recipe_variant'] = 'hosted'
         arguments['expected']={name:getattr(args,'expected_'+name+'_sha256') for name in EXPECTED_FIELDS}
         output,data=prepare(**arguments)
     print(json.dumps({'prepared_deployment':str(output),'kind':data['kind'],'native_qualified':False,'native_executed':False,'pin_count':len(data['pins'])},indent=2))

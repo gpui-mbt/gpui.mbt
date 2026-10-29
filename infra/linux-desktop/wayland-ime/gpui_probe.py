@@ -544,7 +544,7 @@ def run(args, data, driver, baseline, suite=None):
         write_json(output/'transport-evidence.json',report['transport_evidence'])
         report['gpui_ime_verified'] = True
         report['panel'] = {'status':'UNRUN','scope':'candidate window contents/highlight excluded'} if suite is not None else gpui_evidence.panel_evidence(output,report)
-        report['full_suite_verified'] = report.get('palette_flow_verified') is True if suite is not None else args.held_shortcuts and report['panel']['pixel_show_verified'] and report['panel']['pixel_hide_verified']
+        report['full_suite_verified'] = report.get('palette_flow_verified') is True if suite is not None else gpui_evidence.full_ime_suite_verified(args.held_shortcuts, report['panel'])
         report['status'] = 'passed' if report['full_suite_verified'] else 'qualified-partial'
     except Exception as error:
         report['error'] = str(error)

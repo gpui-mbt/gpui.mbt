@@ -27,7 +27,7 @@ class RecoveryBindingTests(unittest.TestCase):
         self.temporary=tempfile.TemporaryDirectory();self.addCleanup(self.temporary.cleanup)
         self.root=Path(self.temporary.name)
         self.iac=self.root/'iac';self.desktop=self.iac/'infra/linux-desktop';self.here=self.desktop/'wayland-ime/recovery'
-        self.profile=self.root/'profile';self.mozc=self.root/'mozc';self.repo=self.root/'app-source';self.build=self.root/'app-build'
+        self.profile=self.root/'profile';self.mozc=self.root/('mozc-build' if getattr(self, 'HOSTED_FIXTURE', False) else 'mozc');self.repo=self.root/('source' if getattr(self, 'HOSTED_FIXTURE', False) else 'app-source');self.build=self.root/'app-build'
         self.output_root=self.root/'evidence';self.output=self.output_root/'new-profile.json'
         for directory in (self.here,self.profile,self.mozc,self.repo,self.build):directory.mkdir(parents=True,mode=0o700)
         self.addCleanup(patch.stopall)
@@ -72,7 +72,7 @@ class RecoveryBindingTests(unittest.TestCase):
             'configure_command':['/usr/bin/python3','build_mozc.py','gyp','--gypdir='+str(self.mozc/'build-prefix/usr/bin'),'--target_platform=Linux','--noqt','--server_dir='+str(self.prefix/'usr/lib/mozc'),'--verbose'],
             'build_command':['ninja','-C','out_linux/Release','-j4','ibus_mozc']}
         write(self.mozc/'build-result.json',self.result)
-        self.app=self.build/'app.exe';self.app.write_bytes(b'exact app');self.manifest=self.build/'field-build.json'
+        self.app=self.build/'app.exe';self.app.write_bytes(b'exact app');self.manifest=(self.profile if getattr(self, 'HOSTED_FIXTURE', False) else self.build)/'field-build.json'
         tool_rows=[];tools={}
         for name in ('moon','moonc','moonrun','cc','pkg-config','wayland-scanner','fc-list','tcc'):
             relative='tools/'+name;p=self.profile/relative;p.parent.mkdir(exist_ok=True);p.write_bytes(('exact tool '+name).encode())
@@ -292,6 +292,98 @@ class RecoveryBindingTests(unittest.TestCase):
     def test_json_duplicates_fail(self):
         self.manifest.write_text('{"mode":"built","mode":"bound"}');self.arguments['expected']['candidate_manifest']=recovery.sha(self.manifest)
         with self.assertRaisesRegex(RuntimeError,'duplicate'):self.construct()
+
+
+class HostedRecoveryBindingTests(unittest.TestCase):
+    HOSTED_FIXTURE = True
+    expected = RecoveryBindingTests.expected
+    construct = RecoveryBindingTests.construct
+
+    def setUp(self):
+        RecoveryBindingTests.setUp(self)
+        import hosted_restore
+        self.hosted = hosted_restore
+        patch.object(hosted_restore, 'HERE', self.here).start()
+        patch.dict(os.environ, GPUI_CONTAINER_IMAGE=hosted_restore.IMAGE).start()
+        helper = self.here/'hosted_restore.py'
+        helper.write_bytes(b'synthetic reviewed hosted verifier')
+        self.recipe['source_files']['wayland-ime/recovery/hosted_restore.py'] = recovery.sha(helper)
+        write(self.here/'hosted.recipe.lock.json', self.recipe)
+        self.approval = {
+            'schema_version': 1, 'approved_for_execution': True,
+            'container_image': hosted_restore.IMAGE, 'runtime_sha256': '1'*64,
+            'inventory_sha256': '2'*64, 'recipe_sha256': recovery.sha(self.here/'hosted.recipe.lock.json'),
+            'candidate_source_sha': '3'*40, 'candidate_source_tree': '4'*40,
+            'artifact_head_sha': '3'*40, 'artifact_id': 123, 'artifact_run_id': 456,
+            'expected': self.expected(), 'external_symlinks': {}, 'exact_restore_root': str(self.root),
+        }
+        self.save_receipt()
+        self.arguments['recipe_variant'] = 'hosted'
+        self.source_mock.side_effect = lambda path: (
+            {'repo': str(self.repo), 'head': '3'*40, 'tree': '4'*40, 'status': 'frozen'}
+            if Path(path) == self.repo else {'repo': str(self.iac), 'head': 'new-iac', 'status': 'frozen'})
+
+    def save_receipt(self):
+        write(self.here/'hosted.review.json', self.approval)
+
+    def test_hosted_positive_recheck_preserves_separate_candidate_and_iac(self):
+        with patch('subprocess.Popen', side_effect=AssertionError('no launch')), patch('subprocess.run', side_effect=AssertionError('no launch')):
+            output, data = recovery.prepare(**self.arguments)
+            self.assertEqual(recovery.verify_deployment(output), data)
+        self.assertEqual(data['recovery_inputs']['recipe_variant'], 'hosted')
+        self.assertEqual(data['iac_source']['head'], 'new-iac')
+        self.assertFalse(data['native_qualified'])
+        self.assertIn(str(self.here/'hosted.review.json'), data['pins'])
+
+    def test_hosted_missing_unapproved_or_changed_four_pins(self):
+        (self.here/'hosted.review.json').unlink()
+        with self.assertRaisesRegex(RuntimeError, 'receipt'):
+            self.construct()
+        self.approval['approved_for_execution'] = False
+        self.save_receipt()
+        with self.assertRaisesRegex(ValueError, 'approved'):
+            self.construct()
+        self.approval['approved_for_execution'] = True
+        self.approval['expected']['engine'] = 'f'*64
+        self.save_receipt()
+        with self.assertRaisesRegex(RuntimeError, 'receipt'):
+            self.construct()
+
+    def test_hosted_wrong_container(self):
+        with patch.dict(os.environ, GPUI_CONTAINER_IMAGE='foreign'):
+            with self.assertRaisesRegex(RuntimeError, 'container'):
+                self.construct()
+
+    def test_hosted_wrong_exact_root(self):
+        self.approval['exact_restore_root'] = str(self.root/'other')
+        self.save_receipt()
+        with self.assertRaisesRegex(RuntimeError, 'canonical roots'):
+            self.construct()
+
+    def test_hosted_wrong_candidate_sha_or_tree(self):
+        for key in ('head', 'tree'):
+            original = self.source_mock.side_effect
+            def changed(path, key=key):
+                value = original(path)
+                if Path(path) == self.repo:
+                    value[key] = 'f'*40
+                return value
+            self.source_mock.side_effect = changed
+            with self.assertRaisesRegex(RuntimeError, 'candidate source'):
+                self.construct()
+            self.source_mock.side_effect = original
+
+    def test_hosted_wrong_recipe_digest_or_unpinned_helper(self):
+        self.approval['recipe_sha256'] = 'e'*64
+        self.save_receipt()
+        with self.assertRaisesRegex(RuntimeError, 'hash'):
+            self.construct()
+        del self.recipe['source_files']['wayland-ime/recovery/hosted_restore.py']
+        write(self.here/'hosted.recipe.lock.json', self.recipe)
+        self.approval['recipe_sha256'] = recovery.sha(self.here/'hosted.recipe.lock.json')
+        self.save_receipt()
+        with self.assertRaisesRegex(RuntimeError, 'verifier source'):
+            self.construct()
 
 
 if __name__ == '__main__':unittest.main()
