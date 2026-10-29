@@ -26,6 +26,16 @@ def line(v): return e.STATE_PREFIX+json.dumps(v,ensure_ascii=False)
 
 
 class GpuiProbeTests(unittest.TestCase):
+    def test_full_suite_requires_verified_candidate_table(self):
+        panel = {'pixel_show_verified': True, 'pixel_hide_verified': True, 'candidate_table_verified': False}
+        self.assertFalse(e.full_ime_suite_verified(True, panel))
+        for key in panel:
+            missing = dict(panel, candidate_table_verified=True)
+            del missing[key]
+            self.assertFalse(e.full_ime_suite_verified(True, missing))
+        self.assertFalse(e.full_ime_suite_verified(False, dict(panel, candidate_table_verified=True)))
+        self.assertTrue(e.full_ime_suite_verified(True, dict(panel, candidate_table_verified=True)))
+
     def test_import_read_only(self):
         with patch('subprocess.Popen',side_effect=AssertionError('launch')),patch('subprocess.run',side_effect=AssertionError('launch')):
             spec=importlib.util.spec_from_file_location('gpui_import',HERE/'gpui_probe.py');spec.loader.exec_module(importlib.util.module_from_spec(spec))

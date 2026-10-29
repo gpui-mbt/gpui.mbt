@@ -60,6 +60,12 @@ require = evidence.require
 sha = evidence.sha
 
 
+def full_ime_suite_verified(held_shortcuts, panel):
+    return (held_shortcuts is True and panel.get('pixel_show_verified') is True
+        and panel.get('pixel_hide_verified') is True
+        and panel.get('candidate_table_verified') is True)
+
+
 def no_duplicates(pairs):
     result={}
     for k,v in pairs:

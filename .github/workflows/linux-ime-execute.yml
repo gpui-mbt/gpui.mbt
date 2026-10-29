@@ -6,6 +6,7 @@ on:
       - 'infra/linux-desktop/ci-ime-execute.py'
       - 'infra/linux-desktop/ci-owned-checkout.py'
       - 'infra/linux-desktop/ci-nonroot.py'
+      - 'infra/linux-desktop/wayland-ime/**'
       - 'infra/linux-desktop/wayland-ime/recovery/hosted.review.json'
       - 'infra/linux-desktop/wayland-ime/recovery/hosted.recipe.lock.json'
 permissions:
