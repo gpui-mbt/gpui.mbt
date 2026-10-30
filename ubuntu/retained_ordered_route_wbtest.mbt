@@ -511,3 +511,38 @@ test "observed native sequence eleven remains an explicit release candidate" {
   assert_true(receipt.event() is Unhandled(_))
   assert_eq(route.ordinal, 0L)
 }
+
+///|
+test "candidate ACK rechecks stale native evidence before consuming head" {
+  let route = retained_test_route()
+  let receipt = route
+    .prepare(
+      retained_test_record(
+        route,
+        11,
+        7,
+        ForwardedReleased(
+          keysym=0x6e,
+          key=None,
+          modifiers=@primitives.Modifiers::none(),
+        ),
+        false,
+      ),
+    )
+    .unwrap()
+  assert_true(receipt.printable_release_candidate() is Some(_))
+  let mut consumed = false
+  let native_ack = fn() {
+    consumed = true
+    Ok(())
+  }
+  let stale = fn() {
+    Err(@diagnostics.FrameworkError::new(@diagnostics.StaleHandle, "focus"))
+  }
+  assert_true(receipt.ack_from(stale, native_ack) is Err(_))
+  assert_false(consumed)
+  assert_eq(route.ordinal, 0L)
+  assert_eq(route.root, 9UL)
+  receipt.ack_from(fn() { Ok(()) }, native_ack).unwrap()
+  assert_true(consumed)
+}

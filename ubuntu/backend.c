@@ -74,6 +74,9 @@ struct key_repeat {
 struct direct_key_state {
   int epoch, direct_origin, swallowed, pressed;
 };
+enum retained_key_prior { KEY_PRIOR_UNKNOWN = 0, KEY_PRIOR_NONE = 1,
+                          KEY_PRIOR_ADMITTED = 2 };
+struct retained_key_slot { int prior, press_sequence, press_window; };
 enum input_serial_origin {
   INPUT_SERIAL_NONE,
   INPUT_SERIAL_POINTER,
@@ -142,6 +145,13 @@ struct host {
   double queue[QUEUE_CAPACITY][10];
   struct direct_event_meta direct_queue[QUEUE_CAPACITY];
   struct direct_key_state direct_keys[GPUI_DIRECT_KEY_CAPACITY];
+  /* Bounded provenance observed since a valid keyboard.enter after claim.
+   * It is not a claim that the application applied or released a press. */
+  struct retained_key_slot retained_keys[GPUI_DIRECT_KEY_CAPACITY];
+  int retained_key_focus, retained_key_valid, retained_key_ambiguous;
+  int retained_key_window;
+  uint32_t retained_key_seat;
+  struct wl_keyboard *retained_key_keyboard;
   int read, count;
   struct ime_state ime;
   struct ime_payload *ime_queue[QUEUE_CAPACITY];
@@ -1177,13 +1187,40 @@ static void keyboard_keymap(void *d, struct wl_keyboard *k, uint32_t format,
 static void keyboard_enter(void *d, struct wl_keyboard *k, uint32_t serial,
                            struct wl_surface *s, struct wl_array *keys) {
   UNUSED(serial);
-  UNUSED(keys);
   struct host *h = d;
   if (k != h->keyboard)
     return;
   reset_direct_text(h, 1, 0);
   invalidate_input_serial(h, INPUT_SERIAL_KEYBOARD);
   h->keyboard_focus_current = h->surface && s == h->surface;
+  /* A prior focus or a missing/invalid enter snapshot cannot establish which
+   * physical keys were already held. Never infer an empty snapshot from NULL. */
+  h->retained_key_valid = 0;
+  h->retained_key_ambiguous = 0;
+  if (h->retained_route_claimed && h->keyboard_focus_current && h->window &&
+      k && h->seat && h->seat_name &&
+      h->retained_key_focus < INT_MAX && keys &&
+      keys->size % sizeof(uint32_t) == 0 &&
+      keys->size <= GPUI_DIRECT_KEY_CAPACITY * sizeof(uint32_t) &&
+      (!keys->size || keys->data)) {
+    memset(h->retained_keys, 0, sizeof(h->retained_keys));
+    for (int i = 0; i < GPUI_DIRECT_KEY_CAPACITY; ++i)
+      h->retained_keys[i].prior = KEY_PRIOR_NONE;
+    int valid = 1;
+    size_t count = keys->size / sizeof(uint32_t);
+    const uint32_t *held = keys->data;
+    for (size_t i = 0; i < count; ++i) {
+      if (held[i] >= GPUI_DIRECT_KEY_CAPACITY) { valid = 0; break; }
+      h->retained_keys[held[i]].prior = KEY_PRIOR_UNKNOWN;
+    }
+    if (valid) {
+      ++h->retained_key_focus;
+      h->retained_key_window = h->window;
+      h->retained_key_seat = h->seat_name;
+      h->retained_key_keyboard = k;
+      h->retained_key_valid = 1;
+    }
+  }
   event(h, 6, 1, 0, 0);
   if (h->keyboard_focus_current && h->ime.composition_enabled && !h->ime.requested)
     (void)gpui_text_composition_mode(h->token, h->window, 1);
@@ -1195,6 +1232,7 @@ static void keyboard_leave(void *d, struct wl_keyboard *k, uint32_t serial,
   struct host *h = d;
   if (k != h->keyboard)
     return;
+  h->retained_key_valid = 0;
   ime_preserve_before_focus_loss(h);
   ime_invalidate(h, 1, 1);
   h->ime.composition_direct_pending = 0;
@@ -1219,7 +1257,59 @@ static void keyboard_key(void *d, struct wl_keyboard *k, uint32_t serial,
     return;
   }
   xkb_keysym_t sym = xkb_state_key_get_one_sym(h->keys, key + 8);
+  int old_count = h->count;
+  int old_sequence = h->seq;
   direct_keyboard_key(h, key, state, sym);
+  if (!h->retained_key_valid || h->retained_key_keyboard != k ||
+      h->retained_key_window != h->window ||
+      h->retained_key_seat != h->seat_name || !h->keyboard_focus_current)
+    return;
+  if (key >= GPUI_DIRECT_KEY_CAPACITY) {
+    h->retained_key_valid = 0;
+    return;
+  }
+  struct retained_key_slot *key_state = &h->retained_keys[key];
+  if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+    /* The first native record from this callback is its key press. A
+     * swallowed or failed press leaves ownership unknown. */
+    if (key_state->prior != KEY_PRIOR_NONE) return;
+    if (h->count > old_count && h->seq > old_sequence) {
+      int slot = (h->read + old_count) % QUEUE_CAPACITY;
+      if (h->queue[slot][0] == 11 || h->queue[slot][0] == 24) {
+        key_state->prior = KEY_PRIOR_ADMITTED;
+        key_state->press_sequence = (int)h->queue[slot][2];
+        key_state->press_window = (int)h->queue[slot][1];
+        return;
+      }
+    }
+    key_state->prior = KEY_PRIOR_UNKNOWN;
+  } else if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
+    if (h->count > old_count && h->seq > old_sequence) {
+      int slot = (h->read + old_count) % QUEUE_CAPACITY;
+      struct ime_payload *data = h->ime_queue[slot];
+      if (data && data->kind == 25) {
+        data->key_proof_origin = 1;
+        data->key_proof_physical = (int)key;
+        data->key_proof_focus = h->retained_key_focus;
+        data->key_proof_prior = h->retained_key_ambiguous
+            ? KEY_PRIOR_UNKNOWN : key_state->prior;
+        if (data->key_proof_prior == KEY_PRIOR_ADMITTED) {
+          data->key_proof_press_sequence = key_state->press_sequence;
+          data->key_proof_press_window = key_state->press_window;
+        }
+      }
+      /* NoPressObservedSinceFocus is monotonic. Once a press or an unknown
+       * held key has existed, a release cannot prove its owner was resolved;
+       * preserve Unknown until a new, valid focus-enter snapshot. */
+      int never_pressed = key_state->prior == KEY_PRIOR_NONE;
+      memset(key_state, 0, sizeof(*key_state));
+      key_state->prior = never_pressed ? KEY_PRIOR_NONE : KEY_PRIOR_UNKNOWN;
+    } else {
+      key_state->prior = KEY_PRIOR_UNKNOWN;
+    }
+  } else {
+    h->retained_key_valid = 0;
+  }
 }
 static void keyboard_modifiers(void *d, struct wl_keyboard *k, uint32_t serial,
                                uint32_t dep, uint32_t lat, uint32_t lock,
@@ -1266,6 +1356,8 @@ static void keyboard_repeat_info(void *d, struct wl_keyboard *keyboard,
   h->repeat_delay = delay;
 }
 static void destroy_keyboard(struct host *h) {
+  h->retained_key_valid = 0;
+  h->retained_key_keyboard = NULL;
   if (h->seat_version >= 3)
     wl_keyboard_release(h->keyboard);
   else
@@ -1308,6 +1400,7 @@ static void seat_caps(void *d, struct wl_seat *s, uint32_t caps) {
     h->keyboard = wl_seat_get_keyboard(s);
     wl_keyboard_add_listener(h->keyboard, &keyboard_listener, h);
   } else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD)) {
+    h->retained_key_valid = 0;
     ime_drop_proxy(h);
     invalidate_input_serial(h, INPUT_SERIAL_KEYBOARD);
     h->keyboard_focus_current = 0;
@@ -1456,6 +1549,7 @@ static void release_window(struct host *h) {
   invalidate_input_serial(h, INPUT_SERIAL_NONE);
   h->pointer_focus_current = 0;
   h->keyboard_focus_current = 0;
+  h->retained_key_valid = 0;
   if (h->frame) {
     wl_callback_destroy(h->frame);
     h->frame = NULL;

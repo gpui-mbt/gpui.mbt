@@ -185,3 +185,47 @@ int32_t gpui_ack_retained_editor(int32_t token, int32_t window, int32_t sequence
   consume_event(h);
   return GPUI_OK;
 }
+
+/* Evidence is copied only from the same native FIFO head and never changes or
+ * consumes it. It says nothing about an application's processing stage. */
+int32_t gpui_peek_retained_key_proof(int32_t token, int32_t window,
+    int32_t sequence, int32_t *fields, int32_t capacity) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return -status;
+  if (!h->terminal_retention || !h->retained_route_claimed)
+    return -GPUI_UNSUPPORTED;
+  if (!fields || capacity < 6) return -GPUI_INVALID;
+  if (!h->count || window <= 0 || sequence <= 0 ||
+      h->queue[h->read][1] != window || h->queue[h->read][2] != sequence)
+    return -GPUI_STALE;
+  struct ime_payload *data = h->ime_queue[h->read];
+  if (!data) return 0;
+  if (ime_queued_stale(h, h->read)) return -GPUI_STALE;
+  if (!data->key_proof_origin) return 0;
+  if (!h->retained_key_valid || !h->keyboard_focus_current ||
+      h->retained_key_focus != data->key_proof_focus ||
+      h->retained_key_keyboard != h->keyboard ||
+      h->retained_key_window != window ||
+      h->retained_key_seat != data->seat || h->seat_name != data->seat)
+    return -GPUI_STALE;
+  if (data->kind != 25 || data->key_proof_origin != 1 ||
+      data->key_proof_physical < 0 ||
+      data->key_proof_physical >= GPUI_DIRECT_KEY_CAPACITY ||
+      data->key_proof_focus <= 0 || data->key_proof_prior < KEY_PRIOR_UNKNOWN ||
+      data->key_proof_prior > KEY_PRIOR_ADMITTED ||
+      (data->key_proof_prior == KEY_PRIOR_ADMITTED &&
+       (data->key_proof_press_sequence <= 0 ||
+        data->key_proof_press_sequence >= sequence ||
+        data->key_proof_press_window != window)) ||
+      (data->key_proof_prior != KEY_PRIOR_ADMITTED &&
+       (data->key_proof_press_sequence || data->key_proof_press_window)))
+    return -GPUI_INVALID;
+  fields[0] = data->key_proof_origin;
+  fields[1] = data->key_proof_physical;
+  fields[2] = data->key_proof_focus;
+  fields[3] = data->key_proof_prior;
+  fields[4] = data->key_proof_press_sequence;
+  fields[5] = data->key_proof_press_window;
+  return 1;
+}

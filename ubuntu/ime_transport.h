@@ -5,6 +5,10 @@ struct ime_style { int index, length, style; };
 struct ime_payload {
   int kind, window, epoch, proxy_generation, serial;
   int composition_revoked, focus_loss_delivery, terminal_delivery;
+  /* Immutable admission-time evidence for a raw wl_keyboard release.
+   * Zero origin means unavailable (including text-input keysym callbacks). */
+  int key_proof_origin, key_proof_physical, key_proof_focus;
+  int key_proof_prior, key_proof_press_sequence, key_proof_press_window;
   uint32_t seat;
   int text_length, fallback_length, cursor_present, cursor;
   int delete_present, delete_index, delete_length;
