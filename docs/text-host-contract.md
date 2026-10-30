@@ -320,8 +320,23 @@ Foreign or stale targets, unmapped events, replacement, and position changes
 remain explicit unhandled records. Cutoff retains the binding until its
 lifecycle records are acknowledged and release succeeds.
 
-This adapter does not yet implement cancel-to-new-epoch handoff, recovery from
-an already-invalidated native epoch after OS focus loss, or transactional native
-geometry updates. A route that cannot finish cutoff retains its original binding
-and must be surfaced as unresolved rather than force-released. The claim lasts
-until its host stops. Yami integration and real IME operation are not verified.
+The app-layer `OwnedTextRoute` retains the original opaque `TextSession`
+binding above the Ubuntu native leaf. After
+natural focus loss, the owner must process and ACK the admitted FIFO prefix and
+the matching Left, then explicitly resolve blur in that same session. A Left is
+not an observed cancel. `end_after_left` checks the resulting blur receipt,
+current owner state, empty FIFO, and the old native window, epoch, seat and
+proxy in the inactive state. `OwnedTextRoute::release` rechecks the resolution and native
+window, and rechecks the old native identity after natural focus loss. The
+caller is responsible for applying all generated actions to the original
+shared model before requesting either operation. Explicit owner discard is
+distinct from an OS-observed cancel. No old record is transferred to a new
+owner or epoch. A disappeared window, unconfirmed identity, unresolved
+composition, pending record, or failed check retains the binding and host.
+
+This adapter does not yet implement cancel-to-new-epoch handoff or
+transactional native geometry updates. The lower-level
+`RetainedOrderedRoute` exposes only native cutoffs and relies on the caller to
+resolve its editing owner. A route that cannot finish cutoff must be surfaced
+as unresolved rather than force-released. The claim lasts until its host stops.
+Yami integration and real IME operation are not verified.

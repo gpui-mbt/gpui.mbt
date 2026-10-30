@@ -99,6 +99,7 @@ pub fn SessionTarget::delivery_sequence(Self) -> UInt64
 pub fn SessionTarget::field_id(Self) -> UInt64
 pub fn SessionTarget::published_revision(Self) -> UInt64
 pub fn SessionTarget::root_id(Self) -> UInt64
+pub fn SessionTarget::same_binding(Self, Self) -> Bool
 pub fn SessionTarget::session_id(Self) -> UInt64
 pub fn SessionTarget::window(Self) -> @platform.WindowId
 

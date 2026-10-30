@@ -14,6 +14,21 @@ extern "C" fn native_retained_route_native_epoch(
 ) -> Int32 = "gpui_retained_route_native_epoch"
 
 ///|
+extern "C" fn native_retained_route_check_left(
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+  seat : Int64,
+  proxy : Int32,
+) -> Int32 = "gpui_retained_route_check_left"
+
+///|
+extern "C" fn native_retained_route_check_window(
+  host : Int32,
+  window : Int32,
+) -> Int32 = "gpui_retained_route_check_window"
+
+///|
 #borrow(text)
 extern "C" fn native_retained_route_begin(
   host : Int32,
@@ -163,6 +178,8 @@ pub struct RetainedOrderedRoute {
   priv mut native_proxy : Int32
   priv mut ordinal : Int64
   priv mut closed : Bool
+  priv mut left_acked : Bool
+  priv mut left_cutoff : Bool
   priv shortcuts : ShortcutKeyTracker
 }
 
@@ -191,6 +208,8 @@ pub fn RetainedOrderedRoute::new(
     native_proxy: 0,
     ordinal: 0L,
     closed: false,
+    left_acked: false,
+    left_cutoff: false,
     shortcuts: ShortcutKeyTracker::new(),
   })
 }
@@ -246,6 +265,8 @@ pub fn RetainedOrderedRoute::begin(
   self.root = root
   self.ordinal = 0L
   self.closed = false
+  self.left_acked = false
+  self.left_cutoff = false
   self.shortcuts.held = 0
   match self.host.retained_begin(window, state) {
     Ok(native) => self.native_epoch = native
@@ -381,9 +402,102 @@ pub fn RetainedOrderedRoute::release(
   self : RetainedOrderedRoute,
   epoch : UInt64,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
-  self.release_from(epoch, fn() { self.require_empty("retained_release") }, fn() {
-    outcome(native_retained_route_hold(self.host.token, 0), "retained_release")
+  let operation = "retained_release"
+  self.release_from(epoch, fn() { self.require_empty(operation) }, fn() {
+    let window = match self.window {
+      Some(value) => value
+      None =>
+        return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+    }
+    match
+      outcome(
+        native_retained_route_check_window(
+          self.host.token,
+          window.value().to_int(),
+        ),
+        operation,
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    if self.left_cutoff {
+      match
+        outcome(
+          native_retained_route_check_left(
+            self.host.token,
+            window.value().to_int(),
+            self.native_epoch,
+            self.native_seat,
+            self.native_proxy,
+          ),
+          operation,
+        ) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    }
+    outcome(native_retained_route_hold(self.host.token, 0), operation)
   })
+}
+
+///|
+/// Finish a matching naturally lost native binding after its Left has been
+/// ACKed. The caller must first resolve the original editing owner and apply
+/// all admitted records and actions; Left is not an OS cancel. This is a native
+/// cutoff, not evidence that application-model work has completed.
+pub fn RetainedOrderedRoute::end_after_left(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  self.end_after_left_from(
+    epoch,
+    fn() { self.require_empty("retained_end_after_left") },
+    fn(window, native_epoch, seat, proxy) {
+      outcome(
+        native_retained_route_check_left(
+          self.host.token,
+          window.value().to_int(),
+          native_epoch,
+          seat,
+          proxy,
+        ),
+        "retained_end_after_left",
+      )
+    },
+  )
+}
+
+///|
+fn RetainedOrderedRoute::end_after_left_from(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+  empty : () -> Result[Unit, @diagnostics.FrameworkError],
+  check_native : (@platform.WindowId, Int32, Int64, Int32) -> Result[
+    Unit,
+    @diagnostics.FrameworkError,
+  ],
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  let operation = "retained_end_after_left"
+  if epoch != self.portable_epoch || self.closed || !self.left_acked {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  let window = match self.window {
+    Some(value) => value
+    None =>
+      return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  match empty() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match
+    check_native(window, self.native_epoch, self.native_seat, self.native_proxy) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  self.closed = true
+  self.left_cutoff = true
+  Ok(())
 }
 
 ///|
@@ -411,6 +525,8 @@ fn RetainedOrderedRoute::release_from(
   self.native_seat = 0L
   self.native_proxy = 0
   self.closed = false
+  self.left_acked = false
+  self.left_cutoff = false
   self.shortcuts.held = 0
   Ok(())
 }
@@ -441,6 +557,8 @@ pub struct RetainedOrderedReceipt {
   priv expected_proxy : Int32
   priv candidate_seat : Int64
   priv candidate_proxy : Int32
+  priv expected_left : Bool
+  priv candidate_left : Bool
 }
 
 ///|
@@ -554,6 +672,7 @@ fn RetainedOrderedRoute::prepare(
   let mut next_ordinal = self.ordinal
   let mut next_seat = self.native_seat
   let mut next_proxy = self.native_proxy
+  let mut next_left = self.left_acked
   let candidate = ShortcutKeyTracker::{ held: self.shortcuts.held, }
   let mut prepared : RetainedOrderedEvent = Unhandled(native_event)
   if !record.is_stale() {
@@ -572,9 +691,14 @@ fn RetainedOrderedRoute::prepare(
         let initial_enter = self.native_seat == 0L &&
           self.native_proxy == 0 &&
           event is Entered
+        let initial_left = self.native_seat == 0L &&
+          self.native_proxy == 0 &&
+          event is Left
         let same_proxy = self.native_seat == target.seat &&
           self.native_proxy == target.proxy_generation
-        if matches && (initial_enter || same_proxy) {
+        if matches &&
+          !self.left_acked &&
+          (initial_enter || initial_left || same_proxy) {
           match event {
             Entered => {
               if initial_enter {
@@ -583,7 +707,14 @@ fn RetainedOrderedRoute::prepare(
               }
               prepared = Lifecycle(target, event)
             }
-            Left => prepared = Lifecycle(target, event)
+            Left => {
+              if initial_left {
+                next_seat = target.seat
+                next_proxy = target.proxy_generation
+              }
+              next_left = true
+              prepared = Lifecycle(target, event)
+            }
             Commit(deletion=Some(deletion), ..) if deletion.length_bytes != 0 =>
               ()
             Commit(position=Some(_), ..) => ()
@@ -647,6 +778,8 @@ fn RetainedOrderedRoute::prepare(
     expected_proxy: self.native_proxy,
     candidate_seat: next_seat,
     candidate_proxy: next_proxy,
+    expected_left: self.left_acked,
+    candidate_left: next_left,
   })
 }
 
@@ -673,7 +806,8 @@ fn RetainedOrderedReceipt::finish_ack(
     route.ordinal != self.expected_ordinal ||
     route.shortcuts.held != self.expected_shortcuts ||
     route.native_seat != self.expected_seat ||
-    route.native_proxy != self.expected_proxy {
+    route.native_proxy != self.expected_proxy ||
+    route.left_acked != self.expected_left {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
   match native_ack() {
@@ -684,5 +818,6 @@ fn RetainedOrderedReceipt::finish_ack(
   route.shortcuts.held = self.candidate_shortcuts
   route.native_seat = self.candidate_seat
   route.native_proxy = self.candidate_proxy
+  route.left_acked = self.candidate_left
   Ok(())
 }

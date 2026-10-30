@@ -11,6 +11,8 @@ fn retained_test_route() -> RetainedOrderedRoute {
     native_proxy: 4,
     ordinal: 0L,
     closed: false,
+    left_acked: false,
+    left_cutoff: false,
     shortcuts: ShortcutKeyTracker::new(),
   }
 }

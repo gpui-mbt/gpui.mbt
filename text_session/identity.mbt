@@ -77,15 +77,26 @@ pub fn SessionTarget::delivery_sequence(self : SessionTarget) -> UInt64 {
 }
 
 ///|
+/// Compare the opaque owner and binding incarnation without comparing the
+/// publication revision or delivery sequence. Numeric IDs alone are not proof
+/// that two targets belong to the same editing owner.
+pub fn SessionTarget::same_binding(
+  self : SessionTarget,
+  other : SessionTarget,
+) -> Bool {
+  same_identity(self.owner, other.owner) &&
+  same_identity(self.window_instance, other.window_instance) &&
+  same_identity(self.root_instance, other.root_instance) &&
+  same_identity(self.field_instance, other.field_instance) &&
+  self.window == other.window &&
+  self.root_id == other.root_id &&
+  self.field_id == other.field_id &&
+  self.session == other.session
+}
+
+///|
 fn same_target(left : SessionTarget, right : SessionTarget) -> Bool {
-  same_identity(left.owner, right.owner) &&
-  same_identity(left.window_instance, right.window_instance) &&
-  same_identity(left.root_instance, right.root_instance) &&
-  same_identity(left.field_instance, right.field_instance) &&
-  left.window == right.window &&
-  left.root_id == right.root_id &&
-  left.field_id == right.field_id &&
-  left.session == right.session &&
+  left.same_binding(right) &&
   left.revision == right.revision &&
   left.sequence == right.sequence
 }

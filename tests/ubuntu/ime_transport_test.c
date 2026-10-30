@@ -1409,7 +1409,46 @@ static void retained_route_rejects_legacy_session_mutation(void) {
   assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
   finish(h);
 }
+static void retained_route_focus_loss_checks_original_native_owner(void) {
+  struct host *h = fixture();
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  assert(gpui_claim_retained_route(h->token) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  int epoch = gpui_retained_route_begin(h->token, h->window, NULL, 0, 0, 0,
+      0, 0, 1, 1);
+  assert(epoch > 0);
+  ime_enter(h, h->ime.proxy, h->surface);
+  drain_enter(h);
+  int seat = h->seat_name, proxy = h->ime.proxy_generation;
+  ime_preedit_string(h, h->ime.proxy, 1, "に", "");
+  ime_commit_string(h, h->ime.proxy, 1, "日本");
+  ime_leave(h, h->ime.proxy);
+  assert(gpui_retained_route_end_when_drained(h->token, 51, epoch) == GPUI_STALE);
+  assert(gpui_retained_route_check_left(h->token, 51, epoch, seat, proxy) == GPUI_BUSY);
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 20 && data[10] == epoch);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 21 && data[10] == epoch);
+  assert(!memcmp(bytes, "日本", 6));
+  assert(gpui_retained_route_check_left(h->token, 51, epoch, seat, proxy) == GPUI_BUSY);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 23 && data[10] == epoch);
+  assert(gpui_retained_route_check_left(h->token, 52, epoch, seat, proxy) == GPUI_STALE);
+  assert(gpui_retained_route_check_left(h->token, 51, epoch + 1, seat, proxy) == GPUI_STALE);
+  assert(gpui_retained_route_check_left(h->token, 51, epoch, seat + 1, proxy) == GPUI_STALE);
+  assert(gpui_retained_route_check_left(h->token, 51, epoch, seat, proxy + 1) == GPUI_STALE);
+  h->window = 52;
+  assert(gpui_retained_route_check_left(h->token, 51, epoch, seat, proxy) == GPUI_STALE);
+  assert(gpui_retained_route_check_window(h->token, 51) == GPUI_STALE);
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  h->window = 51;
+  assert(gpui_retained_route_check_window(h->token, 51) == GPUI_OK);
+  assert(gpui_retained_route_check_left(h->token, 51, epoch, seat, proxy) == GPUI_OK);
+  assert(gpui_stop(h->token) == GPUI_BUSY); /* validation is not release */
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  finish(h);
+}
 int main(void) {
+  retained_route_focus_loss_checks_original_native_owner();
   retained_route_rejects_legacy_session_mutation();
   retained_cutoff_generated_left_requires_ack();
   retained_direct_owner_survives_window_replacement();
