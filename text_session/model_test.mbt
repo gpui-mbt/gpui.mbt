@@ -656,6 +656,66 @@ test "owner discard requires active composition and a blur request" {
 }
 
 ///|
+test "uncomposed blur retains the observed commit without inventing a cancellation" {
+  let session = owner()
+  ignore(apply(session, [preview("にほん")]))
+  ignore(apply(session, [@text_session.Commit("日本")]))
+  let target = session.target().unwrap()
+  let pending = session.request_end(target, @text_session.Blur).unwrap()
+  let receipt = session.complete_blur_if_uncomposed(pending).unwrap()
+  assert_eq(receipt.outcomes().length(), 1)
+  assert_true(receipt.outcomes()[0] is @text_session.Blurred(_))
+  let field = session.snapshot().field()
+  assert_eq(field.committed_document().text(), "a日本d")
+  assert_false(field.is_composing())
+  assert_false(field.is_focused())
+  assert_eq(
+    field
+    .with_focus(true)
+    .unwrap()
+    .undo(measure, admit)
+    .unwrap()
+    .document()
+    .text(),
+    "abcd",
+  )
+  assert_true(
+    session.complete_blur_if_uncomposed(pending)
+    is Err(@text_session.StaleSession),
+  )
+  assert_true(
+    session.apply_batch(
+      target,
+      [@text_session.Commit("遅延")],
+      measure,
+      admit,
+    )
+    is Err(_),
+  )
+}
+
+///|
+test "uncomposed blur refuses an active preview without changing the pending state" {
+  let session = owner()
+  ignore(apply(session, [preview("にほん")]))
+  let pending = session
+    .request_end(session.target().unwrap(), @text_session.Blur)
+    .unwrap()
+  let before = session.snapshot()
+  assert_true(
+    session.complete_blur_if_uncomposed(pending)
+    is Err(@text_session.CompositionActive),
+  )
+  assert_snapshot(before, session.snapshot())
+  // A real observed ending can still resolve the same request.
+  ignore(
+    session
+    .complete_blur(pending, @text_session.Committed("日本"), measure, admit)
+    .unwrap(),
+  )
+}
+
+///|
 test "external replacement retains observed old commit before validated rebind" {
   let session = owner()
   let _ = apply(session, [preview("にほん")])

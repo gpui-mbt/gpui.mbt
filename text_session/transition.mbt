@@ -180,6 +180,7 @@ pub fn TextSession::request_end(
 priv enum EndResolution {
   Observed(ObservedEnd)
   OwnerDiscard
+  Uncomposed
 }
 
 ///|
@@ -258,18 +259,24 @@ fn TextSession::finish_end(
         }
         state.field.cancel_composition(guarded_measure, guarded_admit)
       }
+      Uncomposed => {
+        if state.field.is_composing() {
+          return Err(CompositionActive)
+        }
+        Ok(state.field)
+      }
     }
     let resolved = match session_field_result(resolved) {
       Ok(value) => value
       Err(error) => return Err(error)
     }
-    let outcomes : Array[SessionOutcome] = [
-      match resolution {
-        Observed(Committed(_)) => Committed(resolved)
-        Observed(Cancelled) => Cancelled(resolved)
-        OwnerDiscard => OwnerDiscarded(resolved)
-      },
-    ]
+    let outcomes : Array[SessionOutcome] = []
+    match resolution {
+      Observed(Committed(_)) => outcomes.push(Committed(resolved))
+      Observed(Cancelled) => outcomes.push(Cancelled(resolved))
+      OwnerDiscard => outcomes.push(OwnerDiscarded(resolved))
+      Uncomposed => ()
+    }
     let changed = state.field.committed_document() !=
       resolved.committed_document() ||
       replacement is Some(_)
@@ -358,6 +365,24 @@ pub fn TextSession::complete_blur_by_owner_discard(
   ],
 ) -> Result[BatchReceipt, SessionError] {
   self.finish_end(pending, OwnerDiscard, None, measure, admit)
+}
+
+///|
+/// Complete a pending blur when no preview remains, without reporting an OS
+/// cancellation. The owner must first process accepted old-binding records and
+/// establish its host-specific cutoff. Active composition is rejected and the
+/// pending request stays live; no provider is called on this path.
+pub fn TextSession::complete_blur_if_uncomposed(
+  self : TextSession,
+  pending : PendingEnd,
+) -> Result[BatchReceipt, SessionError] {
+  self.finish_end(
+    pending,
+    Uncomposed,
+    None,
+    _ => Err(@text_field.MeasurementFailed),
+    (_, _) => Err(@text_field.AdmissionFailed),
+  )
 }
 
 ///|

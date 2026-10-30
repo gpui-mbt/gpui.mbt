@@ -113,6 +113,12 @@ session advances before blur; old targets and pending tokens are rejected.
 An owner must choose a user-visible fallback when it cannot establish the
 cutoff or the user has not explicitly requested discard.
 
+If no preview remains after processing the accepted prefix, the separate
+`TextSession::complete_blur_if_uncomposed` operation completes the pending blur
+without inventing any cancel observation. It rejects an active preview and
+leaves the pending request intact. The same caller-owned host cutoff and
+old-binding delivery obligations apply.
+
 ## Event values
 
 `TextInputEvent` carries `window`, `sequence`, `epoch` and `kind` so an adapter
