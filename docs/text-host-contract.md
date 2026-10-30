@@ -77,6 +77,27 @@ or close. The remaining boundary and integration work are tracked in
 Windows retain their existing contracts; this section adds no guarantee for
 them.
 
+### Ubuntu drained end (opt-in candidate)
+
+`OrderedTextHostRoute::try_end_when_drained(epoch)` is an explicit, bounded
+operation for an owner that intends to stop input. On the host owner thread it
+checks the entire native editor queue and revokes the active native epoch in
+the same call only when that queue is empty. If any native record is queued,
+it returns `Busy` without changing the route, epoch, field, or queue. The owner
+can read and resolve records through the ordered poll and retry. A mismatch or
+an unavailable native session is an error; no implicit retry is performed.
+
+The cut covers records already admitted to the native queue at the instant of
+the successful call. It does not promise that the operating system has emitted
+all possible callbacks or decided whether an active preedit should commit or
+cancel. Nor does it acknowledge records already returned to the caller: the
+caller must retain and apply each returned observation to its original owner
+before attempting this operation. A successful cut is not `ObservedEnd::Cancelled`
+and does not by itself authorize a composing `TextSession` to blur. If the
+outcome is unknown, the adapter must keep it pending or report the limitation.
+The caller must not use unrelated `Host` poll methods while the ordered route
+owns the session. The legacy cancel/end behavior is unchanged.
+
 ## Event values
 
 `TextInputEvent` carries `window`, `sequence`, `epoch` and `kind` so an adapter

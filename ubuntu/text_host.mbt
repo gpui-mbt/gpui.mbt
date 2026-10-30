@@ -110,6 +110,47 @@ pub fn OrderedTextHostRoute::end_text_input(
 }
 
 ///|
+/// End at an empty native editor queue after the owner has processed every
+/// returned record. Busy is side-effect-free; successful end is not an IME
+/// commit/cancel observation or proof that the input method is quiescent.
+pub fn OrderedTextHostRoute::try_end_when_drained(
+  self : OrderedTextHostRoute,
+  epoch : UInt64,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  let route = self.route
+  let operation = "try_end_when_drained"
+  if !route.queue.is_active() || epoch != route.queue.epoch() {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  if !route.started {
+    return Err(ubuntu_text_host_error(@diagnostics.InvalidInput, operation))
+  }
+  match route.queue.failure() {
+    Some(code) => return Err(ubuntu_text_host_error(code, operation))
+    None => ()
+  }
+  if route.queue.has_text() || route.queue.has_parked() {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
+  match
+    route.host.end_text_session_when_drained(
+      route.window.unwrap(),
+      route.native_epoch,
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  route.started = false
+  match route.queue.end(epoch) {
+    Err(error) => Err(error)
+    Ok(_) => {
+      route.shortcuts.held = 0
+      Ok(())
+    }
+  }
+}
+
+///|
 pub fn OrderedTextHostRoute::reset(self : OrderedTextHostRoute) -> Unit {
   self.route.reset()
 }

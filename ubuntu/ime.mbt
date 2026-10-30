@@ -135,6 +135,13 @@ extern "C" fn native_text_session_end(
 ) -> Int32 = "gpui_text_session_end"
 
 ///|
+extern "C" fn native_text_session_end_when_drained(
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+) -> Int32 = "gpui_text_session_end_when_drained"
+
+///|
 extern "C" fn native_text_session_panel(
   host : Int32,
   window : Int32,
@@ -384,6 +391,28 @@ pub fn Host::end_text_session(
     Err(error) => return Err(error)
   }
   outcome(native_text_session_end(self.token, native_window, epoch), operation)
+}
+
+///|
+/// Revoke only when the native editor queue is empty. This is a cutoff for
+/// already admitted records, not an IME completion or quiescence signal.
+fn Host::end_text_session_when_drained(
+  self : Host,
+  window : @platform.WindowId,
+  epoch : Int32,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  let operation = "end_text_session_when_drained"
+  if epoch <= 0 {
+    return Err(backend_error(3, operation))
+  }
+  let native_window = match direct_window_token(window, operation) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  outcome(
+    native_text_session_end_when_drained(self.token, native_window, epoch),
+    operation,
+  )
 }
 
 ///|

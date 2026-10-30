@@ -998,6 +998,24 @@ int32_t gpui_text_session_end(int32_t token, int32_t window, int32_t epoch) {
   ime_invalidate(h, 1, 1);
   return h->ime.exhausted ? GPUI_RESOURCE : h->error;
 }
+int32_t gpui_text_session_end_when_drained(int32_t token, int32_t window,
+                                          int32_t epoch) {
+  struct host *h;
+  int status = ime_session_check(token, window, epoch, &h);
+  if (status) return status;
+  if (h->count) return GPUI_BUSY;
+  if (h->ime.epoch == INT_MAX) return GPUI_RESOURCE;
+  /* Publish the old target's lifecycle record before invalidating. Failure to
+   * allocate it must not be hidden behind a successful end. */
+  if ((h->ime.phase == IME_ACTIVE || h->ime.phase == IME_ACTIVATING) &&
+      h->ime.wire_epoch == h->ime.epoch)
+    status = ime_lifecycle_record(h, 23);
+  else if (h->ime.wire_epoch != h->ime.epoch)
+    status = ime_pending_left_record(h);
+  if (status) return status;
+  ime_invalidate(h, 0, 1);
+  return h->ime.exhausted ? GPUI_RESOURCE : h->error;
+}
 /* Reader implementation is placed after ABI2 consume helpers below. */
 int32_t gpui_text_session_panel(int32_t token, int32_t window, int32_t epoch,
                                 int32_t visible) {

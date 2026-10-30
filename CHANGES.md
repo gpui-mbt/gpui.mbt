@@ -17,6 +17,9 @@
 
 ### Added
 
+- Add an opt-in drained-end cutoff to the Ubuntu ordered text route. It
+  preserves already-admitted queue records for the owner to process before
+  revocation; it does not signal IME quiescence or resolve composition.
 - Add an opt-in Ubuntu ordered text ingress that yields text and platform
   records in their editor-stream order while retaining the existing two-poll
   route. This does not establish an IME end or quiescence barrier.

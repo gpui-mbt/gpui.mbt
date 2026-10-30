@@ -94,6 +94,11 @@ int32_t gpui_text_session_update(int32_t host, int32_t window, int32_t epoch,
     int32_t external_edit);
 int32_t gpui_text_session_cancel(int32_t host, int32_t window, int32_t epoch);
 int32_t gpui_text_session_end(int32_t host, int32_t window, int32_t epoch);
+/* Owner-thread cutoff: fail Busy without mutation while any editor record is
+ * queued. When empty, revoke the exact session synchronously; this does not
+ * dispatch pending Wayland callbacks or claim IME composition completion. */
+int32_t gpui_text_session_end_when_drained(int32_t host, int32_t window,
+                                           int32_t epoch);
 /* Explicit candidate/input panel request; popup timing remains compositor/IME
  * owned and is not qualified by transport acceptance. */
 int32_t gpui_text_session_panel(int32_t host, int32_t window, int32_t epoch,
