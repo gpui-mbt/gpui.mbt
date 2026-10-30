@@ -1,0 +1,9 @@
+{
+  "approved_for_execution": false,
+  "candidate_review_sha256": "87b8332d2c3502cb8d7aca4cf9477c2365373576712eb38dff42328c6ca2a7cb",
+  "image_id": "sha256:5b73c045b4652bae33ed9d37229bf3d261ab1a5b33e124e55ad279a97c133645",
+  "native_status": "NOT_RUN",
+  "plan": null,
+  "schema_version": 1,
+  "scope": "incomplete review-only candidate; no restore, bind, process launch, or execution approval"
+}
