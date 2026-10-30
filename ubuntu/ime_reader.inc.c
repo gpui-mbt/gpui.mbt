@@ -24,6 +24,13 @@ static int ime_queued_stale(const struct host *h, int slot) {
    * before blur and after the epoch advances. Consumer still checks target. */
   if (data->kind == 23 || data->kind >= 26)
     return 0;
+  if (data->focus_loss_delivery && h->ime.proxy && h->seat && h->surface &&
+      !h->ime.requested && !h->ime.exhausted &&
+      !h->state && !h->error && data->epoch < INT_MAX &&
+      data->epoch + 1 == h->ime.epoch && data->window == h->window &&
+      data->seat == h->seat_name &&
+      data->proxy_generation == h->ime.proxy_generation)
+    return 0;
   return !h->ime.requested || h->ime.exhausted || h->state ||
          data->epoch != h->ime.epoch || data->window != h->window ||
          data->seat != h->seat_name ||

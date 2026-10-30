@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- Retain already admitted Ubuntu text-input records ahead of a natural focus
+  loss, with their original target, while continuing to reject old callbacks
+  and records invalidated by an explicit owner change.
+
 - Match pinned GPUI/Taffy f32 distributed main-axis placement in bounded
   device-grid zero-flex lines, including forward/reverse flow and wrapping.
   Preserve raw Double layout and large-extent fallback behavior; do not change

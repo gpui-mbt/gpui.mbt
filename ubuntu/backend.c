@@ -1046,6 +1046,7 @@ static void toplevel_configure(void *d, struct xdg_toplevel *t, int32_t w,
 static void toplevel_close(void *d, struct xdg_toplevel *t) {
   UNUSED(t);
   cancel_key_repeat(d);
+  ime_revoke_focus_loss_delivery(d);
   ime_invalidate(d, 1, 1);
   event(d, 3, 0, 0, 0);
 }
@@ -1189,6 +1190,7 @@ static void keyboard_leave(void *d, struct wl_keyboard *k, uint32_t serial,
   struct host *h = d;
   if (k != h->keyboard)
     return;
+  ime_preserve_before_focus_loss(h);
   ime_invalidate(h, 1, 1);
   h->ime.composition_direct_pending = 0;
   reset_direct_text(h, 1, 0);
@@ -1877,6 +1879,7 @@ int32_t gpui_close(int32_t token, int32_t window) {
   int s = window_check(token, window, &h);
   if (s)
     return s;
+  ime_revoke_focus_loss_delivery(h);
   ime_invalidate(h, 1, 1);
   cancel_key_repeat(h);
   event(h, 3, 0, 0, 0);
