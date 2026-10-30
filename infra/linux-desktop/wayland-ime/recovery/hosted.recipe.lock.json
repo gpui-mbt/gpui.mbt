@@ -125,8 +125,8 @@
     "tests/test_ci_owned_checkout.py": "1237a86ceca0a6989486090a5059e4a9db7aad9997d1aee36f9b67517c616ea5",
     "tests/test_hosted_restore.py": "3b6de7a1a803eaa6dd7c8886dd44facb84508fd8afce169540a3161e11b4b37a",
     "wayland-ime/evidence.py": "e0fd18fcf0255ff009b57b059c106233b04843ee525874df5cc3931ec7445fe9",
-    "wayland-ime/gpui_evidence.py": "e3b170c2f195999d2f2e2dc2cec69a69b9bb11520e153537aca00f14468b781a",
-    "wayland-ime/gpui_probe.py": "2c35335daf08f669e4d7ff9071c9a3d12206a4dacf12535ce5901f72bbc4f5a7",
+    "wayland-ime/gpui_evidence.py": "662258451a551f20e51c3cea12147672a20374b676583fbc4da12e0a9e0a4520",
+    "wayland-ime/gpui_probe.py": "43cf3339087907299aa2f1146e13aacb21cc4305a3b1d3468d6d52b5ec6206eb",
     "wayland-ime/palette_suite.py": "5e762b8de40e86db4633444464f859705cae670e2b13179063f0df2c68cbe10e",
     "wayland-ime/prepare-gpui-deployment.py": "8872d0d532f3196cb9b99cdd426a058e4f975482a954d3fce974a4bf70cd748b",
     "wayland-ime/prepare-gpui-launcher.py": "2318d1ada3ede3988854551eae9b09c58c0a2b99061a6bdb61e9e59d1fdfb34e",
@@ -148,7 +148,7 @@
     "wayland-ime/recovery/transport_diagnostics.py": "44f033612043e8af08e5dc19e2b2027103455c4b4ee3dad9e8b75f9008682e01",
     "wayland-ime/test_cleanup_receipt.py": "96411ee6e6df441abbf71ec7c42b24f552e07098875bc0ad68a579cfa2cd6dcd",
     "wayland-ime/test_gpui_owner_manifest.py": "83a388d038aae80e0d82549212906be3acb6bf32f95361569029309384783f65",
-    "wayland-ime/test_gpui_probe.py": "51d71edfa93df52ffde7ccac38108ffd422d33efc4e5587d6d52f31b39ef01dc",
+    "wayland-ime/test_gpui_probe.py": "c988f5bc6434cbdcf8a921ce932263a3f60b25c26fcd37679b64b0b335024009",
     "wayland-ime/test_task_owner_callers.py": "e2de6058084399b4095cb1ce0ceb70f0ed3b725f3376cf871a9afa1710402d8c",
     "wayland-ime/test_wayland_timestamp.py": "168b87aad3c5d5abb3622df9f0e9b28ee2c5239d508e7e9efa37ac5c282c483c"
   }
