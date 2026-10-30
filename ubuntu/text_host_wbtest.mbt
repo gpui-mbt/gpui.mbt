@@ -177,6 +177,37 @@ test "ordered and legacy polling cannot be mixed" {
 }
 
 ///|
+test "drained end validates portable ownership and pending observations first" {
+  // The invalid token ensures any unexpected native invocation fails; the
+  // portable busy/stale paths must preserve the route and its queued record.
+  let host : Host = { token: -1, stopped: true, }
+  let ordered = OrderedTextHostRoute::new(host)
+  let route = ordered.route
+  let epoch = route.queue.begin(@platform.WindowId::new(1L)).unwrap()
+  route.started = true
+  route.native_epoch = 1
+  route.window = Some(@platform.WindowId::new(1L))
+  route.queue.emit(@text_host.Commit(text="日本")).unwrap()
+  match ordered.try_end_when_drained(epoch + 1UL) {
+    Err(error) => assert_true(error.code() is @diagnostics.StaleHandle)
+    _ => fail("foreign epoch must be rejected")
+  }
+  match ordered.try_end_when_drained(epoch) {
+    Err(error) => assert_true(error.code() is @diagnostics.Busy)
+    _ => fail("pending portable text must block cutoff")
+  }
+  assert_true(route.started && route.queue.is_active())
+  assert_true(route.queue.take_text() is Some(_))
+  route.queue.fail(@diagnostics.UnsupportedCapability)
+  match ordered.try_end_when_drained(epoch) {
+    Err(error) =>
+      assert_true(error.code() is @diagnostics.UnsupportedCapability)
+    _ => fail("a previously rejected observation must not be hidden")
+  }
+  assert_true(route.started && route.queue.is_active())
+}
+
+///|
 test "ordered ingress rejects unsupported edits and skips a stale epoch" {
   let host : Host = { token: -1, stopped: true, }
   let route = TextHostRoute::new_ordered(host)

@@ -135,6 +135,7 @@ pub fn OrderedTextHostRoute::end_text_input(Self, UInt64) -> Result[Unit, @diagn
 pub fn OrderedTextHostRoute::new(Host) -> Self
 pub fn OrderedTextHostRoute::next_ordered_event(Self, timeout_ms? : Int) -> Result[OrderedTextEvent?, @diagnostics.FrameworkError]
 pub fn OrderedTextHostRoute::reset(Self) -> Unit
+pub fn OrderedTextHostRoute::try_end_when_drained(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn OrderedTextHostRoute::update_text_input(Self, UInt64, @text_host.TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
 
 pub(all) struct OutputInfo {

@@ -102,6 +102,51 @@ static void drain_enter(struct host *h) {
   assert(data[4] == 0 && data[5] == 0 && data[9] == 0);
   assert(h->count == 0);
 }
+/* The drained end is a cutoff for the already admitted FIFO, not an OS
+ * composition completion signal. A busy or foreign request is side-effect
+ * free; once it succeeds, late callbacks cannot enter the old epoch. */
+static void drained_end_fences_only_after_queue_is_empty(void) {
+  struct host *h = fixture(); int epoch = begin(h); drain_enter(h);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  ime_commit_string(h, h->ime.proxy, 1, "日本");
+  assert(h->count == 1);
+  int prior_calls = call_count, prior_seq = h->seq;
+  assert(gpui_text_session_end_when_drained(h->token, h->window, epoch) == GPUI_BUSY);
+  assert(h->count == 1 && h->ime.requested && h->ime.epoch == epoch);
+  assert(call_count == prior_calls && h->seq == prior_seq);
+  assert(gpui_text_session_end_when_drained(h->token, h->window, epoch + 1) == GPUI_STALE);
+  assert(h->count == 1 && h->ime.requested && h->ime.epoch == epoch);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 21);
+  assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  /* A callback admitted after the first read but before the cutoff must be
+   * visible too; an earlier successful poll is not itself a fence. */
+  ime_commit_string(h, h->ime.proxy, 1, "語");
+  assert(gpui_text_session_end_when_drained(h->token, h->window, epoch) == GPUI_BUSY);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 21);
+  assert(data[14] == 3 && !memcmp(bytes, "語", 3));
+  assert(gpui_text_session_end_when_drained(h->token, h->window, epoch) == GPUI_OK);
+  assert(!h->ime.requested && h->ime.epoch == epoch + 1);
+  int after = h->count;
+  ime_commit_string(h, h->ime.proxy, 1, "late");
+  assert(h->count == after);
+  assert(gpui_text_session_end_when_drained(h->token, h->window, epoch) == GPUI_STALE);
+  finish(h);
+}
+static void drained_end_guards_other_records_and_exhaustion(void) {
+  struct host *h = fixture(); int epoch = begin(h); drain_enter(h);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  event(h, 1, 5, 6, 0);
+  int seq = h->seq, calls_before = call_count;
+  assert(gpui_text_session_end_when_drained(h->token, h->window, epoch) == GPUI_BUSY);
+  assert(h->count == 1 && h->seq == seq && call_count == calls_before);
+  assert(h->ime.epoch == epoch && h->ime.requested);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 1);
+  h->ime.epoch = INT_MAX;
+  assert(gpui_text_session_end_when_drained(h->token, h->window, INT_MAX) == GPUI_RESOURCE);
+  assert(h->ime.epoch == INT_MAX && h->ime.requested && !h->ime.exhausted);
+  assert(h->count == 0 && h->seq == seq);
+  finish(h);
+}
 static void copies_staging_order_and_shared_serial(void) {
   struct host *h = fixture(); int epoch = begin(h); drain_enter(h);
   double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
@@ -1162,6 +1207,8 @@ int main(void) {
   buffers_and_legacy_are_atomic();
   serial_epoch_and_reactivation_fences(); lifecycle_and_removed_proxies();
   observed_text_precedes_keyboard_leave();
+  drained_end_fences_only_after_queue_is_empty();
+  drained_end_guards_other_records_and_exhaustion();
   observed_text_focus_loss_fences();
   close_revokes_focus_loss_delivery();
   destroy_and_manager_removal_revoke_owned_payloads();
