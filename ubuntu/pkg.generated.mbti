@@ -121,6 +121,22 @@ pub(all) enum HostState {
 pub fn HostState::equal(Self, Self) -> Bool
 pub fn HostState::not_equal(Self, Self) -> Bool
 
+pub(all) enum OrderedTextEvent {
+  Text(@text_host.TextInputEvent)
+  Platform(@platform.Event)
+}
+
+pub struct OrderedTextHostRoute {
+  // private fields
+}
+pub fn OrderedTextHostRoute::begin_text_input(Self, @platform.WindowId, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
+pub fn OrderedTextHostRoute::cancel_text_input(Self, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
+pub fn OrderedTextHostRoute::end_text_input(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn OrderedTextHostRoute::new(Host) -> Self
+pub fn OrderedTextHostRoute::next_ordered_event(Self, timeout_ms? : Int) -> Result[OrderedTextEvent?, @diagnostics.FrameworkError]
+pub fn OrderedTextHostRoute::reset(Self) -> Unit
+pub fn OrderedTextHostRoute::update_text_input(Self, UInt64, @text_host.TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
+
 pub(all) struct OutputInfo {
   is_ready : Bool
   has_geometry : Bool

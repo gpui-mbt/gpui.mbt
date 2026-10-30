@@ -63,3 +63,16 @@ The `Backend` trait does not change. A host that does not implement
 - [x] The transport fixture proves ordered delivery and end/cancel ownership,
       not OS behavior. The macOS E2E proves the same ordering through AppKit
       callbacks; synthetic composition is not an IME pass.
+
+## 6. 2026-10-30 — cross-kind order and unresolved end boundary
+
+The Ubuntu legacy two-poll route can absorb a text record while polling for a
+platform record and return the latter first. A draft candidate adds a separate
+opt-in single-poll ordered route without changing the legacy API. Its scope is
+the order of records copied from the Ubuntu editor stream; it does not establish
+that an IME has stopped producing records. A host end boundary that preserves
+already-observed commits before revocation, the adapter's pending `TextSession`
+resolution, and live IME evidence remain open. macOS and Windows are not
+covered by the candidate's ordering guarantee. Yami's concrete focus-loss
+failure and reproduction are tracked in
+[Yami PR #83](https://github.com/f4ah6o/Yami-kumo/pull/83).

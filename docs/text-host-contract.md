@@ -50,6 +50,27 @@ diagnostic; callers must retain the exact value returned by the host. A host
 must reject a stale window, root, epoch, sequence, or replacement before it
 publishes a document or acknowledges a commit.
 
+### Ubuntu ordered ingress (opt-in)
+
+The legacy Ubuntu `TextHostRoute::new` retains the two-poll API and its existing
+behaviour. The separate `OrderedTextHostRoute::new` selects an exclusive
+alternative: `next_ordered_event` returns each translated text or platform
+record in the order read from the Ubuntu editor stream. The ordered facade
+exposes begin/update/cancel/end and its single poll; it does not implement the
+legacy `TextInputHost` trait with its separate text poll. Consumers must handle
+both event variants. An empty result means no record was read in that poll.
+Forwarded keys retain their position as platform records. Unsupported editing
+records remain errors rather than silently becoming insertions.
+
+This ordering applies only to records accepted by that Ubuntu stream. It does
+not prove an IME has finished producing observations, make an empty poll a
+quiescence barrier, or resolve a pending composition. In particular, cancel
+and end can still discard undelivered observations. The owner must not claim
+observed-commit preservation at blur or close solely from this API. macOS and
+Windows retain their own existing contracts; this section adds no guarantee
+for them. An explicit host end-boundary contract and TextSession integration
+remain necessary before an application claims that stronger behavior.
+
 ## Event values
 
 `TextInputEvent` carries `window`, `sequence`, `epoch` and `kind` so an adapter
