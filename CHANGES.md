@@ -17,6 +17,9 @@
 
 ### Added
 
+- Allow a pending text-session blur to complete without inventing a cancel
+  when no composition remains. An active preedit is rejected and remains
+  pending until explicitly resolved.
 - Add an explicit owner-requested preedit discard when completing a pending
   blur, separate from an observed OS cancellation. Callers must first process
   accepted observations and establish the appropriate host cutoff. The new
