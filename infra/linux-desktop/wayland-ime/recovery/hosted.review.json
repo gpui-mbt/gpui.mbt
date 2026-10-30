@@ -109,11 +109,11 @@
   },
   "inventory_sha256": "5920f2dbca4ec8a256ffb3f2a81045f71892d126a9e7e0c5a84dada5a690135c",
   "prepare_result_sha256": "6ef6331d926bf62e0b4d57344e2a4fba86a6fe76e8d98dafd06c004b3f4081a2",
-  "recipe_sha256": "81812da7cc54405faecc5871202df6c9565a07936177312f21e55ab8c0f3f58a",
+  "recipe_sha256": "c89ec4527c7561915a3f4ee0afa7dea19ef8a96592d875fc557d372e24de77ac",
   "repository": "gpui-mbt/gpui.mbt",
   "review_artifact_digest": "sha256:0fb7876ed9d396fc1912a84a578d4dce5b661aa1d65ae5f3fa1381a3e0f711ec",
   "review_artifact_id": 12706040730,
-  "review_status": "Independent gpt-6.1-sol/xhigh Approve-equivalent 2026-10-27: code 68b60f6b5c2fe9b295b374f73c5431d0a42a9427, exact owner-aware evidence manifest with existing strict receipt validation; 53 tests passed, 44 source pins and unchanged prepare5 artifact pins reviewed; P1/P2 none. Attempt7 stage audit does not promote its raw error to native/full PASS.",
+  "review_status": "Independent gpt-6.1-sol/xhigh Approve-equivalent 2026-10-27: code 68b60f6b5c2fe9b295b374f73c5431d0a42a9427, exact owner-aware evidence manifest with existing strict receipt validation; 53 tests passed, 44 source pins and unchanged prepare5 artifact pins reviewed; P1/P2 none. Attempt7 stage audit does not promote its raw error to native/full PASS. 2026-10-30 independent gpt-6.1-sol/xhigh source/pin review: PR HEAD 0b5135b08a3562ca3e166199090b0f37eb9ca192 and recipe c89ec4527c7561915a3f4ee0afa7dea19ef8a96592d875fc557d372e24de77ac; all 44 source pins checked, 67 focused tests passed, no source P0/P1/P2. This limited review did not re-audit remote artifact provenance; prior artifact review remains separate. Review of the final changed HEAD and fresh CI are pending. Candidate-table acceptance remains unverified.",
   "runtime_artifact_digest": "sha256:214cc925cc05372bffa0619b9d6a33a18deb0f42598e54a37bc658652a56f9f6",
   "runtime_sha256": "a72a2bbff3088874835cc48d84eb17ecafe5f14a4f25837d6b3f9b2546097c83",
   "schema_version": 1
