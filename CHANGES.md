@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- Preserve the bounded Ctrl/Meta A/C/X/V/Z/Y commands forwarded by the Ubuntu
+  text-input-v1 route, including key release after an earlier modifier release.
+
 - Match pinned GPUI/Taffy f32 distributed main-axis placement in bounded
   device-grid zero-flex lines, including forward/reverse flow and wrapping.
   Preserve raw Double layout and large-extent fallback behavior; do not change

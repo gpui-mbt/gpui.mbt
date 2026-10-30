@@ -12,6 +12,7 @@ pub struct TextHostRoute {
   priv mut native_epoch : Int32
   priv mut window : @platform.WindowId?
   priv mut started : Bool
+  priv shortcuts : ShortcutKeyTracker
 }
 
 ///|
@@ -34,6 +35,7 @@ pub fn TextHostRoute::new(host : Host) -> TextHostRoute {
     native_epoch: 0,
     window: None,
     started: false,
+    shortcuts: ShortcutKeyTracker::new(),
   }
 }
 
@@ -80,6 +82,57 @@ priv enum TextTranslation {
 }
 
 ///|
+/// The bounded command keys are not text. Track only acquisitions so their
+/// release survives a modifier being released before the character key.
+priv struct ShortcutKeyTracker {
+  mut held : Int32
+}
+
+///|
+fn ShortcutKeyTracker::new() -> ShortcutKeyTracker {
+  { held: 0, }
+}
+
+///|
+fn shortcut_key(keysym : Int32) -> (Int32, @primitives.Key)? {
+  match keysym {
+    0x61 | 0x41 => Some((1, @primitives.Character("a")))
+    0x63 | 0x43 => Some((2, @primitives.Character("c")))
+    0x78 | 0x58 => Some((4, @primitives.Character("x")))
+    0x76 | 0x56 => Some((8, @primitives.Character("v")))
+    0x7a | 0x5a => Some((16, @primitives.Character("z")))
+    0x79 | 0x59 => Some((32, @primitives.Character("y")))
+    _ => None
+  }
+}
+
+///|
+fn ShortcutKeyTracker::translate(
+  self : ShortcutKeyTracker,
+  event : TextSessionEvent,
+) -> TextTranslation {
+  match event {
+    ForwardedPressed(keysym~, modifiers~, ..) =>
+      match shortcut_key(keysym) {
+        Some((bit, key)) if modifiers.control() || modifiers.meta() => {
+          self.held = self.held | bit
+          Forward(key, true, modifiers)
+        }
+        _ => translate_editor_event(event)
+      }
+    ForwardedReleased(keysym~, modifiers~, ..) =>
+      match shortcut_key(keysym) {
+        Some((bit, key)) if (self.held & bit) != 0 => {
+          self.held = self.held & (63 - bit)
+          Forward(key, false, modifiers)
+        }
+        _ => translate_editor_event(event)
+      }
+    _ => translate_editor_event(event)
+  }
+}
+
+///|
 fn translate_editor_event(event : TextSessionEvent) -> TextTranslation {
   match event {
     Entered | Left => Skip
@@ -112,7 +165,7 @@ fn TextHostRoute::absorb(
   if !self.started || target.epoch != self.native_epoch {
     return Ok(())
   }
-  match translate_editor_event(event) {
+  match self.shortcuts.translate(event) {
     Skip => Ok(())
     Unsupported => {
       self.queue.fail(@diagnostics.UnsupportedCapability)
@@ -176,6 +229,7 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn begin_text_input(
   self.window = Some(window)
   self.native_epoch = 0
   self.started = false
+  self.shortcuts.held = 0
   Ok(epoch)
 }
 
@@ -215,6 +269,7 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn update_text_input(
     }
     if next != previous {
       self.queue.discard_text()
+      self.shortcuts.held = 0
     }
     self.native_epoch = next
   }
@@ -230,6 +285,7 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn cancel_text_input(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  self.shortcuts.held = 0
   if self.started {
     self.native_epoch = match
       self.host.cancel_text_session(self.window.unwrap(), self.native_epoch) {
@@ -252,7 +308,13 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn end_text_input(
     }
     self.started = false
   }
-  self.queue.end(epoch)
+  match self.queue.end(epoch) {
+    Err(error) => Err(error)
+    Ok(_) => {
+      self.shortcuts.held = 0
+      Ok(())
+    }
+  }
 }
 
 ///|
@@ -326,6 +388,7 @@ pub fn TextHostRoute::reset(self : TextHostRoute) -> Unit {
   self.started = false
   self.native_epoch = 0
   self.window = None
+  self.shortcuts.held = 0
 }
 
 ///|
