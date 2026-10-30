@@ -17,6 +17,9 @@
 
 ### Added
 
+- Prepare a TextField with newly measured preview and composition rollback
+  geometry while preserving the original editing state. Callers coordinate
+  scene, focus and host publication separately.
 - Accept an observed direct insertion through `TextSession` without inventing
   a preedit. It rejects active composition. The new `SessionOperation::Insert`
   variant may require updates to exhaustive matches.

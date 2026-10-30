@@ -41,6 +41,7 @@ pub fn TextField::new(UInt64, @primitives.Rect, Double, @text.TextDocument, (@te
 pub fn TextField::paint_items(Self, UInt64, Int) -> Result[(@scene.ClipChain, Array[@scene.SceneItem]), TextFieldPaintError]
 pub fn TextField::paint_items_with_palette(Self, UInt64, Int, TextFieldPaintPalette) -> Result[(@scene.ClipChain, Array[@scene.SceneItem]), TextFieldPaintError]
 pub fn TextField::redo(Self, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, TextFieldError]) -> Result[Self, TextFieldError]
+pub fn TextField::remeasure(Self, @primitives.Rect, Double, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, TextFieldError]) -> Result[Self, TextFieldError]
 pub fn TextField::replace_selection(Self, String, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, TextFieldError]) -> Result[Self, TextFieldError]
 pub fn TextField::revision(Self) -> Int
 pub fn TextField::scroll_offset(Self) -> Double
