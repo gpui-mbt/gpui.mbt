@@ -65,13 +65,14 @@ rather than silently becoming insertions.
 
 This ordering applies to records returned by Ubuntu `Host::next_editor_event`.
 It does not prove an IME has finished producing observations, make an empty
-poll a quiescence barrier, or resolve a pending composition. An accepted but
-unread native commit can already be discarded before that API returns it:
-`keyboard_leave` invalidates the epoch, and the native reader treats the
-queued old-epoch record as stale. Cancel and end can also discard undelivered
-observations. The owner must not claim observed-commit preservation at blur or
-close solely from this API. The next host boundary and regression fixture are
-tracked in [0028](../issues/open/0028-wayland-ime-composition-handoff.md) and
+poll a quiescence barrier, or resolve a pending composition. The native host
+preserves eligible preedit and commit records admitted before natural focus
+loss ahead of that loss's `Left` record; explicit close and session replacement
+still fence old-target text. Cancel and end can discard undelivered
+observations. The owner must resolve the original binding and any pending end;
+this API alone does not establish observed-commit preservation for every blur
+or close. The remaining boundary and integration work are tracked in
+[0028](../issues/open/0028-wayland-ime-composition-handoff.md) and
 [GP-01B](../issues/open/20261019-gp-01b-text-host-contract.md). macOS and
 Windows retain their existing contracts; this section adds no guarantee for
 them.
