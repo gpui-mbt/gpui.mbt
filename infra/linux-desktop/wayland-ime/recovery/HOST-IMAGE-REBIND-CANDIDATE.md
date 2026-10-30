@@ -11,8 +11,11 @@ profile, not a security-update channel. The image ID is
 `sha256:5b73c045b4652bae33ed9d37229bf3d261ab1a5b33e124e55ad279a97c133645`.
 Artifact `12987002222` has GitHub ZIP digest
 `sha256:4e06934ee0fa482712802a1e94b14728b4988c1cb8d2804cac9e5973bf34986f`.
-The image tar SHA and its image-config binding must be independently checked
-before use. An image content digest is not a publisher signature.
+The separate read-only [audit run 41075478469](https://github.com/gpui-mbt/gpui.mbt/actions/runs/41075478469)
+checked the tar SHA-256 `f5fea3fd1860f3612dc9b71369cae41d5f3b28f3688f3cc346559879b0f083c6`
+and the image-config digest against the image ID. Its review manifest is artifact
+`12986349461`, ZIP digest `sha256:b7e8a0fb34913f9047b8c2d8a56c685bc375a961b652029874e903e580831e17`.
+An image content digest is not a publisher signature.
 
 The saved image fixes its own files, including installed binaries, libraries,
 fonts and configuration. It does not fix the host kernel, container runtime,
@@ -65,5 +68,4 @@ prepared without restoring that archive or running its application.
 
 This proposal makes no change to the active receipt, native execution workflow,
 candidate-table gate or user-facing capability claim. No app or IME was run by
-the image preparation job. The image audit and its tar digest are pending until
-their separate read-only workflow completes.
+the image preparation job. The audit does not review or authorize native execution.
