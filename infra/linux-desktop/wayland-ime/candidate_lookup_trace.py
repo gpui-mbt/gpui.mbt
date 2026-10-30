@@ -44,6 +44,18 @@ def extract(frames, context):
                 continue
             if [(k.get('keyval'), k.get('keycode'), k.get('state')) for k in window] != expected_keys:
                 continue
+            # Do not splice observations across a context lifecycle transition.
+            # Permit only panel and context methods observed in this diagnostic;
+            # unfamiliar methods require review rather than silent attribution.
+            between = [f for f in frames if window[0]['frame'] < f['frame'] < window[-1]['frame']]
+            if any(f.get('type') == 'method-call' and (
+                    (f.get('interface') == 'org.freedesktop.IBus.InputContext' and
+                     (f.get('path') != context or f.get('member') not in
+                      {'ProcessKeyEvent', 'SetSurroundingText'})) or
+                    (f.get('interface') == INTERFACE and
+                     (f.get('path') != PANEL or f.get('member') not in
+                      MEMBERS | {'UpdateAuxiliaryText', 'HideAuxiliaryText'}))) for f in between):
+                continue
             events = []
             for j in (0, 2, 4):
                 found = [p for p in panels if window[j]['frame'] < p['frame'] < window[j + 1]['frame']]

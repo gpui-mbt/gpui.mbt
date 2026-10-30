@@ -110,7 +110,8 @@ to exercise failure handling and do not claim to validate Tesseract accuracy.
 uses the strict D-Bus parser to find unique Space/Up/Return and
 Space/Escape/Escape input sequences and their intervening lookup updates and
 hide calls. It reports the log digest, exact frame numbers and decoded rows;
-ambiguous sequences are not selected. A first Escape can leave a visible
+ambiguous sequences or intervening unfamiliar context/panel methods are not
+selected. A first Escape can leave a visible
 prediction list, so its update is retained separately from the later hide.
 This is an offline diagnostic: log order does not authenticate a panel sender,
 prove the supplied input context, bind a lookup update to displayed pixels, or

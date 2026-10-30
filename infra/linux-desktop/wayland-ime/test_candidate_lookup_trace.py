@@ -58,6 +58,19 @@ class CandidateTraceTests(unittest.TestCase):
                           'keyval': 65, 'keycode': 30, 'state': 0})
         self.assertIsNone(trace.extract(renumber(frames), CONTEXT)['selection'])
 
+    def test_context_and_panel_lifecycle_transitions_do_not_match(self):
+        for interface, path, member in (
+                ('org.freedesktop.IBus.InputContext', CONTEXT, 'FocusOut'),
+                ('org.freedesktop.IBus.InputContext', CONTEXT, 'Reset'),
+                ('org.freedesktop.IBus.InputContext', CONTEXT, 'Destroy'),
+                (trace.INTERFACE, trace.PANEL, 'FocusIn'),
+                (trace.INTERFACE, trace.PANEL, 'DestroyContext')):
+            with self.subTest(member=member):
+                frames = sequence()
+                frames.insert(3, {'interface': interface, 'path': path, 'member': member,
+                                  'type': 'method-call'})
+                self.assertIsNone(trace.extract(renumber(frames), CONTEXT)['selection'])
+
     def test_extra_panel_message_bad_signature_and_missing_hide_fail(self):
         frames = sequence()
         frames.insert(3, copy.deepcopy(frames[1]))
