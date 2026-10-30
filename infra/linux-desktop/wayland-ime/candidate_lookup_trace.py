@@ -49,6 +49,7 @@ def extract(frames, context):
             # unfamiliar methods require review rather than silent attribution.
             between = [f for f in frames if window[0]['frame'] < f['frame'] < window[-1]['frame']]
             if any(f.get('type') == 'method-call' and (
+                    f.get('interface') == 'org.freedesktop.IBus.Service' or
                     (f.get('interface') == 'org.freedesktop.IBus.InputContext' and
                      (f.get('path') != context or f.get('member') not in
                       {'ProcessKeyEvent', 'SetSurroundingText'})) or

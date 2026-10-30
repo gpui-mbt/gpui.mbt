@@ -62,7 +62,7 @@ class CandidateTraceTests(unittest.TestCase):
         for interface, path, member in (
                 ('org.freedesktop.IBus.InputContext', CONTEXT, 'FocusOut'),
                 ('org.freedesktop.IBus.InputContext', CONTEXT, 'Reset'),
-                ('org.freedesktop.IBus.InputContext', CONTEXT, 'Destroy'),
+                ('org.freedesktop.IBus.Service', CONTEXT, 'Destroy'),
                 (trace.INTERFACE, trace.PANEL, 'FocusIn'),
                 (trace.INTERFACE, trace.PANEL, 'DestroyContext')):
             with self.subTest(member=member):
