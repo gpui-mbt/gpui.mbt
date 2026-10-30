@@ -1,0 +1,51 @@
+name: Linux IME immutable host image prepare-only
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/linux-ime-host-image-prepare.yml'
+      - 'infra/linux-desktop/wayland-ime/recovery/host-image.Dockerfile'
+      - 'infra/linux-desktop/wayland-ime/recovery/host-image-check.py'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          repository: gpui-mbt/gpui.mbt
+          run-id: 40438828021
+          artifact-ids: 12706040730
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpui-ime-host-reference
+      - name: Build candidate from signed frozen package snapshot
+        run: |
+          mkdir "$RUNNER_TEMP/gpui-ime-image-context"
+          cp infra/linux-desktop/wayland-ime/recovery/host-image.Dockerfile "$RUNNER_TEMP/gpui-ime-image-context/Dockerfile"
+          docker build --no-cache --tag gpui-ime-host-candidate "$RUNNER_TEMP/gpui-ime-image-context"
+      - name: Compare candidate with reviewed preparation inventory
+        run: |
+          docker run --rm --network none --read-only --cap-drop=ALL --security-opt=no-new-privileges \
+            --env REFERENCE_ROOT=/review --env PYTHONDONTWRITEBYTECODE=1 \
+            --mount "type=bind,src=$RUNNER_TEMP/gpui-ime-host-reference,dst=/review,readonly" \
+            --entrypoint python3 -i gpui-ime-host-candidate - < infra/linux-desktop/wayland-ime/recovery/host-image-check.py
+      - name: Export immutable image and unapproved provenance
+        run: |
+          mkdir "$RUNNER_TEMP/gpui-ime-host-image"
+          docker image inspect gpui-ime-host-candidate --format '{{.Id}}' > "$RUNNER_TEMP/gpui-ime-host-image/image-id.txt"
+          docker save gpui-ime-host-candidate -o "$RUNNER_TEMP/gpui-ime-host-image/host-image.tar"
+          sha256sum "$RUNNER_TEMP/gpui-ime-host-image/host-image.tar" | cut -d ' ' -f 1 > "$RUNNER_TEMP/gpui-ime-host-image/host-image.tar.sha256"
+          printf '%s\n' '{"native_status":"NOT_RUN","approved_for_execution":false,"runtime_artifact_run_id":40438828021,"runtime_artifact_id":12704943291,"runtime_artifact_sha256":"214cc925cc05372bffa0619b9d6a33a18deb0f42598e54a37bc658652a56f9f6","runtime_source_sha":"825d99d499bf02bdf1d232827261043b38a6cdeb","scope":"New host image candidate; runtime archive and kernel are separate, and no native execution or review is implied."}' > "$RUNNER_TEMP/gpui-ime-host-image/scope.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: linux-ime-host-image-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/gpui-ime-host-image/
+          compression-level: 0
+          if-no-files-found: error
