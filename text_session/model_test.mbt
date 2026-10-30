@@ -716,6 +716,70 @@ test "uncomposed blur refuses an active preview without changing the pending sta
 }
 
 ///|
+test "direct observed commit preserves its owner and rejects replay" {
+  let session = owner()
+  let target = session.target().unwrap()
+  let receipt = session
+    .apply_batch(target, [@text_session.Insert("日本")], measure, admit)
+    .unwrap()
+  assert_true(
+    receipt.outcomes()[0] is @text_session.SessionOutcome::Committed(_),
+  )
+  assert_eq(session.snapshot().field().committed_document().text(), "a日本d")
+  assert_eq(session.snapshot().committed_document_revision(), 1UL)
+  let before = session.snapshot()
+  assert_true(
+    session.apply_batch(
+      target,
+      [@text_session.Insert("日本")],
+      measure,
+      admit,
+    )
+    is Err(_),
+  )
+  assert_snapshot(before, session.snapshot())
+  assert_eq(
+    session.snapshot().field().undo(measure, admit).unwrap().document().text(),
+    "abcd",
+  )
+}
+
+///|
+test "direct commit rejects active composition and failed admission atomically" {
+  let session = owner()
+  ignore(apply(session, [preview("にほん")]))
+  let before = session.snapshot()
+  assert_true(
+    session.apply_batch(
+      session.target().unwrap(),
+      [@text_session.Insert("日本")],
+      measure,
+      admit,
+    )
+    is Err(@text_session.CompositionActive),
+  )
+  assert_snapshot(before, session.snapshot())
+  let fresh = owner()
+  let before = fresh.snapshot()
+  let reject = fn(
+    _ : @text.TextDocument,
+    _ : @text_layout.TextMeasurement,
+  ) -> Result[Unit, @text_field.TextFieldError] {
+    Err(@text_field.AdmissionFailed)
+  }
+  assert_true(
+    fresh.apply_batch(
+      fresh.target().unwrap(),
+      [@text_session.Insert("日本")],
+      measure,
+      reject,
+    )
+    is Err(@text_session.FieldFailure(@text_field.AdmissionFailed)),
+  )
+  assert_snapshot(before, fresh.snapshot())
+}
+
+///|
 test "external replacement retains observed old commit before validated rebind" {
   let session = owner()
   let _ = apply(session, [preview("にほん")])

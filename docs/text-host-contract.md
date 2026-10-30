@@ -119,6 +119,13 @@ without inventing any cancel observation. It rejects an active preview and
 leaves the pending request intact. The same caller-owned host cutoff and
 old-binding delivery obligations apply.
 
+An observed direct insertion with no active preedit can be applied through
+`TextSession::apply_batch` using `SessionOperation::Insert`. It uses the same
+owner target, replay fence and atomic field transaction as composition
+updates. `Insert` rejects an active composition; use the composition-only
+`Commit` for that case. It must not be used to invent a preview or flatten an
+unsupported replacement operation.
+
 ## Event values
 
 `TextInputEvent` carries `window`, `sequence`, `epoch` and `kind` so an adapter

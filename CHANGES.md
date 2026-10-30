@@ -17,6 +17,9 @@
 
 ### Added
 
+- Accept an observed direct insertion through `TextSession` without inventing
+  a preedit. It rejects active composition. The new `SessionOperation::Insert`
+  variant may require updates to exhaustive matches.
 - Allow a pending text-session blur to complete without inventing a cancel
   when no composition remains. An active preedit is rejected and remains
   pending until explicitly resolved.

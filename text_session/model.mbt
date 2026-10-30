@@ -25,11 +25,14 @@ pub extend SessionError with Eq::{equal, not_equal}
 
 ///|
 /// UTF-16 directional endpoints, or strict UTF-8 byte endpoints in the preedit.
-/// Commit is composition-only: no active composition means rejection.
+/// Commit is composition-only: no active composition means rejection. Insert
+/// represents an observed direct commit with no active preedit; it must not be
+/// used as a fallback for a composing commit.
 pub(all) enum SessionOperation {
   Preview(String, @text.TextSelection)
   PreviewUtf8(String, Int32, Int32)
   Commit(String)
+  Insert(String)
   Cancel
 }
 
