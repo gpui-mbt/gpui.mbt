@@ -23,6 +23,7 @@ int32_t gpui_state(int32_t host);
 /* Experimental opt-in and terminal preview handoff. The owner must retain the
  * corresponding editing session; this receipt is not an event ACK. */
 int32_t gpui_terminal_retention_enable(int32_t host);
+int32_t gpui_terminal_retention_active(int32_t host);
 int32_t gpui_claim_retained_route(int32_t host);
 int32_t gpui_terminal_preview_receipt(int32_t host, double *fields,
     int32_t field_capacity, uint8_t *text, int32_t text_capacity);

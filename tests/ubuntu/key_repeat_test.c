@@ -630,6 +630,9 @@ static void test_retained_pump_preserves_callback_and_backpressure(void) {
   assert(gpui_terminal_retention_enable(TEST_HOST) == GPUI_OK);
   assert(gpui_claim_retained_route(TEST_HOST) == GPUI_OK);
   assert(gpui_claim_retained_route(TEST_HOST) == GPUI_BUSY);
+  assert(gpui_terminal_retention_active(TEST_HOST) == 1);
+  assert(gpui_direct_keyboard_text_mode(TEST_HOST, TEST_WINDOW, 1) == GPUI_UNSUPPORTED);
+  assert(gpui_text_composition_mode(TEST_HOST, TEST_WINDOW, 1) == GPUI_UNSUPPORTED);
   pending_action = pending_press;
   assert(gpui_dispatch(TEST_HOST, 0) == GPUI_UNSUPPORTED);
   assert(f.h.count == 0 && pending_action && poll_calls == 0);

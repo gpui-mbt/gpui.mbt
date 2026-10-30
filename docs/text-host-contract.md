@@ -306,3 +306,20 @@ It does not provide a new OS composition after focus/epoch loss, a portable
 cross-layer geometry transaction, or Linux live-IME acceptance. In particular,
 keeping a snapshot across blur does not mean that a later OS callback for the
 invalidated native session was received.
+
+`RetainedOrderedRoute` is the experimental gpui-owned translation layer above
+that FIFO. One route claims the host, and legacy text routes and composition or
+direct-text modes cannot be started alongside it. A binding captures the root,
+window, native epoch, and, after Entered is acknowledged, seat and proxy
+generation. A prepared receipt preserves native sequence separately from its
+text-only portable ordinal. Preparing the same head does not advance the ordinal
+or shortcut state; those advance only after the exact native ACK succeeds.
+Foreign or stale targets, unmapped events, replacement, and position changes
+remain explicit unhandled records. Cutoff retains the binding until its
+lifecycle records are acknowledged and release succeeds.
+
+This adapter does not yet implement cancel-to-new-epoch handoff, recovery from
+an already-invalidated native epoch after OS focus loss, or transactional native
+geometry updates. A route that cannot finish cutoff retains its original binding
+and must be surfaced as unresolved rather than force-released. The claim lasts
+until its host stops. Yami integration and real IME operation are not verified.

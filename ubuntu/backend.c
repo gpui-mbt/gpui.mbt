@@ -1798,10 +1798,18 @@ int32_t gpui_claim_retained_route(int32_t token) {
   if (status) return status;
   if (!h->terminal_retention) return GPUI_UNSUPPORTED;
   if (h->retained_route_claimed) return GPUI_BUSY;
+  if (h->ime.requested || h->ime.composition_enabled || h->direct_enabled)
+    return GPUI_BUSY;
   if (h->state) return GPUI_STOPPING;
   if (h->error) return h->error;
   h->retained_route_claimed = 1;
   return GPUI_OK;
+}
+int32_t gpui_terminal_retention_active(int32_t token) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return -status;
+  return h->terminal_retention ? 1 : 0;
 }
 int32_t gpui_terminal_preview_receipt(int32_t token, double *fields,
     int32_t field_capacity, uint8_t *text, int32_t text_capacity) {
@@ -2226,6 +2234,7 @@ int32_t gpui_direct_keyboard_text_mode(int32_t token, int32_t window,
     return GPUI_STALE;
   if (enabled != 0 && enabled != 1)
     return GPUI_INVALID;
+  if (enabled && h->retained_route_claimed) return GPUI_UNSUPPORTED;
   if (h->direct_exhausted || (h->ime.exhausted && h->ime.ever_enabled))
     return GPUI_RESOURCE;
   if (!enabled) h->ime.composition_direct_pending = 0;

@@ -17,6 +17,26 @@ pub struct TextHostRoute {
 }
 
 ///|
+extern "C" fn native_terminal_retention_active(host : Int32) -> Int32 = "gpui_terminal_retention_active"
+
+///|
+fn TextHostRoute::require_legacy_mode(
+  self : TextHostRoute,
+  operation : String,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  let active = native_terminal_retention_active(self.host.token)
+  if active < 0 {
+    return Err(backend_error(-active, operation))
+  }
+  if active != 0 {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.UnsupportedCapability, operation),
+    )
+  }
+  Ok(())
+}
+
+///|
 fn ubuntu_text_host_error(
   code : @diagnostics.ErrorCode,
   operation : String,
@@ -131,6 +151,10 @@ pub fn OrderedTextHostRoute::try_end_when_drained(
   }
   if route.queue.has_text() || route.queue.has_parked() {
     return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
+  match route.require_legacy_mode(operation) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
   match
     route.host.end_text_session_when_drained(
@@ -338,6 +362,10 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn begin_text_input(
   window,
   root,
 ) {
+  match self.require_legacy_mode("begin_text_input") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   if root == 0UL || self.queue.is_active() {
     return Err(
       ubuntu_text_host_error(@diagnostics.InvalidInput, "begin_text_input"),
@@ -360,6 +388,10 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn update_text_input(
   epoch,
   state,
 ) {
+  match self.require_legacy_mode("update_text_input") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let epoch = match self.queue.update(epoch, state) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -402,6 +434,10 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn cancel_text_input(
   self,
   epoch,
 ) {
+  match self.require_legacy_mode("cancel_text_input") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let replacement = match self.queue.cancel(epoch) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -422,6 +458,10 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn end_text_input(
   self,
   epoch,
 ) {
+  match self.require_legacy_mode("end_text_input") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   if self.started {
     match self.host.end_text_session(self.window.unwrap(), self.native_epoch) {
       Err(error) => return Err(error)

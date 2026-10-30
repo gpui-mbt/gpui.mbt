@@ -1122,6 +1122,7 @@ int32_t gpui_text_composition_mode(int32_t token, int32_t window, int32_t enable
   int status = window_check(token, window, &h);
   if (status) return status;
   if (enabled != 0 && enabled != 1) return GPUI_INVALID;
+  if (enabled && h->retained_route_claimed) return GPUI_UNSUPPORTED;
   if (!enabled) {
     if (!h->ime.composition_enabled) return GPUI_OK;
     if (h->terminal_retention && h->count) return GPUI_BUSY;

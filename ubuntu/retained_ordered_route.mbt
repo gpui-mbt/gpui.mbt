@@ -21,20 +21,37 @@ pub struct RetainedOrderedRoute {
 ///|
 /// Claim this host's only retained route. Its claim lasts for the host lifetime;
 /// legacy readers are unavailable in retained mode.
-pub fn RetainedOrderedRoute::new(host : Host) -> Result[RetainedOrderedRoute, @diagnostics.FrameworkError] {
+pub fn RetainedOrderedRoute::new(
+  host : Host,
+) -> Result[RetainedOrderedRoute, @diagnostics.FrameworkError] {
   match host.enable_terminal_retention() {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  match outcome(native_claim_retained_route(host.token), "claim_retained_route") {
+  match
+    outcome(native_claim_retained_route(host.token), "claim_retained_route") {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  Ok({ host, window: None, root: 0UL, portable_epoch: 0UL, native_epoch: 0, native_seat: 0L, native_proxy: 0, ordinal: 0L, closed: false, shortcuts: ShortcutKeyTracker::new() })
+  Ok({
+    host,
+    window: None,
+    root: 0UL,
+    portable_epoch: 0UL,
+    native_epoch: 0,
+    native_seat: 0L,
+    native_proxy: 0,
+    ordinal: 0L,
+    closed: false,
+    shortcuts: ShortcutKeyTracker::new(),
+  })
 }
 
 ///|
-fn RetainedOrderedRoute::require_empty(self : RetainedOrderedRoute, operation : String) -> Result[Unit, @diagnostics.FrameworkError] {
+fn RetainedOrderedRoute::require_empty(
+  self : RetainedOrderedRoute,
+  operation : String,
+) -> Result[Unit, @diagnostics.FrameworkError] {
   match self.host.peek_retained_editor() {
     Err(error) => Err(error)
     Ok(Some(_)) => Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
@@ -52,11 +69,23 @@ pub fn RetainedOrderedRoute::begin(
   state : @text_host.TextInputState,
 ) -> Result[UInt64, @diagnostics.FrameworkError] {
   let operation = "retained_begin"
-  if root == 0UL { return Err(ubuntu_text_host_error(@diagnostics.InvalidInput, operation)) }
-  if self.window is Some(_) { return Err(ubuntu_text_host_error(@diagnostics.Busy, operation)) }
-  if self.portable_epoch == 18446744073709551615UL { return Err(ubuntu_text_host_error(@diagnostics.ResourceExhausted, operation)) }
-  match self.require_empty(operation) { Err(error) => return Err(error); Ok(_) => () }
-  let native = match self.host.begin_text_session(window, state.document(), state.caret()) {
+  if root == 0UL {
+    return Err(ubuntu_text_host_error(@diagnostics.InvalidInput, operation))
+  }
+  if self.window is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
+  if self.portable_epoch == 18446744073709551615UL {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.ResourceExhausted, operation),
+    )
+  }
+  match self.require_empty(operation) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let native = match
+    self.host.begin_text_session(window, state.document(), state.caret()) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -81,14 +110,32 @@ pub fn RetainedOrderedRoute::update(
   state : @text_host.TextInputState,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let operation = "retained_update"
-  if epoch != self.portable_epoch || self.closed { return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation)) }
-  let window = match self.window { Some(value) => value; None => return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation)) }
-  match self.require_empty(operation) { Err(error) => return Err(error); Ok(_) => () }
-  let native = match self.host.update_text_session(window, self.native_epoch, state.document(), state.caret(), external_edit=false) {
+  if epoch != self.portable_epoch || self.closed {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  let window = match self.window {
+    Some(value) => value
+    None =>
+      return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  match self.require_empty(operation) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let native = match
+    self.host.update_text_session(
+      window,
+      self.native_epoch,
+      state.document(),
+      state.caret(),
+      external_edit=false,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  if native != self.native_epoch { return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation)) }
+  if native != self.native_epoch {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
   Ok(())
 }
 
@@ -99,26 +146,74 @@ pub fn RetainedOrderedRoute::try_end_when_drained(
   self : RetainedOrderedRoute,
   epoch : UInt64,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
+  self.end_from(epoch, fn() { self.require_empty("retained_end") }, fn(
+    window,
+    native_epoch,
+  ) {
+    self.host.end_text_session_when_drained(window, native_epoch)
+  })
+}
+
+///|
+fn RetainedOrderedRoute::end_from(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+  empty : () -> Result[Unit, @diagnostics.FrameworkError],
+  cutoff : (@platform.WindowId, Int32) -> Result[
+    Unit,
+    @diagnostics.FrameworkError,
+  ],
+) -> Result[Unit, @diagnostics.FrameworkError] {
   let operation = "retained_end"
-  if epoch != self.portable_epoch || self.closed { return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation)) }
-  let window = match self.window { Some(value) => value; None => return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation)) }
-  match self.require_empty(operation) { Err(error) => return Err(error); Ok(_) => () }
-  match self.host.end_text_session_when_drained(window, self.native_epoch) { Err(error) => return Err(error); Ok(_) => () }
+  if epoch != self.portable_epoch || self.closed {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  let window = match self.window {
+    Some(value) => value
+    None =>
+      return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  match empty() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match cutoff(window, self.native_epoch) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   self.closed = true
   Ok(())
 }
 
 ///|
 /// Release an ended binding only after all terminal records have been ACKed.
-pub fn RetainedOrderedRoute::release(self : RetainedOrderedRoute, epoch : UInt64) -> Result[Unit, @diagnostics.FrameworkError] {
+pub fn RetainedOrderedRoute::release(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  self.release_from(epoch, fn() { self.require_empty("retained_release") })
+}
+
+///|
+fn RetainedOrderedRoute::release_from(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+  empty : () -> Result[Unit, @diagnostics.FrameworkError],
+) -> Result[Unit, @diagnostics.FrameworkError] {
   let operation = "retained_release"
-  if epoch != self.portable_epoch || !self.closed { return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation)) }
-  match self.require_empty(operation) { Err(error) => return Err(error); Ok(_) => () }
+  if epoch != self.portable_epoch || !self.closed {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  match empty() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   self.window = None
   self.root = 0UL
   self.native_epoch = 0
   self.native_seat = 0L
   self.native_proxy = 0
+  self.closed = false
   self.shortcuts.held = 0
   Ok(())
 }
@@ -152,80 +247,169 @@ pub struct RetainedOrderedReceipt {
 }
 
 ///|
-pub fn RetainedOrderedReceipt::event(self : RetainedOrderedReceipt) -> RetainedOrderedEvent { self.event }
+pub fn RetainedOrderedReceipt::event(
+  self : RetainedOrderedReceipt,
+) -> RetainedOrderedEvent {
+  self.event
+}
 
 ///|
 /// Original native window, never the portable binding identity.
-pub fn RetainedOrderedReceipt::native_window(self : RetainedOrderedReceipt) -> @platform.WindowId { self.record.window() }
+pub fn RetainedOrderedReceipt::native_window(
+  self : RetainedOrderedReceipt,
+) -> @platform.WindowId {
+  self.record.window()
+}
 
 ///|
 /// Original host-wide sequence, separate from the text-only ordinal.
-pub fn RetainedOrderedReceipt::native_sequence(self : RetainedOrderedReceipt) -> Int32 { self.record.sequence() }
+pub fn RetainedOrderedReceipt::native_sequence(
+  self : RetainedOrderedReceipt,
+) -> Int32 {
+  self.record.sequence()
+}
 
 ///|
-pub fn RetainedOrderedReceipt::native_event(self : RetainedOrderedReceipt) -> EditorEvent? { self.record.event() }
+pub fn RetainedOrderedReceipt::native_event(
+  self : RetainedOrderedReceipt,
+) -> EditorEvent? {
+  self.record.event()
+}
 
 ///|
-pub fn RetainedOrderedReceipt::is_native_stale(self : RetainedOrderedReceipt) -> Bool { self.record.is_stale() }
+pub fn RetainedOrderedReceipt::is_native_stale(
+  self : RetainedOrderedReceipt,
+) -> Bool {
+  self.record.is_stale()
+}
 
 ///|
-pub fn RetainedOrderedReceipt::root(self : RetainedOrderedReceipt) -> UInt64 { self.root }
+pub fn RetainedOrderedReceipt::root(self : RetainedOrderedReceipt) -> UInt64 {
+  self.root
+}
 
 ///|
-pub fn RetainedOrderedReceipt::epoch(self : RetainedOrderedReceipt) -> UInt64 { self.epoch }
+pub fn RetainedOrderedReceipt::epoch(self : RetainedOrderedReceipt) -> UInt64 {
+  self.epoch
+}
 
 ///|
 /// Prepare the same candidate on repeated peeks without advancing either the
 /// text ordinal or shortcut state. No native record is dequeued here.
-pub fn RetainedOrderedRoute::peek(self : RetainedOrderedRoute) -> Result[RetainedOrderedReceipt?, @diagnostics.FrameworkError] {
-  let record = match self.host.peek_retained_editor() { Err(error) => return Err(error); Ok(None) => return Ok(None); Ok(Some(value)) => value }
-  match self.prepare(record) { Err(error) => Err(error); Ok(value) => Ok(Some(value)) }
+pub fn RetainedOrderedRoute::peek(
+  self : RetainedOrderedRoute,
+) -> Result[RetainedOrderedReceipt?, @diagnostics.FrameworkError] {
+  let record = match self.host.peek_retained_editor() {
+    Err(error) => return Err(error)
+    Ok(None) => return Ok(None)
+    Ok(Some(value)) => value
+  }
+  match self.prepare(record) {
+    Err(error) => Err(error)
+    Ok(value) => Ok(Some(value))
+  }
 }
 
 ///|
-fn RetainedOrderedRoute::prepare(self : RetainedOrderedRoute, record : RetainedEditorRecord) -> Result[RetainedOrderedReceipt, @diagnostics.FrameworkError] {
+fn RetainedOrderedRoute::prepare(
+  self : RetainedOrderedRoute,
+  record : RetainedEditorRecord,
+) -> Result[RetainedOrderedReceipt, @diagnostics.FrameworkError] {
   let operation = "retained_peek"
   let native_event = record.event()
   let mut next_ordinal = self.ordinal
   let mut next_seat = self.native_seat
   let mut next_proxy = self.native_proxy
-  let candidate = ShortcutKeyTracker::{ held: self.shortcuts.held }
+  let candidate = ShortcutKeyTracker::{ held: self.shortcuts.held, }
   let mut prepared : RetainedOrderedEvent = Unhandled(native_event)
   if !record.is_stale() {
     match native_event {
       Some(Platform(event)) => prepared = Platform(event)
       Some(TextSession(target, event)) => {
-        let matches = match self.window { Some(window) => window == target.window && target.epoch == self.native_epoch; None => false }
-        let initial_enter = self.native_seat == 0L && self.native_proxy == 0 && event is Entered
-        let same_proxy = self.native_seat == target.seat && self.native_proxy == target.proxy_generation
+        let matches = match self.window {
+          Some(window) =>
+            window == target.window && target.epoch == self.native_epoch
+          None => false
+        }
+        let initial_enter = self.native_seat == 0L &&
+          self.native_proxy == 0 &&
+          event is Entered
+        let same_proxy = self.native_seat == target.seat &&
+          self.native_proxy == target.proxy_generation
         if matches && (initial_enter || same_proxy) {
           match event {
             Entered => {
-              if initial_enter { next_seat = target.seat; next_proxy = target.proxy_generation }
+              if initial_enter {
+                next_seat = target.seat
+                next_proxy = target.proxy_generation
+              }
               prepared = Lifecycle(target, event)
             }
             Left => prepared = Lifecycle(target, event)
-            Commit(deletion=Some(deletion), ..) if deletion.length_bytes != 0 => ()
+            Commit(deletion=Some(deletion), ..) if deletion.length_bytes != 0 =>
+              ()
             Commit(position=Some(_), ..) => ()
-            _ => match candidate.translate(event) {
-              Emit(kind) => {
-                if self.ordinal == 9223372036854775807L { return Err(ubuntu_text_host_error(@diagnostics.ResourceExhausted, operation)) }
-                next_ordinal = self.ordinal + 1L
-                prepared = Text(@text_host.TextInputEvent::new(target.window, next_ordinal, self.portable_epoch, kind))
+            _ =>
+              match candidate.translate(event) {
+                Emit(kind) => {
+                  if self.ordinal == 9223372036854775807L {
+                    return Err(
+                      ubuntu_text_host_error(
+                        @diagnostics.ResourceExhausted,
+                        operation,
+                      ),
+                    )
+                  }
+                  next_ordinal = self.ordinal + 1L
+                  prepared = Text(
+                    @text_host.TextInputEvent::new(
+                      target.window,
+                      next_ordinal,
+                      self.portable_epoch,
+                      kind,
+                    ),
+                  )
+                }
+                Forward(key, pressed, modifiers) => {
+                  let kind = if pressed {
+                    @platform.Input(
+                      @primitives.KeyPressed(key~, repeat=false, modifiers~),
+                    )
+                  } else {
+                    @platform.Input(@primitives.KeyReleased(key~, modifiers~))
+                  }
+                  prepared = Platform(
+                    @platform.Event::new(
+                      target.window,
+                      target.sequence,
+                      record.raw_field(3).unwrap_or(1.0),
+                      kind,
+                    ),
+                  )
+                }
+                Skip | Unsupported => ()
               }
-              Forward(key, pressed, modifiers) => {
-                let kind = if pressed { @platform.Input(@primitives.KeyPressed(key~, repeat=false, modifiers~)) } else { @platform.Input(@primitives.KeyReleased(key~, modifiers~)) }
-                prepared = Platform(@platform.Event::new(target.window, target.sequence, record.raw_field(3).unwrap_or(1.0), kind))
-              }
-              Skip | Unsupported => ()
-            }
           }
         }
       }
       None => ()
     }
   }
-  Ok({ route: self, record, event: prepared, epoch: self.portable_epoch, root: self.root, expected_ordinal: self.ordinal, candidate_ordinal: next_ordinal, expected_shortcuts: self.shortcuts.held, candidate_shortcuts: candidate.held, expected_seat: self.native_seat, expected_proxy: self.native_proxy, candidate_seat: next_seat, candidate_proxy: next_proxy })
+  Ok({
+    route: self,
+    record,
+    event: prepared,
+    epoch: self.portable_epoch,
+    root: self.root,
+    expected_ordinal: self.ordinal,
+    candidate_ordinal: next_ordinal,
+    expected_shortcuts: self.shortcuts.held,
+    candidate_shortcuts: candidate.held,
+    expected_seat: self.native_seat,
+    expected_proxy: self.native_proxy,
+    candidate_seat: next_seat,
+    candidate_proxy: next_proxy,
+  })
 }
 
 ///|
@@ -233,18 +417,31 @@ fn RetainedOrderedRoute::prepare(self : RetainedOrderedRoute, record : RetainedE
 /// are complete, or their exact owner/stage is retained for resumption. For
 /// Lifecycle/Unhandled, an explicit terminal policy is required first. A
 /// failed native ACK leaves the candidate ordinal and shortcut state unchanged.
-pub fn RetainedOrderedReceipt::ack(self : RetainedOrderedReceipt) -> Result[Unit, @diagnostics.FrameworkError] {
+pub fn RetainedOrderedReceipt::ack(
+  self : RetainedOrderedReceipt,
+) -> Result[Unit, @diagnostics.FrameworkError] {
   self.finish_ack(fn() { self.record.ack() })
 }
 
 ///|
-fn RetainedOrderedReceipt::finish_ack(self : RetainedOrderedReceipt, native_ack : () -> Result[Unit, @diagnostics.FrameworkError]) -> Result[Unit, @diagnostics.FrameworkError] {
+fn RetainedOrderedReceipt::finish_ack(
+  self : RetainedOrderedReceipt,
+  native_ack : () -> Result[Unit, @diagnostics.FrameworkError],
+) -> Result[Unit, @diagnostics.FrameworkError] {
   let route = self.route
   let operation = "retained_ack"
-  if route.portable_epoch != self.epoch || route.root != self.root || route.ordinal != self.expected_ordinal || route.shortcuts.held != self.expected_shortcuts || route.native_seat != self.expected_seat || route.native_proxy != self.expected_proxy {
+  if route.portable_epoch != self.epoch ||
+    route.root != self.root ||
+    route.ordinal != self.expected_ordinal ||
+    route.shortcuts.held != self.expected_shortcuts ||
+    route.native_seat != self.expected_seat ||
+    route.native_proxy != self.expected_proxy {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
-  match native_ack() { Err(error) => return Err(error); Ok(_) => () }
+  match native_ack() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   route.ordinal = self.candidate_ordinal
   route.shortcuts.held = self.candidate_shortcuts
   route.native_seat = self.candidate_seat
