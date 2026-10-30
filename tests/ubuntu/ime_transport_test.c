@@ -1248,7 +1248,36 @@ static void terminal_preview_is_unresolved_not_synthetic_cancel(void) {
   assert(gpui_stop(h->token) == GPUI_BUSY); /* preview still unresolved */
   finish(h);
 }
+static void explicit_cancel_waits_for_admitted_commit(void) {
+  struct host *h = fixture(); h->terminal_retention = 1;
+  int epoch = begin(h); drain_enter(h);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  ime_commit_string(h, h->ime.proxy, 1, "日本");
+  int seq = h->seq, calls = call_count;
+  assert(gpui_text_session_cancel(h->token, h->window, epoch) == -GPUI_BUSY);
+  assert(gpui_text_session_end(h->token, h->window, epoch) == GPUI_BUSY);
+  assert(h->ime.epoch == epoch && h->seq == seq && call_count == calls);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 21 && data[10] == epoch);
+  assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  assert(gpui_text_session_cancel(h->token, h->window, epoch) == epoch + 1);
+  finish(h);
+}
+static void composition_cancel_does_not_revoke_admitted_commit(void) {
+  struct host *h = fixture(); h->terminal_retention = 1;
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  ime_commit_string(h, h->ime.proxy, sent_serial, "日本");
+  assert(gpui_text_composition_finish(h->token, h->window, 0) == GPUI_BUSY);
+  assert(gpui_text_composition_mode(h->token, h->window, 0) == GPUI_BUSY);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 28);
+  assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  assert(gpui_text_composition_finish(h->token, h->window, 0) == GPUI_OK);
+  finish(h);
+}
 int main(void) {
+  composition_cancel_does_not_revoke_admitted_commit();
+  explicit_cancel_waits_for_admitted_commit();
   terminal_preview_is_unresolved_not_synthetic_cancel();
   terminal_destroy_busy_preserves_full_queue();
   accepted_commit_survives_terminal_window();

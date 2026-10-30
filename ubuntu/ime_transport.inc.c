@@ -988,6 +988,10 @@ int32_t gpui_text_session_update(int32_t token, int32_t window, int32_t epoch,
   if ((external_edit != 0 && external_edit != 1) ||
       !ime_document_valid(text, length, cursor, anchor, width, height))
     return -GPUI_INVALID;
+  /* The host cannot acknowledge records already handed to the caller; this
+   * fence only prevents invalidating records still in the native queue. */
+  if (h->terminal_retention && external_edit && h->count)
+    return -GPUI_BUSY;
   if (h->ime.latest_serial == INT_MAX ||
       (external_edit && h->ime.epoch == INT_MAX)) {
     h->ime.exhausted = 1;
@@ -1032,6 +1036,7 @@ int32_t gpui_text_session_end(int32_t token, int32_t window, int32_t epoch) {
   int status = ime_session_check(token, window, epoch, &h);
   if (status)
     return status;
+  if (h->terminal_retention && h->count) return GPUI_BUSY;
   ime_invalidate(h, 1, 1);
   return h->ime.exhausted ? GPUI_RESOURCE : h->error;
 }
@@ -1095,6 +1100,11 @@ int32_t gpui_text_composition_finish(int32_t token, int32_t window, int32_t comm
   if (h->state) return GPUI_STOPPING;
   if (h->ime.exhausted) return GPUI_RESOURCE;
   if (h->error) return h->error;
+  if (h->terminal_retention && h->count) return GPUI_BUSY;
+  /* Resolving a preview itself admits a record. The existing finish operation
+   * has no receipt with which to acknowledge it before epoch invalidation. */
+  if (h->terminal_retention && h->ime.composition_preview)
+    return GPUI_UNSUPPORTED;
   status = commit ? composition_resolve(h, 1) : composition_cancel_unread(h);
   if (status) return status;
   if (!h->ime.requested) return GPUI_OK;
@@ -1108,6 +1118,7 @@ int32_t gpui_text_composition_mode(int32_t token, int32_t window, int32_t enable
   if (enabled != 0 && enabled != 1) return GPUI_INVALID;
   if (!enabled) {
     if (!h->ime.composition_enabled) return GPUI_OK;
+    if (h->terminal_retention && h->count) return GPUI_BUSY;
     status = composition_cancel_unread(h);
     if (status) return status;
     ime_invalidate(h, 0, 1);
