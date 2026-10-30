@@ -57,6 +57,55 @@ callback is not a lookup-table acknowledgment or proof that any particular
 pixels were captured. This parser does not authenticate the trace, join D-Bus
 and Wayland clocks, identify rows, or modify `candidate_table_verified`.
 
+`candidate_pixels.py` and `replay_candidate_pixels.py` provide a separate,
+bounded **two-row diagnostic**, not a candidate-table oracle. Given two
+caller-selected screenshots with opposite highlight and explicit row boxes, it
+checks highlight pixels in each and OCRs each row from the other screenshot,
+where that row is unhighlighted. It compares those independent pixel readings
+with two caller-selected decoded lookup updates. Output is always `partial` and
+`candidate_table_verified: false`: the boxes, source and ordering are not
+authenticated here; other rows, disappearance and the causal link between
+lookup updates, panel frame and captured pixels are not proven. A changed
+theme/font/OCR error fails the diagnostic, not the IME implementation.
+Lookup rows containing whitespace are outside this diagnostic because OCR
+spacing is ambiguous; Unicode width or other character normalization is not
+used to turn a different recognized row into a match.
+
+For reproducibility, a local run used the screenshots and D-Bus log from Yami
+[#86](https://github.com/f4ah6o/Yami-kumo/tree/f98ab64b2c547fcd87ba00ff7aa5828a9854c204/tests/native-ui/ime-evidence/run-20261030-7).
+On Debian 13 x86_64, Tesseract 5.5.0 binary SHA-256
+`74b76a5b994adcc18be362bf64ed5118082b2401d5d9a35242e92fc4c62e2b4b` and
+`tessdata_fast` Japanese model SHA-256
+`1f5de9236d2e85f5fdf4b3c500f2d4926f8d9449f28f5394472d9e8d83b91b4d`,
+the following read-only replay reported two matching rows (`日本`, `にほん`)
+and highlight counts `[[0,812],[570,0]]`. It is not a fresh live run, a
+synchronized observation, a full candidate-table pass, or a framework-head
+acceptance. An optional region check also confirms that a caller-selected
+rectangle containing panel pixels becomes the caller-assumed white background
+in both the commit and cancel screenshots. It does not exclude a panel moving
+elsewhere or prove that the assumed background is an authentic baseline. The
+PNG fixtures are byte-identical copies of those four screenshots; the D-Bus log
+is not duplicated here.
+
+```sh
+/usr/bin/python3 infra/linux-desktop/wayland-ime/replay_candidate_pixels.py \
+  --dbus-log /path/to/run-20261030-7/ibus-ui-dbus.log --body-lines 4584 4740 \
+  --before infra/linux-desktop/wayland-ime/tests/candidate-pixels/row2-selected.png \
+  --after infra/linux-desktop/wayland-ime/tests/candidate-pixels/row1-selected.png \
+  --before-boxes '[[190,286,242,310],[190,313,242,337]]' \
+  --after-boxes '[[190,245,242,269],[190,273,242,297]]' \
+  --after-commit infra/linux-desktop/wayland-ime/tests/candidate-pixels/after-commit.png \
+  --after-cancel infra/linux-desktop/wayland-ime/tests/candidate-pixels/after-cancel.png \
+  --clear-box '[142,350,248,480]' --clear-background '[255,255,255]' \
+  --tesseract /usr/bin/tesseract --tessdata /path/to/tessdata \
+  --model-sha256 1f5de9236d2e85f5fdf4b3c500f2d4926f8d9449f28f5394472d9e8d83b91b4d
+```
+
+The diagnostic requires Pillow and, for real OCR, an externally installed
+Tesseract and the exact Japanese model. They are evidence tooling only; they
+are not product runtime dependencies. The unit tests use an injected OCR result
+to exercise failure handling and do not claim to validate Tesseract accuracy.
+
 ## Immutable original runtime and candidate overlay
 
 `prepare-gpui-deployment.py` generates an evidence-local candidate overlay above the SHA-256-pinned frozen baseline lock. Candidate-specific pins stay outside the source checkout to avoid a build-manifest self-reference. Before overlay preparation, launcher preparation, --check and native execution, established build_manifest.verify_build_manifest verifies the exact current commit/tree/worktree and binary, including verify_runtime over tools, generated protocols, fonts and runtime trees. The verified source/binary identities and closure inventory are retained. Preflight also verifies every frozen baseline byte. Historical read-only replay uses saved bytes and identities without requiring today’s source; an old diagnostic cannot claim the new exact-current held tier. It does not substitute the recovered engine.
