@@ -546,3 +546,53 @@ test "candidate ACK rechecks stale native evidence before consuming head" {
   receipt.ack_from(fn() { Ok(()) }, native_ack).unwrap()
   assert_true(consumed)
 }
+
+///|
+test "physical evidence decodes host-local window history without inventing owners" {
+  let route = retained_test_route()
+  let record = retained_test_record(
+    route,
+    11,
+    7,
+    ForwardedReleased(
+      keysym=0x6e,
+      key=None,
+      modifiers=@primitives.Modifiers::none(),
+    ),
+    false,
+  )
+  let candidate = route
+    .prepare(record)
+    .unwrap()
+    .printable_release_candidate()
+    .unwrap()
+  let fields = FixedArray::make(8, 0)
+  fields[0] = 1
+  fields[1] = 49
+  fields[2] = 1
+  fields[3] = 1
+  fields[6] = 1
+  fields[7] = 1
+  let value = decode_physical_release(candidate, fields, "fixture").unwrap()
+  assert_eq(value.physical_key(), 49)
+  assert_eq(value.focus_generation(), 1)
+  assert_true(value.prior() is NoPressObservedSinceFocus)
+  assert_eq(value.host_window_generation(), Some(1))
+  assert_true(value.claim_before_any_window())
+  fields[6] = 0
+  let unknown_window = decode_physical_release(candidate, fields, "fixture").unwrap()
+  assert_true(unknown_window.host_window_generation() is None)
+  fields[7] = 2
+  assert_true(decode_physical_release(candidate, fields, "fixture") is Err(_))
+  fields[7] = 1
+  fields[3] = 2
+  fields[4] = 11
+  fields[5] = 51
+  assert_true(decode_physical_release(candidate, fields, "fixture") is Err(_))
+  fields[4] = 5
+  fields[5] = 52
+  assert_true(decode_physical_release(candidate, fields, "fixture") is Err(_))
+  fields[5] = 51
+  let prior = decode_physical_release(candidate, fields, "fixture").unwrap()
+  assert_true(prior.prior() is PressAdmitted(5, _))
+}

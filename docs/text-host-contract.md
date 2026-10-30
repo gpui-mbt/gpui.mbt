@@ -347,6 +347,17 @@ consumer must resolve those independently; the evidence is not permission to
 discard or ACK a record. Held key arrays, input capacity, seat/focus changes,
 uncertain sources, and sequence exhaustion fail closed.
 
+The same physical evidence also reports a host-local native window-creation
+attempt generation and whether the retained route was claimed before any such
+attempt. Once argument and title allocation preflight has succeeded, even a
+failed native creation consumes a generation. Counter exhaustion makes the value
+unavailable without changing window creation behavior. Keyboard focus generation
+counts every matching-device enter, including invalid or foreign-surface enters,
+so generation 1 cannot conceal a failed earlier enter after route claim. These
+facts are scoped to the exact live host and target: even claim-before-window,
+window generation 1 and focus generation 1 do not prove that another host,
+another input path, or an earlier application owner has been resolved.
+
 `RetainedOrderedReceipt::ack` rechecks the current route and native focus/epoch
 for a printable-release candidate immediately before the exact-head ACK; a
 focus or epoch change after evidence inspection leaves that head retained.

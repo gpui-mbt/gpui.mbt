@@ -9,6 +9,7 @@ struct ime_payload {
    * Zero origin means unavailable (including text-input keysym callbacks). */
   int key_proof_origin, key_proof_physical, key_proof_focus;
   int key_proof_prior, key_proof_press_sequence, key_proof_press_window;
+  int key_proof_window_generation, key_proof_claim_before_window;
   uint32_t seat;
   int text_length, fallback_length, cursor_present, cursor;
   int delete_present, delete_index, delete_length;

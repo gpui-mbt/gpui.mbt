@@ -86,6 +86,10 @@ struct host {
   int token, window, state, wake_fd, error;
   int terminal_retention, terminal_preview_pending, terminal_preview_watermark;
   int retained_route_claimed, retained_route_bound, retained_route_call;
+  /* Proof-only monotonic count of window creation attempts on this host.
+   * Exhaustion disables the evidence, not existing window operations. */
+  int retained_window_generation, retained_window_exhausted;
+  int retained_claim_before_window;
   int terminal_receipt_generation;
   struct ime_payload terminal_preview;
   pthread_t owner;
@@ -1197,9 +1201,11 @@ static void keyboard_enter(void *d, struct wl_keyboard *k, uint32_t serial,
    * physical keys were already held. Never infer an empty snapshot from NULL. */
   h->retained_key_valid = 0;
   h->retained_key_ambiguous = 0;
+  if (h->retained_route_claimed && h->retained_key_focus < INT_MAX)
+    ++h->retained_key_focus;
   if (h->retained_route_claimed && h->keyboard_focus_current && h->window &&
       k && h->seat && h->seat_name &&
-      h->retained_key_focus < INT_MAX && keys &&
+      h->retained_key_focus > 0 && h->retained_key_focus < INT_MAX && keys &&
       keys->size % sizeof(uint32_t) == 0 &&
       keys->size <= GPUI_DIRECT_KEY_CAPACITY * sizeof(uint32_t) &&
       (!keys->size || keys->data)) {
@@ -1214,7 +1220,6 @@ static void keyboard_enter(void *d, struct wl_keyboard *k, uint32_t serial,
       h->retained_keys[held[i]].prior = KEY_PRIOR_UNKNOWN;
     }
     if (valid) {
-      ++h->retained_key_focus;
       h->retained_key_window = h->window;
       h->retained_key_seat = h->seat_name;
       h->retained_key_keyboard = k;
@@ -1291,6 +1296,9 @@ static void keyboard_key(void *d, struct wl_keyboard *k, uint32_t serial,
         data->key_proof_origin = 1;
         data->key_proof_physical = (int)key;
         data->key_proof_focus = h->retained_key_focus;
+        data->key_proof_window_generation = h->retained_window_exhausted
+            ? 0 : h->retained_window_generation;
+        data->key_proof_claim_before_window = h->retained_claim_before_window;
         data->key_proof_prior = h->retained_key_ambiguous
             ? KEY_PRIOR_UNKNOWN : key_state->prior;
         if (data->key_proof_prior == KEY_PRIOR_ADMITTED) {
@@ -1896,6 +1904,8 @@ int32_t gpui_claim_retained_route(int32_t token) {
     return GPUI_BUSY;
   if (h->state) return GPUI_STOPPING;
   if (h->error) return h->error;
+  h->retained_claim_before_window = !h->window &&
+      !h->retained_window_generation && !h->retained_window_exhausted;
   h->retained_route_claimed = 1;
   return GPUI_OK;
 }
@@ -2020,6 +2030,14 @@ static char *copy_title(const uint8_t *title, int length) {
   }
   return s;
 }
+static void retained_note_window_attempt(struct host *h) {
+  if (h->retained_window_exhausted) return;
+  if (h->retained_window_generation == INT_MAX) {
+    h->retained_window_exhausted = 1;
+    return;
+  }
+  ++h->retained_window_generation;
+}
 int32_t gpui_create(int32_t token, int32_t w, int32_t hh, const uint8_t *title,
                     int32_t length) {
   struct host *h;
@@ -2039,6 +2057,7 @@ int32_t gpui_create(int32_t token, int32_t w, int32_t hh, const uint8_t *title,
   char *text = copy_title(title, length);
   if (!text)
     return -GPUI_RESOURCE;
+  retained_note_window_attempt(h);
   h->width = w;
   h->height = hh;
   h->scale = 1;
