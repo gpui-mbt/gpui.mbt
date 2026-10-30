@@ -39,6 +39,13 @@ post-M3.
 
 ## 2. Actual state to reconcile
 
+The numbered observations below describe the 2026-10-19 audit, not current
+main. In particular, the macOS composition bridge and public `TextInputHost`
+route have since landed; see [0026](0026-macos-text-composition-host.md) and
+the current [text host contract](../../docs/text-host-contract.md). The later
+live Kotoeri sample observation does not establish exact-source acceptance of
+the shared TextField/Dialog flow.
+
 1. `text_session/` is merged and portable-tested, but no host or example imports
    it. `platform.Backend` has no text-session method.
 2. `element.FocusScopeSession` exists as a portable modal controller, but no
