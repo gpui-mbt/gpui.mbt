@@ -63,3 +63,27 @@ The `Backend` trait does not change. A host that does not implement
 - [x] The transport fixture proves ordered delivery and end/cancel ownership,
       not OS behavior. The macOS E2E proves the same ordering through AppKit
       callbacks; synthetic composition is not an IME pass.
+
+## 6. 2026-10-30 — cross-kind order and unresolved end boundary
+
+The Ubuntu legacy two-poll route can absorb a text record while polling for a
+platform record and return the latter first. A draft candidate adds a separate
+opt-in single-poll ordered route without changing the legacy API. Its scope is
+the order of records copied from the Ubuntu editor stream; it does not establish
+that an IME has stopped producing records. A host end boundary that preserves
+already-observed commits before revocation, the adapter's pending `TextSession`
+resolution, and live IME evidence remain open. macOS and Windows are not
+covered by the candidate's ordering guarantee. Yami's concrete focus-loss
+failure and reproduction are tracked in
+[Yami PR #83](https://github.com/f4ah6o/Yami-kumo/pull/83).
+
+The Ubuntu host has an earlier boundary too: `keyboard_leave` calls
+`ime_invalidate`, which advances the native epoch before the editor queue is
+read. `ime_queued_stale` then discards a previously accepted unread commit;
+neither ordered nor legacy portable polling can recover a record already
+discarded there. This does not imply that callbacks received after invalidation
+are valid. See [0028](0028-wayland-ime-composition-handoff.md) for the native
+fixture and lifecycle work needed to distinguish accepted old-owner records
+from genuinely stale callbacks. Coordinate its host end-boundary contract with
+the adapter's pending `TextSession` resolution; a one-time empty poll is not a
+completion signal.
