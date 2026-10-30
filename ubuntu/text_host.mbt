@@ -360,9 +360,9 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn update_text_input(
   epoch,
   state,
 ) {
-  let epoch = match self.queue.update(epoch, state) {
+  match self.queue.validate_update(epoch) {
     Err(error) => return Err(error)
-    Ok(value) => value
+    Ok(_) => ()
   }
   if !self.started {
     self.native_epoch = match
@@ -394,7 +394,11 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn update_text_input(
     }
     self.native_epoch = next
   }
-  Ok(epoch)
+  // The native call is synchronous and cannot reenter this owner. Publish the
+  // portable shadow only after it succeeds; a native error must not install
+  // the candidate document/caret in the shadow. This does not assert that a
+  // failed native call rolled back any host or compositor side effect.
+  self.queue.update(epoch, state)
 }
 
 ///|

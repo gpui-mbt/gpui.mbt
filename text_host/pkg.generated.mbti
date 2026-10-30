@@ -34,6 +34,7 @@ pub fn TextHostQueue::state(Self) -> TextInputState?
 pub fn TextHostQueue::take_parked(Self) -> @platform.Event?
 pub fn TextHostQueue::take_text(Self) -> TextInputEvent?
 pub fn TextHostQueue::update(Self, UInt64, TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
+pub fn TextHostQueue::validate_update(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
 
 pub(all) struct TextInputEvent {
   window : @platform.WindowId

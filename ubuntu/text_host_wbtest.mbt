@@ -1,4 +1,36 @@
 ///|
+test "host update rejection does not publish portable state" {
+  let host : Host = { token: -1, stopped: true, }
+  let route = TextHostRoute::new(host)
+  let window = @platform.WindowId::new(1L)
+  let epoch = route.queue.begin(window).unwrap()
+  route.window = Some(window)
+  let old = @text_host.TextInputState::new(
+    @text.TextDocument::new("old").unwrap(),
+    @primitives.Rect::new(0.0, 0.0, 1.0, 12.0).unwrap(),
+  )
+  let next = @text_host.TextInputState::new(
+    @text.TextDocument::new("new").unwrap(),
+    @primitives.Rect::new(1.0, 0.0, 1.0, 12.0).unwrap(),
+  )
+  ignore(route.queue.update(epoch, old).unwrap())
+  assert_true(route.update_text_input(epoch, next) is Err(_))
+  assert_true(route.queue.state().unwrap().document() == old.document())
+  assert_true(route.queue.state().unwrap().caret() == old.caret())
+  // The already-started route also preserves the old portable value when the
+  // host rejects an update. This does not prove rollback inside native code.
+  route.started = true
+  route.native_epoch = 1
+  assert_true(route.update_text_input(epoch, next) is Err(_))
+  assert_true(route.queue.state().unwrap().document() == old.document())
+  assert_true(route.queue.state().unwrap().caret() == old.caret())
+  match route.update_text_input(epoch + 1UL, next) {
+    Err(error) => assert_true(error.code() is @diagnostics.StaleHandle)
+    _ => fail("stale portable epoch must reject before native update")
+  }
+}
+
+///|
 test "ubuntu portable translation keeps preedit, insert, cancel and keys" {
   match
     translate_editor_event(

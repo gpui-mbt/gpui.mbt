@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Keep Ubuntu's portable text-host shadow unchanged when its native
+  begin/update call rejects. Native/compositor failure atomicity is not claimed.
 - Retain already admitted Ubuntu text-input records ahead of a natural focus
   loss, with their original target, while continuing to reject old callbacks
   and records invalidated by an explicit owner change.

@@ -97,6 +97,26 @@ test "text host queue rejects stale and duplicate operations" {
 }
 
 ///|
+test "text host update validation preserves state and pending observations" {
+  let queue = @text_host.TextHostQueue::new()
+  let epoch = queue.begin(@platform.WindowId::new(1L)).unwrap()
+  let state = @text_host.TextInputState::new(
+    @text.TextDocument::new("original").unwrap(),
+    @primitives.Rect::new(0.0, 0.0, 1.0, 16.0).unwrap(),
+  )
+  ignore(queue.update(epoch, state).unwrap())
+  queue.emit(@text_host.Commit(text="日本")).unwrap()
+  assert_true(queue.validate_update(epoch + 1UL) is Err(_))
+  assert_true(queue.validate_update(epoch) is Ok(_))
+  assert_true(queue.state().unwrap().document() == state.document())
+  assert_true(
+    queue.take_text().unwrap().kind() is @text_host.Commit(text="日本"),
+  )
+  queue.end(epoch).unwrap()
+  assert_true(queue.validate_update(epoch) is Err(_))
+}
+
+///|
 test "text host queue bounds parking and survives cancel" {
   let queue = @text_host.TextHostQueue::new()
   let window = @platform.WindowId::new(1L)
