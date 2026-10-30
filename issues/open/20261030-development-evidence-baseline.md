@@ -94,3 +94,34 @@ Branch: research/20261030-development-evidence-baseline
 ### 完了記録
 
 未着手。地図登録時のsource/CI/artifact確認は上記の調査起点であり、consumer全体の照合や文書整合作業の完了を意味しない。
+
+
+### 2026-10-30 UTC 再照合 checkpoint（未完了）
+
+この節はsource/APIとGitHub metadataの確認であり、実GUIの再実行ではない。調査時点は2026-10-30 14:21 UTC。main、各PRの状態は着手前に再取得する。
+
+| 対象 | revision / 状態 |
+| --- | --- |
+| gpui main | `3db0c94a43cda694d615205ecb9d1abf778638e8`、module宣言 `0.10.6` |
+| 方針PR #156 | open、HEAD `ae699e06c0b869bafc83bf8adae317bb0a53efbc`。この3文書はmain未収録 |
+| Linux #153 / #154 / #155 | draft/open、順に `64323e64f17a4f02094fea5257837ea057dfadea` / `825d99d499bf02bdf1d232827261043b38a6cdeb` / `0b5135b08a3562ca3e166199090b0f37eb9ca192`。baseはmain → #153 branch → #154 branch |
+| Yami main / candidate consumer | `4405de81b231967388feddde08958d0786b03639`、`examples/shared_settings`のmodel、`examples/shared_settings_dom`、`native/examples/common/settings_runner.mbt` |
+| consumer dependencies | Yami native `moon.mod` はgpui `0.10.6` / Yami `0.2.3`。source fixtureの `tests/native-ui/gpui-revision.txt` と `tests/shared-ui/gpui-revision.txt` は `cfc66b872bfd9613e2a81b499cac0602c84d653b`。`tests/published-settings/moon.mod` はgpui `0.10.5` / Yami native `0.2.13` の別組合せ。これらを同一実行と扱わない |
+| 比較・観測tool | gpui-conformance main `711584ee421157f6f9fab86f76ed9b7277ea5bc5`、vlmkit main `6b5985c1aa5df2b9ddf4c51574b391599ae2bbd6`。これらはこのcheckpointの実行harnessではない |
+| 過去のLinux IME | #155最新HEADの [run 40831715054](https://github.com/gpui-mbt/gpui.mbt/actions/runs/40831715054) はfailure。artifact metadataのSHA-256は `15f9b9dda79c1e34639942e6395bc02688bff0a9b676f5af8913fee1783209e9`。この再照合ではZIP取得先がHTTP 403を返し、内容と実digestを再監査できていない。bind失敗とnative `NOT_RUN`は方針PRの過去監査記録を引用しており、今回の独立再確認ではない |
+| 既存旧run | 地図記載の旧IME成功はharness `db5318d0e2883cbed0b1ce961c9bcd6f3ddb554b`、app source `825d99d499bf02bdf1d232827261043b38a6cdeb`。#155 HEADからbuildしたappの証拠ではない。app binary hash / dependency lockの今回再監査は `NOT_RUN` |
+
+| 機能 / profile | 実装所在 | capability | 今回の実行結果と根拠 / 次の不足 |
+| --- | --- | --- | --- |
+| TextField、TextSession、TextInputHost、FocusScopeSession | main。公開 `pkg.generated.mbti` にAPIあり | portable契約はsource上 available | 実行 `NOT_RUN`。API存在はconsumer integrationの証拠ではない |
+| Ubuntu / Windows text host | mainの各`TextHostRoute`が公開`TextInputHost`を実装 | opt-in routeあり、実IME support全体は unknown | この調査で native GUI/IME `NOT_RUN`。0028等で各profileを検証する |
+| macOS text host | mainの`platform/macos.Host`が `TextInputHost`を実装 | routeあり、physical/candidate geometryは unknown | 今回 `NOT_RUN`。既存statusは2026-10-21のsynthetic HID→live Kotoeri限定PASSを記録しているが、今回生traceを再監査していない |
+| Yami Shared Settings | Yami mainに共通model、DOM bridge、native settings runner | source上の接続あり。対象revisionの日本語IMEとDialogの実運用能力は unknown | 今回 Web / Linux / macOS 操作 `NOT_RUN`。公開consumer調査とexact-source実行が必要 |
+| Dialog focus | main `FocusScopeSession`、Yami native `Mounted`に利用箇所あり | portable controllerあり、native実deliveryは unknown | `docs/focus-scopes.md`はportable testsと実Dialog/native未検証を区別。今回再実行 `NOT_RUN` |
+| 1.0 | `docs/release-gates.json` | release readiness未判定 | candidate null、全12 gate pending。共有GUIと別判定 |
+
+公開API inventoryは `controls/text_field/pkg.generated.mbti`、`text_session/pkg.generated.mbti`、`text_host/pkg.generated.mbti`、`element/pkg.generated.mbti`。Yami `native/ui/moon.pkg` は`text_host`、`controls/text_field`、`element`をimportし、`Mounted::text_input`はhost observationを直接TextField操作へ写す。`text_session` importはない。現在の処理は引数epochの変化で内部sequenceをresetし、focused fieldへ配送するため、古いepoch/targetがblur・field変更・再生成を跨ぐ場合のadmissionを実call siteと最小fixtureで確認する必要がある。これはsourceレビューで見つけた検証課題であり、再現した不具合とはまだ断定しない。Yami DOMは既存browser input/composition pathを用いる。
+
+mainの6 workflowは同じmain SHAでcompleted/success（[Actions一覧](https://github.com/gpui-mbt/gpui.mbt/actions?query=branch%3Amain)）。#155のrequired statusではLinux reviewed IMEがfailure、他にreal OS-input等がsuccess。これらを候補一覧や共有consumerの実IME成功に昇格しない。今回の環境はDebian 13 x86_64、GUI/IME・MoonBitテスト未実行であり、app binary SHA、lock、toolchain、run URL、artifact digestをこのcheckoutの実行証拠として主張できない。
+
+既存issueの扱い: GP-01Bは公開seamとmacOS実装のchecked条件があるが、冒頭のLinux/Windows説明と古い問題記述は現mainと差があるため履歴として保持し、OS qualificationは0026/0028等に残す。coordinationは共有consumerの実行が未確認なのでopen維持。`docs/shared-ui-host-contract.md`のOS一覧はhost-local時点のsnapshotで、後続追記と併読する。`docs/codebase-gap-analysis.md`はhistorical snapshotである。artifact再取得、consumerのclean依存解決、詳細なprofile別fixtureの監査およびcurrent-status文書の完全な整合は未完了とし、この調査の受入条件を完了にしない。

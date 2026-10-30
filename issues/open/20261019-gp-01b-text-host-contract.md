@@ -14,6 +14,8 @@ Unblocks: GP-02-L/W/M, Yami YK-06, native Dialog work
 
 ## 1. Problem
 
+The problem and scope below preserve the 2026-10-19 proposal. The current main also contains Ubuntu and Windows `TextHostRoute` implementations; their existence does not qualify real IME operation. See the [evidence baseline](20261030-development-evidence-baseline.md) for revisions and remaining work.
+
 `text_session/` supplies the portable live composition transaction, but it has no
 transport edge: `platform.Backend` intentionally knows only windows, frames and
 general input, and no host or example imports `text_session`. A native TextField
