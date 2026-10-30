@@ -767,6 +767,62 @@ test "bounds refresh preserves scope handle current focus and restoration lineag
 }
 
 ///|
+test "prepared bounds retain focus and reject foreign, stale and reused proposals" {
+  let before = owner_test_focus(bounds_frame(378).tree(), 3)
+  let session = scope_session(before)
+  let handle = scope_open(session, 2)
+  let modal_owner = session.snapshot().focus_owner()
+  let old = session.target()
+  let proposal = scope_ok(
+    session.prepare_layout_refresh(old, bounds_frame(380)),
+  )
+  assert_true(session.target() == old)
+  assert_true(session.snapshot().hit_test(element_point(395, 20)) == Some(1))
+  let other = scope_session(before)
+  assert_true(
+    other.publish_layout_refresh(proposal) is Err(@element.ForeignTarget),
+  )
+  scope_ok(session.publish_layout_refresh(proposal))
+  assert_true(session.snapshot().focus_owner() == modal_owner)
+  assert_true(session.snapshot().hit_test(element_point(395, 20)) == Some(2))
+  assert_true(
+    session.publish_layout_refresh(proposal) is Err(@element.StaleTarget),
+  )
+  let second = scope_ok(
+    session.prepare_layout_refresh(session.target(), bounds_frame(378)),
+  )
+  scope_ok(session.clear_focus(session.target()))
+  assert_true(
+    session.publish_layout_refresh(second) is Err(@element.StaleTarget),
+  )
+  scope_ok(session.close_scope(session.target(), handle, scope_allow))
+  assert_true(session.snapshot().focus_owner() == before.focus_owner())
+}
+
+///|
+test "reentrant focus layout preparation poisons outer boundary publication" {
+  let session = scope_session(owner_test_focus(scope_tree(), 2))
+  let target = session.target()
+  let owner = session.snapshot().focus_owner()
+  let nested = Ref(false)
+  assert_true(
+    session.open_scope(target, 10, _boundary => {
+      nested.val = session.prepare_layout_refresh(
+          session.target(),
+          bounds_frame(380),
+        )
+        is Err(@element.ReentrantMutation)
+      Ok(())
+    })
+    is Err(@element.ReentrantMutation),
+  )
+  assert_true(nested.val)
+  assert_true(session.target() == target)
+  assert_true(session.snapshot().focus_owner() == owner)
+  assert_eq(session.scope_count(), 0)
+}
+
+///|
 test "closed sessions reject retained targets handles dispatch and further mutation" {
   let session = scope_session(owner_test_focus(scope_tree(), 2))
   let handle = scope_open(session, 10)
