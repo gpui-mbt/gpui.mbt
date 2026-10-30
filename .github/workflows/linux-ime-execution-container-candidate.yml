@@ -1,0 +1,22 @@
+name: Linux IME execution container candidate
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/linux-ime-execution-container-candidate.yml'
+      - 'infra/linux-desktop/wayland-ime/recovery/check_execution_container.py'
+      - 'infra/linux-desktop/wayland-ime/recovery/test_check_execution_container.py'
+      - 'infra/linux-desktop/wayland-ime/recovery/execution-container.candidate.json'
+      - 'infra/linux-desktop/wayland-ime/recovery/image.review.candidate.json'
+      - 'infra/linux-desktop/wayland-ime/recovery/host_image_gate.py'
+permissions:
+  contents: read
+jobs:
+  candidate-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify unapproved inspection fixture
+        run: python3 -m unittest discover -s infra/linux-desktop/wayland-ime/recovery -p test_check_execution_container.py -v
