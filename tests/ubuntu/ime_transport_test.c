@@ -1192,7 +1192,8 @@ static void composition_rearm_raw_still_obeys_target_revocation(void) {
 }
 static void accepted_commit_survives_terminal_window(void) {
   for (int destroy = 0; destroy < 3; ++destroy) {
-    struct host *h = fixture(); int epoch = begin(h); drain_enter(h);
+    struct host *h = fixture(); h->terminal_retention = 1;
+    int epoch = begin(h); drain_enter(h);
     double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
     int window = h->window;
     ime_commit_string(h, h->ime.proxy, 1, "日本");
@@ -1201,6 +1202,7 @@ static void accepted_commit_survives_terminal_window(void) {
     else if (destroy == 2) toplevel_close(h, NULL);
     else assert(gpui_close(h->token, window) == GPUI_OK);
     if (destroy == 1) h->window = window + 1; /* replacement keeps captured identity */
+    assert(gpui_stop(h->token) == GPUI_BUSY); /* unread records are owned */
     assert(read_editor(h, data, bytes) == 1);
     assert(data[0] == 21 && data[1] == window && data[2] == seq && data[10] == epoch);
     assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
@@ -1211,7 +1213,8 @@ static void accepted_commit_survives_terminal_window(void) {
   }
 }
 static void terminal_destroy_busy_preserves_full_queue(void) {
-  struct host *h = fixture(); begin(h); drain_enter(h);
+  struct host *h = fixture(); h->terminal_retention = 1;
+  begin(h); drain_enter(h);
   ime_commit_string(h, h->ime.proxy, 1, "日本");
   while (h->count < QUEUE_CAPACITY - 1) event(h, 1, 0, 0, 0);
   int count = h->count, seq = h->seq, epoch = h->ime.epoch;
@@ -1222,7 +1225,31 @@ static void terminal_destroy_busy_preserves_full_queue(void) {
   assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
   finish(h);
 }
+/* Opt-in experiment only: preserve unresolved composition, with no synthetic
+ * Cancel. Busy intentionally exposes that no ownership acknowledgement API is
+ * implemented yet; it must not be mistaken for completed cleanup. */
+static void terminal_preview_is_unresolved_not_synthetic_cancel(void) {
+  struct host *h = fixture(); h->terminal_retention = 1;
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  ime_preedit_string(h, h->ime.proxy, sent_serial, "日本", "");
+  assert(gpui_destroy(h->token, h->window) == GPUI_OK);
+  assert(h->terminal_preview_pending && h->terminal_preview.window == 51);
+  assert(h->terminal_preview.epoch > 0 && h->terminal_preview_watermark > 0);
+  assert(h->terminal_preview.text_length == 6 &&
+         !memcmp(h->terminal_preview.text, "日本", 6));
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 26 && data[1] == 51);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 27 && data[1] == 51);
+  assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 4 && data[1] == 51);
+  assert(read_editor(h, data, bytes) == 0);
+  assert(gpui_stop(h->token) == GPUI_BUSY); /* preview still unresolved */
+  finish(h);
+}
 int main(void) {
+  terminal_preview_is_unresolved_not_synthetic_cancel();
   terminal_destroy_busy_preserves_full_queue();
   accepted_commit_survives_terminal_window();
   composition_rearm_preserves_only_current_raw_owners();

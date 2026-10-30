@@ -81,6 +81,8 @@ enum input_serial_origin {
 };
 struct host {
   int token, window, state, wake_fd, error;
+  int terminal_retention, terminal_preview_pending, terminal_preview_watermark;
+  struct ime_payload terminal_preview;
   pthread_t owner;
   struct wl_display *display;
   struct wl_registry *registry;
@@ -1046,7 +1048,8 @@ static void toplevel_configure(void *d, struct xdg_toplevel *t, int32_t w,
 static void toplevel_close(void *d, struct xdg_toplevel *t) {
   UNUSED(t);
   cancel_key_repeat(d);
-  ime_preserve_before_terminal(d);
+  if (((struct host *)d)->terminal_retention) ime_preserve_before_terminal(d);
+  else ime_revoke_focus_loss_delivery(d);
   ime_invalidate(d, 1, 1);
   event(d, 3, 0, 0, 0);
 }
@@ -1781,6 +1784,10 @@ int32_t gpui_stop(int32_t token) {
     return GPUI_OK;
   if (s)
     return s;
+  if (h->terminal_retention &&
+      (h->count || h->ime.requested || h->ime.composition_preview ||
+       h->ime.phase == IME_ACTIVE || h->ime.phase == IME_ACTIVATING ||
+       h->terminal_preview_pending)) return GPUI_BUSY;
   quiesce_host(h);
   pthread_mutex_lock(&registry_mutex);
   active = NULL;
@@ -1827,6 +1834,8 @@ int32_t gpui_create(int32_t token, int32_t w, int32_t hh, const uint8_t *title,
     return -s;
   if (h->state)
     return -GPUI_STOPPING;
+  if (h->terminal_retention && h->terminal_preview_pending)
+    return -GPUI_BUSY;
   if (h->window)
     return -GPUI_BUSY;
   if (!valid_size(w, hh, 1) || next_window == INT_MAX)
@@ -1879,7 +1888,8 @@ int32_t gpui_close(int32_t token, int32_t window) {
   int s = window_check(token, window, &h);
   if (s)
     return s;
-  ime_preserve_before_terminal(h);
+  if (h->terminal_retention) ime_preserve_before_terminal(h);
+  else ime_revoke_focus_loss_delivery(h);
   ime_invalidate(h, 1, 1);
   cancel_key_repeat(h);
   event(h, 3, 0, 0, 0);
@@ -1900,11 +1910,33 @@ int32_t gpui_destroy(int32_t token, int32_t window) {
   s = settle_frame(h);
   if (s)
     return s;
-  /* Preserve the captured FIFO. Reserve room for the possible Left and the
-   * Destroyed record; the caller drains and retries rather than discarding. */
-  if (h->count > QUEUE_CAPACITY - 2) return GPUI_BUSY;
-  if (h->seq > INT_MAX - 2) return GPUI_RESOURCE;
-  ime_preserve_before_terminal(h);
+  if (h->terminal_retention) {
+    /* Preserve the captured FIFO. Busy permits a bounded drain and retry. */
+    if (h->count > QUEUE_CAPACITY - 2) return GPUI_BUSY;
+    if (h->seq > INT_MAX - 2) return GPUI_RESOURCE;
+    ime_preserve_before_terminal(h);
+  } else {
+    /* Legacy behavior: explicitly revoke this window's unread records. */
+    int count = h->count, kept = 0;
+    for (int i = 0; i < count; ++i) {
+      int source = (h->read + i) % QUEUE_CAPACITY;
+      int target = (h->read + kept) % QUEUE_CAPACITY;
+      if ((int)h->queue[source][1] == window) {
+        ime_free_slot(h, source);
+        memset(&h->direct_queue[source], 0, sizeof(h->direct_queue[source]));
+      } else {
+        if (source != target) {
+          memcpy(h->queue[target], h->queue[source], sizeof(h->queue[0]));
+          h->direct_queue[target] = h->direct_queue[source];
+          h->ime_queue[target] = h->ime_queue[source];
+          h->ime_queue[source] = NULL;
+          memset(&h->direct_queue[source], 0, sizeof(h->direct_queue[source]));
+        }
+        ++kept;
+      }
+    }
+    h->count = kept;
+  }
   ime_invalidate(h, 1, 1);
   event(h, 4, 0, 0, 0);
   release_window(h);

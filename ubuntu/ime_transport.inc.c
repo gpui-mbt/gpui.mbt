@@ -143,8 +143,23 @@ static int composition_transaction(struct host *h, struct ime_payload *data) {
   return status;
 }
 static int ime_lifecycle_record(struct host *h, int kind) {
-  if (h->ime.composition_enabled)
+  if (h->ime.composition_enabled) {
+    if (kind == 23 && h->terminal_retention && h->ime.composition_preview) {
+      /* Retain an unresolved owner obligation; Left is not an OS Cancel. */
+      if (!h->terminal_preview_pending) {
+        h->terminal_preview = h->ime.composition_cache;
+        h->terminal_preview.kind = 27;
+        h->terminal_preview.window = h->window;
+        h->terminal_preview.epoch = h->ime.epoch;
+        h->terminal_preview.seat = h->ime.wire_seat;
+        h->terminal_preview.proxy_generation = h->ime.proxy_generation;
+        h->terminal_preview_watermark = h->seq;
+        h->terminal_preview_pending = 1;
+      }
+      return GPUI_OK;
+    }
     return kind == 23 ? composition_resolve(h, 0) : GPUI_OK;
+  }
   if (h->ime.wire_epoch <= 0 || !h->ime.wire_seat || !h->window)
     return GPUI_OK;
   struct ime_payload data = {0};
@@ -329,6 +344,13 @@ static void ime_preserve_before_focus_loss(struct host *h) {
         data->proxy_generation == h->ime.proxy_generation &&
         (data->kind == 22 || ime_serial_current(h, (uint32_t)data->serial)))
       data->focus_loss_delivery = 1;
+  }
+}
+/* Legacy close semantics revoke the focus-loss delivery exception. */
+static void ime_revoke_focus_loss_delivery(struct host *h) {
+  for (int i = 0; i < h->count; ++i) {
+    int slot = (h->read + i) % QUEUE_CAPACITY;
+    if (h->ime_queue[slot]) h->ime_queue[slot]->focus_loss_delivery = 0;
   }
 }
 /* Pin only records already valid for the old owner at terminal admission.
@@ -906,6 +928,8 @@ int32_t gpui_text_session_begin(int32_t token, int32_t window,
   int status = window_check(token, window, &h);
   if (status)
     return -status;
+  if (h->terminal_retention && h->terminal_preview_pending)
+    return -GPUI_BUSY;
   if (h->state)
     return -GPUI_STOPPING;
   if (h->error)
