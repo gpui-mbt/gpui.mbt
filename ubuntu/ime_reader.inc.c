@@ -207,7 +207,10 @@ int32_t gpui_peek_retained_key_proof(int32_t token, int32_t window,
       h->retained_key_focus != data->key_proof_focus ||
       h->retained_key_keyboard != h->keyboard ||
       h->retained_key_window != window ||
-      h->retained_key_seat != data->seat || h->seat_name != data->seat)
+      h->retained_key_seat != data->seat || h->seat_name != data->seat ||
+      (data->key_proof_window_generation > 0 &&
+       (h->retained_window_exhausted || h->retained_window_generation !=
+        data->key_proof_window_generation)))
     return -GPUI_STALE;
   if (data->kind != 25 || data->key_proof_origin != 1 ||
       data->key_proof_physical < 0 ||
@@ -227,5 +230,10 @@ int32_t gpui_peek_retained_key_proof(int32_t token, int32_t window,
   fields[3] = data->key_proof_prior;
   fields[4] = data->key_proof_press_sequence;
   fields[5] = data->key_proof_press_window;
+  /* V1 callers requesting six fields retain their existing layout. */
+  if (capacity >= 8) {
+    fields[6] = data->key_proof_window_generation;
+    fields[7] = data->key_proof_claim_before_window;
+  }
   return 1;
 }

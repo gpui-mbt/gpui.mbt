@@ -482,6 +482,8 @@ pub struct RetainedPhysicalRelease {
   priv physical_key : Int32
   priv focus_generation : Int32
   priv prior : RetainedPhysicalPrior
+  priv host_window_generation : Int32?
+  priv claim_before_any_window : Bool
 }
 
 ///|
@@ -510,6 +512,25 @@ pub fn RetainedPhysicalRelease::prior(
   self : RetainedPhysicalRelease,
 ) -> RetainedPhysicalPrior {
   self.prior
+}
+
+///|
+/// Creation-attempt generation within this native host lifetime. None means
+/// the proof counter was unavailable or exhausted. It does not identify or
+/// resolve any application owner.
+pub fn RetainedPhysicalRelease::host_window_generation(
+  self : RetainedPhysicalRelease,
+) -> Int32? {
+  self.host_window_generation
+}
+
+///|
+/// Whether this route claimed its host before any window creation attempt.
+/// This says nothing about owners in a previous host or another input path.
+pub fn RetainedPhysicalRelease::claim_before_any_window(
+  self : RetainedPhysicalRelease,
+) -> Bool {
+  self.claim_before_any_window
 }
 
 ///|
@@ -568,7 +589,7 @@ pub fn RetainedOrderedReceipt::physical_release_evidence(
       ),
     )
   }
-  let fields = FixedArray::make(6, 0)
+  let fields = FixedArray::make(8, 0)
   let operation = "retained_physical_release_evidence"
   let status = native_peek_retained_key_proof(
     self.record.host.token,
@@ -583,25 +604,51 @@ pub fn RetainedOrderedReceipt::physical_release_evidence(
   if status == 0 {
     return Ok(None)
   }
-  if status != 1 || fields[0] != 1 || fields[1] < 0 || fields[2] <= 0 {
+  if status != 1 {
+    return Err(ubuntu_text_host_error(@diagnostics.InvalidInput, operation))
+  }
+  match decode_physical_release(candidate, fields, operation) {
+    Ok(value) => Ok(Some(value))
+    Err(error) => Err(error)
+  }
+}
+
+///|
+fn decode_physical_release(
+  candidate : RetainedPrintableRelease,
+  fields : FixedArray[Int32],
+  operation : String,
+) -> Result[RetainedPhysicalRelease, @diagnostics.FrameworkError] {
+  if fields.length() < 8 ||
+    fields[0] != 1 ||
+    fields[1] < 0 ||
+    fields[2] <= 0 ||
+    fields[6] < 0 ||
+    (fields[7] != 0 && fields[7] != 1) {
     return Err(ubuntu_text_host_error(@diagnostics.InvalidInput, operation))
   }
   let prior = match fields[3] {
-    0 => Unknown
-    1 => NoPressObservedSinceFocus
-    2 if fields[4] > 0 && fields[5] > 0 =>
+    0 if fields[4] == 0 && fields[5] == 0 => Unknown
+    1 if fields[4] == 0 && fields[5] == 0 => NoPressObservedSinceFocus
+    2 if fields[4] > 0 &&
+      fields[4].to_int64() < candidate.target.sequence &&
+      fields[5].to_int64() == candidate.target.window.value() =>
       PressAdmitted(fields[4], @platform.WindowId::new(fields[5].to_int64()))
     _ =>
       return Err(ubuntu_text_host_error(@diagnostics.InvalidInput, operation))
   }
-  Ok(
-    Some({
-      target: candidate.target,
-      physical_key: fields[1],
-      focus_generation: fields[2],
-      prior,
-    }),
-  )
+  Ok({
+    target: candidate.target,
+    physical_key: fields[1],
+    focus_generation: fields[2],
+    prior,
+    host_window_generation: if fields[6] > 0 {
+      Some(fields[6])
+    } else {
+      None
+    },
+    claim_before_any_window: fields[7] == 1,
+  })
 }
 
 ///|

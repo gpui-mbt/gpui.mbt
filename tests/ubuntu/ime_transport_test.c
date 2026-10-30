@@ -1442,9 +1442,18 @@ static void retained_raw_printable_release_has_original_identity(void) {
  * a claim that a press has been dispatched to an application owner. */
 static void retained_physical_release_provenance(int scenario) {
   struct host *h = fixture();
+  if (scenario >= 8) {
+    h->window = 0;
+    if (scenario == 9) retained_note_window_attempt(h);
+    if (scenario == 10) h->retained_window_generation = INT_MAX;
+  }
   assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
   assert(gpui_claim_retained_route(h->token) == GPUI_OK);
   assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  if (scenario >= 8) {
+    retained_note_window_attempt(h);
+    h->window = 51;
+  }
   h->xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
   assert(h->xkb);
   struct xkb_rule_names names = {.layout = "us"};
@@ -1457,10 +1466,15 @@ static void retained_physical_release_provenance(int scenario) {
   if (scenario == 7) h->retained_key_focus = INT_MAX;
   if (scenario == 1) { keys.data = &held_key; keys.size = sizeof(held_key); }
   if (scenario == 5) { keys.data = &held_key; keys.size = 1; }
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  if (scenario == 11) {
+    keyboard_enter(h, h->keyboard, 1, h->surface, NULL);
+    assert(!h->retained_key_valid && h->retained_key_focus == 1);
+    assert(read_editor(h, data, bytes) == 1 && data[0] == 6);
+  }
   keyboard_enter(h, h->keyboard, 1, h->surface, scenario == 4 ? NULL : &keys);
   if (scenario == 4 || scenario == 5 || scenario == 7) assert(!h->retained_key_valid);
-  else assert(h->retained_key_valid && h->retained_key_focus == 1);
-  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  else assert(h->retained_key_valid && h->retained_key_focus == (scenario == 11 ? 2 : 1));
   assert(read_editor(h, data, bytes) == 1 && data[0] == 6);
   int press_sequence = 0;
   if (scenario == 2) {
@@ -1488,18 +1502,42 @@ static void retained_physical_release_provenance(int scenario) {
   } else {
     keyboard_key(h, h->keyboard, 3, 0, held_key, WL_KEYBOARD_KEY_STATE_RELEASED);
   }
-  int32_t metadata[5], proof[6];
+  int32_t metadata[5], proof[8] = {0};
   assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
       bytes, sizeof(bytes), metadata, 5) == 1);
   assert(data[0] == 25 && data[8] == XKB_KEY_n && data[10] == epoch);
   int sequence = (int)data[2];
   assert(gpui_peek_retained_key_proof(h->token, 51, sequence + 1, proof, 6) == -GPUI_STALE);
-  if (scenario >= 4) {
+  if (scenario >= 4 && scenario <= 7) {
     assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == 0);
   } else {
+    proof[6] = 123456;
+    proof[7] = 654321;
     assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == 1);
-    assert(proof[0] == 1 && proof[1] == 49 && proof[2] == 1);
-    assert(proof[3] == (scenario == 0 ? KEY_PRIOR_NONE : scenario == 2 ? KEY_PRIOR_ADMITTED : KEY_PRIOR_UNKNOWN));
+    assert(proof[6] == 123456 && proof[7] == 654321);
+    assert(proof[0] == 1 && proof[1] == 49 && proof[2] == (scenario == 11 ? 2 : 1));
+    assert(proof[3] == (scenario == 0 || scenario >= 8 ? KEY_PRIOR_NONE : scenario == 2 ? KEY_PRIOR_ADMITTED : KEY_PRIOR_UNKNOWN));
+    if (scenario >= 8) {
+      assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 8) == 1);
+      assert(proof[6] == (scenario == 9 ? 2 : scenario == 10 ? 0 : 1));
+      assert(proof[7] == (scenario == 9 || scenario == 10 ? 0 : 1));
+      if (scenario != 10) {
+        ++h->retained_window_generation;
+        assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 8) == -GPUI_STALE);
+        --h->retained_window_generation;
+      }
+      if (scenario == 8) {
+        /* Simulate destroy and a later creation attempt while the old FIFO
+         * head is retained; neither its sequence nor proof follows window 52. */
+        h->window = 0;
+        retained_note_window_attempt(h);
+        h->window = 52;
+        assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 8) == -GPUI_STALE);
+        h->window = 51;
+        assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 8) == -GPUI_STALE);
+        --h->retained_window_generation; /* Restore only for fixture teardown. */
+      }
+    }
     if (scenario == 2) assert(proof[4] == press_sequence && proof[5] == 51);
     ++h->ime.epoch;
     assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
@@ -1535,8 +1573,27 @@ static void retained_physical_release_provenance(int scenario) {
   xkb_context_unref(h->xkb);
   finish(h);
 }
+static void window_proof_is_host_local_and_invalid_attempt_has_no_effect(void) {
+  struct host *first = fixture();
+  first->window = 0;
+  assert(gpui_create(first->token, 0, 10, (const uint8_t *)"x", 1) == -GPUI_INVALID);
+  assert(first->retained_window_generation == 0);
+  retained_note_window_attempt(first);
+  assert(first->retained_window_generation == 1);
+  finish(first);
+  struct host *second = fixture(); /* new host allocation, not old-owner resolution */
+  assert(second->retained_window_generation == 0 && !second->retained_window_exhausted);
+  second->window = 0;
+  assert(gpui_terminal_retention_enable(second->token) == GPUI_OK);
+  assert(gpui_claim_retained_route(second->token) == GPUI_OK);
+  assert(second->retained_claim_before_window);
+  retained_note_window_attempt(second);
+  assert(second->retained_window_generation == 1);
+  finish(second);
+}
 int main(void) {
-  for (int scenario = 0; scenario < 8; ++scenario)
+  window_proof_is_host_local_and_invalid_attempt_has_no_effect();
+  for (int scenario = 0; scenario < 13; ++scenario)
     retained_physical_release_provenance(scenario);
   retained_raw_printable_release_has_original_identity();
   retained_route_rejects_legacy_session_mutation();
