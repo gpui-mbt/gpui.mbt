@@ -1036,7 +1036,50 @@ static void composition_rearm_raw_still_obeys_target_revocation(void) {
     finish(h);
   }
 }
+/* Regression hypothesis: Ctrl+A is delivered to app after C is queued. */
+static void rapid_shortcut_followed_by_text_keeps_text(void) {
+  struct host *h = fixture();
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  ime_preedit_string(h, h->ime.proxy, sent_serial, "r", "r");
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 26);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 27);
+  h->modifiers = 2;
+  keyboard_modifiers(h, h->keyboard, 10, 4, 0, 0, 0);
+  direct_keyboard_key(h, 30, 1, XKB_KEY_a);
+  direct_keyboard_key(h, 29, 0, XKB_KEY_Control_L);
+  h->modifiers = 0;
+  keyboard_modifiers(h, h->keyboard, 11, 0, 0, 0, 0);
+  direct_keyboard_key(h, 30, 0, XKB_KEY_a);
+  h->modifiers = 1;
+  direct_keyboard_key(h, 46, 1, XKB_KEY_C);
+  h->modifiers = 0;
+  direct_keyboard_key(h, 46, 0, XKB_KEY_c);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 11 &&
+         data[8] == XKB_KEY_a && data[9] == 2);
+  double shortcut_sequence = data[2];
+  int queued_c = 0;
+  for (int i = 0; i < h->count; ++i) {
+    int slot = (h->read + i) % QUEUE_CAPACITY;
+    struct ime_payload *payload = h->ime_queue[slot];
+    if (payload && payload->kind == 28 && payload->text_length == 1 &&
+        payload->text[0] == 'C' && !payload->composition_revoked &&
+        h->queue[slot][2] > shortcut_sequence)
+      queued_c = 1;
+  }
+  assert(queued_c && "fresh C must be queued after Ctrl+A before cancellation");
+  assert(gpui_text_composition_finish(h->token, h->window, 0) == GPUI_OK);
+  int found_c = 0, result;
+  while ((result = read_editor(h, data, bytes)) == 1) {
+    if (data[0] == 28 && data[14] == 1 && bytes[0] == 'C') found_c = 1;
+  }
+  assert(result == 0);
+  assert(found_c && "fresh C after Ctrl+A must survive cancelling prior composition");
+  finish(h);
+}
 int main(void) {
+  rapid_shortcut_followed_by_text_keeps_text();
   composition_rearm_preserves_only_current_raw_owners();
   composition_rearm_raw_still_obeys_target_revocation();
   composition_raw_typing_survives_rearm();
