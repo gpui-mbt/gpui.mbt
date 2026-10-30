@@ -28,6 +28,8 @@ jobs:
           persist-credentials: false
       - name: Test serialized lookup decoding
         run: /usr/bin/python3 infra/linux-desktop/wayland-ime/test_lookup_table.py
+      - name: Test panel frame trace decoding
+        run: /usr/bin/python3 infra/linux-desktop/wayland-ime/test_panel_frames.py
 
   reviewed-ime:
     runs-on: ubuntu-24.04

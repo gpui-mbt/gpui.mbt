@@ -45,6 +45,14 @@ that this table is currently painted by the separate panel. A fixed delay alone
 does not establish that relationship either: the future oracle must correlate
 the specific panel presentation with the retained table, input, and frame bytes.
 
+`panel_frames.py` is another standalone diagnostic: it extracts completed
+callbacks for surfaces actually assigned the input-panel role, keeping surface
+generations and callback/commit identities distinct. It rejects ambiguous
+callback reuse, and destruction fences the previous surface lifetime. A
+callback is not a lookup-table acknowledgment or proof that any particular
+pixels were captured. This parser does not authenticate the trace, join D-Bus
+and Wayland clocks, identify rows, or modify `candidate_table_verified`.
+
 ## Immutable original runtime and candidate overlay
 
 `prepare-gpui-deployment.py` generates an evidence-local candidate overlay above the SHA-256-pinned frozen baseline lock. Candidate-specific pins stay outside the source checkout to avoid a build-manifest self-reference. Before overlay preparation, launcher preparation, --check and native execution, established build_manifest.verify_build_manifest verifies the exact current commit/tree/worktree and binary, including verify_runtime over tools, generated protocols, fonts and runtime trees. The verified source/binary identities and closure inventory are retained. Preflight also verifies every frozen baseline byte. Historical read-only replay uses saved bytes and identities without requiring today’s source; an old diagnostic cannot claim the new exact-current held tier. It does not substitute the recovered engine.
