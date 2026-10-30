@@ -1046,7 +1046,7 @@ static void toplevel_configure(void *d, struct xdg_toplevel *t, int32_t w,
 static void toplevel_close(void *d, struct xdg_toplevel *t) {
   UNUSED(t);
   cancel_key_repeat(d);
-  ime_revoke_focus_loss_delivery(d);
+  ime_preserve_before_terminal(d);
   ime_invalidate(d, 1, 1);
   event(d, 3, 0, 0, 0);
 }
@@ -1879,7 +1879,7 @@ int32_t gpui_close(int32_t token, int32_t window) {
   int s = window_check(token, window, &h);
   if (s)
     return s;
-  ime_revoke_focus_loss_delivery(h);
+  ime_preserve_before_terminal(h);
   ime_invalidate(h, 1, 1);
   cancel_key_repeat(h);
   event(h, 3, 0, 0, 0);
@@ -1900,26 +1900,11 @@ int32_t gpui_destroy(int32_t token, int32_t window) {
   s = settle_frame(h);
   if (s)
     return s;
-  /* Drop old callbacks with their owned payloads before terminal records. */
-  int count = h->count, kept = 0;
-  for (int i = 0; i < count; ++i) {
-    int source = (h->read + i) % QUEUE_CAPACITY;
-    int target = (h->read + kept) % QUEUE_CAPACITY;
-    if ((int)h->queue[source][1] == window) {
-      ime_free_slot(h, source);
-      memset(&h->direct_queue[source], 0, sizeof(h->direct_queue[source]));
-    } else {
-      if (source != target) {
-        memcpy(h->queue[target], h->queue[source], sizeof(h->queue[0]));
-        h->direct_queue[target] = h->direct_queue[source];
-        h->ime_queue[target] = h->ime_queue[source];
-        h->ime_queue[source] = NULL;
-        memset(&h->direct_queue[source], 0, sizeof(h->direct_queue[source]));
-      }
-      ++kept;
-    }
-  }
-  h->count = kept;
+  /* Preserve the captured FIFO. Reserve room for the possible Left and the
+   * Destroyed record; the caller drains and retries rather than discarding. */
+  if (h->count > QUEUE_CAPACITY - 2) return GPUI_BUSY;
+  if (h->seq > INT_MAX - 2) return GPUI_RESOURCE;
+  ime_preserve_before_terminal(h);
   ime_invalidate(h, 1, 1);
   event(h, 4, 0, 0, 0);
   release_window(h);

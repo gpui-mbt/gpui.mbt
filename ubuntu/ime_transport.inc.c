@@ -331,12 +331,23 @@ static void ime_preserve_before_focus_loss(struct host *h) {
       data->focus_loss_delivery = 1;
   }
 }
-/* A terminal window close supersedes an earlier natural-focus delivery.
- * Clearing the admission bit keeps the normal stale-epoch filter authoritative. */
-static void ime_revoke_focus_loss_delivery(struct host *h) {
+/* Pin only records already valid for the old owner at terminal admission.
+ * The reader exposes their captured window and epoch, even after teardown;
+ * callers must route or retain them for that owner, never a replacement. */
+static void ime_preserve_before_terminal(struct host *h) {
   for (int i = 0; i < h->count; ++i) {
     int slot = (h->read + i) % QUEUE_CAPACITY;
-    if (h->ime_queue[slot]) h->ime_queue[slot]->focus_loss_delivery = 0;
+    struct ime_payload *data = h->ime_queue[slot];
+    if (!data || data->kind < 20 || data->kind > 22 ||
+        data->window != h->window || data->seat != h->seat_name ||
+        data->proxy_generation != h->ime.proxy_generation ||
+        !h->ime.proxy || !h->seat || !h->surface || h->state || h->error)
+      continue;
+    int current = h->ime.requested && data->epoch == h->ime.epoch &&
+        (data->kind == 22 || ime_serial_current(h, (uint32_t)data->serial));
+    int prior_focus = data->focus_loss_delivery && !h->ime.requested &&
+        data->epoch < INT_MAX && data->epoch + 1 == h->ime.epoch;
+    if (current || prior_focus) data->terminal_delivery = 1;
   }
 }
 static void ime_invalidate(struct host *h, int emit_leave, int deactivate) {
@@ -491,6 +502,8 @@ static int ime_payload_valid(const struct ime_payload *data) {
       (data->composition_revoked && data->kind < 26) ||
       (data->focus_loss_delivery != 0 && data->focus_loss_delivery != 1) ||
       (data->focus_loss_delivery && data->kind > 22) ||
+      (data->terminal_delivery != 0 && data->terminal_delivery != 1) ||
+      (data->terminal_delivery && data->kind > 22) ||
       data->epoch <= 0 || !data->seat || data->proxy_generation <= 0 ||
       data->text_length < 0 || data->text_length > GPUI_IME_MAX_BYTES ||
       data->fallback_length < 0 || data->fallback_length > GPUI_IME_MAX_BYTES ||

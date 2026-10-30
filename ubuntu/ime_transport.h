@@ -4,7 +4,7 @@
 struct ime_style { int index, length, style; };
 struct ime_payload {
   int kind, window, epoch, proxy_generation, serial;
-  int composition_revoked, focus_loss_delivery;
+  int composition_revoked, focus_loss_delivery, terminal_delivery;
   uint32_t seat;
   int text_length, fallback_length, cursor_present, cursor;
   int delete_present, delete_index, delete_length;

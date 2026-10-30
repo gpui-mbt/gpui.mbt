@@ -1190,7 +1190,41 @@ static void composition_rearm_raw_still_obeys_target_revocation(void) {
     finish(h);
   }
 }
+static void accepted_commit_survives_terminal_window(void) {
+  for (int destroy = 0; destroy < 3; ++destroy) {
+    struct host *h = fixture(); int epoch = begin(h); drain_enter(h);
+    double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+    int window = h->window;
+    ime_commit_string(h, h->ime.proxy, 1, "日本");
+    int seq = h->seq;
+    if (destroy == 1) assert(gpui_destroy(h->token, window) == GPUI_OK);
+    else if (destroy == 2) toplevel_close(h, NULL);
+    else assert(gpui_close(h->token, window) == GPUI_OK);
+    if (destroy == 1) h->window = window + 1; /* replacement keeps captured identity */
+    assert(read_editor(h, data, bytes) == 1);
+    assert(data[0] == 21 && data[1] == window && data[2] == seq && data[10] == epoch);
+    assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+    assert(read_editor(h, data, bytes) == 1 && data[0] == 23 && data[1] == window && data[10] == epoch);
+    assert(read_editor(h, data, bytes) == 1 && data[0] == (destroy == 1 ? 4 : 3) && data[1] == window);
+    assert(read_editor(h, data, bytes) == 0);
+    finish(h);
+  }
+}
+static void terminal_destroy_busy_preserves_full_queue(void) {
+  struct host *h = fixture(); begin(h); drain_enter(h);
+  ime_commit_string(h, h->ime.proxy, 1, "日本");
+  while (h->count < QUEUE_CAPACITY - 1) event(h, 1, 0, 0, 0);
+  int count = h->count, seq = h->seq, epoch = h->ime.epoch;
+  assert(gpui_destroy(h->token, h->window) == GPUI_BUSY);
+  assert(h->count == count && h->seq == seq && h->ime.epoch == epoch && h->ime.requested);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 21 && data[10] == epoch);
+  assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  finish(h);
+}
 int main(void) {
+  terminal_destroy_busy_preserves_full_queue();
+  accepted_commit_survives_terminal_window();
   composition_rearm_preserves_only_current_raw_owners();
   composition_rearm_raw_still_obeys_target_revocation();
   composition_raw_typing_survives_rearm();
