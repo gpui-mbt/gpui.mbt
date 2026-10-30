@@ -17,6 +17,11 @@
 
 ### Added
 
+- Add an explicit owner-requested preedit discard when completing a pending
+  blur, separate from an observed OS cancellation. Callers must first process
+  accepted observations and establish the appropriate host cutoff. The new
+  `SessionOutcome::OwnerDiscarded` variant may require updates to exhaustive
+  matches.
 - Add an opt-in drained-end cutoff to the Ubuntu ordered text route. It
   preserves already-admitted queue records for the owner to process before
   revocation; it does not signal IME quiescence or resolve composition.

@@ -177,10 +177,16 @@ pub fn TextSession::request_end(
 }
 
 ///|
+priv enum EndResolution {
+  Observed(ObservedEnd)
+  OwnerDiscard
+}
+
+///|
 fn TextSession::finish_end(
   self : TextSession,
   pending : PendingEnd,
-  observed : ObservedEnd,
+  resolution : EndResolution,
   replacement : (@platform.WindowId, UInt64, @text_field.TextField)?,
   measure : (@text.TextDocument) -> Result[
     @text_layout.TextMeasurement,
@@ -234,8 +240,8 @@ fn TextSession::finish_end(
         result
       }
     }
-    let resolved = match observed {
-      Committed(text) => {
+    let resolved = match resolution {
+      Observed(Committed(text)) => {
         if !state.field.is_focused() {
           return Err(Unfocused)
         }
@@ -244,17 +250,24 @@ fn TextSession::finish_end(
         }
         state.field.commit_composition(text, guarded_measure, guarded_admit)
       }
-      Cancelled =>
+      Observed(Cancelled) =>
         state.field.cancel_composition(guarded_measure, guarded_admit)
+      OwnerDiscard => {
+        if !state.field.is_composing() {
+          return Err(NoComposition)
+        }
+        state.field.cancel_composition(guarded_measure, guarded_admit)
+      }
     }
     let resolved = match session_field_result(resolved) {
       Ok(value) => value
       Err(error) => return Err(error)
     }
     let outcomes : Array[SessionOutcome] = [
-      match observed {
-        Committed(_) => Committed(resolved)
-        Cancelled => Cancelled(resolved)
+      match resolution {
+        Observed(Committed(_)) => Committed(resolved)
+        Observed(Cancelled) => Cancelled(resolved)
+        OwnerDiscard => OwnerDiscarded(resolved)
       },
     ]
     let changed = state.field.committed_document() !=
@@ -321,7 +334,30 @@ pub fn TextSession::complete_blur(
     @text_field.TextFieldError,
   ],
 ) -> Result[BatchReceipt, SessionError] {
-  self.finish_end(pending, observed, None, measure, admit)
+  self.finish_end(pending, Observed(observed), None, measure, admit)
+}
+
+///|
+/// Resolve a blur by deliberately discarding the active preedit at an
+/// application owner's explicit request. This does not assert that the OS
+/// canceled composition. The owner must first process every accepted text
+/// observation for this binding and establish its own host-specific cutoff;
+/// this portable method cannot verify either condition. A plain Tab or focus
+/// change is not by itself permission to discard. If resolution fails the
+/// pending end remains live and the old field is unchanged.
+pub fn TextSession::complete_blur_by_owner_discard(
+  self : TextSession,
+  pending : PendingEnd,
+  measure : (@text.TextDocument) -> Result[
+    @text_layout.TextMeasurement,
+    @text_field.TextFieldError,
+  ],
+  admit : (@text.TextDocument, @text_layout.TextMeasurement) -> Result[
+    Unit,
+    @text_field.TextFieldError,
+  ],
+) -> Result[BatchReceipt, SessionError] {
+  self.finish_end(pending, OwnerDiscard, None, measure, admit)
 }
 
 ///|
@@ -345,7 +381,7 @@ pub fn TextSession::complete_replacement(
 ) -> Result[BatchReceipt, SessionError] {
   self.finish_end(
     pending,
-    observed,
+    Observed(observed),
     Some((window, root_id, field)),
     measure,
     admit,

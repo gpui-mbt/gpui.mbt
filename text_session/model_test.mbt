@@ -575,6 +575,87 @@ test "observed cancel precedes blur and pending tokens reject foreign completion
 }
 
 ///|
+test "explicit owner discard preserves earlier observed commit and is not an OS cancel" {
+  let session = owner()
+  ignore(apply(session, [preview("にほん")]))
+  ignore(apply(session, [@text_session.Commit("日本")]))
+  let committed = session.snapshot().field()
+  assert_eq(committed.committed_document().text(), "a日本d")
+  assert_true(committed.can_undo())
+  ignore(apply(session, [preview("よみ")]))
+  let target = session.target().unwrap()
+  let pending = session.request_end(target, @text_session.Blur).unwrap()
+  let before = session.snapshot()
+  let rejecting_admit = fn(_document, _measurement) {
+    Err(@text_field.AdmissionFailed)
+  }
+  assert_true(
+    session.complete_blur_by_owner_discard(pending, measure, rejecting_admit)
+    is Err(@text_session.FieldFailure(@text_field.AdmissionFailed)),
+  )
+  assert_snapshot(before, session.snapshot())
+  let receipt = session
+    .complete_blur_by_owner_discard(pending, measure, admit)
+    .unwrap()
+  assert_true(receipt.outcomes()[0] is @text_session.OwnerDiscarded(_))
+  assert_true(receipt.outcomes()[1] is @text_session.Blurred(_))
+  let result = session.snapshot().field()
+  assert_eq(result.committed_document().text(), "a日本d")
+  assert_false(result.is_composing())
+  assert_false(result.is_focused())
+  assert_true(result.can_undo())
+  assert_eq(
+    result
+    .with_focus(true)
+    .unwrap()
+    .undo(measure, admit)
+    .unwrap()
+    .document()
+    .text(),
+    "abcd",
+  )
+  assert_true(
+    session.complete_blur_by_owner_discard(pending, measure, admit)
+    is Err(@text_session.StaleSession),
+  )
+  assert_true(
+    session.apply_batch(
+      target,
+      [@text_session.Commit("遅延")],
+      measure,
+      admit,
+    )
+    is Err(_),
+  )
+}
+
+///|
+test "owner discard requires active composition and a blur request" {
+  let session = owner()
+  let pending = session
+    .request_end(session.target().unwrap(), @text_session.Blur)
+    .unwrap()
+  let before = session.snapshot()
+  assert_true(
+    session.complete_blur_by_owner_discard(pending, measure, admit)
+    is Err(@text_session.NoComposition),
+  )
+  assert_snapshot(before, session.snapshot())
+  let replacement = owner()
+  ignore(apply(replacement, [preview("未確定")]))
+  let pending = replacement
+    .request_end(
+      replacement.target().unwrap(),
+      @text_session.ExternalReplacement,
+    )
+    .unwrap()
+  assert_true(
+    replacement.complete_blur_by_owner_discard(pending, measure, admit)
+    is Err(@text_session.WrongEndReason),
+  )
+}
+
+///|
 test "external replacement retains observed old commit before validated rebind" {
   let session = owner()
   let _ = apply(session, [preview("にほん")])
