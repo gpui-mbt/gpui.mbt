@@ -3,7 +3,10 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -88,6 +91,28 @@ class CandidateRecipeTests(unittest.TestCase):
             check.verify(raw, data(self.recipe), data(self.old_receipt),
                          data(self.old_recipe), (HERE / 'host-image.candidate.json').read_bytes(),
                          self.sources.__getitem__)
+
+    def test_workflow_pipeline_does_not_hide_receipt_failure(self):
+        # Run the same script as CI in an isolated copy. Receipt corruption
+        # must fail the pipeline even though tee itself succeeds.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            recovery = root / 'infra/linux-desktop/wayland-ime/recovery'
+            recovery.mkdir(parents=True)
+            for name in ('run_candidate_recipe_check.sh', 'check_candidate_recipe.py',
+                         'host_image_gate.py', 'image.review.candidate.json',
+                         'image.recipe.candidate.json', 'hosted.review.json',
+                         'hosted.recipe.lock.json', 'host-image.candidate.json'):
+                shutil.copyfile(HERE / name, recovery / name)
+            with (recovery / 'image.review.candidate.json').open('ab') as stream:
+                stream.write(b' ')
+            result = subprocess.run(
+                ['bash', 'infra/linux-desktop/wayland-ime/recovery/run_candidate_recipe_check.sh'],
+                cwd=root, capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('fixed review bytes', result.stderr)
+            self.assertEqual((root / 'candidate-recipe-result.json').read_text(), '')
 
 
 if __name__ == '__main__':

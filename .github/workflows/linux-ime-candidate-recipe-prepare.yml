@@ -4,6 +4,7 @@ on:
     paths:
       - '.github/workflows/linux-ime-candidate-recipe-prepare.yml'
       - 'infra/linux-desktop/wayland-ime/recovery/check_candidate_recipe.py'
+      - 'infra/linux-desktop/wayland-ime/recovery/run_candidate_recipe_check.sh'
       - 'infra/linux-desktop/wayland-ime/recovery/test_check_candidate_recipe.py'
       - 'infra/linux-desktop/wayland-ime/recovery/image.recipe.candidate.json'
       - 'infra/linux-desktop/wayland-ime/recovery/image.review.candidate.json'
@@ -19,9 +20,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
       - name: Check refusal and exact source pins
+        shell: bash
         run: |
+          set -euo pipefail
           python3 -m unittest discover -s infra/linux-desktop/wayland-ime/recovery -p test_check_candidate_recipe.py -v
-          python3 infra/linux-desktop/wayland-ime/recovery/check_candidate_recipe.py | tee candidate-recipe-result.json
+          bash infra/linux-desktop/wayland-ime/recovery/run_candidate_recipe_check.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
