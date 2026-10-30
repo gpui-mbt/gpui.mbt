@@ -1381,7 +1381,36 @@ static void retained_cutoff_generated_left_requires_ack(void) {
   assert(h->count == 0);
   finish(h);
 }
+static void retained_route_rejects_legacy_session_mutation(void) {
+  struct host *h = fixture();
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  assert(gpui_claim_retained_route(h->token) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  assert(gpui_text_session_begin(h->token, h->window, NULL, 0, 0, 0,
+      0, 0, 1, 1) == -GPUI_UNSUPPORTED);
+  assert(!h->ime.requested && !h->ime.epoch && !call_count);
+  int epoch = gpui_retained_route_begin(h->token, h->window, NULL, 0, 0, 0,
+      0, 0, 1, 1);
+  assert(epoch == 1 && h->ime.requested);
+  ime_enter(h, h->ime.proxy, h->surface);
+  drain_enter(h);
+  int calls_before = call_count;
+  assert(gpui_text_session_cancel(h->token, h->window, epoch) == -GPUI_UNSUPPORTED);
+  assert(gpui_text_session_end(h->token, h->window, epoch) == GPUI_UNSUPPORTED);
+  assert(gpui_text_session_update(h->token, h->window, epoch, NULL, 0, 0, 0,
+      0, 0, 1, 1, 0) == -GPUI_UNSUPPORTED);
+  assert(h->ime.epoch == epoch && call_count == calls_before);
+  assert(gpui_retained_route_update(h->token, h->window, epoch, NULL, 0, 0, 0,
+      0, 0, 1, 1) == epoch);
+  assert(gpui_retained_route_end_when_drained(h->token, h->window, epoch) == GPUI_OK);
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 23 && data[10] == epoch);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  finish(h);
+}
 int main(void) {
+  retained_route_rejects_legacy_session_mutation();
   retained_cutoff_generated_left_requires_ack();
   retained_direct_owner_survives_window_replacement();
   retained_stale_owner_is_visible_not_implicitly_discarded();

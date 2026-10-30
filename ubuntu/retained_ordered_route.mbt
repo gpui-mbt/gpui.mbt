@@ -2,6 +2,154 @@
 extern "C" fn native_claim_retained_route(host : Int32) -> Int32 = "gpui_claim_retained_route"
 
 ///|
+extern "C" fn native_retained_route_hold(
+  host : Int32,
+  enabled : Int32,
+) -> Int32 = "gpui_retained_route_hold"
+
+///|
+extern "C" fn native_retained_route_native_epoch(
+  host : Int32,
+  window : Int32,
+) -> Int32 = "gpui_retained_route_native_epoch"
+
+///|
+#borrow(text)
+extern "C" fn native_retained_route_begin(
+  host : Int32,
+  window : Int32,
+  text : Bytes,
+  length : Int32,
+  cursor : Int32,
+  anchor : Int32,
+  x : Int32,
+  y : Int32,
+  width : Int32,
+  height : Int32,
+) -> Int32 = "gpui_retained_route_begin"
+
+///|
+#borrow(text)
+extern "C" fn native_retained_route_update(
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+  text : Bytes,
+  length : Int32,
+  cursor : Int32,
+  anchor : Int32,
+  x : Int32,
+  y : Int32,
+  width : Int32,
+  height : Int32,
+) -> Int32 = "gpui_retained_route_update"
+
+///|
+extern "C" fn native_retained_route_end(
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+) -> Int32 = "gpui_retained_route_end_when_drained"
+
+///|
+fn Host::retained_begin(
+  self : Host,
+  window : @platform.WindowId,
+  state : @text_host.TextInputState,
+) -> Result[Int32, @diagnostics.FrameworkError] {
+  let operation = "retained_begin"
+  let token = match direct_window_token(window, operation) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let (bytes, cursor, anchor) = match
+    text_session_surrounding(state.document(), operation) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let (x, y, width, height) = match
+    text_session_rect(state.caret(), operation) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  text_session_epoch_outcome(
+    native_retained_route_begin(
+      self.token,
+      token,
+      bytes,
+      bytes.length(),
+      cursor,
+      anchor,
+      x,
+      y,
+      width,
+      height,
+    ),
+    operation,
+  )
+}
+
+///|
+fn Host::retained_update(
+  self : Host,
+  window : @platform.WindowId,
+  epoch : Int32,
+  state : @text_host.TextInputState,
+) -> Result[Int32, @diagnostics.FrameworkError] {
+  let operation = "retained_update"
+  if epoch <= 0 {
+    return Err(backend_error(3, operation))
+  }
+  let token = match direct_window_token(window, operation) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let (bytes, cursor, anchor) = match
+    text_session_surrounding(state.document(), operation) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let (x, y, width, height) = match
+    text_session_rect(state.caret(), operation) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  text_session_epoch_outcome(
+    native_retained_route_update(
+      self.token,
+      token,
+      epoch,
+      bytes,
+      bytes.length(),
+      cursor,
+      anchor,
+      x,
+      y,
+      width,
+      height,
+    ),
+    operation,
+  )
+}
+
+///|
+fn Host::retained_end(
+  self : Host,
+  window : @platform.WindowId,
+  epoch : Int32,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  let operation = "retained_end"
+  if epoch <= 0 {
+    return Err(backend_error(3, operation))
+  }
+  let token = match direct_window_token(window, operation) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  outcome(native_retained_route_end(self.token, token, epoch), operation)
+}
+
+///|
 /// A single session binding over retained Ubuntu native ingress. Native event
 /// identities stay on the retained record; text observations receive a separate
 /// per-binding ordinal only when this route prepares a candidate.
@@ -84,13 +232,14 @@ pub fn RetainedOrderedRoute::begin(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  let native = match
-    self.host.begin_text_session(window, state.document(), state.caret()) {
+  match outcome(native_retained_route_hold(self.host.token, 1), operation) {
     Err(error) => return Err(error)
-    Ok(value) => value
+    Ok(_) => ()
   }
+  // Reserve the original owner before the potentially side-effecting native
+  // begin. A failed begin may still leave the native session requested.
   self.portable_epoch += 1UL
-  self.native_epoch = native
+  self.native_epoch = 0
   self.native_seat = 0L
   self.native_proxy = 0
   self.window = Some(window)
@@ -98,7 +247,54 @@ pub fn RetainedOrderedRoute::begin(
   self.ordinal = 0L
   self.closed = false
   self.shortcuts.held = 0
+  match self.host.retained_begin(window, state) {
+    Ok(native) => self.native_epoch = native
+    Err(error) => {
+      let observed = native_retained_route_native_epoch(
+        self.host.token,
+        window.value().to_int(),
+      )
+      if observed > 0 {
+        self.native_epoch = observed
+      } else {
+        // Release only if native confirms that no input or active target exists.
+        match
+          outcome(native_retained_route_hold(self.host.token, 0), operation) {
+          Ok(_) => {
+            self.window = None
+            self.root = 0UL
+          }
+          Err(_) => self.closed = true
+        }
+      }
+      return Err(error)
+    }
+  }
   Ok(self.portable_epoch)
+}
+
+///|
+/// The binding remains inspectable after a partially side-effecting begin
+/// failure. None means the failed attempt was safely released.
+pub fn RetainedOrderedRoute::binding_epoch(
+  self : RetainedOrderedRoute,
+) -> UInt64? {
+  match self.window {
+    Some(_) => Some(self.portable_epoch)
+    None => None
+  }
+}
+
+///|
+/// The captured native epoch, or None while native ownership is uncertain.
+pub fn RetainedOrderedRoute::native_epoch(
+  self : RetainedOrderedRoute,
+) -> Int32? {
+  if self.native_epoch > 0 {
+    Some(self.native_epoch)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -123,13 +319,7 @@ pub fn RetainedOrderedRoute::update(
     Ok(_) => ()
   }
   let native = match
-    self.host.update_text_session(
-      window,
-      self.native_epoch,
-      state.document(),
-      state.caret(),
-      external_edit=false,
-    ) {
+    self.host.retained_update(window, self.native_epoch, state) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -150,7 +340,7 @@ pub fn RetainedOrderedRoute::try_end_when_drained(
     window,
     native_epoch,
   ) {
-    self.host.end_text_session_when_drained(window, native_epoch)
+    self.host.retained_end(window, native_epoch)
   })
 }
 
@@ -191,7 +381,9 @@ pub fn RetainedOrderedRoute::release(
   self : RetainedOrderedRoute,
   epoch : UInt64,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
-  self.release_from(epoch, fn() { self.require_empty("retained_release") })
+  self.release_from(epoch, fn() { self.require_empty("retained_release") }, fn() {
+    outcome(native_retained_route_hold(self.host.token, 0), "retained_release")
+  })
 }
 
 ///|
@@ -199,12 +391,17 @@ fn RetainedOrderedRoute::release_from(
   self : RetainedOrderedRoute,
   epoch : UInt64,
   empty : () -> Result[Unit, @diagnostics.FrameworkError],
+  release_native : () -> Result[Unit, @diagnostics.FrameworkError],
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let operation = "retained_release"
   if epoch != self.portable_epoch || !self.closed {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
   match empty() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match release_native() {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -284,6 +481,43 @@ pub fn RetainedOrderedReceipt::is_native_stale(
 }
 
 ///|
+/// Raw native field for an unmapped record; inspection does not acknowledge it.
+pub fn RetainedOrderedReceipt::raw_field(
+  self : RetainedOrderedReceipt,
+  index : Int32,
+) -> Double? {
+  self.record.raw_field(index)
+}
+
+///|
+pub fn RetainedOrderedReceipt::direct_epoch(
+  self : RetainedOrderedReceipt,
+) -> Int32 {
+  self.record.direct_epoch()
+}
+
+///|
+pub fn RetainedOrderedReceipt::composition_epoch(
+  self : RetainedOrderedReceipt,
+) -> Int32 {
+  self.record.composition_epoch()
+}
+
+///|
+pub fn RetainedOrderedReceipt::is_native_revoked(
+  self : RetainedOrderedReceipt,
+) -> Bool {
+  self.record.is_revoked()
+}
+
+///|
+pub fn RetainedOrderedReceipt::is_direct_origin(
+  self : RetainedOrderedReceipt,
+) -> Bool {
+  self.record.is_direct_origin()
+}
+
+///|
 pub fn RetainedOrderedReceipt::root(self : RetainedOrderedReceipt) -> UInt64 {
   self.root
 }
@@ -324,7 +558,11 @@ fn RetainedOrderedRoute::prepare(
   let mut prepared : RetainedOrderedEvent = Unhandled(native_event)
   if !record.is_stale() {
     match native_event {
-      Some(Platform(event)) => prepared = Platform(event)
+      Some(Platform(event)) =>
+        match self.window {
+          Some(window) if window != record.window() => ()
+          _ => prepared = Platform(event)
+        }
       Some(TextSession(target, event)) => {
         let matches = match self.window {
           Some(window) =>

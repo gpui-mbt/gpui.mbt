@@ -309,7 +309,9 @@ invalidated native session was received.
 
 `RetainedOrderedRoute` is the experimental gpui-owned translation layer above
 that FIFO. One route claims the host, and legacy text routes and composition or
-direct-text modes cannot be started alongside it. A binding captures the root,
+direct-text modes cannot be started alongside it. The route uses its own
+native session entrypoints; legacy raw session mutation is rejected while the
+route is claimed. A binding captures the root,
 window, native epoch, and, after Entered is acknowledged, seat and proxy
 generation. A prepared receipt preserves native sequence separately from its
 text-only portable ordinal. Preparing the same head does not advance the ordinal

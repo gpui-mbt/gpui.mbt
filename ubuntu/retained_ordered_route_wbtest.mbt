@@ -298,12 +298,40 @@ test "retained cutoff and release preserve binding on busy and reject old receip
   assert_eq(cutoff_calls, 1)
   assert_eq(observed_window, 51L)
   assert_eq(observed_epoch, 7)
-  assert_true(route.release_from(3UL, busy) is Err(_))
+  assert_true(route.release_from(3UL, busy, empty) is Err(_))
+  assert_true(route.release_from(3UL, empty, busy) is Err(_))
   assert_true(route.window is Some(_))
   assert_eq(route.native_epoch, 7)
-  route.release_from(3UL, empty).unwrap()
+  route.release_from(3UL, empty, empty).unwrap()
   assert_true(route.window is None)
   assert_eq(route.root, 0UL)
-  assert_true(route.release_from(3UL, empty) is Err(_))
+  assert_true(route.release_from(3UL, empty, empty) is Err(_))
   assert_true(receipt.finish_ack(fn() { Ok(()) }) is Err(_))
+}
+
+///|
+test "foreign window platform records remain unhandled" {
+  let route = retained_test_route()
+  let window = @platform.WindowId::new(52L)
+  let event = @platform.Event::new(
+    window,
+    12L,
+    1.0,
+    @platform.FocusChanged(false),
+  )
+  let fields = FixedArray::make(217, 0.0)
+  let record : RetainedEditorRecord = {
+    host: route.host,
+    window,
+    sequence: 12,
+    event: Some(Platform(event)),
+    raw_fields: fields,
+    stale: false,
+    direct_epoch: 0,
+    composition_epoch: 0,
+    revoked: false,
+    direct_origin: false,
+  }
+  assert_true(route.prepare(record).unwrap().event() is Unhandled(_))
+  assert_eq(route.ordinal, 0L)
 }

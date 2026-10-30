@@ -82,7 +82,7 @@ enum input_serial_origin {
 struct host {
   int token, window, state, wake_fd, error;
   int terminal_retention, terminal_preview_pending, terminal_preview_watermark;
-  int retained_route_claimed;
+  int retained_route_claimed, retained_route_bound, retained_route_call;
   int terminal_receipt_generation;
   struct ime_payload terminal_preview;
   pthread_t owner;
@@ -1811,6 +1811,33 @@ int32_t gpui_terminal_retention_active(int32_t token) {
   if (status) return -status;
   return h->terminal_retention ? 1 : 0;
 }
+int32_t gpui_retained_route_hold(int32_t token, int32_t enabled) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return status;
+  if (!h->terminal_retention || !h->retained_route_claimed)
+    return GPUI_UNSUPPORTED;
+  if (enabled != 0 && enabled != 1) return GPUI_INVALID;
+  if (enabled) {
+    if (h->retained_route_bound) return GPUI_BUSY;
+    h->retained_route_bound = 1;
+  } else {
+    if (!h->retained_route_bound) return GPUI_STALE;
+    if (h->count || h->ime.requested || h->ime.phase == IME_ACTIVE ||
+        h->ime.phase == IME_ACTIVATING) return GPUI_BUSY;
+    h->retained_route_bound = 0;
+  }
+  return GPUI_OK;
+}
+int32_t gpui_retained_route_native_epoch(int32_t token, int32_t window) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return -status;
+  if (!h->terminal_retention || !h->retained_route_claimed ||
+      !h->retained_route_bound) return -GPUI_UNSUPPORTED;
+  if (!h->ime.requested || h->window != window) return 0;
+  return h->ime.epoch;
+}
 int32_t gpui_terminal_preview_receipt(int32_t token, double *fields,
     int32_t field_capacity, uint8_t *text, int32_t text_capacity) {
   struct host *h;
@@ -1858,6 +1885,7 @@ int32_t gpui_stop(int32_t token) {
     return s;
   if (h->terminal_retention &&
       (h->count || h->ime.requested || h->ime.composition_preview ||
+       h->retained_route_bound ||
        h->ime.phase == IME_ACTIVE || h->ime.phase == IME_ACTIVATING ||
        h->terminal_preview_pending)) return GPUI_BUSY;
   quiesce_host(h);
