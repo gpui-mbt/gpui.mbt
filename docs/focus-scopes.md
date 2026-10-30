@@ -89,6 +89,22 @@ snapshot. Input and mutations then fail with `ClosedSession`.
 
 ## Frame adoption
 
+For a same-topology, non-scroll bounds-only update, an integrator can separate
+fallible validation from the focus publication. `prepare_layout_refresh`
+validates the exact target, revision and replacement bounds without changing
+the session. `publish_layout_refresh` accepts the proposal only while that
+target is still current and does not invoke callbacks or repeat layout work.
+Focus acquisition, modal handles and restoration lineage are preserved. A
+foreign, stale, reused or reentrant proposal is rejected. Existing
+`refresh_layout` performs both operations synchronously.
+
+This split is not a transaction with TextSession, the view runtime, the scene
+or native host. In particular, another owner may reject after focus publication,
+and a callback can invalidate a proposal before publication. A coordinator must
+establish its own single-owner critical section and failure semantics before
+claiming all-or-nothing publication. A proposal does not cover changed topology,
+scroll, scale/font remeasurement, an OS input cutoff or event acknowledgement.
+
 A host that rebuilds its element tree every frame needs one explicit operation to
 keep its live modal frames:
 

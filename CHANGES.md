@@ -17,6 +17,9 @@
 
 ### Added
 
+- Split a same-topology FocusScope bounds refresh into an optional validated
+  preparation and a callback-free publication. Cross-owner transactions remain
+  the integrating host's responsibility.
 - Accept an observed direct insertion through `TextSession` without inventing
   a preedit. It rejects active composition. The new `SessionOperation::Insert`
   variant may require updates to exhaustive matches.

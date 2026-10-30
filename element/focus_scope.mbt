@@ -42,6 +42,15 @@ pub struct FocusScopeTarget {
 } derive(Eq)
 
 ///|
+/// A bounds-only tree prepared for one exact focus-scope revision. This is not
+/// authority to mutate a runtime, scene, native host, or another session.
+pub struct FocusLayoutProposal {
+  priv target : FocusScopeTarget
+  priv tree : ElementTree
+  priv revision : UInt64
+}
+
+///|
 pub extend FocusScopeTarget with Eq::{not_equal, equal}
 
 ///|
@@ -658,11 +667,14 @@ pub fn FocusScopeSession::scroll_wheel(
 
 ///|
 /// Same-topology bounds-only refresh retains every scope and exact acquisition.
-pub fn FocusScopeSession::refresh_layout(
+/// Preparation performs all fallible layout validation without publishing.
+/// A caller may stage this alongside other owners, but this proposal alone does
+/// not make their later publications atomic.
+pub fn FocusScopeSession::prepare_layout_refresh(
   self : FocusScopeSession,
   target : FocusScopeTarget,
   prepainted : Prepainted,
-) -> Result[Unit, FocusScopeError] {
+) -> Result[FocusLayoutProposal, FocusScopeError] {
   match self.validate(target) {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -672,12 +684,46 @@ pub fn FocusScopeSession::refresh_layout(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  match state.tree.with_layout_bounds(prepainted) {
-    Err(error) => Err(focus_scope_element_error(error))
-    Ok(tree) => {
-      self.state.val = { ..state, tree, revision, }
-      Ok(())
-    }
+  let tree = match state.tree.with_layout_bounds(prepainted) {
+    Err(error) => return Err(focus_scope_element_error(error))
+    Ok(value) => value
+  }
+  Ok({ target, tree, revision, })
+}
+
+///|
+/// Publish an unchanged, still-current bounds-only proposal. This performs no
+/// callbacks or further layout work. Outside an active dispatch or boundary
+/// callback, on the UI thread, an unchanged owner can publish without further
+/// layout failure. A stale, foreign, reentrant or reused proposal is rejected;
+/// it does not provide atomicity across other owners.
+pub fn FocusScopeSession::publish_layout_refresh(
+  self : FocusScopeSession,
+  proposal : FocusLayoutProposal,
+) -> Result[Unit, FocusScopeError] {
+  match self.validate(proposal.target) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let state = self.state.val
+  self.state.val = {
+    ..state,
+    tree: proposal.tree,
+    revision: proposal.revision,
+  }
+  Ok(())
+}
+
+///|
+/// Same-topology bounds-only refresh retains every scope and exact acquisition.
+pub fn FocusScopeSession::refresh_layout(
+  self : FocusScopeSession,
+  target : FocusScopeTarget,
+  prepainted : Prepainted,
+) -> Result[Unit, FocusScopeError] {
+  match self.prepare_layout_refresh(target, prepainted) {
+    Err(error) => Err(error)
+    Ok(proposal) => self.publish_layout_refresh(proposal)
   }
 }
 

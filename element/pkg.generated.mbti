@@ -308,6 +308,10 @@ pub(all) enum EventPhase {
 pub fn EventPhase::equal(Self, Self) -> Bool
 pub fn EventPhase::not_equal(Self, Self) -> Bool
 
+pub struct FocusLayoutProposal {
+  // private fields
+}
+
 pub struct FocusOwner {
   // private fields
 } derive(Eq)
@@ -373,6 +377,8 @@ pub fn FocusScopeSession::focus_prev(Self, FocusScopeTarget) -> Result[Unit, Foc
 pub fn FocusScopeSession::focused(Self) -> UInt64?
 pub fn FocusScopeSession::new(ElementTree) -> Result[Self, FocusScopeError]
 pub fn FocusScopeSession::open_scope(Self, FocusScopeTarget, UInt64, (FocusScopeBoundary) -> Result[Unit, FocusScopeError], initial? : UInt64, fallback? : UInt64) -> Result[FocusScopeHandle, FocusScopeError]
+pub fn FocusScopeSession::prepare_layout_refresh(Self, FocusScopeTarget, Prepainted) -> Result[FocusLayoutProposal, FocusScopeError]
+pub fn FocusScopeSession::publish_layout_refresh(Self, FocusLayoutProposal) -> Result[Unit, FocusScopeError]
 pub fn FocusScopeSession::refresh_layout(Self, FocusScopeTarget, Prepainted) -> Result[Unit, FocusScopeError]
 pub fn FocusScopeSession::remove_subtree(Self, FocusScopeTarget, UInt64, (FocusScopeBoundary) -> Result[Unit, FocusScopeError]) -> Result[Unit, FocusScopeError]
 pub fn FocusScopeSession::replace_tree(Self, FocusScopeTarget, ElementTree, (FocusScopeBoundary) -> Result[Unit, FocusScopeError]) -> Result[Unit, FocusScopeError]
