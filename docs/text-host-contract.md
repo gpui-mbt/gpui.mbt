@@ -50,6 +50,33 @@ diagnostic; callers must retain the exact value returned by the host. A host
 must reject a stale window, root, epoch, sequence, or replacement before it
 publishes a document or acknowledges a commit.
 
+### Ubuntu ordered ingress (opt-in)
+
+The legacy Ubuntu `TextHostRoute::new` retains the two-poll API and its existing
+behaviour. The separate `OrderedTextHostRoute::new` selects an exclusive
+alternative: `next_ordered_event` returns each translated text or platform
+record in the order read from the Ubuntu editor stream. The ordered facade
+exposes begin/update/cancel/end and its single poll; it does not implement the
+legacy `TextInputHost` trait with its separate text poll. Consumers must handle
+both event variants. An empty result means no deliverable event was returned;
+the poll may have consumed skipped or stale records. Forwarded keys retain
+their position as platform records. Unsupported editing records remain errors
+rather than silently becoming insertions.
+
+This ordering applies to records returned by Ubuntu `Host::next_editor_event`.
+It does not prove an IME has finished producing observations, make an empty
+poll a quiescence barrier, or resolve a pending composition. The native host
+preserves eligible preedit and commit records admitted before natural focus
+loss ahead of that loss's `Left` record; explicit close and session replacement
+still fence old-target text. Cancel and end can discard undelivered
+observations. The owner must resolve the original binding and any pending end;
+this API alone does not establish observed-commit preservation for every blur
+or close. The remaining boundary and integration work are tracked in
+[0028](../issues/open/0028-wayland-ime-composition-handoff.md) and
+[GP-01B](../issues/open/20261019-gp-01b-text-host-contract.md). macOS and
+Windows retain their existing contracts; this section adds no guarantee for
+them.
+
 ## Event values
 
 `TextInputEvent` carries `window`, `sequence`, `epoch` and `kind` so an adapter
@@ -131,6 +158,16 @@ candidate window position inside the input method.
   test-hooks library. The key hook replaces only AppKit's hardware event source:
   the live input method still processes the key. Neither hook synthesizes a
   composition or proves a real input method by itself.
+
+## Ubuntu route (bounded)
+
+`ubuntu.TextHostRoute` maps forwarded Ctrl/Meta A, C, X, V, Z and Y keysyms
+to platform command keys. A matching release is delivered for an acquired key
+even if its modifier was released first; the acquisition is revoked when the
+text session is canceled, ended or replaced. Unmodified character keysyms and
+other modified characters do not become text or command keys through this
+mapping. IME commits remain the source of inserted text. This bounded mapping
+does not itself qualify a live IME or cross-queue event ordering.
 
 ## Windows route (bounded)
 

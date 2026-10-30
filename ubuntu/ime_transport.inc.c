@@ -315,6 +315,30 @@ static void ime_request_external_deactivate(struct host *h, int prior_floor) {
   }
   ime_deactivate(h);
 }
+/* A natural focus loss follows callbacks already admitted on this owner thread.
+ * Retain that exact prefix until its captured Left, without accepting new
+ * callbacks or transferring it to a replacement session. */
+static void ime_preserve_before_focus_loss(struct host *h) {
+  if (!ime_current(h, h->ime.proxy)) return;
+  for (int i = 0; i < h->count; ++i) {
+    int slot = (h->read + i) % QUEUE_CAPACITY;
+    struct ime_payload *data = h->ime_queue[slot];
+    if (data && data->kind >= 20 && data->kind <= 22 &&
+        data->epoch == h->ime.epoch && data->window == h->window &&
+        data->seat == h->seat_name &&
+        data->proxy_generation == h->ime.proxy_generation &&
+        (data->kind == 22 || ime_serial_current(h, (uint32_t)data->serial)))
+      data->focus_loss_delivery = 1;
+  }
+}
+/* A terminal window close supersedes an earlier natural-focus delivery.
+ * Clearing the admission bit keeps the normal stale-epoch filter authoritative. */
+static void ime_revoke_focus_loss_delivery(struct host *h) {
+  for (int i = 0; i < h->count; ++i) {
+    int slot = (h->read + i) % QUEUE_CAPACITY;
+    if (h->ime_queue[slot]) h->ime_queue[slot]->focus_loss_delivery = 0;
+  }
+}
 static void ime_invalidate(struct host *h, int emit_leave, int deactivate) {
   if (!h->ime.requested && h->ime.phase != IME_ACTIVE &&
       h->ime.phase != IME_ACTIVATING)
@@ -395,6 +419,7 @@ static void ime_leave(void *data, struct zwp_text_input_v1 *proxy) {
   } else if (h->ime.phase == IME_ACTIVE || h->ime.phase == IME_ACTIVATING ||
              h->ime.phase == IME_DRAINING_MODIFIERS) {
     /* Unexpected focus loss supersedes the pending drain/reactivation. */
+    ime_preserve_before_focus_loss(h);
     ime_invalidate(h, 1, 0);
   }
 }
@@ -464,6 +489,8 @@ static int ime_payload_valid(const struct ime_payload *data) {
   if (data->kind < 20 || data->kind > 29 || data->window <= 0 ||
       (data->composition_revoked != 0 && data->composition_revoked != 1) ||
       (data->composition_revoked && data->kind < 26) ||
+      (data->focus_loss_delivery != 0 && data->focus_loss_delivery != 1) ||
+      (data->focus_loss_delivery && data->kind > 22) ||
       data->epoch <= 0 || !data->seat || data->proxy_generation <= 0 ||
       data->text_length < 0 || data->text_length > GPUI_IME_MAX_BYTES ||
       data->fallback_length < 0 || data->fallback_length > GPUI_IME_MAX_BYTES ||

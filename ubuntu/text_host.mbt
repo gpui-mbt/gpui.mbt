@@ -12,6 +12,8 @@ pub struct TextHostRoute {
   priv mut native_epoch : Int32
   priv mut window : @platform.WindowId?
   priv mut started : Bool
+  priv ordered : Bool
+  priv shortcuts : ShortcutKeyTracker
 }
 
 ///|
@@ -34,7 +36,82 @@ pub fn TextHostRoute::new(host : Host) -> TextHostRoute {
     native_epoch: 0,
     window: None,
     started: false,
+    ordered: false,
+    shortcuts: ShortcutKeyTracker::new(),
   }
+}
+
+///|
+/// Internal constructor: ordered routes are exposed only through the separate
+/// wrapper, which does not implement the legacy `TextInputHost` poll API.
+fn TextHostRoute::new_ordered(host : Host) -> TextHostRoute {
+  {
+    host,
+    queue: @text_host.TextHostQueue::new(),
+    native_epoch: 0,
+    window: None,
+    started: false,
+    ordered: true,
+    shortcuts: ShortcutKeyTracker::new(),
+  }
+}
+
+///|
+/// A single record from Ubuntu's ordered editor ingress.
+pub(all) enum OrderedTextEvent {
+  Text(@text_host.TextInputEvent)
+  Platform(@platform.Event)
+}
+
+///|
+/// Opt-in ordered facade. It does not implement `TextInputHost`: the latter's
+/// independent text poll cannot express this route's cross-kind ordering.
+pub struct OrderedTextHostRoute {
+  priv route : TextHostRoute
+}
+
+///|
+pub fn OrderedTextHostRoute::new(host : Host) -> OrderedTextHostRoute {
+  { route: TextHostRoute::new_ordered(host), }
+}
+
+///|
+pub fn OrderedTextHostRoute::begin_text_input(
+  self : OrderedTextHostRoute,
+  window : @platform.WindowId,
+  root : UInt64,
+) -> Result[UInt64, @diagnostics.FrameworkError] {
+  self.route.begin_text_input(window, root)
+}
+
+///|
+pub fn OrderedTextHostRoute::update_text_input(
+  self : OrderedTextHostRoute,
+  epoch : UInt64,
+  state : @text_host.TextInputState,
+) -> Result[UInt64, @diagnostics.FrameworkError] {
+  self.route.update_text_input(epoch, state)
+}
+
+///|
+pub fn OrderedTextHostRoute::cancel_text_input(
+  self : OrderedTextHostRoute,
+  epoch : UInt64,
+) -> Result[UInt64, @diagnostics.FrameworkError] {
+  self.route.cancel_text_input(epoch)
+}
+
+///|
+pub fn OrderedTextHostRoute::end_text_input(
+  self : OrderedTextHostRoute,
+  epoch : UInt64,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  self.route.end_text_input(epoch)
+}
+
+///|
+pub fn OrderedTextHostRoute::reset(self : OrderedTextHostRoute) -> Unit {
+  self.route.reset()
 }
 
 ///|
@@ -44,6 +121,11 @@ pub fn TextHostRoute::next_platform_event(
   self : TextHostRoute,
   timeout_ms~ : Int32 = 16,
 ) -> Result[@platform.Event?, @diagnostics.FrameworkError] {
+  if self.ordered {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.InvalidInput, "next_platform_event"),
+    )
+  }
   match self.queue.take_parked() {
     Some(event) => return Ok(Some(event))
     None => ()
@@ -80,6 +162,57 @@ priv enum TextTranslation {
 }
 
 ///|
+/// The bounded command keys are not text. Track only acquisitions so their
+/// release survives a modifier being released before the character key.
+priv struct ShortcutKeyTracker {
+  mut held : Int32
+}
+
+///|
+fn ShortcutKeyTracker::new() -> ShortcutKeyTracker {
+  { held: 0, }
+}
+
+///|
+fn shortcut_key(keysym : Int32) -> (Int32, @primitives.Key)? {
+  match keysym {
+    0x61 | 0x41 => Some((1, @primitives.Character("a")))
+    0x63 | 0x43 => Some((2, @primitives.Character("c")))
+    0x78 | 0x58 => Some((4, @primitives.Character("x")))
+    0x76 | 0x56 => Some((8, @primitives.Character("v")))
+    0x7a | 0x5a => Some((16, @primitives.Character("z")))
+    0x79 | 0x59 => Some((32, @primitives.Character("y")))
+    _ => None
+  }
+}
+
+///|
+fn ShortcutKeyTracker::translate(
+  self : ShortcutKeyTracker,
+  event : TextSessionEvent,
+) -> TextTranslation {
+  match event {
+    ForwardedPressed(keysym~, modifiers~, ..) =>
+      match shortcut_key(keysym) {
+        Some((bit, key)) if modifiers.control() || modifiers.meta() => {
+          self.held = self.held | bit
+          Forward(key, true, modifiers)
+        }
+        _ => translate_editor_event(event)
+      }
+    ForwardedReleased(keysym~, modifiers~, ..) =>
+      match shortcut_key(keysym) {
+        Some((bit, key)) if (self.held & bit) != 0 => {
+          self.held = self.held & (63 - bit)
+          Forward(key, false, modifiers)
+        }
+        _ => translate_editor_event(event)
+      }
+    _ => translate_editor_event(event)
+  }
+}
+
+///|
 fn translate_editor_event(event : TextSessionEvent) -> TextTranslation {
   match event {
     Entered | Left => Skip
@@ -112,7 +245,7 @@ fn TextHostRoute::absorb(
   if !self.started || target.epoch != self.native_epoch {
     return Ok(())
   }
-  match translate_editor_event(event) {
+  match self.shortcuts.translate(event) {
     Skip => Ok(())
     Unsupported => {
       self.queue.fail(@diagnostics.UnsupportedCapability)
@@ -176,6 +309,7 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn begin_text_input(
   self.window = Some(window)
   self.native_epoch = 0
   self.started = false
+  self.shortcuts.held = 0
   Ok(epoch)
 }
 
@@ -215,6 +349,7 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn update_text_input(
     }
     if next != previous {
       self.queue.discard_text()
+      self.shortcuts.held = 0
     }
     self.native_epoch = next
   }
@@ -230,6 +365,7 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn cancel_text_input(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  self.shortcuts.held = 0
   if self.started {
     self.native_epoch = match
       self.host.cancel_text_session(self.window.unwrap(), self.native_epoch) {
@@ -252,7 +388,13 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn end_text_input(
     }
     self.started = false
   }
-  self.queue.end(epoch)
+  match self.queue.end(epoch) {
+    Err(error) => Err(error)
+    Ok(_) => {
+      self.shortcuts.held = 0
+      Ok(())
+    }
+  }
 }
 
 ///|
@@ -260,6 +402,11 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn next_text_input(
   self,
   timeout_ms?,
 ) {
+  if self.ordered {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.InvalidInput, "next_text_input"),
+    )
+  }
   let timeout = match timeout_ms {
     Some(value) => value
     None => 16
@@ -319,6 +466,65 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn next_text_input(
 }
 
 ///|
+/// Read text and ordinary platform records in the order copied from the Ubuntu
+/// editor stream. This is an ingress ordering guarantee, not a host shutdown
+/// or IME quiescence barrier.
+pub fn OrderedTextHostRoute::next_ordered_event(
+  self : OrderedTextHostRoute,
+  timeout_ms~ : Int32 = 16,
+) -> Result[OrderedTextEvent?, @diagnostics.FrameworkError] {
+  let route = self.route
+  next_ordered_event_from(
+    route.queue,
+    timeout_ms,
+    fn(timeout) { route.host.next_editor_event(timeout_ms=timeout) },
+    fn(target, event) { route.absorb(target, event) },
+  )
+}
+
+///|
+fn next_ordered_event_from(
+  queue : @text_host.TextHostQueue,
+  timeout_ms : Int32,
+  read : (Int32) -> Result[EditorEvent?, @diagnostics.FrameworkError],
+  absorb : (TextSessionTarget, TextSessionEvent) -> Result[
+    Unit,
+    @diagnostics.FrameworkError,
+  ],
+) -> Result[OrderedTextEvent?, @diagnostics.FrameworkError] {
+  match queue.failure() {
+    Some(code) => return Err(ubuntu_text_host_error(code, "next_ordered_event"))
+    None => ()
+  }
+  while true {
+    let event = match read(timeout_ms) {
+      Err(error) => return Err(error)
+      Ok(None) => return Ok(None)
+      Ok(Some(event)) => event
+    }
+    match event {
+      Platform(event) => return Ok(Some(Platform(event)))
+      TextSession(target, value) => {
+        match absorb(target, value) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        match queue.take_text() {
+          Some(text) => return Ok(Some(Text(text)))
+          None => ()
+        }
+        match queue.take_parked() {
+          Some(event) => return Ok(Some(Platform(event)))
+          None => ()
+        }
+      }
+    }
+  } nobreak {
+    Ok(None)
+  }
+}
+
+///|
 /// Revoke all portable state without an epoch check. Hosts call this when the
 /// owned window is destroyed or the host stops.
 pub fn TextHostRoute::reset(self : TextHostRoute) -> Unit {
@@ -326,6 +532,7 @@ pub fn TextHostRoute::reset(self : TextHostRoute) -> Unit {
   self.started = false
   self.native_epoch = 0
   self.window = None
+  self.shortcuts.held = 0
 }
 
 ///|
