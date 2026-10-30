@@ -93,6 +93,14 @@ static int begin(struct host *h) {
   return epoch;
 }
 static int read_editor(struct host *h, double *data, uint8_t *bytes) {
+  if (h->terminal_retention) {
+    int32_t metadata[5];
+    int status = gpui_peek_retained_editor(3, h->token, data,
+        GPUI_EDITOR_EVENT_FIELDS, bytes, GPUI_EDITOR_MAX_PAYLOAD, metadata, 5);
+    if (status == 1) assert(gpui_ack_retained_editor(h->token,
+        (int)data[1], (int)data[2]) == GPUI_OK);
+    return status;
+  }
   return gpui_next_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
                           bytes, GPUI_EDITOR_MAX_PAYLOAD);
 }
@@ -1190,7 +1198,199 @@ static void composition_rearm_raw_still_obeys_target_revocation(void) {
     finish(h);
   }
 }
+static void accepted_commit_survives_terminal_window(void) {
+  for (int destroy = 0; destroy < 3; ++destroy) {
+    struct host *h = fixture(); assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+    int epoch = begin(h); drain_enter(h);
+    double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+    int window = h->window;
+    ime_commit_string(h, h->ime.proxy, 1, "日本");
+    int seq = h->seq;
+    if (destroy == 1) assert(gpui_destroy(h->token, window) == GPUI_OK);
+    else if (destroy == 2) toplevel_close(h, NULL);
+    else assert(gpui_close(h->token, window) == GPUI_OK);
+    int queued = h->count;
+    ime_commit_string(h, h->ime.proxy, 1, "遅延");
+    assert(h->count == queued); /* no late callback can enter old epoch */
+    if (destroy == 1) h->window = window + 1; /* replacement keeps captured identity */
+    assert(gpui_stop(h->token) == GPUI_BUSY); /* unread records are owned */
+    assert(read_editor(h, data, bytes) == 1);
+    assert(data[0] == 21 && data[1] == window && data[2] == seq && data[10] == epoch);
+    assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+    assert(read_editor(h, data, bytes) == 1 && data[0] == 23 && data[1] == window && data[10] == epoch);
+    assert(read_editor(h, data, bytes) == 1 && data[0] == (destroy == 1 ? 4 : 3) && data[1] == window);
+    assert(read_editor(h, data, bytes) == 0);
+    finish(h);
+  }
+}
+static void terminal_destroy_busy_preserves_full_queue(void) {
+  struct host *h = fixture(); assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  begin(h); drain_enter(h);
+  ime_commit_string(h, h->ime.proxy, 1, "日本");
+  while (h->count < QUEUE_CAPACITY - 1) event(h, 1, 0, 0, 0);
+  int count = h->count, seq = h->seq, epoch = h->ime.epoch;
+  assert(gpui_destroy(h->token, h->window) == GPUI_BUSY);
+  assert(h->count == count && h->seq == seq && h->ime.epoch == epoch && h->ime.requested);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 21 && data[10] == epoch);
+  assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  finish(h);
+}
+/* Opt-in experiment only: preserve unresolved composition, with no synthetic
+ * Cancel. Busy intentionally exposes that no ownership acknowledgement API is
+ * implemented yet; it must not be mistaken for completed cleanup. */
+static void terminal_preview_is_unresolved_not_synthetic_cancel(void) {
+  struct host *h = fixture(); assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  ime_preedit_string(h, h->ime.proxy, sent_serial, "日本", "");
+  assert(gpui_destroy(h->token, h->window) == GPUI_OK);
+  assert(h->terminal_preview_pending && h->terminal_preview.window == 51);
+  assert(h->terminal_preview.epoch > 0 && h->terminal_preview_watermark > 0);
+  assert(h->terminal_preview.text_length == 6 &&
+         !memcmp(h->terminal_preview.text, "日本", 6));
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  double receipt[9]; uint8_t preview[GPUI_IME_MAX_BYTES];
+  for (int i = 0; i < 9; ++i) receipt[i] = -1;
+  memset(preview, 0x5a, sizeof(preview));
+  assert(gpui_terminal_preview_receipt(h->token, receipt, 9, preview, 5) == -GPUI_RESOURCE);
+  for (int i = 0; i < 9; ++i) assert(receipt[i] == -1);
+  assert(preview[0] == 0x5a && h->terminal_preview_pending);
+  assert(gpui_terminal_preview_receipt(h->token, receipt, 9, preview, sizeof(preview)) == 1);
+  int id = (int)receipt[0], epoch = (int)receipt[2], watermark = (int)receipt[3];
+  assert(receipt[1] == 51 && receipt[6] == 6 && !memcmp(preview, "日本", 6));
+  assert(gpui_terminal_preview_handoff(h->token, id + 1, 51, epoch, watermark) == GPUI_STALE);
+  assert(gpui_terminal_preview_handoff(h->token, id, 52, epoch, watermark) == GPUI_STALE);
+  assert(gpui_terminal_preview_handoff(h->token, id, 51, epoch, watermark) == GPUI_BUSY);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 26 && data[1] == 51);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 27 && data[1] == 51);
+  assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 4 && data[1] == 51);
+  assert(read_editor(h, data, bytes) == 0);
+  assert(gpui_stop(h->token) == GPUI_BUSY); /* preview still unresolved */
+  assert(gpui_terminal_preview_handoff(h->token, id, 51, epoch + 1, watermark) == GPUI_STALE);
+  assert(gpui_terminal_preview_handoff(h->token, id, 51, epoch, watermark + 1) == GPUI_STALE);
+  assert(gpui_terminal_preview_handoff(h->token, id, 51, epoch, watermark) == GPUI_OK);
+  assert(!h->terminal_preview_pending && !h->ime.composition_preview);
+  assert(gpui_terminal_preview_handoff(h->token, id, 51, epoch, watermark) == GPUI_STALE);
+  assert(gpui_terminal_preview_receipt(h->token, receipt, 9, preview, sizeof(preview)) == 0);
+  finish(h);
+}
+static void explicit_cancel_waits_for_admitted_commit(void) {
+  struct host *h = fixture(); assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  int epoch = begin(h); drain_enter(h);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  ime_commit_string(h, h->ime.proxy, 1, "日本");
+  int seq = h->seq, calls = call_count;
+  assert(gpui_text_session_cancel(h->token, h->window, epoch) == -GPUI_BUSY);
+  assert(gpui_text_session_end(h->token, h->window, epoch) == GPUI_BUSY);
+  assert(h->ime.epoch == epoch && h->seq == seq && call_count == calls);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 21 && data[10] == epoch);
+  assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  assert(gpui_text_session_cancel(h->token, h->window, epoch) == epoch + 1);
+  finish(h);
+}
+static void composition_cancel_does_not_revoke_admitted_commit(void) {
+  struct host *h = fixture(); assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(gpui_text_composition_mode(h->token, h->window, 1) == GPUI_OK);
+  ime_enter(h, h->ime.proxy, h->surface);
+  ime_commit_string(h, h->ime.proxy, sent_serial, "日本");
+  assert(gpui_text_composition_finish(h->token, h->window, 0) == GPUI_BUSY);
+  assert(gpui_text_composition_mode(h->token, h->window, 0) == GPUI_BUSY);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 28);
+  assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  assert(gpui_text_composition_finish(h->token, h->window, 0) == GPUI_OK);
+  finish(h);
+}
+static void retained_peek_requires_explicit_exact_head_ack(void) {
+  struct host *h = fixture();
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  begin(h); drain_enter(h);
+  double first[GPUI_EDITOR_EVENT_FIELDS], again[GPUI_EDITOR_EVENT_FIELDS];
+  uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD]; int32_t metadata[5] = {-1};
+  ime_commit_string(h, h->ime.proxy, 1, "日本");
+  assert(gpui_next_editor(3, h->token, first, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes)) == -GPUI_UNSUPPORTED);
+  assert(gpui_peek_retained_editor(3, h->token, first, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), metadata, 5) == 1 && !metadata[0]);
+  assert(first[0] == 21 && first[10] == 1 && h->count == 1);
+  assert(gpui_peek_retained_editor(3, h->token, again, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), metadata, 5) == 1 && !memcmp(first, again, sizeof(first)));
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  assert(gpui_ack_retained_editor(h->token, 52, (int)first[2]) == GPUI_STALE);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)first[2] + 1) == GPUI_STALE);
+  assert(h->count == 1);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)first[2]) == GPUI_OK);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)first[2]) == GPUI_STALE);
+  assert(h->count == 0);
+  finish(h);
+}
+static void retained_stale_owner_is_visible_not_implicitly_discarded(void) {
+  struct host *h = fixture();
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  begin(h); drain_enter(h);
+  ime_commit_string(h, h->ime.proxy, 1, "日本");
+  keyboard_leave(h, h->keyboard, 99, h->surface);
+  h->scale = 1;
+  global_remove(h, NULL, h->ime.manager_name); /* proxy generation now stale */
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t metadata[5] = {0};
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), metadata, 5) == 1);
+  assert(metadata[0] && data[0] == 21 && data[1] == 51 && data[10] == 1);
+  assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  assert(gpui_stop(h->token) == GPUI_BUSY && h->count > 0);
+  assert(gpui_ack_retained_editor(h->token, 52, (int)data[2]) == GPUI_STALE);
+  assert(h->count > 0);
+  finish(h);
+}
+static void retained_direct_owner_survives_window_replacement(void) {
+  struct host *h = fixture();
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  h->direct_enabled = h->direct_ever_enabled = 1;
+  h->direct_epoch = 7;
+  direct_text_record(h, (const uint8_t *)"日本", 6);
+  int sequence = h->seq;
+  assert(gpui_destroy(h->token, h->window) == GPUI_OK);
+  h->window = 52;
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5] = {0};
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1);
+  assert(data[0] == 13 && data[1] == 51 && data[2] == sequence);
+  assert(meta[0] && meta[1] == 7 && meta[4] && !memcmp(bytes, "日本", 6));
+  assert(gpui_ack_retained_editor(h->token, 52, sequence) == GPUI_STALE);
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  finish(h);
+}
+static void retained_cutoff_generated_left_requires_ack(void) {
+  struct host *h = fixture();
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  int epoch = begin(h); drain_enter(h);
+  assert(gpui_text_session_end_when_drained(h->token, h->window, epoch) == GPUI_OK);
+  assert(h->count == 1);
+  assert(gpui_stop(h->token) == GPUI_BUSY && active == h && h->count == 1);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5] = {0};
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1);
+  assert(data[0] == 23 && data[1] == 51 && data[10] == epoch);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  assert(h->count == 0);
+  finish(h);
+}
 int main(void) {
+  retained_cutoff_generated_left_requires_ack();
+  retained_direct_owner_survives_window_replacement();
+  retained_stale_owner_is_visible_not_implicitly_discarded();
+  retained_peek_requires_explicit_exact_head_ack();
+  composition_cancel_does_not_revoke_admitted_commit();
+  explicit_cancel_waits_for_admitted_commit();
+  terminal_preview_is_unresolved_not_synthetic_cancel();
+  terminal_destroy_busy_preserves_full_queue();
+  accepted_commit_survives_terminal_window();
   composition_rearm_preserves_only_current_raw_owners();
   composition_rearm_raw_still_obeys_target_revocation();
   composition_raw_typing_survives_rearm();

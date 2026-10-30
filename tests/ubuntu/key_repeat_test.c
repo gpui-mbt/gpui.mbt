@@ -621,7 +621,37 @@ static void test_repeat_command_keys_and_v1_guard(void) {
   assert(next_v2(out, text, sizeof(text)) == 0 && f.h.count == 0);
   fixture_drop(&f);
 }
+static void test_retained_pump_preserves_callback_and_backpressure(void) {
+  struct fixture f;
+  clock_enabled = 1; clock_failed = poll_advance = poll_error = 0;
+  clock_ms = 1000; poll_timeout = -1; poll_calls = cancel_calls = 0;
+  poll_events = 0; pending_action = incoming_action = NULL;
+  reset_proxy_mocks(); fixture_init(&f); pump_host = &f.h;
+  assert(gpui_terminal_retention_enable(TEST_HOST) == GPUI_OK);
+  pending_action = pending_press;
+  assert(gpui_dispatch(TEST_HOST, 0) == GPUI_UNSUPPORTED);
+  assert(f.h.count == 0 && pending_action && poll_calls == 0);
+  assert(gpui_dispatch_retained(TEST_HOST, 0) == GPUI_OK);
+  assert(f.h.count == 1);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t text[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5] = {0};
+  assert(gpui_peek_retained_editor(GPUI_EDITOR_ABI, TEST_HOST, data,
+      GPUI_EDITOR_EVENT_FIELDS, text, sizeof(text), meta, 5) == 1);
+  assert(data[0] == 11 && data[1] == TEST_WINDOW);
+  int count = f.h.count, seq = f.h.seq, polls = poll_calls;
+  pending_action = incoming_release;
+  assert(gpui_dispatch_retained(TEST_HOST, 0) == GPUI_BUSY);
+  assert(f.h.count == count && f.h.seq == seq && poll_calls == polls && pending_action);
+  assert(gpui_ack_retained_editor(TEST_HOST, TEST_WINDOW, (int)data[2]) == GPUI_OK);
+  assert(gpui_dispatch_retained(TEST_HOST, 0) == GPUI_OK);
+  assert(gpui_peek_retained_editor(GPUI_EDITOR_ABI, TEST_HOST, data,
+      GPUI_EDITOR_EVENT_FIELDS, text, sizeof(text), meta, 5) == 1);
+  assert(data[0] == 12 && data[1] == TEST_WINDOW);
+  assert(gpui_ack_retained_editor(TEST_HOST, TEST_WINDOW, (int)data[2]) == GPUI_OK);
+  fixture_drop(&f);
+}
 int main(void) {
+  test_retained_pump_preserves_callback_and_backpressure();
   assert(direct_text_existing_main() == 0);
   fprintf(stderr, "repeat case: dispatch_timing\n");
   test_repeat_dispatch_timing();

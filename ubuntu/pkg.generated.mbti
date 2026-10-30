@@ -82,12 +82,15 @@ pub fn Host::create_window(Self, Int, Int, String) -> Result[@platform.WindowId,
 pub fn Host::destroy_window(Self, @platform.WindowId) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::direct_keyboard_text_epoch(Self, @platform.WindowId) -> Result[Int, @diagnostics.FrameworkError]
 pub fn Host::dispatch(Self, Int) -> Result[Array[@platform.Event], @diagnostics.FrameworkError]
+pub fn Host::dispatch_retained(Self, Int) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::display_snapshot(Self) -> Result[Array[OutputInfo], @diagnostics.FrameworkError]
+pub fn Host::enable_terminal_retention(Self) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::end_text_session(Self, @platform.WindowId, Int) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::finish_text_composition(Self, @platform.WindowId, Bool) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::frame_metrics(Self, @platform.WindowId) -> Result[(Int, Int, Double), @diagnostics.FrameworkError]
 pub fn Host::next_editor_event(Self, timeout_ms? : Int) -> Result[EditorEvent?, @diagnostics.FrameworkError]
 pub fn Host::next_event(Self, timeout_ms? : Int) -> Result[@platform.Event?, @diagnostics.FrameworkError]
+pub fn Host::peek_retained_editor(Self) -> Result[RetainedEditorRecord?, @diagnostics.FrameworkError]
 pub fn Host::post_test_composition(Self, @platform.WindowId, @primitives.CompositionEvent) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::present(Self, @platform.WindowId, @scene.SceneSnapshot) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::read_clipboard(Self) -> Result[String, @diagnostics.FrameworkError]
@@ -106,6 +109,7 @@ pub fn Host::set_title(Self, @platform.WindowId, String) -> Result[Unit, @diagno
 pub fn Host::start() -> Result[Self, @diagnostics.FrameworkError]
 pub fn Host::state(Self) -> HostState
 pub fn Host::stop(Self) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn Host::terminal_preview_receipt(Self) -> Result[TerminalPreviewReceipt?, @diagnostics.FrameworkError]
 pub fn Host::update_text_session(Self, @platform.WindowId, Int, @text.TextDocument, @primitives.Rect, external_edit? : Bool) -> Result[Int, @diagnostics.FrameworkError]
 pub fn Host::wake(Self) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn Host::window_metrics(Self, @platform.WindowId) -> Result[(Double, Double, Double), @diagnostics.FrameworkError]
@@ -154,6 +158,32 @@ pub(all) struct OutputInfo {
 } derive(Eq)
 pub fn OutputInfo::equal(Self, Self) -> Bool
 pub fn OutputInfo::not_equal(Self, Self) -> Bool
+
+pub struct RetainedEditorRecord {
+  // private fields
+}
+pub fn RetainedEditorRecord::ack(Self) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn RetainedEditorRecord::composition_epoch(Self) -> Int
+pub fn RetainedEditorRecord::direct_epoch(Self) -> Int
+pub fn RetainedEditorRecord::event(Self) -> EditorEvent?
+pub fn RetainedEditorRecord::is_direct_origin(Self) -> Bool
+pub fn RetainedEditorRecord::is_revoked(Self) -> Bool
+pub fn RetainedEditorRecord::is_stale(Self) -> Bool
+pub fn RetainedEditorRecord::raw_field(Self, Int) -> Double?
+pub fn RetainedEditorRecord::sequence(Self) -> Int
+pub fn RetainedEditorRecord::window(Self) -> @platform.WindowId
+
+pub struct TerminalPreviewReceipt {
+  // private fields
+}
+pub fn TerminalPreviewReceipt::cursor_bytes(Self) -> Int?
+pub fn TerminalPreviewReceipt::epoch(Self) -> Int
+pub fn TerminalPreviewReceipt::handoff(Self, @platform.WindowId, Int) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn TerminalPreviewReceipt::preview(Self) -> String
+pub fn TerminalPreviewReceipt::proxy_generation(Self) -> Int
+pub fn TerminalPreviewReceipt::seat(Self) -> Int64
+pub fn TerminalPreviewReceipt::watermark(Self) -> Int
+pub fn TerminalPreviewReceipt::window(Self) -> @platform.WindowId
 
 pub struct TextHostRoute {
   // private fields

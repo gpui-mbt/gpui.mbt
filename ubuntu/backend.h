@@ -20,6 +20,13 @@ int32_t gpui_stop(int32_t host);
 int32_t gpui_wake(int32_t host);
 int32_t gpui_exit(int32_t host);
 int32_t gpui_state(int32_t host);
+/* Experimental opt-in and terminal preview handoff. The owner must retain the
+ * corresponding editing session; this receipt is not an event ACK. */
+int32_t gpui_terminal_retention_enable(int32_t host);
+int32_t gpui_terminal_preview_receipt(int32_t host, double *fields,
+    int32_t field_capacity, uint8_t *text, int32_t text_capacity);
+int32_t gpui_terminal_preview_handoff(int32_t host, int32_t receipt_id,
+    int32_t window, int32_t epoch, int32_t watermark);
 /* Side-effect-free owner/lifetime check for UI-thread adapters. */
 int32_t gpui_owner_thread_check(int32_t host);
 int32_t gpui_create(int32_t host, int32_t width, int32_t height,
@@ -41,6 +48,8 @@ int32_t gpui_metrics(int32_t host, int32_t window, double *metrics);
 int32_t gpui_output_snapshot_v1(int32_t abi, int32_t host, double *records,
                                 int32_t capacity);
 int32_t gpui_dispatch(int32_t host, int32_t timeout_ms);
+/* Pump without dequeuing, only when the retained FIFO is empty. */
+int32_t gpui_dispatch_retained(int32_t host, int32_t timeout_ms);
 int32_t gpui_next(int32_t host, double *event);
 /* Private copied direct-keyboard text ingress. `event` must be non-null and
  * have at least 10 doubles. Negative capacities, or NULL text with a positive
@@ -116,6 +125,12 @@ int32_t gpui_text_session_panel(int32_t host, int32_t window, int32_t epoch,
  * ABI1/2 readers reject an editor head without consuming it. */
 int32_t gpui_next_editor(int32_t abi, int32_t host, double *event,
     int32_t event_capacity, uint8_t *text, int32_t text_capacity);
+/* Retaining ingress: peek never removes the head. stale reports native
+ * target invalidation; it is not permission to retarget or drop the record. */
+int32_t gpui_peek_retained_editor(int32_t abi, int32_t host, double *event,
+    int32_t event_capacity, uint8_t *text, int32_t text_capacity,
+    int32_t *metadata, int32_t metadata_capacity);
+int32_t gpui_ack_retained_editor(int32_t host, int32_t window, int32_t sequence);
 int32_t gpui_present(int32_t host, int32_t window, const double *data,
                      int32_t length);
 /* v2 records: kind(0=quad,1=text), the same19 common fields as v1,

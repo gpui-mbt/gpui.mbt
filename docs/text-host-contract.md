@@ -273,3 +273,36 @@ Each OS route needs its own exact-source profile:
 
 Unavailable profiles remain `NOT_RUN`. Build-only or synthetic-event results do
 not become `PASS`.
+
+### Experimental Ubuntu terminal retention
+
+Ubuntu's `Host::enable_terminal_retention` selects a separate experimental
+reader before any text or direct-keyboard session. The legacy readers then
+return unsupported before dispatching callbacks. `dispatch_retained` pumps
+callbacks only when the FIFO is
+empty and never dequeues a record; Busy makes no progress.
+`peek_retained_editor` leaves the native FIFO head owned by
+the host; its opaque record acknowledges only the same window and sequence.
+Native invalidation marks a stale record; it does not authorize delivery to a
+new window or editor. The consumer must validate the captured session and its
+own root/field binding generation. It may acknowledge a text record only after
+its original `TextSession` and resulting shared-model actions are applied, or
+after a suspended owner retaining that exact processing stage is handed off.
+Nontext records need an explicit terminal policy. A native dequeue, a scene
+failure, or an empty application buffer alone is not an acknowledgement.
+
+An unresolved bounded composition preview is reported separately through
+`terminal_preview_receipt`; it is not an OS commit or cancel. Its one-shot
+handoff requires the original window and native epoch and only transfers the
+preview obligation; it does not authenticate a consumer field or apply a
+record. Stop rejects a pending FIFO or preview. Buffer exhaustion or a
+terminal lifecycle error is not a completed shutdown: the caller must retain
+and inspect the host and any removed owner state. `try_end_when_drained`
+remains a native cutoff and can itself generate a lifecycle record which must
+be read and acknowledged before stop.
+
+This is not yet connected to `OrderedTextHostRoute` or Yami Shared Settings.
+It does not provide a new OS composition after focus/epoch loss, a portable
+cross-layer geometry transaction, or Linux live-IME acceptance. In particular,
+keeping a snapshot across blur does not mean that a later OS callback for the
+invalidated native session was received.

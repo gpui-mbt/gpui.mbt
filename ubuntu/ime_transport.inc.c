@@ -143,8 +143,27 @@ static int composition_transaction(struct host *h, struct ime_payload *data) {
   return status;
 }
 static int ime_lifecycle_record(struct host *h, int kind) {
-  if (h->ime.composition_enabled)
+  if (h->ime.composition_enabled) {
+    if (kind == 23 && h->terminal_retention && h->ime.composition_preview) {
+      /* Retain an unresolved owner obligation; Left is not an OS Cancel. */
+      if (!h->terminal_preview_pending) {
+        /* A new session cannot start after the last receipt ID. */
+        if (h->terminal_receipt_generation == INT_MAX)
+          return input_failure(h, GPUI_RESOURCE);
+        ++h->terminal_receipt_generation;
+        h->terminal_preview = h->ime.composition_cache;
+        h->terminal_preview.kind = 27;
+        h->terminal_preview.window = h->window;
+        h->terminal_preview.epoch = h->ime.epoch;
+        h->terminal_preview.seat = h->ime.wire_seat;
+        h->terminal_preview.proxy_generation = h->ime.proxy_generation;
+        h->terminal_preview_watermark = h->seq;
+        h->terminal_preview_pending = 1;
+      }
+      return GPUI_OK;
+    }
     return kind == 23 ? composition_resolve(h, 0) : GPUI_OK;
+  }
   if (h->ime.wire_epoch <= 0 || !h->ime.wire_seat || !h->window)
     return GPUI_OK;
   struct ime_payload data = {0};
@@ -331,12 +350,30 @@ static void ime_preserve_before_focus_loss(struct host *h) {
       data->focus_loss_delivery = 1;
   }
 }
-/* A terminal window close supersedes an earlier natural-focus delivery.
- * Clearing the admission bit keeps the normal stale-epoch filter authoritative. */
+/* Legacy close semantics revoke the focus-loss delivery exception. */
 static void ime_revoke_focus_loss_delivery(struct host *h) {
   for (int i = 0; i < h->count; ++i) {
     int slot = (h->read + i) % QUEUE_CAPACITY;
     if (h->ime_queue[slot]) h->ime_queue[slot]->focus_loss_delivery = 0;
+  }
+}
+/* Pin only records already valid for the old owner at terminal admission.
+ * The reader exposes their captured window and epoch, even after teardown;
+ * callers must route or retain them for that owner, never a replacement. */
+static void ime_preserve_before_terminal(struct host *h) {
+  for (int i = 0; i < h->count; ++i) {
+    int slot = (h->read + i) % QUEUE_CAPACITY;
+    struct ime_payload *data = h->ime_queue[slot];
+    if (!data || data->kind < 20 || data->kind > 22 ||
+        data->window != h->window || data->seat != h->seat_name ||
+        data->proxy_generation != h->ime.proxy_generation ||
+        !h->ime.proxy || !h->seat || !h->surface || h->state || h->error)
+      continue;
+    int current = h->ime.requested && data->epoch == h->ime.epoch &&
+        (data->kind == 22 || ime_serial_current(h, (uint32_t)data->serial));
+    int prior_focus = data->focus_loss_delivery && !h->ime.requested &&
+        data->epoch < INT_MAX && data->epoch + 1 == h->ime.epoch;
+    if (current || prior_focus) data->terminal_delivery = 1;
   }
 }
 static void ime_invalidate(struct host *h, int emit_leave, int deactivate) {
@@ -491,6 +528,8 @@ static int ime_payload_valid(const struct ime_payload *data) {
       (data->composition_revoked && data->kind < 26) ||
       (data->focus_loss_delivery != 0 && data->focus_loss_delivery != 1) ||
       (data->focus_loss_delivery && data->kind > 22) ||
+      (data->terminal_delivery != 0 && data->terminal_delivery != 1) ||
+      (data->terminal_delivery && data->kind > 22) ||
       data->epoch <= 0 || !data->seat || data->proxy_generation <= 0 ||
       data->text_length < 0 || data->text_length > GPUI_IME_MAX_BYTES ||
       data->fallback_length < 0 || data->fallback_length > GPUI_IME_MAX_BYTES ||
@@ -893,6 +932,10 @@ int32_t gpui_text_session_begin(int32_t token, int32_t window,
   int status = window_check(token, window, &h);
   if (status)
     return -status;
+  if (h->terminal_retention && h->terminal_preview_pending)
+    return -GPUI_BUSY;
+  if (h->terminal_retention && h->terminal_receipt_generation == INT_MAX)
+    return -GPUI_RESOURCE;
   if (h->state)
     return -GPUI_STOPPING;
   if (h->error)
@@ -951,6 +994,10 @@ int32_t gpui_text_session_update(int32_t token, int32_t window, int32_t epoch,
   if ((external_edit != 0 && external_edit != 1) ||
       !ime_document_valid(text, length, cursor, anchor, width, height))
     return -GPUI_INVALID;
+  /* The host cannot acknowledge records already handed to the caller; this
+   * fence only prevents invalidating records still in the native queue. */
+  if (h->terminal_retention && external_edit && h->count)
+    return -GPUI_BUSY;
   if (h->ime.latest_serial == INT_MAX ||
       (external_edit && h->ime.epoch == INT_MAX)) {
     h->ime.exhausted = 1;
@@ -995,6 +1042,7 @@ int32_t gpui_text_session_end(int32_t token, int32_t window, int32_t epoch) {
   int status = ime_session_check(token, window, epoch, &h);
   if (status)
     return status;
+  if (h->terminal_retention && h->count) return GPUI_BUSY;
   ime_invalidate(h, 1, 1);
   return h->ime.exhausted ? GPUI_RESOURCE : h->error;
 }
@@ -1058,6 +1106,11 @@ int32_t gpui_text_composition_finish(int32_t token, int32_t window, int32_t comm
   if (h->state) return GPUI_STOPPING;
   if (h->ime.exhausted) return GPUI_RESOURCE;
   if (h->error) return h->error;
+  if (h->terminal_retention && h->count) return GPUI_BUSY;
+  /* Resolving a preview itself admits a record. The existing finish operation
+   * has no receipt with which to acknowledge it before epoch invalidation. */
+  if (h->terminal_retention && h->ime.composition_preview)
+    return GPUI_UNSUPPORTED;
   status = commit ? composition_resolve(h, 1) : composition_cancel_unread(h);
   if (status) return status;
   if (!h->ime.requested) return GPUI_OK;
@@ -1071,6 +1124,7 @@ int32_t gpui_text_composition_mode(int32_t token, int32_t window, int32_t enable
   if (enabled != 0 && enabled != 1) return GPUI_INVALID;
   if (!enabled) {
     if (!h->ime.composition_enabled) return GPUI_OK;
+    if (h->terminal_retention && h->count) return GPUI_BUSY;
     status = composition_cancel_unread(h);
     if (status) return status;
     ime_invalidate(h, 0, 1);
