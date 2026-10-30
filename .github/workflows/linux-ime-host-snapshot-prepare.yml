@@ -1,0 +1,96 @@
+name: Linux IME frozen host prepare-only candidate
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/linux-ime-host-snapshot-prepare.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  host-snapshot:
+    runs-on: ubuntu-24.04
+    container: debian:13@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308
+    timeout-minutes: 20
+    steps:
+      - name: Bootstrap HTTPS in disposable container
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl
+      - name: Select and verify signed historical Debian snapshot
+        run: |
+          set -eu
+          printf '%s\n' \
+            'deb [check-valid-until=no signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] https://snapshot.debian.org/archive/debian/20261027T000000Z/ trixie main' \
+            'deb [check-valid-until=no signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] https://snapshot.debian.org/archive/debian-security/20261027T000000Z/ trixie-security main' > /tmp/gpui-frozen-sources.list
+          apt-get -o Dir::Etc::sourcelist=/tmp/gpui-frozen-sources.list -o Dir::Etc::sourceparts=- update
+          printf '%s  %s\n' \
+            '0584fba32e13e0ab8285fb16c27adea1ec03a73669c18702821094fd6ca86675' '/var/lib/apt/lists/snapshot.debian.org_archive_debian_20261027T000000Z_dists_trixie_InRelease' \
+            'dfab8e28ea58bbf3bc3840bbd099d3e52ed44f72e447220e0b1b7c12ab0c0baf' '/var/lib/apt/lists/snapshot.debian.org_archive_debian-security_20261027T000000Z_dists_trixie-security_InRelease' | sha256sum -c -
+      - name: Prepare frozen host packages without launching native input
+        run: |
+          apt-get -o Dir::Etc::sourcelist=/tmp/gpui-frozen-sources.list -o Dir::Etc::sourceparts=- install -y --allow-downgrades --no-install-recommends ca-certificates git curl build-essential pkg-config python3 python3-pil dbus-daemon libnotify4 libgtk-3-0t64 libgtk2.0-0t64 libgspell-1-3 weston gir1.2-gtk-3.0 gir1.2-ibus-1.0 libunwind8 libgl1 x11-xkb-utils libegl1 libgles2 libgl1-mesa-dri libgbm1 libx11-6 libxtst6 libxfont2 libxrender1 libxext6 libxfixes3 libxau6 libxdmcp6 libpixman-1-0 libepoxy0 libdrm2 libudev1 libinput10 libxcb1 libxcursor1 libxkbcommon0 libwayland-client0 libwayland-server0 libwayland-cursor0 libwayland-egl1 imagemagick tesseract-ocr tesseract-ocr-eng patch xz-utils passwd util-linux
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          repository: gpui-mbt/gpui.mbt
+          run-id: 40438828021
+          artifact-ids: 12706040730
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpui-ime-frozen-reference
+      - name: Compare reviewed preparation inventory and executables
+        env:
+          REFERENCE_ROOT: ${{ runner.temp }}/gpui-ime-frozen-reference
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, re, stat, subprocess
+          from pathlib import Path
+          root = Path(os.environ['REFERENCE_ROOT'])
+          if root.is_symlink() or not root.is_dir():
+              raise SystemExit('invalid reference root')
+          def read(name):
+              if name not in ('prepare-result.json', 'host.log', 'host-executables.json'):
+                  raise ValueError('unexpected name')
+              p = root / name
+              st = p.lstat()
+              if not stat.S_ISREG(st.st_mode) or st.st_size > 1048576:
+                  raise ValueError('unsafe reference file')
+              return p.read_bytes()
+          receipt = read('prepare-result.json')
+          if hashlib.sha256(receipt).hexdigest() != '6ef6331d926bf62e0b4d57344e2a4fba86a6fe76e8d98dafd06c004b3f4081a2':
+              raise SystemExit('prepared reference receipt differs from reviewed digest')
+          result = json.loads(receipt)
+          if result.get('preparation_status') != 'PREPARED' or result.get('native_status') != 'NOT_RUN':
+              raise SystemExit('reference is not a prepare-only result')
+          old = read('host.log')
+          exe = read('host-executables.json')
+          if hashlib.sha256(old).hexdigest() != result['host_inventory_sha256'] or hashlib.sha256(exe).hexdigest() != result['host_executables_sha256']:
+              raise SystemExit('reference digest mismatch')
+          def packages(text):
+              result = {}
+              for line in text.splitlines():
+                  m = re.fullmatch(r'([a-z0-9][a-z0-9+.-]*(?::[a-z0-9]+)?)\s+([0-9][A-Za-z0-9.+:~_-]*)', line)
+                  if m:
+                      if m[1] in result: raise ValueError('duplicate package')
+                      result[m[1]] = m[2]
+              return result
+          baseline = packages(old.decode('utf-8'))
+          if len(baseline) < 100: raise SystemExit('incomplete baseline inventory')
+          current = packages(subprocess.check_output(['dpkg-query', '-W'], text=True))
+          missing_or_changed = [(name, version, current.get(name)) for name, version in baseline.items() if current.get(name) != version]
+          for name, before, after in missing_or_changed:
+              print('package drift:', name, before, after)
+          identities = json.loads(exe)['host_executables']
+          for name in ('/usr/bin/convert', '/usr/bin/dbus-daemon', '/usr/bin/python3'):
+              expected = identities[name]['sha256']
+              if not re.fullmatch('[0-9a-f]{64}', expected): raise ValueError('invalid executable hash')
+              actual = hashlib.sha256(Path(name).read_bytes()).hexdigest()
+              print('executable match:', name, actual == expected)
+              if actual != expected: missing_or_changed.append((name, expected, actual))
+          print('baseline packages:', len(baseline), 'drift count:', len(missing_or_changed))
+          print('native_status: NOT_RUN; approved_for_execution: false')
+          if missing_or_changed: raise SystemExit('host snapshot differs from prepared inventory')
+          PY
+      - name: Record execution scope
+        if: always()
+        run: |
+          echo 'native_status: NOT_RUN; approved_for_execution: false'
