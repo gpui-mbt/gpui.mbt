@@ -1189,6 +1189,7 @@ static void keyboard_leave(void *d, struct wl_keyboard *k, uint32_t serial,
   struct host *h = d;
   if (k != h->keyboard)
     return;
+  ime_preserve_before_focus_loss(h);
   ime_invalidate(h, 1, 1);
   h->ime.composition_direct_pending = 0;
   reset_direct_text(h, 1, 0);

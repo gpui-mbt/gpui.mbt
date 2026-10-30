@@ -69,8 +69,15 @@ convert UTF-8/UTF-16 boundaries with checked arithmetic. This transport does not
 apply those text semantics. Multiple deletion records within one pending commit
 are rejected by this bounded profile, rather than silently overwritten.
 
-Focus loss, close, destroy and removed seats/proxies clear pending staging and
-invalidate the composition target before their lifecycle event. Stock IBus's
+Natural keyboard or input-method focus loss clears pending staging and revokes
+the target for new callbacks. Already admitted text records from that target
+remain in the native FIFO before its `Left` and focus-loss events, provided the
+window, seat and proxy still match and no replacement session has begun. The
+consumer must still check the captured target and process the records in order;
+their delivery does not prove the IME has become quiescent. Explicit cancel or
+end while the epoch is current, replacement, close, destroy and removed
+seats/proxies do not grant this delivery: they continue to fence unread
+old-target records. Stock IBus's
 v1 reset handler is empty, so external edits and cancellation serialize
 `deactivate -> leave -> activate`. Immediate refocus waits for the old leave;
 delayed old-proxy or old-serial events cannot attach to the replacement target.
