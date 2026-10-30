@@ -98,6 +98,21 @@ outcome is unknown, the adapter must keep it pending or report the limitation.
 The caller must not use unrelated `Host` poll methods while the ordered route
 owns the session. The legacy cancel/end behavior is unchanged.
 
+### Explicit owner discard is not an OS observation
+
+`TextSession::complete_blur_by_owner_discard` is a separate portable operation
+for an application owner that has received an explicit user request to discard
+an active preview. It reports `SessionOutcome::OwnerDiscarded`, not an
+`ObservedEnd::Cancelled`. Before invoking it the owner must process all
+accepted old-binding observations and establish the applicable host cutoff.
+The method cannot verify a host cutoff, infer what an undispatched callback
+would have done, or authorize discarding on a bare Tab or focus change.
+Failure leaves the pending end and its field intact. On success the original
+committed document, selection and undo/redo state survive the discard, and the
+session advances before blur; old targets and pending tokens are rejected.
+An owner must choose a user-visible fallback when it cannot establish the
+cutoff or the user has not explicitly requested discard.
+
 ## Event values
 
 `TextInputEvent` carries `window`, `sequence`, `epoch` and `kind` so an adapter

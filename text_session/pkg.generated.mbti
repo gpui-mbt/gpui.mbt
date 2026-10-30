@@ -73,6 +73,7 @@ pub(all) enum SessionOutcome {
   Previewed(@text_field.TextField)
   Committed(@text_field.TextField)
   Cancelled(@text_field.TextField)
+  OwnerDiscarded(@text_field.TextField)
   Blurred(@text_field.TextField)
   Rebound(@text_field.TextField)
 }
@@ -106,6 +107,7 @@ pub struct TextSession {
 pub fn TextSession::apply_batch(Self, SessionTarget, Array[SessionOperation], (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]
 pub fn TextSession::close(Self) -> Result[Unit, SessionError]
 pub fn TextSession::complete_blur(Self, PendingEnd, ObservedEnd, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]
+pub fn TextSession::complete_blur_by_owner_discard(Self, PendingEnd, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]
 pub fn TextSession::complete_replacement(Self, PendingEnd, ObservedEnd, @platform.WindowId, UInt64, @text_field.TextField, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]
 pub fn TextSession::new(@platform.WindowId, UInt64, @text_field.TextField) -> Result[Self, SessionError]
 pub fn TextSession::rearm(Self) -> Result[Unit, SessionError]

@@ -56,6 +56,9 @@ pub(all) enum SessionOutcome {
   Previewed(@text_field.TextField)
   Committed(@text_field.TextField)
   Cancelled(@text_field.TextField)
+  /// The application deliberately discarded preedit after its own cutoff;
+  /// this is not an observation that the operating system canceled it.
+  OwnerDiscarded(@text_field.TextField)
   Blurred(@text_field.TextField)
   Rebound(@text_field.TextField)
 }
