@@ -37,6 +37,7 @@ bounded and a full queue reports failure instead of dropping a record.
   current epoch. A replacement may advance the epoch. The state carries the
   committed `TextDocument`, the logical caret rectangle, and an optional
   display-only preedit.
+
 - `cancel_text_input(epoch)` cancels the active composition and returns the
   replacement epoch. It does not commit the preedit. The returned value is the
   only valid epoch for later calls; a host is not required to increment it.
@@ -44,6 +45,15 @@ bounded and a full queue reports failure instead of dropping a record.
   rejected by the host.
 - `next_text_input(timeout_ms?)` drains one ordered observation. A timeout is
   `Ok(None)`, not an error.
+
+On the Ubuntu `TextHostRoute`, portable epoch validation occurs before the
+native update and the portable shadow state is published only after that call
+returns success. An error therefore leaves that shadow value unchanged. This is
+not a guarantee that the native host or compositor rolled back an update: the
+current native path can update its state before a later send fails. Nor does it
+make a geometry update atomic with the view runtime, focus scope or scene. A
+cross-owner coordinator must not interpret this narrower shadow-state guarantee
+as host/compositor failure atomicity.
 
 An epoch is host-issued and never reused across sessions. Numeric values are
 diagnostic; callers must retain the exact value returned by the host. A host

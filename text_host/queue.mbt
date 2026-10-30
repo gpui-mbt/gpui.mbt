@@ -69,13 +69,23 @@ pub fn TextHostQueue::begin(
 }
 
 ///|
+/// Validate that an update can target the current epoch without publishing
+/// portable owner state. This does not inspect or update a native host.
+pub fn TextHostQueue::validate_update(
+  self : TextHostQueue,
+  epoch : UInt64,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  self.check(epoch, "update")
+}
+
+///|
 /// Replace the owner state for the exact current epoch.
 pub fn TextHostQueue::update(
   self : TextHostQueue,
   epoch : UInt64,
   state : TextInputState,
 ) -> Result[UInt64, @diagnostics.FrameworkError] {
-  match self.check(epoch, "update") {
+  match self.validate_update(epoch) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
