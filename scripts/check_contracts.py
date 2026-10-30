@@ -690,6 +690,9 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
             "accessibility", "platform", "platform/linux_text", "platform/testing",
             "text", "text_host", "primitives", "diagnostics", "scene",
         },
+        # Application adapter above the Linux transport and portable editor;
+        # the Ubuntu native leaf must not depend on the live text owner.
+        "platform/ubuntu_app": {"ubuntu", "text_session", "text_host", "diagnostics"},
         # Xlib/EGL is a separate native leaf. Shared rendering stays private;
         # neither backend imports the other, and portable packages cannot import it.
         "x11": {

@@ -1110,6 +1110,37 @@ int32_t gpui_retained_route_end_when_drained(int32_t token, int32_t window,
   h->retained_route_call = 0;
   return result;
 }
+/* A matching Left has already been acknowledged by the owning route. This
+ * validates native cutoff only; it cannot resolve the editor's composition. */
+int32_t gpui_retained_route_check_left(int32_t token, int32_t window,
+                                       int32_t epoch, int64_t seat,
+                                       int32_t proxy_generation) {
+  struct host *h;
+  int status = retained_route_enter(token, &h);
+  if (status) return status;
+  if (h->count || h->ime.requested || h->ime.phase != IME_INACTIVE)
+    status = GPUI_BUSY;
+  else if (h->state || h->error || !h->surface || !h->ime.proxy || !h->seat ||
+           h->ime.exhausted || epoch <= 0 || epoch == INT_MAX ||
+           h->window != window || h->ime.wire_window != window ||
+           h->ime.wire_epoch != epoch || h->ime.epoch != epoch + 1 ||
+           seat <= 0 || (uint64_t)seat != h->ime.wire_seat ||
+           (uint64_t)seat != h->seat_name ||
+           proxy_generation <= 0 || h->ime.proxy_generation != proxy_generation)
+    status = GPUI_STALE;
+  h->retained_route_call = 0;
+  return status;
+}
+int32_t gpui_retained_route_check_window(int32_t token, int32_t window) {
+  struct host *h;
+  int status = retained_route_enter(token, &h);
+  if (status) return status;
+  if (h->count) status = GPUI_BUSY;
+  else if (window <= 0 || h->window != window || !h->surface ||
+           h->state || h->error) status = GPUI_STALE;
+  h->retained_route_call = 0;
+  return status;
+}
 /* Reader implementation is placed after ABI2 consume helpers below. */
 int32_t gpui_text_session_panel(int32_t token, int32_t window, int32_t epoch,
                                 int32_t visible) {

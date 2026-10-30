@@ -202,6 +202,7 @@ pub struct RetainedOrderedRoute {
 }
 pub fn RetainedOrderedRoute::begin(Self, @platform.WindowId, UInt64, @text_host.TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::binding_epoch(Self) -> UInt64?
+pub fn RetainedOrderedRoute::end_after_left(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::native_epoch(Self) -> Int?
 pub fn RetainedOrderedRoute::new(Host) -> Result[Self, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::peek(Self) -> Result[RetainedOrderedReceipt?, @diagnostics.FrameworkError]

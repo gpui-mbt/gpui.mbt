@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/gpui/platform/ubuntu_app"
+
+import {
+  "f4ah6o/gpui/diagnostics",
+  "f4ah6o/gpui/text_host",
+  "f4ah6o/gpui/text_session",
+  "f4ah6o/gpui/ubuntu",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct OwnedTextRoute {
+  // private fields
+}
+pub fn OwnedTextRoute::begin(Self, @text_session.TextSession, @text_host.TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
+pub fn OwnedTextRoute::binding_epoch(Self) -> UInt64?
+pub fn OwnedTextRoute::end_after_left(Self, UInt64, @text_session.BatchReceipt) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn OwnedTextRoute::native_epoch(Self) -> Int?
+pub fn OwnedTextRoute::new(@ubuntu.Host) -> Result[Self, @diagnostics.FrameworkError]
+pub fn OwnedTextRoute::peek(Self) -> Result[@ubuntu.RetainedOrderedReceipt?, @diagnostics.FrameworkError]
+pub fn OwnedTextRoute::release(Self, UInt64, @text_session.BatchReceipt) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn OwnedTextRoute::try_end_when_drained(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn OwnedTextRoute::update(Self, UInt64, @text_host.TextInputState) -> Result[Unit, @diagnostics.FrameworkError]
+
+// Type aliases
+
+// Traits
