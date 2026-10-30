@@ -106,6 +106,19 @@ Tesseract and the exact Japanese model. They are evidence tooling only; they
 are not product runtime dependencies. The unit tests use an injected OCR result
 to exercise failure handling and do not claim to validate Tesseract accuracy.
 
+`candidate_lookup_trace.py LOG --context /org/freedesktop/IBus/InputContext_N`
+uses the strict D-Bus parser to find unique Space/Up/Return and
+Space/Escape/Escape input sequences and their intervening lookup updates and
+hide calls. It reports the log digest, exact frame numbers and decoded rows;
+ambiguous sequences or intervening unfamiliar context/panel methods are not
+selected. A first Escape can leave a visible
+prediction list, so its update is retained separately from the later hide.
+This is an offline diagnostic: log order does not authenticate a panel sender,
+prove the supplied input context, bind a lookup update to displayed pixels, or
+prove that the panel disappeared from the screen. Its acceptance field remains
+false, even when both sequences are found. Preserve the original log and screen
+evidence; do not use this report as an automatic candidate-table PASS.
+
 ## Immutable original runtime and candidate overlay
 
 `prepare-gpui-deployment.py` generates an evidence-local candidate overlay above the SHA-256-pinned frozen baseline lock. Candidate-specific pins stay outside the source checkout to avoid a build-manifest self-reference. Before overlay preparation, launcher preparation, --check and native execution, established build_manifest.verify_build_manifest verifies the exact current commit/tree/worktree and binary, including verify_runtime over tools, generated protocols, fonts and runtime trees. The verified source/binary identities and closure inventory are retained. Preflight also verifies every frozen baseline byte. Historical read-only replay uses saved bytes and identities without requiring today’s source; an old diagnostic cannot claim the new exact-current held tier. It does not substitute the recovered engine.
