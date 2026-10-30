@@ -37,6 +37,34 @@ fn private_owner() -> TextSession {
 }
 
 ///|
+test "bounds preparation is rejected reentrantly and poisons outer publish" {
+  let session = private_owner()
+  let before = session.snapshot()
+  let target = session.target().unwrap()
+  let nested_rejected = [false]
+  let result = session.apply_batch(
+    target,
+    [PreviewUtf8("X", 1, 1)],
+    fn(document) {
+      nested_rejected[0] = session.prepare_bounds(
+          target,
+          @primitives.Rect::new(0.0, 0.0, 140.0, 36.0).unwrap(),
+        )
+        is Err(Reentrant)
+      private_measure(document)
+    },
+    (_, _) => Ok(()),
+  )
+  assert_true(nested_rejected[0])
+  assert_true(result is Err(Reentrant))
+  let after = session.snapshot()
+  assert_true(after.field().document() == before.field().document())
+  assert_true(after.field().bounds() == before.field().bounds())
+  assert_eq(after.published_revision(), before.published_revision())
+  assert_eq(after.delivery_watermark(), before.delivery_watermark())
+}
+
+///|
 test "private incarnation shared probe is stable symmetric and restores markers" {
   let first = identity()
   let shared = first

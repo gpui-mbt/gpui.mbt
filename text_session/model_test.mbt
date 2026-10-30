@@ -144,6 +144,103 @@ fn assert_snapshot(
 }
 
 ///|
+test "bounds proposal preserves composing owner, watermark, commit and undo" {
+  let session = owner()
+  ignore(apply(session, [preview("にほん")]))
+  let before = session.snapshot()
+  let old_target = session.target().unwrap()
+  let bounds = @primitives.Rect::new(16.0, 12.0, 160.0, 36.0).unwrap()
+  let proposal = session.prepare_bounds(old_target, bounds).unwrap()
+  assert_snapshot(before, session.snapshot())
+  assert_true(proposal.field().bounds() == bounds)
+  assert_true(proposal.field().is_composing())
+  assert_true(
+    proposal.field().committed_document() == before.field().committed_document(),
+  )
+  let after = session.publish_bounds(proposal).unwrap()
+  assert_true(after.field().bounds() == bounds)
+  assert_true(after.field().is_composing())
+  assert_eq(after.session_id(), before.session_id())
+  assert_eq(after.delivery_watermark(), before.delivery_watermark())
+  assert_eq(
+    after.committed_document_revision(),
+    before.committed_document_revision(),
+  )
+  assert_eq(after.published_revision(), before.published_revision())
+  assert_true(
+    session.publish_bounds(proposal) is Err(@text_session.StaleRevision),
+  )
+  // A captured text observation remains with its original owner and target.
+  ignore(
+    session
+    .apply_batch(old_target, [@text_session.Commit("日本")], measure, admit)
+    .unwrap(),
+  )
+  assert_true(
+    session.apply_batch(
+      old_target,
+      [@text_session.Commit("日本")],
+      measure,
+      admit,
+    )
+    is Err(@text_session.Replay),
+  )
+  let committed = session.snapshot().field()
+  assert_eq(committed.committed_document().text(), "a日本d")
+  assert_true(committed.bounds() == bounds)
+  let undone = committed.undo(measure, admit).unwrap()
+  assert_eq(undone.committed_document().text(), "abcd")
+  assert_true(undone.bounds() == bounds)
+}
+
+///|
+test "invalid and stale bounds proposals leave original composition intact" {
+  let session = owner()
+  ignore(apply(session, [preview("にほん")]))
+  let before = session.snapshot()
+  let bad = @primitives.Rect::new(0.0, 0.0, 1.0, 2.0).unwrap()
+  assert_true(session.prepare_bounds(session.target().unwrap(), bad) is Err(_))
+  assert_snapshot(before, session.snapshot())
+  let proposal = session
+    .prepare_bounds(
+      session.target().unwrap(),
+      @primitives.Rect::new(2.0, 3.0, 160.0, 36.0).unwrap(),
+    )
+    .unwrap()
+  let other = owner()
+  assert_true(other.publish_bounds(proposal) is Err(@text_session.ForeignOwner))
+  ignore(apply(session, [preview("にほんご")]))
+  let newer = session.snapshot()
+  assert_true(session.publish_bounds(proposal) is Err(_))
+  assert_snapshot(newer, session.snapshot())
+  ignore(apply(session, [@text_session.Cancel]))
+  let canceled = session.snapshot().field()
+  assert_eq(canceled.committed_document().text(), "abcd")
+  assert_false(canceled.is_composing())
+  assert_true(canceled.bounds() == before.field().bounds())
+}
+
+///|
+test "bounds adoption keeps composition rollback and focused owner" {
+  let session = owner()
+  let before = session.snapshot()
+  ignore(apply(session, [preview("にほん")]))
+  let bounds = @primitives.Rect::new(12.0, 6.0, 140.0, 36.0).unwrap()
+  let proposal = session
+    .prepare_bounds(session.target().unwrap(), bounds)
+    .unwrap()
+  ignore(session.publish_bounds(proposal).unwrap())
+  ignore(apply(session, [@text_session.Cancel]))
+  let after = session.snapshot()
+  assert_true(after.field().bounds() == bounds)
+  assert_true(after.field().is_focused())
+  assert_false(after.field().is_composing())
+  assert_true(after.field().document() == before.field().document())
+  assert_true(after.field().selection() == before.field().selection())
+  assert_eq(after.field().can_undo(), before.field().can_undo())
+}
+
+///|
 test "directional repeated Japanese previews commit once with original history" {
   let session = owner()
   let original = session.snapshot().field()

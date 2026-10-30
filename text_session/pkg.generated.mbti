@@ -4,6 +4,7 @@ package "f4ah6o/gpui/text_session"
 import {
   "f4ah6o/gpui/controls/text_field",
   "f4ah6o/gpui/platform",
+  "f4ah6o/gpui/primitives",
   "f4ah6o/gpui/text",
   "f4ah6o/gpui/text_layout",
 }
@@ -20,6 +21,11 @@ pub fn BatchReceipt::accepted_target(Self) -> SessionTarget
 pub fn BatchReceipt::acknowledges(Self, SessionTarget) -> Bool
 pub fn BatchReceipt::outcomes(Self) -> Array[SessionOutcome]
 pub fn BatchReceipt::snapshot(Self) -> SessionSnapshot
+
+pub struct BoundsProposal {
+  // private fields
+}
+pub fn BoundsProposal::field(Self) -> @text_field.TextField
 
 pub(all) enum EndReason {
   Blur
@@ -112,6 +118,8 @@ pub fn TextSession::complete_blur_by_owner_discard(Self, PendingEnd, (@text.Text
 pub fn TextSession::complete_blur_if_uncomposed(Self, PendingEnd) -> Result[BatchReceipt, SessionError]
 pub fn TextSession::complete_replacement(Self, PendingEnd, ObservedEnd, @platform.WindowId, UInt64, @text_field.TextField, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]
 pub fn TextSession::new(@platform.WindowId, UInt64, @text_field.TextField) -> Result[Self, SessionError]
+pub fn TextSession::prepare_bounds(Self, SessionTarget, @primitives.Rect) -> Result[BoundsProposal, SessionError]
+pub fn TextSession::publish_bounds(Self, BoundsProposal) -> Result[SessionSnapshot, SessionError]
 pub fn TextSession::rearm(Self) -> Result[Unit, SessionError]
 pub fn TextSession::rebind(Self, @platform.WindowId, UInt64, @text_field.TextField) -> Result[Unit, SessionError]
 pub fn TextSession::request_end(Self, SessionTarget, EndReason) -> Result[PendingEnd, SessionError]

@@ -137,6 +137,22 @@ pub struct BatchReceipt {
 }
 
 ///|
+/// An immutable bounds-only proposal tied to one exact session publication.
+/// It is not authority to publish a scene or change host geometry. A caller may
+/// use the field to prepare those resources. Coordinated publication with other
+/// owners is not provided by this value and requires a separate transaction.
+pub struct BoundsProposal {
+  priv publication : Identity
+  priv target : SessionTarget
+  priv field : @text_field.TextField
+}
+
+///|
+pub fn BoundsProposal::field(self : BoundsProposal) -> @text_field.TextField {
+  self.field
+}
+
+///|
 pub fn BatchReceipt::accepted_target(self : BatchReceipt) -> SessionTarget {
   self.accepted_target
 }

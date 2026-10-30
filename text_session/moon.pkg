@@ -1,5 +1,6 @@
 import {
   "f4ah6o/gpui/platform",
+  "f4ah6o/gpui/primitives",
   "f4ah6o/gpui/text",
   "f4ah6o/gpui/text_layout",
   "f4ah6o/gpui/controls/text_field",
