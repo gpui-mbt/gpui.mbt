@@ -127,6 +127,28 @@ class RestoreTests(unittest.TestCase):
             mod.restore(archive, inventory, receipt)
         self.assertFalse(self.root.exists())
 
+    def test_read_only_member_validation_does_not_authorize_restore(self):
+        archive, inventory, receipt = self.bundle()
+        receipt['approved_for_execution'] = False
+        rows = mod.read_inventory(archive, inventory, receipt)
+        with tarfile.open(archive, 'r:gz') as tar:
+            self.assertEqual(set(mod.validate_members(tar, rows, self.root, receipt)), {'file'})
+        self.assertFalse(self.root.exists())
+        with self.assertRaises(ValueError):
+            mod.restore(archive, inventory, receipt)
+        self.assertFalse(self.root.exists())
+
+    def test_read_only_member_validation_rejects_mismatched_file_content(self):
+        archive, inventory, receipt = self.bundle()
+        rows = json.loads(inventory.read_text())
+        rows[0]['sha256'] = '0' * 64
+        inventory.write_text(json.dumps(rows))
+        receipt['inventory_sha256'] = mod.digest(inventory)
+        by_name = mod.read_inventory(archive, inventory, receipt)
+        with tarfile.open(archive, 'r:gz') as tar, self.assertRaises(ValueError):
+            mod.validate_members(tar, by_name, self.root, receipt)
+        self.assertFalse(self.root.exists())
+
     def test_wrong_digest_rejected_before_write(self):
         archive, inventory, receipt = self.bundle()
         receipt['runtime_sha256'] = '0' * 64
