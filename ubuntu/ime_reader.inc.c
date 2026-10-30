@@ -71,9 +71,9 @@ static int editor_ordinary_valid(const struct host *h, int slot) {
            (kind != 10 || isfinite(data[4]));
   return 1;
 }
-int32_t gpui_next_editor(int32_t abi, int32_t token, double *out,
+static int32_t editor_read(int32_t abi, int32_t token, double *out,
                          int32_t out_capacity, uint8_t *text,
-                         int32_t text_capacity) {
+                         int32_t text_capacity, int retain, int32_t *meta, int32_t meta_capacity) {
   if (abi != GPUI_EDITOR_ABI)
     return -GPUI_UNSUPPORTED;
   if (!out || out_capacity < 0 || text_capacity < 0 ||
@@ -85,8 +85,12 @@ int32_t gpui_next_editor(int32_t abi, int32_t token, double *out,
   int status = check(token, &h);
   if (status)
     return -status;
-  if ((h->ime.exhausted && h->ime.ever_enabled) ||
-      (h->direct_exhausted && h->direct_ever_enabled))
+  if (!!h->terminal_retention != !!retain)
+    return -GPUI_UNSUPPORTED;
+  if (retain && (!meta || meta_capacity < 5))
+    return -GPUI_UNSUPPORTED;
+  if (!retain && ((h->ime.exhausted && h->ime.ever_enabled) ||
+      (h->direct_exhausted && h->direct_ever_enabled)))
     return -GPUI_RESOURCE;
   int skipped = 0;
   while (skipped < h->count) {
@@ -94,12 +98,12 @@ int32_t gpui_next_editor(int32_t abi, int32_t token, double *out,
     if (h->ime_queue[slot] || h->queue[slot][0] >= 20) {
       if (!ime_queued_valid(h, slot))
         return -GPUI_INVALID;
-      if (!ime_queued_stale(h, slot))
+      if (retain || !ime_queued_stale(h, slot))
         break;
     } else {
       if (!editor_ordinary_valid(h, slot))
         return -GPUI_INVALID;
-      if (!stale_direct_record(h, slot))
+      if (retain || !stale_direct_record(h, slot))
         break;
     }
     ++skipped;
@@ -149,7 +153,35 @@ int32_t gpui_next_editor(int32_t abi, int32_t token, double *out,
   } else if (required) {
     memcpy(text, direct->text, (size_t)required);
   }
-  for (int i = 0; i <= skipped; ++i)
-    consume_event(h);
+  if (retain) {
+    meta[0] = data ? ime_queued_stale(h, slot) : stale_direct_record(h, slot);
+    meta[1] = direct->epoch;
+    meta[2] = direct->composition_epoch;
+    meta[3] = direct->revoked;
+    meta[4] = direct->direct_origin;
+  } else {
+    for (int i = 0; i <= skipped; ++i) consume_event(h);
+  }
   return 1;
+}
+int32_t gpui_next_editor(int32_t abi, int32_t token, double *out,
+                         int32_t out_capacity, uint8_t *text,
+                         int32_t text_capacity) {
+  return editor_read(abi, token, out, out_capacity, text, text_capacity, 0, NULL, 0);
+}
+int32_t gpui_peek_retained_editor(int32_t abi, int32_t token, double *out,
+    int32_t out_capacity, uint8_t *text, int32_t text_capacity,
+    int32_t *meta, int32_t meta_capacity) {
+  return editor_read(abi, token, out, out_capacity, text, text_capacity, 1, meta, meta_capacity);
+}
+int32_t gpui_ack_retained_editor(int32_t token, int32_t window, int32_t sequence) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return status;
+  if (!h->terminal_retention) return GPUI_UNSUPPORTED;
+  if (!h->count || window <= 0 || sequence <= 0 ||
+      h->queue[h->read][1] != window || h->queue[h->read][2] != sequence)
+    return GPUI_STALE;
+  consume_event(h);
+  return GPUI_OK;
 }

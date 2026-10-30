@@ -147,6 +147,10 @@ static int ime_lifecycle_record(struct host *h, int kind) {
     if (kind == 23 && h->terminal_retention && h->ime.composition_preview) {
       /* Retain an unresolved owner obligation; Left is not an OS Cancel. */
       if (!h->terminal_preview_pending) {
+        /* A new session cannot start after the last receipt ID. */
+        if (h->terminal_receipt_generation == INT_MAX)
+          return input_failure(h, GPUI_RESOURCE);
+        ++h->terminal_receipt_generation;
         h->terminal_preview = h->ime.composition_cache;
         h->terminal_preview.kind = 27;
         h->terminal_preview.window = h->window;
@@ -930,6 +934,8 @@ int32_t gpui_text_session_begin(int32_t token, int32_t window,
     return -status;
   if (h->terminal_retention && h->terminal_preview_pending)
     return -GPUI_BUSY;
+  if (h->terminal_retention && h->terminal_receipt_generation == INT_MAX)
+    return -GPUI_RESOURCE;
   if (h->state)
     return -GPUI_STOPPING;
   if (h->error)

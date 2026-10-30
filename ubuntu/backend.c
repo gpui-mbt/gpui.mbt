@@ -82,6 +82,7 @@ enum input_serial_origin {
 struct host {
   int token, window, state, wake_fd, error;
   int terminal_retention, terminal_preview_pending, terminal_preview_watermark;
+  int terminal_receipt_generation;
   struct ime_payload terminal_preview;
   pthread_t owner;
   struct wl_display *display;
@@ -1777,6 +1778,57 @@ int32_t gpui_state(int32_t token) {
   struct host *h;
   return check(token, &h) ? 2 : h->state;
 }
+int32_t gpui_terminal_retention_enable(int32_t token) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return status;
+  if (h->terminal_retention) return GPUI_OK;
+  if (h->state) return GPUI_STOPPING;
+  if (h->error) return h->error;
+  if (h->ime.ever_enabled || h->direct_ever_enabled) return GPUI_UNSUPPORTED;
+  if (h->count || h->ime.requested || h->ime.composition_enabled ||
+      h->direct_enabled) return GPUI_BUSY;
+  h->terminal_retention = 1;
+  return GPUI_OK;
+}
+int32_t gpui_terminal_preview_receipt(int32_t token, double *fields,
+    int32_t field_capacity, uint8_t *text, int32_t text_capacity) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return -status;
+  if (!h->terminal_retention) return -GPUI_UNSUPPORTED;
+  if (!fields || field_capacity < 9 || text_capacity < 0 ||
+      (!text && text_capacity)) return -GPUI_INVALID;
+  if (!h->terminal_preview_pending) return 0;
+  struct ime_payload *p = &h->terminal_preview;
+  if (text_capacity < p->text_length) return -GPUI_RESOURCE;
+  double copy[9] = {h->terminal_receipt_generation, p->window, p->epoch,
+      h->terminal_preview_watermark, p->seat, p->proxy_generation,
+      p->text_length, p->cursor_present, p->cursor};
+  memcpy(fields, copy, sizeof(copy));
+  if (p->text_length) memcpy(text, p->text, (size_t)p->text_length);
+  return 1;
+}
+int32_t gpui_terminal_preview_handoff(int32_t token, int32_t receipt_id,
+    int32_t window, int32_t epoch, int32_t watermark) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return status;
+  if (!h->terminal_retention) return GPUI_UNSUPPORTED;
+  if (!h->terminal_preview_pending || receipt_id <= 0 ||
+      receipt_id != h->terminal_receipt_generation ||
+      window != h->terminal_preview.window || epoch != h->terminal_preview.epoch ||
+      watermark != h->terminal_preview_watermark) return GPUI_STALE;
+  if (h->count || h->ime.requested || h->ime.phase == IME_ACTIVE ||
+      h->ime.phase == IME_ACTIVATING) return GPUI_BUSY;
+  /* The caller explicitly owns the retained preview and its editing owner. */
+  h->ime.composition_preview = 0;
+  memset(&h->ime.composition_cache, 0, sizeof(h->ime.composition_cache));
+  memset(&h->terminal_preview, 0, sizeof(h->terminal_preview));
+  h->terminal_preview_pending = 0;
+  h->terminal_preview_watermark = 0;
+  return GPUI_OK;
+}
 int32_t gpui_stop(int32_t token) {
   struct host *h;
   int s = check(token, &h);
@@ -2040,6 +2092,7 @@ int32_t gpui_next(int32_t token, double *out) {
   int s = check(token, &h);
   if (s)
     return -s;
+  if (h->terminal_retention) return -GPUI_UNSUPPORTED;
   if (!out)
     return -GPUI_INVALID;
   if ((h->ime.exhausted && h->ime.ever_enabled) ||
@@ -2102,6 +2155,7 @@ int32_t gpui_next_v2(int32_t abi, int32_t token, double *out,
   int status = check(token, &h);
   if (status)
     return -status;
+  if (h->terminal_retention) return -GPUI_UNSUPPORTED;
   if ((h->ime.exhausted && h->ime.ever_enabled) ||
       (h->direct_exhausted && h->direct_ever_enabled))
     return -GPUI_RESOURCE;
