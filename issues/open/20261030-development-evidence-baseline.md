@@ -125,3 +125,11 @@ Branch: research/20261030-development-evidence-baseline
 mainの6 workflowは同じmain SHAでcompleted/success（[Actions一覧](https://github.com/gpui-mbt/gpui.mbt/actions?query=branch%3Amain)）。#155のrequired statusではLinux reviewed IMEがfailure、他にreal OS-input等がsuccess。これらを候補一覧や共有consumerの実IME成功に昇格しない。今回の環境はDebian 13 x86_64、GUI/IME・MoonBitテスト未実行であり、app binary SHA、lock、toolchain、run URL、artifact digestをこのcheckoutの実行証拠として主張できない。
 
 既存issueの扱い: GP-01Bは公開seamとmacOS実装のchecked条件があるが、冒頭のLinux/Windows説明と古い問題記述は現mainと差があるため履歴として保持し、OS qualificationは0026/0028等に残す。coordinationは共有consumerの実行が未確認なのでopen維持。`docs/shared-ui-host-contract.md`のOS一覧はhost-local時点のsnapshotで、後続追記と併読する。`docs/codebase-gap-analysis.md`はhistorical snapshotである。artifact再取得、consumerのclean依存解決、詳細なprofile別fixtureの監査およびcurrent-status文書の完全な整合は未完了とし、この調査の受入条件を完了にしない。
+
+#### 追加: clean published consumer scripted test
+
+別のclean directoryで、Yami `4405de81b231967388feddde08958d0786b03639` の `tests/published-settings` fixtureをcopyし、manifestの2 dependency versionをgpui `0.10.6`、Yami native `0.2.14`に変更した。`moon update`、`moon test --target native --deny-warn` は **1/1 PASS**（MoonBit `moonc v0.10.15+943464bfa`、Debian 13 x86_64）。このtestはscripted hostで日本語documentとDialog操作・focusを追跡するもので、実GUI、OSイベント、live IME、候補一覧ではない。公開packageとframework source SHAの対応、実行binary digestは未確認であり、現main SHAの実機受入としない。
+
+- ローカル証拠: `/workspace/evidence/clean-settings-20261030/` の `moon.mod`、`dependency-tree.txt`、`test.log`。run URL / remote artifactはなし。dependency treeは解決版でありlock fileではない。
+- 実際のtest log SHA-256 `13087ce1c4b138dda84107f65fcf322e4bf5c684785aa39203d6550d5749a281`、変更後manifest SHA-256 `b35ea7ff34d8d68a02ead4b61a0f0b914187e1c63029c847a407eb959368fdf3`、fixture `settings_test.mbt` SHA-256 `aca7ab6594011babb5ef9c9ac801b2f6bffa3a01e602ceef367dbfee5b3be50d`。
+- 解決版はgpui `0.10.6`、Yami native `0.2.14`、Yami `0.2.3`。fixtureの元のpin（0.10.5 / 0.2.13）とは区別する。harnessはfixture copy、app sourceは公開Yami native packageであり、source SHAとtarballの対応は未監査。
