@@ -26,6 +26,17 @@ Every run must complete all these steps using real input, native protocol, accep
 
 The full qualification additionally requires `--held-shortcuts`, holding Ctrl+A, undo and redo chords for 100ms before genuine OS releases. The immediate tier is diagnostic. A complete `passed` status requires this held tier, actual panel show/hide pixels, and a verified candidate table. The candidate-table oracle is not implemented yet, so this GPUI suite remains `qualified-partial` even when the existing transport and panel pixel checks pass. A failure has exit 1, a qualified partial has exit 2, and only the complete suite has exit 0.
 
+`lookup_table.py` is a **partial, standalone** decoder for an IBus 1.5.32
+panel `UpdateLookupTable` body. It computes the table page and expected
+selection using the serialized cursor and page size. Its unit tests construct
+real GLib variants, but it is not wired into the harness and is not proof of
+what the panel painted. To finish the oracle, authenticate and order the panel
+messages against the active context and injected input, bind each observation
+to an actual captured frame, independently match its visible rows and highlight,
+and verify disappearance after both selection and cancellation. Review and pin
+all changed harness inputs before any new hosted run. The decoder must not turn
+`candidate_table_verified` true on its own.
+
 ## Immutable original runtime and candidate overlay
 
 `prepare-gpui-deployment.py` generates an evidence-local candidate overlay above the SHA-256-pinned frozen baseline lock. Candidate-specific pins stay outside the source checkout to avoid a build-manifest self-reference. Before overlay preparation, launcher preparation, --check and native execution, established build_manifest.verify_build_manifest verifies the exact current commit/tree/worktree and binary, including verify_runtime over tools, generated protocols, fonts and runtime trees. The verified source/binary identities and closure inventory are retained. Preflight also verifies every frozen baseline byte. Historical read-only replay uses saved bytes and identities without requiring today’s source; an old diagnostic cannot claim the new exact-current held tier. It does not substitute the recovered engine.
@@ -40,6 +51,7 @@ Static/read-only checks launch no input or services. Commands with /path/to plac
 
 ```sh
 /usr/bin/python3 infra/linux-desktop/wayland-ime/test_gpui_probe.py
+/usr/bin/python3 infra/linux-desktop/wayland-ime/test_lookup_table.py
 /usr/bin/python3 infra/linux-desktop/wayland-ime/gpui_probe.py --check \
   --deployment /path/to/generated-evidence-overlay.json
 ```
