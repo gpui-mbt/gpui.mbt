@@ -1,0 +1,87 @@
+name: Linux IME image binding prepare-only
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/linux-ime-image-binding-prepare.yml'
+      - 'infra/linux-desktop/wayland-ime/recovery/host-image.candidate.json'
+      - 'infra/linux-desktop/wayland-ime/recovery/host_image_gate.py'
+      - 'infra/linux-desktop/wayland-ime/recovery/test_host_image_gate.py'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare-binding:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Test identity and unapproved boundaries
+        run: python3 -m unittest discover -s infra/linux-desktop/wayland-ime/recovery -p test_host_image_gate.py -v
+      - name: Check fixed artifact metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          expected = [
+              (12987002222, 41074635858, '7a407aebd66d14538d9d9b0d6ca6932f6ad36692', 'sha256:4e06934ee0fa482712802a1e94b14728b4988c1cb8d2804cac9e5973bf34986f'),
+              (12704943291, 40438828021, '825d99d499bf02bdf1d232827261043b38a6cdeb', 'sha256:214cc925cc05372bffa0619b9d6a33a18deb0f42598e54a37bc658652a56f9f6'),
+              (12706040730, 40438828021, '825d99d499bf02bdf1d232827261043b38a6cdeb', 'sha256:0fb7876ed9d396fc1912a84a578d4dce5b661aa1d65ae5f3fa1381a3e0f711ec'),
+          ]
+          for ident, run, head, digest in expected:
+              req = urllib.request.Request('https://api.github.com/repos/gpui-mbt/gpui.mbt/actions/artifacts/'+str(ident), headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'], 'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(req, timeout=30) as response: value = json.load(response)
+              if value.get('id') != ident or value.get('expired') is not False or value.get('digest') != digest or value.get('workflow_run', {}).get('id') != run or value.get('workflow_run', {}).get('head_sha') != head:
+                  raise SystemExit('artifact metadata mismatch')
+          print('Three fixed artifact metadata records matched')
+          PY
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          repository: gpui-mbt/gpui.mbt
+          run-id: 41074635858
+          artifact-ids: 12987002222
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpui-image-binding/image
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          repository: gpui-mbt/gpui.mbt
+          run-id: 40438828021
+          artifact-ids: 12704943291
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpui-image-binding/runtime
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          repository: gpui-mbt/gpui.mbt
+          run-id: 40438828021
+          artifact-ids: 12706040730
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpui-image-binding/review
+      - name: Verify archive identities without restoring or running them
+        run: |
+          set -o pipefail
+          mkdir "$RUNNER_TEMP/gpui-image-binding-result"
+          python3 infra/linux-desktop/wayland-ime/recovery/host_image_gate.py \
+            --image "$RUNNER_TEMP/gpui-image-binding/image/host-image.tar" \
+            --runtime "$RUNNER_TEMP/gpui-image-binding/runtime/runtime-closure.tar.gz" \
+            --inventory "$RUNNER_TEMP/gpui-image-binding/review/closure-inventory.json" \
+            --prepared "$RUNNER_TEMP/gpui-image-binding/review/prepare-result.json" \
+            | tee "$RUNNER_TEMP/gpui-image-binding-result/result.json"
+      - name: Preserve incomplete status
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/gpui-image-binding-result"
+          if [ ! -s "$RUNNER_TEMP/gpui-image-binding-result/result.json" ]; then
+            printf '%s\n' '{"status":"incomplete","native_status":"NOT_RUN","approved_for_execution":false}' > "$RUNNER_TEMP/gpui-image-binding-result/result.json"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: linux-ime-image-binding-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/gpui-image-binding-result/
+          if-no-files-found: error
