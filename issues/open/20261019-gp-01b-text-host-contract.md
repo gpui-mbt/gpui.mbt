@@ -76,3 +76,14 @@ resolution, and live IME evidence remain open. macOS and Windows are not
 covered by the candidate's ordering guarantee. Yami's concrete focus-loss
 failure and reproduction are tracked in
 [Yami PR #83](https://github.com/f4ah6o/Yami-kumo/pull/83).
+
+The Ubuntu host has an earlier boundary too: `keyboard_leave` calls
+`ime_invalidate`, which advances the native epoch before the editor queue is
+read. `ime_queued_stale` then discards a previously accepted unread commit;
+neither ordered nor legacy portable polling can recover a record already
+discarded there. This does not imply that callbacks received after invalidation
+are valid. See [0028](0028-wayland-ime-composition-handoff.md) for the native
+fixture and lifecycle work needed to distinguish accepted old-owner records
+from genuinely stale callbacks. Coordinate its host end-boundary contract with
+the adapter's pending `TextSession` resolution; a one-time empty poll is not a
+completion signal.

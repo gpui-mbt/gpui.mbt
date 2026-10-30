@@ -58,18 +58,23 @@ alternative: `next_ordered_event` returns each translated text or platform
 record in the order read from the Ubuntu editor stream. The ordered facade
 exposes begin/update/cancel/end and its single poll; it does not implement the
 legacy `TextInputHost` trait with its separate text poll. Consumers must handle
-both event variants. An empty result means no record was read in that poll.
-Forwarded keys retain their position as platform records. Unsupported editing
-records remain errors rather than silently becoming insertions.
+both event variants. An empty result means no deliverable event was returned;
+the poll may have consumed skipped or stale records. Forwarded keys retain
+their position as platform records. Unsupported editing records remain errors
+rather than silently becoming insertions.
 
-This ordering applies only to records accepted by that Ubuntu stream. It does
-not prove an IME has finished producing observations, make an empty poll a
-quiescence barrier, or resolve a pending composition. In particular, cancel
-and end can still discard undelivered observations. The owner must not claim
-observed-commit preservation at blur or close solely from this API. macOS and
-Windows retain their own existing contracts; this section adds no guarantee
-for them. An explicit host end-boundary contract and TextSession integration
-remain necessary before an application claims that stronger behavior.
+This ordering applies to records returned by Ubuntu `Host::next_editor_event`.
+It does not prove an IME has finished producing observations, make an empty
+poll a quiescence barrier, or resolve a pending composition. An accepted but
+unread native commit can already be discarded before that API returns it:
+`keyboard_leave` invalidates the epoch, and the native reader treats the
+queued old-epoch record as stale. Cancel and end can also discard undelivered
+observations. The owner must not claim observed-commit preservation at blur or
+close solely from this API. The next host boundary and regression fixture are
+tracked in [0028](../issues/open/0028-wayland-ime-composition-handoff.md) and
+[GP-01B](../issues/open/20261019-gp-01b-text-host-contract.md). macOS and
+Windows retain their existing contracts; this section adds no guarantee for
+them.
 
 ## Event values
 
