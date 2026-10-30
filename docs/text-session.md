@@ -87,6 +87,37 @@ why that delivery cannot be accepted, not a universal ordering of host events.
 An unfocused batch, empty batch, or commit without an active composition also
 rejects. A rejected delivery consumes no watermark and returns no receipt.
 
+## Bounds-only preparation
+
+`prepare_bounds(target, bounds)` makes an immutable field proposal bound to the
+exact current owner, session and publication. It neither publishes nor consumes
+an observation. It delegates to `TextField::with_bounds`, which preserves an
+active preview and the original document, selection, measurement and history
+used if that preview is canceled. Invalid bounds, a pending end, an unfocused
+field, foreign/stale target or a reentrant call is rejected without changing
+the owner.
+
+`publish_bounds(proposal)` installs that still-current field on the same owner.
+A second publication, any intervening publication or a foreign owner rejects
+the proposal. A real field resize advances the field's own revision; it does
+not change the session revision, committed-document revision, session identity
+or delivery watermark. A text target captured before the bounds-only update
+remains valid for the same owner and next delivery: the caller must retain the
+original host epoch and sequence rather than retag the observation. A target
+consumed by another delivery remains a replay as usual. This exception applies
+only to bounds-only updates with unchanged content and binding; it does not
+authorize old pointer coordinates or general reconciliation.
+
+The candidate is a preparation primitive, not a cross-owner commit. The
+session does not atomically publish a native host rectangle, scene, runtime
+action, or focus scope with it. An integrator must first supply a transaction
+that can prepare and commit those owners without partial publication; calling
+`publish_bounds` alone does not establish that guarantee. It also does not
+remeasure the current preview or its rollback snapshot for a scale, font or
+shaping change. Those cases need a separate remeasurement contract. Host input
+cutoff, pending end, retained observations and stale-target fences remain the
+integrator's responsibility.
+
 ## Existing field semantics, preserved
 
 `apply_batch(target, operations, measure, admit)` stages immutable `TextField`

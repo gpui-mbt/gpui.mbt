@@ -17,6 +17,9 @@
 
 ### Added
 
+- Prepare and adopt bounds-only TextSession geometry while retaining the same
+  composing owner and delivery watermark. This is not an atomic host/scene
+  publication and does not provide scale or font remeasurement.
 - Accept an observed direct insertion through `TextSession` without inventing
   a preedit. It rejects active composition. The new `SessionOperation::Insert`
   variant may require updates to exhaustive matches.

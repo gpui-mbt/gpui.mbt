@@ -92,6 +92,10 @@ The facade is a re-export surface; it must not contain a second implementation o
 
 The current runtime edges include `primitives -> stdlib`, `text -> stdlib`, `diagnostics -> stdlib`, `core -> stdlib + diagnostics`, `capability -> core + diagnostics`, `mcp -> capability + diagnostics`, and `migration/host_services -> capability + diagnostics`; the executable allowlist also records current layout, scene, element, native, and example edges. The browser app fixture is portable and can use the semantic registry plus an in-process optional MCP dispatch seam; the JS host adapter remains a leaf above it. The host-service bridge queues bounded JSON-compatible requests and completions over copied framework values; browser/Electron/Tauri adapters must enforce their own permission and host allowlists before acting. The executable dependency check covers these boundaries and test-only imports; new runtime packages still require an explicit layer entry and reject unlisted edges. The dependency direction must remain acyclic; cross-cutting code belongs in a lower-level contract rather than a reverse import.
 
+`text_session` also imports the portable `primitives` rectangle type for its
+bounds-only proposal. This is a one-way edge to the existing lower-level value
+package, not a host, rendering or third-party runtime dependency.
+
 The `text/` package is a pure immutable value model. `TextComposition` retains
 the original document and target range, rebuilds every preview from that
 original pair, maps relative UTF-16 selection endpoints into the resulting

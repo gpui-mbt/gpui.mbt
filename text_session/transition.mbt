@@ -67,6 +67,74 @@ fn receipt(
 }
 
 ///|
+/// Prepare a bounds-only field candidate without publishing it or consuming a
+/// text observation. The exact session target must still be live. The candidate
+/// retains any composing preview and its original rollback snapshot.
+///
+/// This operation does not measure fonts, update a native host, publish a
+/// scene, or establish atomicity with those owners. Use it only when the
+/// existing measurements remain valid (for example, a bounds-only resize).
+pub fn TextSession::prepare_bounds(
+  self : TextSession,
+  target : SessionTarget,
+  bounds : @primitives.Rect,
+) -> Result[BoundsProposal, SessionError] {
+  if self.mutation_guard.busy {
+    self.mutation_guard.violated = true
+    return Err(Reentrant)
+  }
+  let state = self.state.val
+  match validate_target(state, target) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  if state.pending is Some(_) {
+    return Err(PendingResolution)
+  }
+  if !state.field.is_focused() {
+    return Err(Unfocused)
+  }
+  let field = match session_field_result(state.field.with_bounds(bounds)) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ publication: state.publication, target, field, })
+}
+
+///|
+/// Publish a still-current bounds-only proposal on this owner. This changes
+/// field geometry without changing the session revision, the text delivery
+/// watermark or the committed-document revision. A previously captured text
+/// target stays valid for the same owner and next observation; no OS record is
+/// acknowledged or retagged. The field's own revision advances on a real resize.
+/// Stale, foreign, or reused proposals are rejected before publication.
+///
+/// This commits only the TextSession state. It is not an atomic commit of a
+/// scene, focus scope, runtime action, or native host geometry.
+pub fn TextSession::publish_bounds(
+  self : TextSession,
+  proposal : BoundsProposal,
+) -> Result[SessionSnapshot, SessionError] {
+  self.mutate(fn(state) {
+    match validate_target(state, proposal.target) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    if !same_identity(state.publication, proposal.publication) {
+      return Err(StaleRevision)
+    }
+    if state.pending is Some(_) {
+      return Err(PendingResolution)
+    }
+    if !state.field.is_focused() {
+      return Err(Unfocused)
+    }
+    let candidate = { ..state, field: proposal.field, }
+    Ok((candidate, snapshot(candidate)))
+  })
+}
+
+///|
 /// Apply an ordered batch against its original ingress target. Providers may
 /// prepare measurements/resources only; their external effects cannot roll back.
 /// A rejection returns no receipt and changes no field, revision or watermark.

@@ -281,12 +281,12 @@ class RuntimeDependencyTests(unittest.TestCase):
         manifest.write_text('import { "f4ah6o/gpui/primitives" }\n', encoding="utf-8")
         self.assertEqual(checker.validate_runtime_dependencies(self.root), [])
 
-    def test_text_session_accepts_only_its_four_portable_runtime_edges(self) -> None:
+    def test_text_session_accepts_only_its_five_portable_runtime_edges(self) -> None:
         directory = self.root / "text_session"
         directory.mkdir()
         manifest = directory / "moon.pkg"
         manifest.write_text(
-            'import { "f4ah6o/gpui/platform", "f4ah6o/gpui/text", '
+            'import { "f4ah6o/gpui/platform", "f4ah6o/gpui/primitives", "f4ah6o/gpui/text", '
             '"f4ah6o/gpui/text_layout", "f4ah6o/gpui/controls/text_field" }\n'
             'import { "f4ah6o/gpui/primitives" } for "test"\n',
             encoding="utf-8",
@@ -297,7 +297,7 @@ class RuntimeDependencyTests(unittest.TestCase):
             "ubuntu", "windows", "x11", "platform/macos",
             "platform/linux_text", "platform/windows_text", "platform/macos_text",
             "examples/browser", "core", "element", "layout", "scene",
-            "primitives", "controls/button", "unregistered_transport",
+            "controls/button", "unregistered_transport",
         ):
             with self.subTest(dependency=dependency):
                 manifest.write_text(
