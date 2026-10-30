@@ -335,7 +335,9 @@ additional bounded evidence captured at raw `wl_keyboard` admission: evdev
 physical key, keyboard-focus generation, original native target, and whether
 a press was admitted for that physical key since the observed focus enter.
 `Unknown` includes a key held when focus entered and ambiguity from a
-text-input forwarded press. `None` means the raw physical path or a valid enter
+text-input forwarded press. Once a key has an admitted or unknown press, its
+later releases remain Unknown until a new valid focus enter; a native release
+does not prove that its earlier owner was resolved. `None` means the raw physical path or a valid enter
 snapshot was unavailable; a text-input forwarded keysym cannot prove physical
 identity. A stale head, target or route is rejected. The producer snapshots
 evidence before the normal exact ACK; evidence retrieval never consumes a head.
@@ -344,6 +346,14 @@ outside this host, application dispatch, model stages, or IME quiescence. The
 consumer must resolve those independently; the evidence is not permission to
 discard or ACK a record. Held key arrays, input capacity, seat/focus changes,
 uncertain sources, and sequence exhaustion fail closed.
+
+`RetainedOrderedReceipt::ack` rechecks the current route and native focus/epoch
+for a printable-release candidate immediately before the exact-head ACK; a
+focus or epoch change after evidence inspection leaves that head retained.
+The recheck and ACK run on the owner thread without intervening dispatch. This
+closes that stale-evidence race, but neither recheck nor ACK validates the
+consumer's press-owner decision. The lower-level `RetainedEditorRecord::ack`
+remains a caller-managed primitive and does not itself perform this policy.
 
 This adapter does not yet implement cancel-to-new-epoch handoff, recovery from
 an already-invalidated native epoch after OS focus loss, or transactional native

@@ -832,7 +832,35 @@ fn RetainedOrderedRoute::prepare(
 pub fn RetainedOrderedReceipt::ack(
   self : RetainedOrderedReceipt,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
-  self.finish_ack(fn() { self.record.ack() })
+  self.ack_from(
+    fn() {
+      match self.physical_release_evidence() {
+        Err(error) => Err(error)
+        Ok(_) => Ok(())
+      }
+    },
+    fn() { self.record.ack() },
+  )
+}
+
+///|
+fn RetainedOrderedReceipt::ack_from(
+  self : RetainedOrderedReceipt,
+  check : () -> Result[Unit, @diagnostics.FrameworkError],
+  native_ack : () -> Result[Unit, @diagnostics.FrameworkError],
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  self.finish_ack(fn() {
+    // Recheck immediately before exact-head ACK. No callback dispatch occurs
+    // between the two native owner-thread operations. None is not an ACK
+    // policy: the consumer must resolve that separately.
+    if self.printable_release is Some(_) {
+      match check() {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    }
+    native_ack()
+  })
 }
 
 ///|

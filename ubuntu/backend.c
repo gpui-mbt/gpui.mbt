@@ -1298,9 +1298,12 @@ static void keyboard_key(void *d, struct wl_keyboard *k, uint32_t serial,
           data->key_proof_press_window = key_state->press_window;
         }
       }
-      /* Native FIFO preserves this release before any later callback. */
+      /* NoPressObservedSinceFocus is monotonic. Once a press or an unknown
+       * held key has existed, a release cannot prove its owner was resolved;
+       * preserve Unknown until a new, valid focus-enter snapshot. */
+      int never_pressed = key_state->prior == KEY_PRIOR_NONE;
       memset(key_state, 0, sizeof(*key_state));
-      key_state->prior = KEY_PRIOR_NONE;
+      key_state->prior = never_pressed ? KEY_PRIOR_NONE : KEY_PRIOR_UNKNOWN;
     } else {
       key_state->prior = KEY_PRIOR_UNKNOWN;
     }

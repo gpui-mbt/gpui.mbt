@@ -1503,9 +1503,11 @@ static void retained_physical_release_provenance(int scenario) {
     if (scenario == 2) assert(proof[4] == press_sequence && proof[5] == 51);
     ++h->ime.epoch;
     assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+    assert(h->count == 1 && h->queue[h->read][2] == sequence);
     --h->ime.epoch;
     ++h->retained_key_focus;
     assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+    assert(h->count == 1 && h->queue[h->read][2] == sequence);
     --h->retained_key_focus;
     h->keyboard_focus_current = 0;
     assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
@@ -1519,6 +1521,15 @@ static void retained_physical_release_provenance(int scenario) {
   }
   assert(gpui_ack_retained_editor(h->token, 51, sequence) == GPUI_OK);
   assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+  if (scenario < 4) {
+    keyboard_key(h, h->keyboard, 4, 0, held_key, WL_KEYBOARD_KEY_STATE_RELEASED);
+    assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+        bytes, sizeof(bytes), metadata, 5) == 1);
+    int later = (int)data[2];
+    assert(gpui_peek_retained_key_proof(h->token, 51, later, proof, 6) == 1);
+    assert(proof[3] == (scenario == 0 ? KEY_PRIOR_NONE : KEY_PRIOR_UNKNOWN));
+    assert(gpui_ack_retained_editor(h->token, 51, later) == GPUI_OK);
+  }
   xkb_state_unref(h->keys);
   xkb_keymap_unref(h->keymap);
   xkb_context_unref(h->xkb);
