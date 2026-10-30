@@ -75,6 +75,14 @@ class PanelFrameTests(unittest.TestCase):
         with self.assertRaises(PanelFrameError):
             collect_panel_frames('\n'.join(lines))
 
+    def test_foreign_callback_cannot_impersonate_panel_callback(self):
+        lines = panel() + [out(3, 'wl_surface#23.frame(new id wl_callback#28)'),
+                           out(4, 'wl_surface#23.commit()'),
+                           out(5, 'wl_display#1.sync(new id wl_callback#28)'),
+                           incoming(6, 'wl_callback#28.done(1)')]
+        with self.assertRaises(PanelFrameError):
+            collect_panel_frames('\n'.join(lines))
+
     def test_foreign_role_and_oversized_trace_are_rejected(self):
         with self.assertRaises(PanelFrameError):
             collect_panel_frames(out(1, 'zwp_input_panel_v1#21.get_input_panel_surface(new id zwp_input_panel_surface_v1#24, wl_surface#23)'))

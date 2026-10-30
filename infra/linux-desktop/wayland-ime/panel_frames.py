@@ -17,6 +17,7 @@ _CREATE = re.compile(r'^wl_compositor[#@]\d+\.create_surface\(new id wl_surface[
 _PANEL = re.compile(r'^zwp_input_panel_v1[#@]\d+\.get_input_panel_surface\(new id zwp_input_panel_surface_v1[#@](\d+), wl_surface[#@](\d+)\)$')
 _ATTACH = re.compile(r'^wl_surface[#@](\d+)\.attach\((nil|wl_buffer[#@]\d+),\s*-?\d+,\s*-?\d+\)$')
 _FRAME = re.compile(r'^wl_surface[#@](\d+)\.frame\(new id wl_callback[#@](\d+)\)$')
+_SYNC = re.compile(r'^wl_display[#@]\d+\.sync\(new id wl_callback[#@](\d+)\)$')
 _COMMIT = re.compile(r'^wl_surface[#@](\d+)\.commit\(\)$')
 _DESTROY = re.compile(r'^wl_surface[#@](\d+)\.destroy\(\)$')
 _DONE = re.compile(r'^wl_callback[#@](\d+)\.done\((\d+)\)$')
@@ -37,6 +38,7 @@ def collect_panel_frames(log):
     generations = {}
     callbacks = {}
     retired = set()
+    other_callbacks = set()
     completed = []
     for number, raw in enumerate(log.splitlines(), 1):
         line = _LINE.match(raw)
@@ -71,15 +73,24 @@ def collect_panel_frames(log):
         match = _FRAME.fullmatch(body) if outgoing else None
         if match:
             surface, callback = map(int, match.groups())
+            if callback in callbacks or callback in retired or callback in other_callbacks:
+                raise PanelFrameError('ambiguous reused callback')
             if surface in surfaces and surfaces[surface]['panel'] is not None:
-                if callback in callbacks or callback in retired:
-                    raise PanelFrameError('ambiguous reused callback')
                 record = dict(surface=surface, generation=surfaces[surface]['generation'],
                               panel=surfaces[surface]['panel'], callback=callback,
                               request_line=number, request_ms=timestamp,
                               commit_line=None, commit_ms=None, attached=None)
                 callbacks[callback] = record
                 surfaces[surface]['pending'].append(callback)
+            else:
+                other_callbacks.add(callback)
+            continue
+        match = _SYNC.fullmatch(body) if outgoing else None
+        if match:
+            callback = int(match[1])
+            if callback in callbacks or callback in retired or callback in other_callbacks:
+                raise PanelFrameError('ambiguous reused callback')
+            other_callbacks.add(callback)
             continue
         match = _COMMIT.fullmatch(body) if outgoing else None
         if match:
@@ -110,6 +121,9 @@ def collect_panel_frames(log):
             callback, serial = map(int, match.groups())
             if callback in retired:
                 retired.remove(callback)
+                continue
+            if callback in other_callbacks:
+                other_callbacks.remove(callback)
                 continue
             record = callbacks.pop(callback, None)
             if record is None:
