@@ -66,6 +66,7 @@ pub(all) enum SessionOperation {
   Preview(String, @text.TextSelection)
   PreviewUtf8(String, Int, Int)
   Commit(String)
+  Insert(String)
   Cancel
 }
 

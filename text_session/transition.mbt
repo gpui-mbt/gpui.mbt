@@ -32,6 +32,12 @@ fn stage_operation(
       }
       field.commit_composition(text, measure, admit)
     }
+    Insert(text) => {
+      if field.is_composing() {
+        return Err(CompositionActive)
+      }
+      field.replace_selection(text, measure, admit)
+    }
     Cancel => {
       if !field.is_composing() {
         return Err(NoComposition)
@@ -45,7 +51,7 @@ fn stage_operation(
   }
   let outcome = match operation {
     Preview(_, _) | PreviewUtf8(_, _, _) => Previewed(candidate)
-    Commit(_) => Committed(candidate)
+    Commit(_) | Insert(_) => Committed(candidate)
     Cancel => Cancelled(candidate)
   }
   Ok((candidate, outcome))
