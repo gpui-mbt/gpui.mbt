@@ -32,6 +32,8 @@ jobs:
         run: /usr/bin/python3 infra/linux-desktop/wayland-ime/test_panel_frames.py
       - name: Test bounded two-row pixel diagnostic
         run: /usr/bin/python3 infra/linux-desktop/wayland-ime/test_candidate_pixels.py
+      - name: Test candidate lookup log ordering diagnostic
+        run: /usr/bin/python3 infra/linux-desktop/wayland-ime/test_candidate_lookup_trace.py
 
   reviewed-ime:
     runs-on: ubuntu-24.04
