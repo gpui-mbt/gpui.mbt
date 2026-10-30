@@ -37,6 +37,14 @@ and verify disappearance after both selection and cancellation. Review and pin
 all changed harness inputs before any new hosted run. The decoder must not turn
 `candidate_table_verified` true on its own.
 
+In IBus 1.5.32, the Wayland branch of
+[`CandidatePanel.set_lookup_table`](https://github.com/ibus/ibus/blob/1.5.32/ui/gtk3/candidatepanel.vala#L281-L325)
+can defer application of a lookup update by 100 ms and cancel queued updates.
+Receiving a table, or observing a GPUI frame callback, therefore does not prove
+that this table is currently painted by the separate panel. A fixed delay alone
+does not establish that relationship either: the future oracle must correlate
+the specific panel presentation with the retained table, input, and frame bytes.
+
 ## Immutable original runtime and candidate overlay
 
 `prepare-gpui-deployment.py` generates an evidence-local candidate overlay above the SHA-256-pinned frozen baseline lock. Candidate-specific pins stay outside the source checkout to avoid a build-manifest self-reference. Before overlay preparation, launcher preparation, --check and native execution, established build_manifest.verify_build_manifest verifies the exact current commit/tree/worktree and binary, including verify_runtime over tools, generated protocols, fonts and runtime trees. The verified source/binary identities and closure inventory are retained. Preflight also verifies every frozen baseline byte. Historical read-only replay uses saved bytes and identities without requiring today’s source; an old diagnostic cannot claim the new exact-current held tier. It does not substitute the recovered engine.
