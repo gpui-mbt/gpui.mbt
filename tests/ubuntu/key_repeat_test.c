@@ -628,6 +628,8 @@ static void test_retained_pump_preserves_callback_and_backpressure(void) {
   poll_events = 0; pending_action = incoming_action = NULL;
   reset_proxy_mocks(); fixture_init(&f); pump_host = &f.h;
   assert(gpui_terminal_retention_enable(TEST_HOST) == GPUI_OK);
+  assert(gpui_claim_retained_route(TEST_HOST) == GPUI_OK);
+  assert(gpui_claim_retained_route(TEST_HOST) == GPUI_BUSY);
   pending_action = pending_press;
   assert(gpui_dispatch(TEST_HOST, 0) == GPUI_UNSUPPORTED);
   assert(f.h.count == 0 && pending_action && poll_calls == 0);

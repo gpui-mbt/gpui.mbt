@@ -82,6 +82,7 @@ enum input_serial_origin {
 struct host {
   int token, window, state, wake_fd, error;
   int terminal_retention, terminal_preview_pending, terminal_preview_watermark;
+  int retained_route_claimed;
   int terminal_receipt_generation;
   struct ime_payload terminal_preview;
   pthread_t owner;
@@ -1789,6 +1790,17 @@ int32_t gpui_terminal_retention_enable(int32_t token) {
   if (h->count || h->ime.requested || h->ime.composition_enabled ||
       h->direct_enabled) return GPUI_BUSY;
   h->terminal_retention = 1;
+  return GPUI_OK;
+}
+int32_t gpui_claim_retained_route(int32_t token) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return status;
+  if (!h->terminal_retention) return GPUI_UNSUPPORTED;
+  if (h->retained_route_claimed) return GPUI_BUSY;
+  if (h->state) return GPUI_STOPPING;
+  if (h->error) return h->error;
+  h->retained_route_claimed = 1;
   return GPUI_OK;
 }
 int32_t gpui_terminal_preview_receipt(int32_t token, double *fields,
