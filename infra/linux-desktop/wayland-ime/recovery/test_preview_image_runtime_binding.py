@@ -2,9 +2,13 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tarfile
+import tempfile
+import textwrap
 import unittest
 from unittest.mock import patch
 
@@ -117,6 +121,22 @@ class PreviewTests(unittest.TestCase):
                 preview.preview(io.BytesIO(self.image), io.BytesIO(self.runtime), self.inventory,
                                 b'prepared', self.candidate, self.old, b'old-recipe')
         self.assertEqual(self.calls[-1], ['rm', '-v', self.container])
+
+    def test_workflow_invocation_reaches_input_open_with_supported_flags(self):
+        # Execute the actual workflow run block with absent inputs. It must get
+        # past argparse and fail closed at the first missing input instead of
+        # silently accepting tee's exit code or using an obsolete CLI flag.
+        root = HERE.parents[3]
+        workflow = (root / '.github/workflows/linux-ime-image-runtime-joint-preview.yml').read_text()
+        step = workflow.split('      - name: Inspect the unstarted image container and all runtime members\n', 1)[1]
+        script = step.split('        run: |\n', 1)[1].split('      - name:', 1)[0]
+        with tempfile.TemporaryDirectory() as temp:
+            env = dict(os.environ, RUNNER_TEMP=temp)
+            result = subprocess.run(['bash', '-euo', 'pipefail', '-c', textwrap.dedent(script)],
+                                    cwd=root, env=env, capture_output=True, text=True, check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('closure-inventory.json', result.stderr)
+            self.assertNotIn('unrecognized arguments', result.stderr)
 
 
 if __name__ == '__main__':

@@ -74,7 +74,7 @@ jobs:
           mkdir "$RUNNER_TEMP/gpui-image-binding-result"
           python3 infra/linux-desktop/wayland-ime/recovery/preview_image_runtime_binding.py \
             --image "$RUNNER_TEMP/gpui-image-binding/image/host-image.tar" \
-            --archive "$RUNNER_TEMP/gpui-image-binding/runtime/runtime-closure.tar.gz" \
+            --runtime "$RUNNER_TEMP/gpui-image-binding/runtime/runtime-closure.tar.gz" \
             --inventory "$RUNNER_TEMP/gpui-image-binding/review/closure-inventory.json" \
             --prepared "$RUNNER_TEMP/gpui-image-binding/review/prepare-result.json" \
             | tee "$RUNNER_TEMP/gpui-image-binding-result/result.json"
