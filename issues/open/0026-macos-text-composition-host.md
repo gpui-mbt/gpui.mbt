@@ -39,7 +39,9 @@ application owns the document, selection, undo history, and rendering.
   The checked-in description does not identify that run's app source SHA,
   binary digest, dependency lock, or evidence artifact digest, so it is a
   historical observation, not an exact-source acceptance of current HEAD or
-  the shared TextField/Dialog flow.
+  the shared TextField/Dialog flow. Its current driver identifies candidate
+  visibility from window metadata and a small-floating-window heuristic; it
+  does not verify candidate rows, selection, or dismissal.
 
 ## Open
 
