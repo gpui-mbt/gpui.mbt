@@ -932,6 +932,8 @@ int32_t gpui_text_session_begin(int32_t token, int32_t window,
   int status = window_check(token, window, &h);
   if (status)
     return -status;
+  if (h->retained_route_claimed && !h->retained_route_call)
+    return -GPUI_UNSUPPORTED;
   if (h->terminal_retention && h->terminal_preview_pending)
     return -GPUI_BUSY;
   if (h->terminal_retention && h->terminal_receipt_generation == INT_MAX)
@@ -975,6 +977,8 @@ static int ime_session_check(int token, int window, int epoch, struct host **out
   int status = window_check(token, window, out);
   if (status)
     return status;
+  if ((*out)->retained_route_claimed && !(*out)->retained_route_call)
+    return GPUI_UNSUPPORTED;
   if ((*out)->ime.exhausted)
     return GPUI_RESOURCE;
   if ((*out)->state)
@@ -1064,6 +1068,48 @@ int32_t gpui_text_session_end_when_drained(int32_t token, int32_t window,
   ime_invalidate(h, 0, 1);
   return h->ime.exhausted ? GPUI_RESOURCE : h->error;
 }
+/* These owner-thread wrappers prevent a legacy Host/route call from replacing
+ * a claimed retained binding. The invoked functions do not dispatch callbacks. */
+static int retained_route_enter(int token, struct host **out) {
+  int status = check(token, out);
+  if (status) return status;
+  if (!(*out)->retained_route_claimed || !(*out)->retained_route_bound)
+    return GPUI_UNSUPPORTED;
+  if ((*out)->retained_route_call) return GPUI_BUSY;
+  (*out)->retained_route_call = 1;
+  return GPUI_OK;
+}
+int32_t gpui_retained_route_begin(int32_t token, int32_t window,
+    const uint8_t *text, int32_t length, int32_t cursor, int32_t anchor,
+    int32_t x, int32_t y, int32_t width, int32_t height) {
+  struct host *h;
+  int status = retained_route_enter(token, &h);
+  if (status) return -status;
+  int result = gpui_text_session_begin(token, window, text, length, cursor,
+                                      anchor, x, y, width, height);
+  h->retained_route_call = 0;
+  return result;
+}
+int32_t gpui_retained_route_update(int32_t token, int32_t window, int32_t epoch,
+    const uint8_t *text, int32_t length, int32_t cursor, int32_t anchor,
+    int32_t x, int32_t y, int32_t width, int32_t height) {
+  struct host *h;
+  int status = retained_route_enter(token, &h);
+  if (status) return -status;
+  int result = gpui_text_session_update(token, window, epoch, text, length,
+      cursor, anchor, x, y, width, height, 0);
+  h->retained_route_call = 0;
+  return result;
+}
+int32_t gpui_retained_route_end_when_drained(int32_t token, int32_t window,
+                                             int32_t epoch) {
+  struct host *h;
+  int status = retained_route_enter(token, &h);
+  if (status) return status;
+  int result = gpui_text_session_end_when_drained(token, window, epoch);
+  h->retained_route_call = 0;
+  return result;
+}
 /* Reader implementation is placed after ABI2 consume helpers below. */
 int32_t gpui_text_session_panel(int32_t token, int32_t window, int32_t epoch,
                                 int32_t visible) {
@@ -1122,6 +1168,7 @@ int32_t gpui_text_composition_mode(int32_t token, int32_t window, int32_t enable
   int status = window_check(token, window, &h);
   if (status) return status;
   if (enabled != 0 && enabled != 1) return GPUI_INVALID;
+  if (enabled && h->retained_route_claimed) return GPUI_UNSUPPORTED;
   if (!enabled) {
     if (!h->ime.composition_enabled) return GPUI_OK;
     if (h->terminal_retention && h->count) return GPUI_BUSY;

@@ -173,6 +173,42 @@ pub fn RetainedEditorRecord::raw_field(Self, Int) -> Double?
 pub fn RetainedEditorRecord::sequence(Self) -> Int
 pub fn RetainedEditorRecord::window(Self) -> @platform.WindowId
 
+pub(all) enum RetainedOrderedEvent {
+  Text(@text_host.TextInputEvent)
+  Platform(@platform.Event)
+  Lifecycle(TextSessionTarget, TextSessionEvent)
+  Unhandled(EditorEvent?)
+}
+
+pub struct RetainedOrderedReceipt {
+  // private fields
+}
+pub fn RetainedOrderedReceipt::ack(Self) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn RetainedOrderedReceipt::composition_epoch(Self) -> Int
+pub fn RetainedOrderedReceipt::direct_epoch(Self) -> Int
+pub fn RetainedOrderedReceipt::epoch(Self) -> UInt64
+pub fn RetainedOrderedReceipt::event(Self) -> RetainedOrderedEvent
+pub fn RetainedOrderedReceipt::is_direct_origin(Self) -> Bool
+pub fn RetainedOrderedReceipt::is_native_revoked(Self) -> Bool
+pub fn RetainedOrderedReceipt::is_native_stale(Self) -> Bool
+pub fn RetainedOrderedReceipt::native_event(Self) -> EditorEvent?
+pub fn RetainedOrderedReceipt::native_sequence(Self) -> Int
+pub fn RetainedOrderedReceipt::native_window(Self) -> @platform.WindowId
+pub fn RetainedOrderedReceipt::raw_field(Self, Int) -> Double?
+pub fn RetainedOrderedReceipt::root(Self) -> UInt64
+
+pub struct RetainedOrderedRoute {
+  // private fields
+}
+pub fn RetainedOrderedRoute::begin(Self, @platform.WindowId, UInt64, @text_host.TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::binding_epoch(Self) -> UInt64?
+pub fn RetainedOrderedRoute::native_epoch(Self) -> Int?
+pub fn RetainedOrderedRoute::new(Host) -> Result[Self, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::peek(Self) -> Result[RetainedOrderedReceipt?, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::release(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::try_end_when_drained(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::update(Self, UInt64, @text_host.TextInputState) -> Result[Unit, @diagnostics.FrameworkError]
+
 pub struct TerminalPreviewReceipt {
   // private fields
 }

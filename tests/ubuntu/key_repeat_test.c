@@ -628,6 +628,19 @@ static void test_retained_pump_preserves_callback_and_backpressure(void) {
   poll_events = 0; pending_action = incoming_action = NULL;
   reset_proxy_mocks(); fixture_init(&f); pump_host = &f.h;
   assert(gpui_terminal_retention_enable(TEST_HOST) == GPUI_OK);
+  assert(gpui_claim_retained_route(TEST_HOST) == GPUI_OK);
+  assert(gpui_claim_retained_route(TEST_HOST) == GPUI_BUSY);
+  assert(gpui_terminal_retention_active(TEST_HOST) == 1);
+  assert(gpui_direct_keyboard_text_mode(TEST_HOST, TEST_WINDOW, 1) == GPUI_UNSUPPORTED);
+  assert(gpui_text_composition_mode(TEST_HOST, TEST_WINDOW, 1) == GPUI_UNSUPPORTED);
+  assert(gpui_retained_route_hold(TEST_HOST, 1) == GPUI_OK);
+  assert(gpui_retained_route_hold(TEST_HOST, 1) == GPUI_BUSY);
+  assert(gpui_stop(TEST_HOST) == GPUI_BUSY && active == &f.h && !f.h.count);
+  assert(gpui_retained_route_native_epoch(TEST_HOST, TEST_WINDOW) == 0);
+  f.h.ime.requested = 1; f.h.ime.epoch = 17;
+  assert(gpui_retained_route_native_epoch(TEST_HOST, TEST_WINDOW) == 17);
+  assert(gpui_retained_route_hold(TEST_HOST, 0) == GPUI_BUSY);
+  f.h.ime.requested = 0;
   pending_action = pending_press;
   assert(gpui_dispatch(TEST_HOST, 0) == GPUI_UNSUPPORTED);
   assert(f.h.count == 0 && pending_action && poll_calls == 0);
@@ -648,6 +661,9 @@ static void test_retained_pump_preserves_callback_and_backpressure(void) {
       GPUI_EDITOR_EVENT_FIELDS, text, sizeof(text), meta, 5) == 1);
   assert(data[0] == 12 && data[1] == TEST_WINDOW);
   assert(gpui_ack_retained_editor(TEST_HOST, TEST_WINDOW, (int)data[2]) == GPUI_OK);
+  assert(gpui_stop(TEST_HOST) == GPUI_BUSY); /* binding remains the owner */
+  assert(gpui_retained_route_hold(TEST_HOST, 0) == GPUI_OK);
+  assert(gpui_retained_route_hold(TEST_HOST, 0) == GPUI_STALE);
   fixture_drop(&f);
 }
 int main(void) {
