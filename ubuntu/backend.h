@@ -27,6 +27,9 @@ int32_t gpui_terminal_retention_active(int32_t host);
 int32_t gpui_claim_retained_route(int32_t host);
 int32_t gpui_retained_route_hold(int32_t host, int32_t enabled);
 int32_t gpui_retained_route_native_epoch(int32_t host, int32_t window);
+/* Borrowed exact FIFO head only; 0 means no physical-key evidence. */
+int32_t gpui_peek_retained_key_proof(int32_t host, int32_t window,
+    int32_t sequence, int32_t *fields, int32_t capacity);
 int32_t gpui_retained_route_begin(int32_t host, int32_t window,
     const uint8_t *text, int32_t length, int32_t cursor, int32_t anchor,
     int32_t x, int32_t y, int32_t width, int32_t height);

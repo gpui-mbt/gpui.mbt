@@ -1437,7 +1437,96 @@ static void retained_raw_printable_release_has_original_identity(void) {
   assert(gpui_ack_retained_editor(h->token, 51, sequence) == GPUI_STALE);
   finish(h);
 }
+
+/* The physical proof is a bounded admission-time observation, not an ACK or
+ * a claim that a press has been dispatched to an application owner. */
+static void retained_physical_release_provenance(int scenario) {
+  struct host *h = fixture();
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  assert(gpui_claim_retained_route(h->token) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  h->xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  assert(h->xkb);
+  struct xkb_rule_names names = {.layout = "us"};
+  h->keymap = xkb_keymap_new_from_names(h->xkb, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  assert(h->keymap);
+  h->keys = xkb_state_new(h->keymap);
+  assert(h->keys);
+  uint32_t held_key = 49; /* evdev N */
+  struct wl_array keys = {0};
+  if (scenario == 7) h->retained_key_focus = INT_MAX;
+  if (scenario == 1) { keys.data = &held_key; keys.size = sizeof(held_key); }
+  if (scenario == 5) { keys.data = &held_key; keys.size = 1; }
+  keyboard_enter(h, h->keyboard, 1, h->surface, scenario == 4 ? NULL : &keys);
+  if (scenario == 4 || scenario == 5 || scenario == 7) assert(!h->retained_key_valid);
+  else assert(h->retained_key_valid && h->retained_key_focus == 1);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 6);
+  int press_sequence = 0;
+  if (scenario == 2) {
+    keyboard_key(h, h->keyboard, 2, 0, held_key, WL_KEYBOARD_KEY_STATE_PRESSED);
+    assert(read_editor(h, data, bytes) == 1 && data[0] == 11);
+    press_sequence = (int)data[2];
+  }
+  int epoch = gpui_retained_route_begin(h->token, h->window, NULL, 0, 0, 0,
+      0, 0, 1, 1);
+  assert(epoch > 0);
+  ime_enter(h, h->ime.proxy, h->surface);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 22);
+  if (scenario == 3) {
+    h->ime.modifiers_valid = 1;
+    h->ime.known_modifier_mask = 0;
+    ime_keysym(h, h->ime.proxy, 1, 0, XKB_KEY_a,
+               WL_KEYBOARD_KEY_STATE_PRESSED, 0);
+    assert(read_editor(h, data, bytes) == 1 && data[0] == 24);
+  }
+  if (scenario == 6) {
+    h->ime.modifiers_valid = 1;
+    h->ime.known_modifier_mask = 0;
+    ime_keysym(h, h->ime.proxy, 1, 0, XKB_KEY_n,
+               WL_KEYBOARD_KEY_STATE_RELEASED, 0);
+  } else {
+    keyboard_key(h, h->keyboard, 3, 0, held_key, WL_KEYBOARD_KEY_STATE_RELEASED);
+  }
+  int32_t metadata[5], proof[6];
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), metadata, 5) == 1);
+  assert(data[0] == 25 && data[8] == XKB_KEY_n && data[10] == epoch);
+  int sequence = (int)data[2];
+  assert(gpui_peek_retained_key_proof(h->token, 51, sequence + 1, proof, 6) == -GPUI_STALE);
+  if (scenario >= 4) {
+    assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == 0);
+  } else {
+    assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == 1);
+    assert(proof[0] == 1 && proof[1] == 49 && proof[2] == 1);
+    assert(proof[3] == (scenario == 0 ? KEY_PRIOR_NONE : scenario == 2 ? KEY_PRIOR_ADMITTED : KEY_PRIOR_UNKNOWN));
+    if (scenario == 2) assert(proof[4] == press_sequence && proof[5] == 51);
+    ++h->ime.epoch;
+    assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+    --h->ime.epoch;
+    ++h->retained_key_focus;
+    assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+    --h->retained_key_focus;
+    h->keyboard_focus_current = 0;
+    assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+    h->keyboard_focus_current = 1;
+    ++h->seat_name;
+    assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+    --h->seat_name;
+    ++h->window;
+    assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+    --h->window;
+  }
+  assert(gpui_ack_retained_editor(h->token, 51, sequence) == GPUI_OK);
+  assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+  xkb_state_unref(h->keys);
+  xkb_keymap_unref(h->keymap);
+  xkb_context_unref(h->xkb);
+  finish(h);
+}
 int main(void) {
+  for (int scenario = 0; scenario < 8; ++scenario)
+    retained_physical_release_provenance(scenario);
   retained_raw_printable_release_has_original_identity();
   retained_route_rejects_legacy_session_mutation();
   retained_cutoff_generated_left_requires_ack();

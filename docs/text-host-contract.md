@@ -330,6 +330,21 @@ delivered through another path or owner. Unknown keys, modified releases,
 presses, replacement and deletion are not classified by this accessor. It
 does not turn a release into text, an OS cancel, or a model acknowledgement.
 
+On an exact retained printable release, `physical_release_evidence()` can copy
+additional bounded evidence captured at raw `wl_keyboard` admission: evdev
+physical key, keyboard-focus generation, original native target, and whether
+a press was admitted for that physical key since the observed focus enter.
+`Unknown` includes a key held when focus entered and ambiguity from a
+text-input forwarded press. `None` means the raw physical path or a valid enter
+snapshot was unavailable; a text-input forwarded keysym cannot prove physical
+identity. A stale head, target or route is rejected. The producer snapshots
+evidence before the normal exact ACK; evidence retrieval never consumes a head.
+`NoPressObservedSinceFocus` does not cover prior focus owners, input delivered
+outside this host, application dispatch, model stages, or IME quiescence. The
+consumer must resolve those independently; the evidence is not permission to
+discard or ACK a record. Held key arrays, input capacity, seat/focus changes,
+uncertain sources, and sequence exhaustion fail closed.
+
 This adapter does not yet implement cancel-to-new-epoch handoff, recovery from
 an already-invalidated native epoch after OS focus loss, or transactional native
 geometry updates. A route that cannot finish cutoff retains its original binding

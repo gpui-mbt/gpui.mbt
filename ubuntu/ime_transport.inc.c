@@ -858,6 +858,10 @@ static void ime_keysym(void *data, struct zwp_text_input_v1 *proxy,
   int status = ime_record(h, &transaction);
   if (status)
     return;
+  /* Forwarded keysyms do not carry a physical key code. They may be a press
+   * delivered through another input path, so they invalidate absence proof. */
+  if (state == WL_KEYBOARD_KEY_STATE_PRESSED && h->retained_key_valid)
+    h->retained_key_ambiguous = 1;
   h->queue[slot][8] = symbol;
   int bits = 0;
   for (int i = 0; i < 4; ++i)

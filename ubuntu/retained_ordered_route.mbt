@@ -14,6 +14,16 @@ extern "C" fn native_retained_route_native_epoch(
 ) -> Int32 = "gpui_retained_route_native_epoch"
 
 ///|
+#borrow(fields)
+extern "C" fn native_peek_retained_key_proof(
+  host : Int32,
+  window : Int32,
+  sequence : Int32,
+  fields : FixedArray[Int32],
+  capacity : Int32,
+) -> Int32 = "gpui_peek_retained_key_proof"
+
+///|
 #borrow(text)
 extern "C" fn native_retained_route_begin(
   host : Int32,
@@ -458,6 +468,51 @@ pub fn RetainedPrintableRelease::modifiers(
 }
 
 ///|
+/// Native admission evidence since a single keyboard focus enter. It is not
+/// evidence that the consumer dispatched or resolved a previous press.
+pub(all) enum RetainedPhysicalPrior {
+  Unknown
+  NoPressObservedSinceFocus
+  PressAdmitted(Int32, @platform.WindowId)
+}
+
+///|
+pub struct RetainedPhysicalRelease {
+  priv target : TextSessionTarget
+  priv physical_key : Int32
+  priv focus_generation : Int32
+  priv prior : RetainedPhysicalPrior
+}
+
+///|
+pub fn RetainedPhysicalRelease::target(
+  self : RetainedPhysicalRelease,
+) -> TextSessionTarget {
+  self.target
+}
+
+///|
+pub fn RetainedPhysicalRelease::physical_key(
+  self : RetainedPhysicalRelease,
+) -> Int32 {
+  self.physical_key
+}
+
+///|
+pub fn RetainedPhysicalRelease::focus_generation(
+  self : RetainedPhysicalRelease,
+) -> Int32 {
+  self.focus_generation
+}
+
+///|
+pub fn RetainedPhysicalRelease::prior(
+  self : RetainedPhysicalRelease,
+) -> RetainedPhysicalPrior {
+  self.prior
+}
+
+///|
 pub struct RetainedOrderedReceipt {
   priv route : RetainedOrderedRoute
   priv record : RetainedEditorRecord
@@ -484,6 +539,69 @@ pub fn RetainedOrderedReceipt::printable_release_candidate(
   self : RetainedOrderedReceipt,
 ) -> RetainedPrintableRelease? {
   self.printable_release
+}
+
+///|
+/// Copy admission-time physical evidence for this exact FIFO head, when the
+/// raw Wayland keyboard path observed it. None includes forwarded keysyms and
+/// unknown focus snapshots. The result is not an ACK or a proof that an older
+/// focus owner has been resolved. Once ACKed this accessor returns stale.
+pub fn RetainedOrderedReceipt::physical_release_evidence(
+  self : RetainedOrderedReceipt,
+) -> Result[RetainedPhysicalRelease?, @diagnostics.FrameworkError] {
+  let candidate = match self.printable_release {
+    Some(value) => value
+    None => return Ok(None)
+  }
+  let route = self.route
+  if route.closed ||
+    route.window != Some(candidate.target.window) ||
+    route.root != self.root ||
+    route.portable_epoch != self.epoch ||
+    route.native_epoch != candidate.target.epoch ||
+    route.native_seat != candidate.target.seat ||
+    route.native_proxy != candidate.target.proxy_generation {
+    return Err(
+      ubuntu_text_host_error(
+        @diagnostics.StaleHandle,
+        "retained_physical_release_evidence",
+      ),
+    )
+  }
+  let fields = FixedArray::make(6, 0)
+  let operation = "retained_physical_release_evidence"
+  let status = native_peek_retained_key_proof(
+    self.record.host.token,
+    self.record.window.value().to_int(),
+    self.record.sequence,
+    fields,
+    fields.length(),
+  )
+  if status < 0 {
+    return Err(backend_error(-status, operation))
+  }
+  if status == 0 {
+    return Ok(None)
+  }
+  if status != 1 || fields[0] != 1 || fields[1] < 0 || fields[2] <= 0 {
+    return Err(ubuntu_text_host_error(@diagnostics.InvalidInput, operation))
+  }
+  let prior = match fields[3] {
+    0 => Unknown
+    1 => NoPressObservedSinceFocus
+    2 if fields[4] > 0 && fields[5] > 0 =>
+      PressAdmitted(fields[4], @platform.WindowId::new(fields[5].to_int64()))
+    _ =>
+      return Err(ubuntu_text_host_error(@diagnostics.InvalidInput, operation))
+  }
+  Ok(
+    Some({
+      target: candidate.target,
+      physical_key: fields[1],
+      focus_generation: fields[2],
+      prior,
+    }),
+  )
 }
 
 ///|
