@@ -1,0 +1,17 @@
+{
+  "approved_for_execution": false,
+  "candidate_recipe_sha256": "1d1d51487d7e127cb568fb10555d725acf66ede7b6419b3d10c2d5c05f5594b4",
+  "candidate_source_sha": "825d99d499bf02bdf1d232827261043b38a6cdeb",
+  "candidate_source_tree": "164c10700221f50caea4ae581c53785483dcbb23",
+  "historical_receipt_sha256": "23455b31939b0ef6323bce4a0a22df691e38ab667974b87c397c508951b30045",
+  "historical_recipe_sha256": "c89ec4527c7561915a3f4ee0afa7dea19ef8a96592d875fc557d372e24de77ac",
+  "iac_source_base_sha": "e74e1c1ce0189288902628899b14baf317f36e1b",
+  "iac_source_base_tree": "e6bb19f71d60926d415c7fcc055f53ee7eb4071d",
+  "image_candidate_sha256": "94a6cbf048fa05706388b2f07d3c778ffdbf03d06876eacb32aedf494de8b9d3",
+  "image_id": "sha256:5b73c045b4652bae33ed9d37229bf3d261ab1a5b33e124e55ad279a97c133645",
+  "image_tar_sha256": "f5fea3fd1860f3612dc9b71369cae41d5f3b28f3688f3cc346559879b0f083c6",
+  "native_status": "NOT_RUN",
+  "purpose": "review-only candidate; does not authorize restore, bind, or native launch",
+  "runtime_sha256": "a72a2bbff3088874835cc48d84eb17ecafe5f14a4f25837d6b3f9b2546097c83",
+  "schema_version": 1
+}
