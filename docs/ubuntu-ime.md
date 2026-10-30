@@ -73,8 +73,10 @@ Natural keyboard or input-method focus loss clears pending staging and revokes
 the target for new callbacks. Already admitted text records from that target
 remain in the native FIFO before its `Left` and focus-loss events, provided the
 window, seat and proxy still match and no replacement session has begun. The
-consumer must still check the captured target and process the records in order;
-their delivery does not prove the IME has become quiescent. Explicit cancel or
+consumer must still check the captured target and process the records in order.
+Use the single native `next_editor_event` stream for this ordering; the legacy
+two-poll portable route alone does not order text against platform events.
+Delivery does not prove the IME has become quiescent. Explicit cancel or
 end while the epoch is current, replacement, close, destroy and removed
 seats/proxies do not grant this delivery: they continue to fence unread
 old-target records. Stock IBus's
