@@ -12,6 +12,7 @@ pub struct TextHostRoute {
   priv mut native_epoch : Int32
   priv mut window : @platform.WindowId?
   priv mut started : Bool
+  priv ordered : Bool
 }
 
 ///|
@@ -34,7 +35,80 @@ pub fn TextHostRoute::new(host : Host) -> TextHostRoute {
     native_epoch: 0,
     window: None,
     started: false,
+    ordered: false,
   }
+}
+
+///|
+/// Internal constructor: ordered routes are exposed only through the separate
+/// wrapper, which does not implement the legacy `TextInputHost` poll API.
+fn TextHostRoute::new_ordered(host : Host) -> TextHostRoute {
+  {
+    host,
+    queue: @text_host.TextHostQueue::new(),
+    native_epoch: 0,
+    window: None,
+    started: false,
+    ordered: true,
+  }
+}
+
+///|
+/// A single record from Ubuntu's ordered editor ingress.
+pub(all) enum OrderedTextEvent {
+  Text(@text_host.TextInputEvent)
+  Platform(@platform.Event)
+}
+
+///|
+/// Opt-in ordered facade. It does not implement `TextInputHost`: the latter's
+/// independent text poll cannot express this route's cross-kind ordering.
+pub struct OrderedTextHostRoute {
+  priv route : TextHostRoute
+}
+
+///|
+pub fn OrderedTextHostRoute::new(host : Host) -> OrderedTextHostRoute {
+  { route: TextHostRoute::new_ordered(host), }
+}
+
+///|
+pub fn OrderedTextHostRoute::begin_text_input(
+  self : OrderedTextHostRoute,
+  window : @platform.WindowId,
+  root : UInt64,
+) -> Result[UInt64, @diagnostics.FrameworkError] {
+  self.route.begin_text_input(window, root)
+}
+
+///|
+pub fn OrderedTextHostRoute::update_text_input(
+  self : OrderedTextHostRoute,
+  epoch : UInt64,
+  state : @text_host.TextInputState,
+) -> Result[UInt64, @diagnostics.FrameworkError] {
+  self.route.update_text_input(epoch, state)
+}
+
+///|
+pub fn OrderedTextHostRoute::cancel_text_input(
+  self : OrderedTextHostRoute,
+  epoch : UInt64,
+) -> Result[UInt64, @diagnostics.FrameworkError] {
+  self.route.cancel_text_input(epoch)
+}
+
+///|
+pub fn OrderedTextHostRoute::end_text_input(
+  self : OrderedTextHostRoute,
+  epoch : UInt64,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  self.route.end_text_input(epoch)
+}
+
+///|
+pub fn OrderedTextHostRoute::reset(self : OrderedTextHostRoute) -> Unit {
+  self.route.reset()
 }
 
 ///|
@@ -44,6 +118,11 @@ pub fn TextHostRoute::next_platform_event(
   self : TextHostRoute,
   timeout_ms~ : Int32 = 16,
 ) -> Result[@platform.Event?, @diagnostics.FrameworkError] {
+  if self.ordered {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.InvalidInput, "next_platform_event"),
+    )
+  }
   match self.queue.take_parked() {
     Some(event) => return Ok(Some(event))
     None => ()
@@ -260,6 +339,11 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn next_text_input(
   self,
   timeout_ms?,
 ) {
+  if self.ordered {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.InvalidInput, "next_text_input"),
+    )
+  }
   let timeout = match timeout_ms {
     Some(value) => value
     None => 16
@@ -310,6 +394,65 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn next_text_input(
             return Ok(self.queue.take_text())
           }
           _ => ()
+        }
+      }
+    }
+  } nobreak {
+    Ok(None)
+  }
+}
+
+///|
+/// Read text and ordinary platform records in the order copied from the Ubuntu
+/// editor stream. This is an ingress ordering guarantee, not a host shutdown
+/// or IME quiescence barrier.
+pub fn OrderedTextHostRoute::next_ordered_event(
+  self : OrderedTextHostRoute,
+  timeout_ms~ : Int32 = 16,
+) -> Result[OrderedTextEvent?, @diagnostics.FrameworkError] {
+  let route = self.route
+  next_ordered_event_from(
+    route.queue,
+    timeout_ms,
+    fn(timeout) { route.host.next_editor_event(timeout_ms=timeout) },
+    fn(target, event) { route.absorb(target, event) },
+  )
+}
+
+///|
+fn next_ordered_event_from(
+  queue : @text_host.TextHostQueue,
+  timeout_ms : Int32,
+  read : (Int32) -> Result[EditorEvent?, @diagnostics.FrameworkError],
+  absorb : (TextSessionTarget, TextSessionEvent) -> Result[
+    Unit,
+    @diagnostics.FrameworkError,
+  ],
+) -> Result[OrderedTextEvent?, @diagnostics.FrameworkError] {
+  match queue.failure() {
+    Some(code) => return Err(ubuntu_text_host_error(code, "next_ordered_event"))
+    None => ()
+  }
+  while true {
+    let event = match read(timeout_ms) {
+      Err(error) => return Err(error)
+      Ok(None) => return Ok(None)
+      Ok(Some(event)) => event
+    }
+    match event {
+      Platform(event) => return Ok(Some(Platform(event)))
+      TextSession(target, value) => {
+        match absorb(target, value) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        match queue.take_text() {
+          Some(text) => return Ok(Some(Text(text)))
+          None => ()
+        }
+        match queue.take_parked() {
+          Some(event) => return Ok(Some(Platform(event)))
+          None => ()
         }
       }
     }

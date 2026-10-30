@@ -11,6 +11,9 @@
 
 ### Added
 
+- Add an opt-in Ubuntu ordered text ingress that yields text and platform
+  records in their editor-stream order while retaining the existing two-poll
+  route. This does not establish an IME end or quiescence barrier.
 - Support bounded intrinsic point flex-basis in pure and mixed trees for
   nowrap lines with zero grow/shrink on every direct child. Preserve the
   distinction between max-content parent contributions and limited child boxes;

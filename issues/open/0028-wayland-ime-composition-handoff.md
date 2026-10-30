@@ -173,6 +173,28 @@ dsh は `Backend::next_event` しか呼ばない。Wayland host の `next_event`
 
 ## テスト計画
 
+### 2026-10-30: accepted commit の blur 前欠落
+
+現行 native host の `keyboard_leave` は `ime_invalidate` を呼んで epoch を進める。
+既に `ime_record` が旧 owner / epoch で受理・enqueue した未読 commit も、後続の
+`gpui_next_editor` 内 `ime_queued_stale` が `requested` と epoch を検査する際に
+stale として破棄し得る。これは reader から返された後の cross-kind ordering とは
+別の欠陥であり、ordered ingress 候補 [#162](https://github.com/gpui-mbt/gpui.mbt/pull/162)
+だけでは解消しない。関連契約は [GP-01B](20261019-gp-01b-text-host-contract.md)、
+consumer の focus-loss 再現は [Yami #83](https://github.com/f4ah6o/Yami-kumo/pull/83)。
+
+次の native fixture では、active な旧 owner で commit を受理した後、reader が取る前に
+keyboard leave を通知し、旧 owner の commit、終了通知、platform blur の順と各回数を
+検査する。さらに leave 後の遅延 callback、同値 ID の field 再生成、new epoch、seat /
+proxy の交換、queue full、重複 poll を組み合わせ、古い作用が新 owner に届かず、
+受理済み commit は捨てられないことを検証する。取消のみの例と区別する。
+
+host 改修では、旧 owner の受理済み record を immutable な境界付きで解決可能にし、
+境界より後の callback は従来どおり拒否する。record の一括 stale 解除や空 poll を
+終了の証明とする方法は使わない。owner / epoch の寿命と overflow / teardown の動作、
+`TextSession` pending end との同期を先に契約し、候補実装と OS observation を別々に
+検証する。確定した具体的な境界 API と migration は未決である。
+
 ```sh
 # gpui.mbt
 sh scripts/prepare_ubuntu.sh
