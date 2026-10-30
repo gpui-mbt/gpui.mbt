@@ -1,0 +1,88 @@
+name: Audit retained IME host image candidate
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/linux-ime-host-image-audit.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check fixed artifact metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          req = urllib.request.Request('https://api.github.com/repos/gpui-mbt/gpui.mbt/actions/artifacts/12987002222', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'})
+          with urllib.request.urlopen(req, timeout=30) as response:
+              item = json.load(response)
+          if item.get('id') != 12987002222 or item.get('expired') is not False or item.get('digest') != 'sha256:4e06934ee0fa482712802a1e94b14728b4988c1cb8d2804cac9e5973bf34986f' or item.get('workflow_run', {}).get('id') != 41074635858 or item.get('workflow_run', {}).get('head_sha') != '7a407aebd66d14538d9d9b0d6ca6932f6ad36692':
+              raise SystemExit('image artifact metadata mismatch')
+          print('Fixed image artifact metadata matched')
+          PY
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          repository: gpui-mbt/gpui.mbt
+          run-id: 41074635858
+          artifact-ids: 12987002222
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpui-ime-host-image
+      - name: Verify archive and write bounded review manifest
+        env:
+          IMAGE_ROOT: ${{ runner.temp }}/gpui-ime-host-image
+          AUDIT_ROOT: ${{ runner.temp }}/gpui-ime-image-audit
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, re, stat, tarfile
+          from pathlib import Path, PurePosixPath
+          root = Path(os.environ['IMAGE_ROOT'])
+          if root.is_symlink() or not root.is_dir(): raise ValueError('invalid artifact root')
+          expected = {'host-image.tar', 'host-image.tar.sha256', 'image-id.txt', 'scope.json'}
+          if {p.name for p in root.iterdir()} != expected: raise ValueError('unexpected artifact inventory')
+          def file(name, limit):
+              p = root / name
+              st = p.lstat()
+              if not stat.S_ISREG(st.st_mode) or st.st_size > limit: raise ValueError('unsafe artifact file')
+              return p
+          archive = file('host-image.tar', 4 * 1024**3)
+          expected_hash = file('host-image.tar.sha256', 1024).read_text().strip()
+          image_id = file('image-id.txt', 1024).read_text().strip()
+          if not re.fullmatch('[0-9a-f]{64}', expected_hash) or image_id != 'sha256:5b73c045b4652bae33ed9d37229bf3d261ab1a5b33e124e55ad279a97c133645': raise ValueError('invalid image identity')
+          digest = hashlib.sha256()
+          with archive.open('rb') as stream:
+              for block in iter(lambda: stream.read(8 * 1024 * 1024), b''): digest.update(block)
+          if digest.hexdigest() != expected_hash: raise ValueError('image tar digest mismatch')
+          scope = json.loads(file('scope.json', 4096).read_text())
+          if scope.get('native_status') != 'NOT_RUN' or scope.get('approved_for_execution') is not False or scope.get('runtime_artifact_id') != 12704943291 or scope.get('runtime_source_sha') != '825d99d499bf02bdf1d232827261043b38a6cdeb': raise ValueError('unexpected image scope')
+          with tarfile.open(archive, 'r:') as tar:
+              members = tar.getmembers()
+              if len(members) > 10000: raise ValueError('too many image archive members')
+              names = [m.name for m in members]
+              if len(names) != len(set(names)): raise ValueError('duplicate image archive member')
+              for m in members:
+                  path = PurePosixPath(m.name)
+                  if path.is_absolute() or '..' in path.parts or not (m.isdir() or m.isfile()): raise ValueError('unsafe image archive member')
+              manifest = tar.getmember('manifest.json')
+              if not manifest.isfile() or manifest.size > 65536: raise ValueError('invalid image manifest')
+              data = json.load(tar.extractfile(manifest))
+              if not isinstance(data, list) or len(data) != 1: raise ValueError('unexpected image count')
+              config_name = data[0].get('Config')
+              if not isinstance(config_name, str) or config_name not in names: raise ValueError('missing image config')
+              config = tar.getmember(config_name)
+              if not config.isfile() or config.size > 1048576: raise ValueError('invalid image config')
+              if hashlib.sha256(tar.extractfile(config).read()).hexdigest() != image_id.removeprefix('sha256:'): raise ValueError('image config digest mismatch')
+          result = {'native_status':'NOT_RUN', 'approved_for_execution':False, 'image_id':image_id, 'image_tar_sha256':expected_hash, 'image_artifact_id':12987002222, 'image_artifact_digest':'sha256:4e06934ee0fa482712802a1e94b14728b4988c1cb8d2804cac9e5973bf34986f', 'image_run_id':41074635858, 'image_source_sha':'7a407aebd66d14538d9d9b0d6ca6932f6ad36692', 'base_image':'debian:13@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308', 'runtime_artifact_id':12704943291, 'runtime_artifact_digest':'sha256:214cc925cc05372bffa0619b9d6a33a18deb0f42598e54a37bc658652a56f9f6', 'runtime_source_sha':'825d99d499bf02bdf1d232827261043b38a6cdeb', 'limitations':'Image is newly built; kernel, runtime archive verification, app behavior and independent execution review remain separate.'}
+          out = Path(os.environ['AUDIT_ROOT']); out.mkdir()
+          (out/'review-bundle.json').write_text(json.dumps(result, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(result, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: linux-ime-host-image-audit-12987002222
+          path: ${{ runner.temp }}/gpui-ime-image-audit/
+          if-no-files-found: error
