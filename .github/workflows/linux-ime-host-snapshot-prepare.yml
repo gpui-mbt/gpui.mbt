@@ -55,7 +55,12 @@ jobs:
               if not stat.S_ISREG(st.st_mode) or st.st_size > 1048576:
                   raise ValueError('unsafe reference file')
               return p.read_bytes()
-          result = json.loads(read('prepare-result.json'))
+          receipt = read('prepare-result.json')
+          if hashlib.sha256(receipt).hexdigest() != '6ef6331d926bf62e0b4d57344e2a4fba86a6fe76e8d98dafd06c004b3f4081a2':
+              raise SystemExit('prepared reference receipt differs from reviewed digest')
+          result = json.loads(receipt)
+          if result.get('preparation_status') != 'PREPARED' or result.get('native_status') != 'NOT_RUN':
+              raise SystemExit('reference is not a prepare-only result')
           old = read('host.log')
           exe = read('host-executables.json')
           if hashlib.sha256(old).hexdigest() != result['host_inventory_sha256'] or hashlib.sha256(exe).hexdigest() != result['host_executables_sha256']:
@@ -85,3 +90,6 @@ jobs:
           print('native_status: NOT_RUN; approved_for_execution: false')
           if missing_or_changed: raise SystemExit('host snapshot differs from prepared inventory')
           PY
+      - name: Record execution scope
+        if: always()
+        run: echo 'native_status: NOT_RUN; approved_for_execution: false'
