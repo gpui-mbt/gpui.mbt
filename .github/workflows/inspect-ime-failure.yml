@@ -1,0 +1,67 @@
+name: Inspect retained IME failure status
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/inspect-ime-failure.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          repository: gpui-mbt/gpui.mbt
+          run-id: 41071517137
+          artifact-ids: 12984694031
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/ime-retained-diagnostic
+      - name: Print bounded status only
+        env:
+          ARTIFACT_ROOT: ${{ runner.temp }}/ime-retained-diagnostic
+        run: |
+          python3 - <<'PY'
+          import json, os, re, stat
+          from pathlib import Path
+
+          root = Path(os.environ['ARTIFACT_ROOT'])
+          if root.is_symlink() or not root.is_dir():
+              raise SystemExit('artifact root invalid')
+          def read(name):
+              if name not in {'execution-status.json', 'stages.json', 'bind.log', 'overlay.log', 'native.log'}:
+                  raise ValueError('unrecognized file')
+              p = root / name
+              try:
+                  info = p.lstat()
+              except FileNotFoundError:
+                  return None
+              if not stat.S_ISREG(info.st_mode) or info.st_size > 65536:
+                  raise ValueError('non-regular or oversized status file')
+              return p.read_text(encoding='utf-8', errors='strict')
+          def safe(value):
+              if not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9 _./:-]{1,300}', value):
+                  return '[redacted or invalid]'
+              if re.search(r'(token|secret|password|credential|https?:)', value, re.I):
+                  return '[redacted or invalid]'
+              return value
+          raw = read('execution-status.json')
+          if raw is not None:
+              value = json.loads(raw)
+              print('native_status:', safe(value.get('native_status')))
+              print('status_stage:', safe(value.get('stage')))
+              print('status_error:', safe(value.get('error')))
+          raw = read('stages.json')
+          if raw is not None:
+              stages = json.loads(raw)
+              if not isinstance(stages, list) or len(stages) > 3:
+                  raise ValueError('invalid stages')
+              for stage in stages:
+                  if stage.get('stage') not in ('bind', 'overlay', 'native') or type(stage.get('returncode')) is not int:
+                      raise ValueError('invalid stage record')
+                  print('stage:', stage['stage'], 'returncode:', stage['returncode'])
+          for name in ('bind.log', 'overlay.log', 'native.log'):
+              raw = read(name)
+              if raw:
+                  print(name + ' last line:', safe(raw.splitlines()[-1]))
+          PY
