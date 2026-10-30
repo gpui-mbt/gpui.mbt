@@ -47,8 +47,12 @@ the specific panel presentation with the retained table, input, and frame bytes.
 
 `panel_frames.py` is another standalone diagnostic: it extracts completed
 callbacks for surfaces actually assigned the input-panel role, keeping surface
-generations and callback/commit identities distinct. It rejects ambiguous
-callback reuse, and destruction fences the previous surface lifetime. A
+generations and callback/commit identities distinct. It retains attachment and
+frame requests made before panel-role assignment, and destruction fences the
+previous surface lifetime. When `delete_id` allows a callback number to be
+reused while an old completion might still be queued, that number is
+quarantined for the rest of the trace rather than credited to either lifetime.
+This can omit valid callbacks, but cannot turn an ambiguous one into a pass. A
 callback is not a lookup-table acknowledgment or proof that any particular
 pixels were captured. This parser does not authenticate the trace, join D-Bus
 and Wayland clocks, identify rows, or modify `candidate_table_verified`.

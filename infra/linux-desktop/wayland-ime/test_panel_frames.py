@@ -83,6 +83,37 @@ class PanelFrameTests(unittest.TestCase):
         with self.assertRaises(PanelFrameError):
             collect_panel_frames('\n'.join(lines))
 
+    def test_role_after_attach_and_frame_but_before_commit(self):
+        lines = [out(1, 'wl_compositor#4.create_surface(new id wl_surface#23)'),
+                 out(2, 'wl_surface#23.attach(wl_buffer#26, 0, 0)'),
+                 out(3, 'wl_surface#23.frame(new id wl_callback#28)'),
+                 out(4, 'zwp_input_panel_v1#21.get_input_panel_surface(new id zwp_input_panel_surface_v1#24, wl_surface#23)'),
+                 out(5, 'wl_surface#23.commit()'), incoming(6, 'wl_callback#28.done(1)')]
+        frames = collect_panel_frames('\n'.join(lines))
+        self.assertEqual(len(frames), 1)
+        self.assertEqual(frames[0]['panel'], 24)
+        self.assertIs(frames[0]['attached'], True)
+
+    def test_pre_role_commit_does_not_become_panel_frame_retroactively(self):
+        lines = [out(1, 'wl_compositor#4.create_surface(new id wl_surface#23)'),
+                 out(2, 'wl_surface#23.frame(new id wl_callback#28)'),
+                 out(3, 'wl_surface#23.commit()'),
+                 out(4, 'zwp_input_panel_v1#21.get_input_panel_surface(new id zwp_input_panel_surface_v1#24, wl_surface#23)'),
+                 incoming(5, 'wl_callback#28.done(1)')]
+        self.assertEqual(collect_panel_frames('\n'.join(lines)), [])
+
+    def test_delete_id_reuse_quarantines_ambiguous_callback(self):
+        lines = panel() + [out(3, 'wl_surface#23.frame(new id wl_callback#28)'),
+                           out(4, 'wl_surface#23.commit()'), out(5, 'wl_surface#23.destroy()'),
+                           incoming(6, 'wl_display#1.delete_id(28)')] + panel() + [
+                           out(7, 'wl_surface#23.frame(new id wl_callback#28)'),
+                           out(8, 'wl_surface#23.commit()'), incoming(9, 'wl_callback#28.done(1)'),
+                           incoming(10, 'wl_callback#28.done(2)'),
+                           out(11, 'wl_surface#23.frame(new id wl_callback#29)'),
+                           out(12, 'wl_surface#23.commit()'), incoming(13, 'wl_callback#29.done(3)')]
+        frames = collect_panel_frames('\n'.join(lines))
+        self.assertEqual([f['callback'] for f in frames], [29])
+
     def test_foreign_role_and_oversized_trace_are_rejected(self):
         with self.assertRaises(PanelFrameError):
             collect_panel_frames(out(1, 'zwp_input_panel_v1#21.get_input_panel_surface(new id zwp_input_panel_surface_v1#24, wl_surface#23)'))
