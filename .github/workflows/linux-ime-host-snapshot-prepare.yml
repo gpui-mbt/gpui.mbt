@@ -92,4 +92,5 @@ jobs:
           PY
       - name: Record execution scope
         if: always()
-        run: echo 'native_status: NOT_RUN; approved_for_execution: false'
+        run: |
+          echo 'native_status: NOT_RUN; approved_for_execution: false'
