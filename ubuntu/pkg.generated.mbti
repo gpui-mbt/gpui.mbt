@@ -194,6 +194,7 @@ pub fn RetainedOrderedReceipt::is_native_stale(Self) -> Bool
 pub fn RetainedOrderedReceipt::native_event(Self) -> EditorEvent?
 pub fn RetainedOrderedReceipt::native_sequence(Self) -> Int
 pub fn RetainedOrderedReceipt::native_window(Self) -> @platform.WindowId
+pub fn RetainedOrderedReceipt::printable_release_candidate(Self) -> RetainedPrintableRelease?
 pub fn RetainedOrderedReceipt::raw_field(Self, Int) -> Double?
 pub fn RetainedOrderedReceipt::root(Self) -> UInt64
 
@@ -208,6 +209,13 @@ pub fn RetainedOrderedRoute::peek(Self) -> Result[RetainedOrderedReceipt?, @diag
 pub fn RetainedOrderedRoute::release(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::try_end_when_drained(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::update(Self, UInt64, @text_host.TextInputState) -> Result[Unit, @diagnostics.FrameworkError]
+
+pub struct RetainedPrintableRelease {
+  // private fields
+}
+pub fn RetainedPrintableRelease::keysym(Self) -> Int
+pub fn RetainedPrintableRelease::modifiers(Self) -> @primitives.Modifiers
+pub fn RetainedPrintableRelease::target(Self) -> TextSessionTarget
 
 pub struct TerminalPreviewReceipt {
   // private fields
