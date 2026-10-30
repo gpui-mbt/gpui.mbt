@@ -48,6 +48,8 @@ int32_t gpui_metrics(int32_t host, int32_t window, double *metrics);
 int32_t gpui_output_snapshot_v1(int32_t abi, int32_t host, double *records,
                                 int32_t capacity);
 int32_t gpui_dispatch(int32_t host, int32_t timeout_ms);
+/* Pump without dequeuing, only when the retained FIFO is empty. */
+int32_t gpui_dispatch_retained(int32_t host, int32_t timeout_ms);
 int32_t gpui_next(int32_t host, double *event);
 /* Private copied direct-keyboard text ingress. `event` must be non-null and
  * have at least 10 doubles. Negative capacities, or NULL text with a positive

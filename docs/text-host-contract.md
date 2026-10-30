@@ -278,7 +278,10 @@ not become `PASS`.
 
 Ubuntu's `Host::enable_terminal_retention` selects a separate experimental
 reader before any text or direct-keyboard session. The legacy readers then
-return unsupported. `peek_retained_editor` leaves the native FIFO head owned by
+return unsupported before dispatching callbacks. `dispatch_retained` pumps
+callbacks only when the FIFO is
+empty and never dequeues a record; Busy makes no progress.
+`peek_retained_editor` leaves the native FIFO head owned by
 the host; its opaque record acknowledges only the same window and sequence.
 Native invalidation marks a stale record; it does not authorize delivery to a
 new window or editor. The consumer must validate the captured session and its

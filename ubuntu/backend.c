@@ -2072,20 +2072,32 @@ int32_t gpui_output_snapshot_v1(int32_t abi, int32_t token,
   }
   return count;
 }
-int32_t gpui_dispatch(int32_t token, int32_t timeout) {
-  struct host *h;
-  int s = check(token, &h);
-  if (s)
-    return s;
-  if (timeout < 0 || timeout > 60000)
-    return GPUI_INVALID;
-  s = pump_with_repeat_wait(h, h->count || h->state ? 0 : timeout, 1);
+static int dispatch_host(struct host *h, int timeout) {
+  int s = pump_with_repeat_wait(h, h->count || h->state ? 0 : timeout, 1);
   if (!s) {
     s = service_key_repeat(h);
     if (s)
       quiesce_host(h);
   }
   return s;
+}
+int32_t gpui_dispatch(int32_t token, int32_t timeout) {
+  struct host *h;
+  int s = check(token, &h);
+  if (s) return s;
+  if (h->terminal_retention) return GPUI_UNSUPPORTED;
+  if (timeout < 0 || timeout > 60000) return GPUI_INVALID;
+  return dispatch_host(h, timeout);
+}
+int32_t gpui_dispatch_retained(int32_t token, int32_t timeout) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return status;
+  if (!h->terminal_retention) return GPUI_UNSUPPORTED;
+  if (timeout < 0 || timeout > 60000) return GPUI_INVALID;
+  /* Do not admit another native burst while a head awaits owner ACK. */
+  if (h->count) return GPUI_BUSY;
+  return dispatch_host(h, timeout);
 }
 int32_t gpui_next(int32_t token, double *out) {
   struct host *h;

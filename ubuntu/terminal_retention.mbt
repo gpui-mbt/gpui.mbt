@@ -2,6 +2,19 @@
 extern "C" fn native_terminal_retention_enable(host : Int32) -> Int32 = "gpui_terminal_retention_enable"
 
 ///|
+extern "C" fn native_dispatch_retained(host : Int32, timeout : Int32) -> Int32 = "gpui_dispatch_retained"
+
+///|
+/// Pump native callbacks without consuming records. Busy leaves the host and
+/// callback queue unchanged when the retained FIFO already has an owner.
+pub fn Host::dispatch_retained(
+  self : Host,
+  timeout_ms : Int32,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  outcome(native_dispatch_retained(self.token, timeout_ms), "dispatch_retained")
+}
+
+///|
 #borrow(fields, text)
 extern "C" fn native_terminal_preview_receipt(
   host : Int32,
