@@ -3,11 +3,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/linux-ime-candidate-recipe-prepare.yml'
-      - 'infra/linux-desktop/wayland-ime/recovery/check_candidate_recipe.py'
-      - 'infra/linux-desktop/wayland-ime/recovery/run_candidate_recipe_check.sh'
-      - 'infra/linux-desktop/wayland-ime/recovery/test_check_candidate_recipe.py'
-      - 'infra/linux-desktop/wayland-ime/recovery/image.recipe.candidate.json'
-      - 'infra/linux-desktop/wayland-ime/recovery/image.review.candidate.json'
+      # All 44 pinned sources and the historical/candidate metadata live here.
+      - 'infra/linux-desktop/**'
 permissions:
   contents: read
 jobs:
