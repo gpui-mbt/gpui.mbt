@@ -1,0 +1,30 @@
+name: Linux IME candidate recipe prepare-only
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/linux-ime-candidate-recipe-prepare.yml'
+      # All 44 pinned sources and the historical/candidate metadata live here.
+      - 'infra/linux-desktop/**'
+permissions:
+  contents: read
+jobs:
+  check-candidate-recipe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Check refusal and exact source pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s infra/linux-desktop/wayland-ime/recovery -p test_check_candidate_recipe.py -v
+          bash infra/linux-desktop/wayland-ime/recovery/run_candidate_recipe_check.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: linux-ime-candidate-recipe-${{ github.event.pull_request.head.sha }}
+          path: candidate-recipe-result.json
+          if-no-files-found: warn
