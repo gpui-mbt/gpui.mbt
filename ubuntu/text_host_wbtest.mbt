@@ -291,3 +291,162 @@ test "ordered ingress preserves forwarded-key position between commits" {
     _ => fail("expected second commit")
   }
 }
+
+///|
+test "Ubuntu text route admits only modified shortcut keysyms and pairs releases" {
+  let held = ShortcutKeyTracker::new()
+  let plain = @primitives.Modifiers::none()
+  let control = @primitives.Modifiers::new(
+    shift=false,
+    control=true,
+    alt=false,
+    meta=false,
+  )
+  for symbol in [0x7a, 0x5a] {
+    match
+      held.translate(ForwardedPressed(keysym=symbol, key=None, modifiers=plain)) {
+      Skip => ()
+      _ => fail("plain z must not synthesize text or a key")
+    }
+  }
+  match
+    held.translate(ForwardedPressed(keysym=0x62, key=None, modifiers=control)) {
+    Skip => ()
+    _ => fail("non-allowlisted modified characters must remain unmapped")
+  }
+  match
+    held.translate(ForwardedPressed(keysym=0x7a, key=None, modifiers=control)) {
+    Forward(@primitives.Character("z"), true, modifiers) =>
+      assert_true(modifiers.control())
+    _ => fail("Ctrl+Z must reach the portable command path")
+  }
+  match
+    held.translate(ForwardedReleased(keysym=0x7a, key=None, modifiers=plain)) {
+    Forward(@primitives.Character("z"), false, _) => ()
+    _ => fail("modifier release must not orphan the acquired key")
+  }
+  match
+    held.translate(ForwardedReleased(keysym=0x7a, key=None, modifiers=plain)) {
+    Skip => ()
+    _ => fail("an orphan release must not revive a shortcut")
+  }
+  match held.translate(Commit(text="日本", deletion=None, position=None)) {
+    Emit(@text_host.Commit(text~)) => assert_eq(text, "日本")
+    _ => fail("an IME commit must remain one text observation")
+  }
+  for
+    (symbol, value) in [
+      (0x41, "a"),
+      (0x63, "c"),
+      (0x58, "x"),
+      (0x76, "v"),
+      (0x5a, "z"),
+      (0x79, "y"),
+    ] {
+    match
+      held.translate(
+        ForwardedPressed(keysym=symbol, key=None, modifiers=control),
+      ) {
+      Forward(@primitives.Character(key), true, _) => assert_eq(key, value)
+      _ => fail("allowlisted command was not forwarded")
+    }
+    // Session cancellation/replacement revokes all pending acquisitions.
+    held.held = 0
+    match
+      held.translate(
+        ForwardedReleased(keysym=symbol, key=None, modifiers=plain),
+      ) {
+      Skip => ()
+      _ => fail("revoked shortcut release must not be delivered")
+    }
+  }
+}
+
+///|
+test "ordered ingress preserves modified shortcut between text observations" {
+  let host : Host = { token: -1, stopped: true, }
+  let route = TextHostRoute::new_ordered(host)
+  let queue = route.queue
+  let window = @platform.WindowId::new(1L)
+  ignore(queue.begin(window).unwrap())
+  let target : TextSessionTarget = {
+    window,
+    sequence: 1L,
+    epoch: 1,
+    seat: 1L,
+    proxy_generation: 1,
+    serial: 1,
+  }
+  let control = @primitives.Modifiers::new(
+    shift=false,
+    control=true,
+    alt=false,
+    meta=false,
+  )
+  let pending : Ref[Array[EditorEvent]] = Ref([
+    TextSession(target, Commit(text="日本", deletion=None, position=None)),
+    TextSession(
+      target,
+      ForwardedPressed(keysym=0x7a, key=None, modifiers=control),
+    ),
+    TextSession(
+      target,
+      ForwardedReleased(
+        keysym=0x7a,
+        key=None,
+        modifiers=@primitives.Modifiers::none(),
+      ),
+    ),
+  ])
+  let read = fn(_) {
+    if pending.val.length() == 0 {
+      Ok(None)
+    } else {
+      Ok(Some(pending.val.remove(0)))
+    }
+  }
+  let absorb = fn(_, event) {
+    match route.shortcuts.translate(event) {
+      Emit(kind) => queue.emit(kind)
+      Forward(key, pressed, modifiers) => {
+        let kind = if pressed {
+          @platform.Input(
+            @primitives.KeyPressed(key~, repeat=false, modifiers~),
+          )
+        } else {
+          @platform.Input(@primitives.KeyReleased(key~, modifiers~))
+        }
+        if !queue.park(@platform.Event::new(window, 2L, 1.0, kind)) {
+          abort("unexpected full test queue")
+        }
+        Ok(())
+      }
+      _ => abort("unexpected test event")
+    }
+  }
+  match next_ordered_event_from(queue, 0, read, absorb).unwrap() {
+    Some(Text(event)) =>
+      assert_true(event.kind() is @text_host.Commit(text="日本"))
+    _ => fail("expected commit before shortcut")
+  }
+  match next_ordered_event_from(queue, 0, read, absorb).unwrap() {
+    Some(Platform(event)) =>
+      assert_true(
+        event.kind()
+        is @platform.Input(
+          @primitives.KeyPressed(key=@primitives.Character("z"), ..)
+        ),
+      )
+    _ => fail("expected shortcut press")
+  }
+  match next_ordered_event_from(queue, 0, read, absorb).unwrap() {
+    Some(Platform(event)) =>
+      assert_true(
+        event.kind()
+        is @platform.Input(
+          @primitives.KeyReleased(key=@primitives.Character("z"), ..)
+        ),
+      )
+    _ => fail("expected matching shortcut release")
+  }
+}

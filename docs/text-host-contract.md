@@ -158,6 +158,16 @@ candidate window position inside the input method.
   the live input method still processes the key. Neither hook synthesizes a
   composition or proves a real input method by itself.
 
+## Ubuntu route (bounded)
+
+`ubuntu.TextHostRoute` maps forwarded Ctrl/Meta A, C, X, V, Z and Y keysyms
+to platform command keys. A matching release is delivered for an acquired key
+even if its modifier was released first; the acquisition is revoked when the
+text session is canceled, ended or replaced. Unmodified character keysyms and
+other modified characters do not become text or command keys through this
+mapping. IME commits remain the source of inserted text. This bounded mapping
+does not itself qualify a live IME or cross-queue event ordering.
+
 ## Windows route (bounded)
 
 `windows.TextHostRoute` adapts the existing default-off IMM32 session. `Marked`

@@ -7,6 +7,8 @@
 - Retain already admitted Ubuntu text-input records ahead of a natural focus
   loss, with their original target, while continuing to reject old callbacks
   and records invalidated by an explicit owner change.
+- Preserve the bounded Ctrl/Meta A/C/X/V/Z/Y commands forwarded by the Ubuntu
+  text-input-v1 route, including key release after an earlier modifier release.
 
 - Match pinned GPUI/Taffy f32 distributed main-axis placement in bounded
   device-grid zero-flex lines, including forward/reverse flow and wrapping.
