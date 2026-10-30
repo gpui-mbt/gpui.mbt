@@ -845,8 +845,9 @@ pub fn TextField::redo(
 
 ///|
 /// Change logical focus. Focus loss cancels an active composition and restores
-/// its originally admitted document, directional selection and history. Font
-/// style is immutable and bounds changes validate the saved original geometry.
+/// its originally admitted document, directional selection and history. Bounds
+/// changes validate the saved original geometry; remeasurement replaces both
+/// the preview and saved geometry before a font or measurement change.
 /// Native owners should disarm their input target before installing a blur.
 pub fn TextField::with_focus(
   self : TextField,
@@ -880,7 +881,7 @@ pub fn TextField::with_bounds(
     return Err(InvalidBounds)
   }
   // A resized composition must keep its original restoration snapshot valid.
-  // Style has no mutating API, and content edits are blocked until resolution.
+  // Content edits are blocked until resolution; style changes use remeasure.
   match self.composition {
     Some(state) =>
       match
@@ -903,6 +904,119 @@ pub fn TextField::with_bounds(
   Ok({
     ..base,
     scroll_offset: field_scroll_for_head(base, self.document.selection().head()),
+  })
+}
+
+///|
+/// Prepare a new immutable field after a measurement environment or font
+/// change. Both the visible document and any composition rollback document
+/// are measured, validated and admitted under the proposed bounds and style.
+/// No part of the returned field is installed if either preparation fails.
+/// Callbacks may have external effects; the caller owns their rollback and
+/// must reject a result if its editing owner changed while they ran.
+pub fn TextField::remeasure(
+  self : TextField,
+  bounds : @primitives.Rect,
+  font_size : Double,
+  measure : (@text.TextDocument) -> Result[
+    @text_layout.TextMeasurement,
+    TextFieldError,
+  ],
+  admit : (@text.TextDocument, @text_layout.TextMeasurement) -> Result[
+    Unit,
+    TextFieldError,
+  ],
+) -> Result[TextField, TextFieldError] {
+  if !finite_field_metric(font_size) ||
+    font_size <= 0.0 ||
+    font_size > MAX_FIELD_FONT_SIZE {
+    return Err(InvalidFontSize)
+  }
+  let content = field_content_bounds(bounds)
+  if rect_width(content) < 1.0 || rect_height(content) < font_size {
+    return Err(InvalidBounds)
+  }
+  let revision = match bump_field_revision(self.revision) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let measurement = match measure(self.document) {
+    Ok(value) => value
+    Err(_) => return Err(MeasurementFailed)
+  }
+  match
+    validate_field_measurement(
+      self.document,
+      measurement,
+      true,
+      rect_height(content),
+    ) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  let original_measurement = match self.composition {
+    None => None
+    Some(state) => {
+      let value = match measure(state.original) {
+        Ok(value) => value
+        Err(_) => return Err(MeasurementFailed)
+      }
+      match
+        validate_field_measurement(
+          state.original,
+          value,
+          true,
+          rect_height(content),
+        ) {
+        Ok(_) => ()
+        Err(error) => return Err(error)
+      }
+      Some(value)
+    }
+  }
+  match admit(self.document, measurement) {
+    Ok(_) => ()
+    Err(_) => return Err(AdmissionFailed)
+  }
+  let composition = match (self.composition, original_measurement) {
+    (Some(state), Some(original)) => {
+      match admit(state.original, original) {
+        Ok(_) => ()
+        Err(_) => return Err(AdmissionFailed)
+      }
+      let rollback = {
+        ..self,
+        bounds,
+        font_size,
+        document: state.original,
+        measurement: original,
+        scroll_offset: state.scroll_offset,
+      }
+      Some({
+        ..state,
+        measurement: original,
+        scroll_offset: field_scroll_for_head(
+          rollback,
+          state.original.selection().head(),
+        ),
+      })
+    }
+    _ => None
+  }
+  let candidate = {
+    ..self,
+    bounds,
+    font_size,
+    measurement,
+    revision,
+    composition,
+  }
+  Ok({
+    ..candidate,
+    scroll_offset: field_scroll_for_head(
+      candidate,
+      self.document.selection().head(),
+    ),
   })
 }
 
