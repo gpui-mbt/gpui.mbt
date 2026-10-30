@@ -72,16 +72,15 @@ def create_owned_parent(approved):
             'runner_temp_uid': runner_temp.stat().st_uid}
 
 
-def restore(archive, inventory, approved):
-    """Validate all bytes/paths before writing; no tar.extract or symlink traversal."""
-    require(approved.get('approved_for_execution') is True, 'restore has no explicit approval')
-    require(digest(archive) == approved['runtime_sha256'], 'runtime digest mismatch')
-    require(digest(inventory) == approved['inventory_sha256'], 'inventory digest mismatch')
-    root = Path(approved['exact_restore_root'])
-    require(root.is_absolute() and root.resolve() == root and root != Path('/') and not root.exists(),
-            'restore requires fresh canonical exact root')
-    require(root.parent.is_dir() and root.parent.stat().st_uid == os.geteuid(), 'unowned restore parent')
-    rows = json.loads(Path(inventory).read_text())
+def read_inventory(archive, inventory, reviewed):
+    """Validate archive identities and construct the bounded member inventory."""
+    require(digest(archive) == reviewed['runtime_sha256'], 'runtime digest mismatch')
+    require(digest(inventory) == reviewed['inventory_sha256'], 'inventory digest mismatch')
+    return parse_inventory(json.loads(Path(inventory).read_text()))
+
+
+def parse_inventory(rows):
+    """Build the same validated index for restore and read-only inspection."""
     by_name = {}
     for row in rows:
         name = str(relative(row['path']))
@@ -89,38 +88,54 @@ def restore(archive, inventory, approved):
         require(type(row['mode']) is int and 0 <= row['mode'] <= 0o777, 'unsafe Unix mode')
         require(row['kind'] in ('file', 'directory', 'symlink'), 'special inventory node')
         by_name[name] = row
+    return by_name
+
+
+def validate_members(tar, by_name, root, reviewed):
+    """Validate every member without extracting or changing the filesystem."""
+    members = {}
+    for member in tar.getmembers():
+        if member.name == 'closure':
+            require(member.isdir(), 'invalid closure root')
+            continue
+        p = relative(member.name)
+        require(p.parts[0] == 'closure' and len(p.parts) > 1, 'foreign archive member')
+        name = str(PurePosixPath(*p.parts[1:]))
+        require(name not in members and name in by_name, 'duplicate or unexpected member')
+        row = by_name[name]
+        require(member.mode == row['mode'], 'mode mismatch')
+        for parent in PurePosixPath(name).parents:
+            if str(parent) != '.':
+                require(by_name.get(str(parent), {}).get('kind') == 'directory', 'non-directory parent')
+        if row['kind'] == 'file':
+            require(member.isfile() and not member.islnk() and member.size == row['size'], 'invalid regular file')
+            value = hashlib.sha256()
+            with tar.extractfile(member) as stream:
+                for block in iter(lambda: stream.read(1024 * 1024), b''):
+                    value.update(block)
+            require(value.hexdigest() == row['sha256'], 'file digest mismatch')
+        elif row['kind'] == 'directory':
+            require(member.isdir(), 'directory mismatch')
+        else:
+            require(member.issym() and member.linkname == row['target'], 'link mismatch')
+            target = Path(os.path.normpath(str(root / name / '..' / member.linkname))) if not Path(member.linkname).is_absolute() else Path(member.linkname)
+            if root != target and root not in target.parents:
+                require(reviewed['external_symlinks'].get(name) == member.linkname,
+                        'escaping link not explicitly reviewed')
+        members[name] = member
+    require(set(members) == set(by_name), 'incomplete archive')
+    return members
+
+def restore(archive, inventory, approved):
+    """Validate all bytes/paths before writing; no tar.extract or symlink traversal."""
+    require(approved.get('approved_for_execution') is True, 'restore has no explicit approval')
+    root = Path(approved['exact_restore_root'])
+    require(root.is_absolute() and root.resolve() == root and root != Path('/') and not root.exists(),
+            'restore requires fresh canonical exact root')
+    require(root.parent.is_dir() and root.parent.stat().st_uid == os.geteuid(), 'unowned restore parent')
+    by_name = read_inventory(archive, inventory, approved)
     with tarfile.open(archive, 'r:gz') as tar:
-        members = {}
-        for member in tar.getmembers():
-            if member.name == 'closure':
-                require(member.isdir(), 'invalid closure root')
-                continue
-            p = relative(member.name)
-            require(p.parts[0] == 'closure' and len(p.parts) > 1, 'foreign archive member')
-            name = str(PurePosixPath(*p.parts[1:]))
-            require(name not in members and name in by_name, 'duplicate or unexpected member')
-            row = by_name[name]
-            require(member.mode == row['mode'], 'mode mismatch')
-            for parent in PurePosixPath(name).parents:
-                if str(parent) != '.':
-                    require(by_name.get(str(parent), {}).get('kind') == 'directory', 'non-directory parent')
-            if row['kind'] == 'file':
-                require(member.isfile() and not member.islnk() and member.size == row['size'], 'invalid regular file')
-                value = hashlib.sha256()
-                with tar.extractfile(member) as stream:
-                    for block in iter(lambda: stream.read(1024 * 1024), b''):
-                        value.update(block)
-                require(value.hexdigest() == row['sha256'], 'file digest mismatch')
-            elif row['kind'] == 'directory':
-                require(member.isdir(), 'directory mismatch')
-            else:
-                require(member.issym() and member.linkname == row['target'], 'link mismatch')
-                target = Path(os.path.normpath(str(root / name / '..' / member.linkname))) if not Path(member.linkname).is_absolute() else Path(member.linkname)
-                if root != target and root not in target.parents:
-                    require(approved['external_symlinks'].get(name) == member.linkname,
-                            'escaping link not explicitly reviewed')
-            members[name] = member
-        require(set(members) == set(by_name), 'incomplete archive')
+        members = validate_members(tar, by_name, root, approved)
         root.mkdir(mode=0o700)
         # Every parent is a real directory; links are created only after files.
         for name in sorted(members, key=lambda n: (len(PurePosixPath(n).parts), n)):

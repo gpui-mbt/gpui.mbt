@@ -87,3 +87,21 @@ strict recovery bind, or native launch. A later implementation must validate
 the identity and restrictions of the actual execution container and re-run the
 existing restore and deployment checks. The historical receipt's approval is
 not transferable to the new image.
+
+## Runtime member audit candidate
+
+`inspect_runtime_members.py` uses the same inventory and member-validation
+functions as `hosted_restore.restore`, after the fixed unapproved image and
+historical runtime identities pass the prepare-only identity gate. It opens the
+verified archive for reading and checks every declared member, path, type, mode,
+file hash and reviewed external symlink without creating a restore root. The
+result is explicitly `NOT_RUN` and unapproved. It does not check a future
+execution container, create the owned parent, restore any file, bind a deployment
+or launch the native harness. It trusts the isolated CI environment to keep the
+input file contents stable during the audit.
+
+Factoring the historical verifier changes `hosted_restore.py`'s source bytes.
+The old hosted recipe deliberately continues to pin the old bytes, so a newer
+checkout cannot claim to be that reviewed historical source. A new execution
+recipe and receipt must be reviewed and pinned separately; no old pin or approval
+is silently updated by this audit.
