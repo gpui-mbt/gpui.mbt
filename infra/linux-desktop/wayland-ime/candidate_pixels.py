@@ -106,6 +106,35 @@ def compare_two_rows(before, after, before_boxes, after_boxes,
                             'remaining rows and disappearance are not checked']}
 
 
+def compare_cleared_region(shown, after_commit, after_cancel, box, background):
+    """Check one caller-selected panel region returns to an assumed background.
+
+    This does not establish the panel's disappearance elsewhere on screen,
+    authenticate a baseline, or bind any image to an input or panel frame.
+    """
+    require(all(im.size == (960, 640) for im in (shown, after_commit, after_cancel)),
+            'unexpected screenshot size')
+    require(type(box) is list and len(box) == 4 and all(type(v) is int for v in box),
+            'invalid clear-region box')
+    x0, y0, x1, y1 = box
+    require(0 <= x0 < x1 <= 960 and 0 <= y0 < y1 <= 640 and
+            64 <= x1-x0 <= 200 and 64 <= y1-y0 <= 200, 'invalid clear-region extent')
+    require(type(background) is list and len(background) == 3 and
+            all(type(v) is int and 0 <= v <= 255 for v in background), 'invalid background')
+    reference = bytes(background) * ((x1-x0) * (y1-y0))
+    active = shown.crop(box).convert('RGB').tobytes()
+    changed = sum(active[i:i+3] != reference[i:i+3] for i in range(0, len(active), 3))
+    require(changed >= 1000, 'shown region does not differ sufficiently from background')
+    require(after_commit.crop(box).convert('RGB').tobytes() == reference and
+            after_cancel.crop(box).convert('RGB').tobytes() == reference,
+            'region did not return to the assumed background')
+    return {'status': 'partial', 'candidate_table_verified': False,
+            'region': box, 'shown_pixels_differing': changed,
+            'limitations': ['region and background are caller-supplied',
+                            'panel movement elsewhere is not excluded',
+                            'captures are not bound to input or panel frames']}
+
+
 class Tesseract:
     """Use an explicit local executable and exact traineddata; no network."""
     def __init__(self, executable, tessdata, model_sha256):

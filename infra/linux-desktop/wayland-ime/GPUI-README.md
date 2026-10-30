@@ -80,8 +80,12 @@ On Debian 13 x86_64, Tesseract 5.5.0 binary SHA-256
 the following read-only replay reported two matching rows (`日本`, `にほん`)
 and highlight counts `[[0,812],[570,0]]`. It is not a fresh live run, a
 synchronized observation, a full candidate-table pass, or a framework-head
-acceptance. The PNG test fixtures are byte-identical copies of those two
-screenshots; the D-Bus log is not duplicated here.
+acceptance. An optional region check also confirms that a caller-selected
+rectangle containing panel pixels becomes the caller-assumed white background
+in both the commit and cancel screenshots. It does not exclude a panel moving
+elsewhere or prove that the assumed background is an authentic baseline. The
+PNG fixtures are byte-identical copies of those four screenshots; the D-Bus log
+is not duplicated here.
 
 ```sh
 /usr/bin/python3 infra/linux-desktop/wayland-ime/replay_candidate_pixels.py \
@@ -90,6 +94,9 @@ screenshots; the D-Bus log is not duplicated here.
   --after infra/linux-desktop/wayland-ime/tests/candidate-pixels/row1-selected.png \
   --before-boxes '[[190,286,242,310],[190,313,242,337]]' \
   --after-boxes '[[190,245,242,269],[190,273,242,297]]' \
+  --after-commit infra/linux-desktop/wayland-ime/tests/candidate-pixels/after-commit.png \
+  --after-cancel infra/linux-desktop/wayland-ime/tests/candidate-pixels/after-cancel.png \
+  --clear-box '[142,350,248,480]' --clear-background '[255,255,255]' \
   --tesseract /usr/bin/tesseract --tessdata /path/to/tessdata \
   --model-sha256 1f5de9236d2e85f5fdf4b3c500f2d4926f8d9449f28f5394472d9e8d83b91b4d
 ```

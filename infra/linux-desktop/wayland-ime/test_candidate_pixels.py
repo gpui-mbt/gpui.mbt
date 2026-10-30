@@ -94,6 +94,19 @@ class CandidatePixelTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             replay.table_at(lines, 0)
 
+    def test_selected_region_returns_to_assumed_background_only(self):
+        commit = Image.open(FIXTURES / 'after-commit.png').convert('RGB')
+        cancel = Image.open(FIXTURES / 'after-cancel.png').convert('RGB')
+        box = [142, 350, 248, 480]
+        result = pixels.compare_cleared_region(self.before, commit, cancel, box, [255, 255, 255])
+        self.assertFalse(result['candidate_table_verified'])
+        self.assertGreater(result['shown_pixels_differing'], 1000)
+        for changed_commit, changed_cancel in ((self.before, cancel), (commit, self.before)):
+            with self.subTest(commit=changed_commit is self.before), self.assertRaises(pixels.PixelEvidenceError):
+                pixels.compare_cleared_region(self.before, changed_commit, changed_cancel, box, [255, 255, 255])
+        with self.assertRaises(pixels.PixelEvidenceError):
+            pixels.compare_cleared_region(commit, commit, cancel, box, [255, 255, 255])
+
 
 if __name__ == '__main__':
     unittest.main()
