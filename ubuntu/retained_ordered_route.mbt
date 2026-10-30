@@ -427,6 +427,37 @@ pub(all) enum RetainedOrderedEvent {
 }
 
 ///|
+/// A native printable key release which has no portable key mapping. This is
+/// evidence for an explicit owner policy, not permission to discard the event:
+/// the caller must first account for any matching press delivered elsewhere.
+pub struct RetainedPrintableRelease {
+  priv target : TextSessionTarget
+  priv keysym : Int32
+  priv modifiers : @primitives.Modifiers
+}
+
+///|
+pub fn RetainedPrintableRelease::target(
+  self : RetainedPrintableRelease,
+) -> TextSessionTarget {
+  self.target
+}
+
+///|
+pub fn RetainedPrintableRelease::keysym(
+  self : RetainedPrintableRelease,
+) -> Int32 {
+  self.keysym
+}
+
+///|
+pub fn RetainedPrintableRelease::modifiers(
+  self : RetainedPrintableRelease,
+) -> @primitives.Modifiers {
+  self.modifiers
+}
+
+///|
 pub struct RetainedOrderedReceipt {
   priv route : RetainedOrderedRoute
   priv record : RetainedEditorRecord
@@ -441,6 +472,18 @@ pub struct RetainedOrderedReceipt {
   priv expected_proxy : Int32
   priv candidate_seat : Int64
   priv candidate_proxy : Int32
+  priv printable_release : RetainedPrintableRelease?
+}
+
+///|
+/// A printable key release without command modifiers and with the matching native
+/// owner. It stays an Unhandled receipt until the consumer makes and records
+/// an explicit policy decision and performs its normal exact-head ACK. No
+/// TextSession action, model update, or prior press is implied by this value.
+pub fn RetainedOrderedReceipt::printable_release_candidate(
+  self : RetainedOrderedReceipt,
+) -> RetainedPrintableRelease? {
+  self.printable_release
 }
 
 ///|
@@ -556,6 +599,7 @@ fn RetainedOrderedRoute::prepare(
   let mut next_proxy = self.native_proxy
   let candidate = ShortcutKeyTracker::{ held: self.shortcuts.held, }
   let mut prepared : RetainedOrderedEvent = Unhandled(native_event)
+  let mut printable_release : RetainedPrintableRelease? = None
   if !record.is_stale() {
     match native_event {
       Some(Platform(event)) =>
@@ -625,7 +669,18 @@ fn RetainedOrderedRoute::prepare(
                     ),
                   )
                 }
-                Skip | Unsupported => ()
+                Skip =>
+                  match event {
+                    ForwardedReleased(keysym~, key=None, modifiers~) if keysym >=
+                      0x21 &&
+                      keysym <= 0x7e &&
+                      !modifiers.control() &&
+                      !modifiers.alt() &&
+                      !modifiers.meta() =>
+                      printable_release = Some({ target, keysym, modifiers, })
+                    _ => ()
+                  }
+                Unsupported => ()
               }
           }
         }
@@ -647,6 +702,7 @@ fn RetainedOrderedRoute::prepare(
     expected_proxy: self.native_proxy,
     candidate_seat: next_seat,
     candidate_proxy: next_proxy,
+    printable_release,
   })
 }
 

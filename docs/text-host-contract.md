@@ -320,6 +320,16 @@ Foreign or stale targets, unmapped events, replacement, and position changes
 remain explicit unhandled records. Cutoff retains the binding until its
 lifecycle records are acknowledged and release succeeds.
 
+For one narrow unhandled case, `printable_release_candidate()` additionally
+identifies an ASCII printable native key release without Control, Alt or Meta,
+provided the original window, epoch, seat and proxy match and the native record
+is not stale. It carries the native target and keysym; the record remains in
+the FIFO until its exact ACK. This is evidence for the consumer's policy, not
+proof of a safe no-op: the consumer must first account for any matching press
+delivered through another path or owner. Unknown keys, modified releases,
+presses, replacement and deletion are not classified by this accessor. It
+does not turn a release into text, an OS cancel, or a model acknowledgement.
+
 This adapter does not yet implement cancel-to-new-epoch handoff, recovery from
 an already-invalidated native epoch after OS focus loss, or transactional native
 geometry updates. A route that cannot finish cutoff retains its original binding

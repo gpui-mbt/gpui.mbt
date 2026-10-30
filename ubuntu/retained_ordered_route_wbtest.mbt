@@ -335,3 +335,179 @@ test "foreign window platform records remain unhandled" {
   assert_true(route.prepare(record).unwrap().event() is Unhandled(_))
   assert_eq(route.ordinal, 0L)
 }
+
+///|
+test "printable release candidate preserves exact owner and requires ACK" {
+  let route = retained_test_route()
+  let release = retained_test_record(
+    route,
+    11,
+    7,
+    ForwardedReleased(
+      keysym=0x6e,
+      key=None,
+      modifiers=@primitives.Modifiers::none(),
+    ),
+    false,
+  )
+  let receipt = route.prepare(release).unwrap()
+  assert_true(receipt.event() is Unhandled(_))
+  let candidate = receipt.printable_release_candidate().unwrap()
+  assert_eq(candidate.keysym, 0x6e)
+  assert_eq(candidate.target.sequence, 11L)
+  assert_eq(candidate.target.epoch, 7)
+  assert_eq(candidate.target.seat, 11L)
+  assert_eq(candidate.target.proxy_generation, 4)
+  assert_eq(receipt.native_sequence(), 11)
+  assert_eq(receipt.epoch(), 3UL)
+  assert_eq(receipt.root(), 9UL)
+  assert_eq(route.ordinal, 0L)
+  assert_true(
+    receipt.finish_ack(fn() {
+      Err(@diagnostics.FrameworkError::new(@diagnostics.Busy, "ack"))
+    })
+    is Err(_),
+  )
+  assert_eq(route.ordinal, 0L)
+  assert_eq(
+    route
+    .prepare(release)
+    .unwrap()
+    .printable_release_candidate()
+    .unwrap()
+    .keysym(),
+    0x6e,
+  )
+  let mut acked = false
+  let ack = fn() {
+    if acked {
+      Err(@diagnostics.FrameworkError::new(@diagnostics.StaleHandle, "ack"))
+    } else {
+      acked = true
+      Ok(())
+    }
+  }
+  receipt.finish_ack(ack).unwrap()
+  assert_true(receipt.finish_ack(ack) is Err(_))
+  assert_eq(route.ordinal, 0L)
+  route.root = 10UL
+  assert_true(receipt.finish_ack(fn() { Ok(()) }) is Err(_))
+}
+
+///|
+test "printable candidate rejects stale foreign modified or unsupported input" {
+  let route = retained_test_route()
+  let plain = @primitives.Modifiers::none()
+  let control = @primitives.Modifiers::new(
+    control=true,
+    alt=false,
+    shift=false,
+    meta=false,
+  )
+  let cases = [
+    retained_test_record(
+      route,
+      12,
+      7,
+      ForwardedReleased(keysym=0x6e, key=None, modifiers=plain),
+      true,
+    ),
+    retained_test_record(
+      route,
+      13,
+      6,
+      ForwardedReleased(keysym=0x6e, key=None, modifiers=plain),
+      false,
+    ),
+    retained_test_record(
+      route,
+      14,
+      7,
+      ForwardedReleased(keysym=0x6e, key=None, modifiers=control),
+      false,
+    ),
+    retained_test_record(
+      route,
+      15,
+      7,
+      ForwardedPressed(keysym=0x6e, key=None, modifiers=plain),
+      false,
+    ),
+    retained_test_record(
+      route,
+      16,
+      7,
+      ForwardedReleased(keysym=0xffe1, key=None, modifiers=plain),
+      false,
+    ),
+    retained_test_record(
+      route,
+      17,
+      7,
+      Commit(
+        text="x",
+        deletion=Some({ index_bytes: -1, length_bytes: 1, }),
+        position=None,
+      ),
+      false,
+    ),
+  ]
+  for record in cases {
+    let result = route.prepare(record).unwrap()
+    assert_true(result.event() is Unhandled(_))
+    assert_true(result.printable_release_candidate() is None)
+  }
+  let original = retained_test_record(
+    route,
+    18,
+    7,
+    ForwardedReleased(keysym=0x6e, key=None, modifiers=plain),
+    false,
+  )
+  let target = match original.event {
+    Some(TextSession(value, _)) => value
+    _ => fail("expected native text-session record")
+  }
+  let wrong_seat = { ..target, seat: 12L, }
+  let wrong_proxy = { ..target, proxy_generation: 5, }
+  for target in [wrong_seat, wrong_proxy] {
+    let wrong = {
+      ..original,
+      event: Some(
+        TextSession(
+          target,
+          ForwardedReleased(keysym=0x6e, key=None, modifiers=plain),
+        ),
+      ),
+    }
+    assert_true(
+      route.prepare(wrong).unwrap().printable_release_candidate() is None,
+    )
+  }
+}
+
+///|
+test "observed native sequence eleven remains an explicit release candidate" {
+  let route = retained_test_route()
+  route.portable_epoch = 1UL
+  route.native_epoch = 1
+  route.native_seat = 14L
+  route.native_proxy = 1
+  let plain = @primitives.Modifiers::none()
+  let release = ForwardedReleased(keysym=110, key=None, modifiers=plain)
+  let original = retained_test_record(route, 11, 1, release, false)
+  let target = match original.event {
+    Some(TextSession(value, _)) => { ..value, seat: 14L, proxy_generation: 1, }
+    _ => fail("expected native text-session record")
+  }
+  let record = { ..original, event: Some(TextSession(target, release)), }
+  let receipt = route.prepare(record).unwrap()
+  let candidate = receipt.printable_release_candidate().unwrap()
+  assert_eq(candidate.target().sequence, 11L)
+  assert_eq(candidate.target().epoch, 1)
+  assert_eq(candidate.target().seat, 14L)
+  assert_eq(candidate.target().proxy_generation, 1)
+  assert_eq(candidate.keysym(), 110)
+  assert_true(receipt.event() is Unhandled(_))
+  assert_eq(route.ordinal, 0L)
+}

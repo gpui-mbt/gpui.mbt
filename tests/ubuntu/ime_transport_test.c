@@ -1409,7 +1409,36 @@ static void retained_route_rejects_legacy_session_mutation(void) {
   assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
   finish(h);
 }
+/* Reproduce the wire shape of the IME-owned raw 'n' release observed after
+ * preedit. This checks native admission/identity, not an IME live PASS. */
+static void retained_raw_printable_release_has_original_identity(void) {
+  struct host *h = fixture();
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  assert(gpui_claim_retained_route(h->token) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  int epoch = gpui_retained_route_begin(h->token, h->window, NULL, 0, 0, 0,
+      0, 0, 1, 1);
+  assert(epoch > 0);
+  ime_enter(h, h->ime.proxy, h->surface);
+  drain_enter(h);
+  ime_raw_keyboard_key(h, WL_KEYBOARD_KEY_STATE_RELEASED, XKB_KEY_n);
+  assert(h->count == 1);
+  double fields[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5] = {0};
+  assert(gpui_peek_retained_editor(3, h->token, fields, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1);
+  assert(!meta[0] && fields[0] == 25 && fields[1] == 51);
+  assert(fields[8] == XKB_KEY_n && fields[9] == 0 && fields[10] == epoch);
+  assert(fields[11] == h->seat_name && fields[12] == h->ime.proxy_generation);
+  int sequence = (int)fields[2];
+  assert(gpui_ack_retained_editor(h->token, 51, sequence + 1) == GPUI_STALE);
+  assert(h->count == 1 && gpui_stop(h->token) == GPUI_BUSY);
+  assert(gpui_ack_retained_editor(h->token, 51, sequence) == GPUI_OK);
+  assert(gpui_ack_retained_editor(h->token, 51, sequence) == GPUI_STALE);
+  finish(h);
+}
 int main(void) {
+  retained_raw_printable_release_has_original_identity();
   retained_route_rejects_legacy_session_mutation();
   retained_cutoff_generated_left_requires_ack();
   retained_direct_owner_survives_window_replacement();
