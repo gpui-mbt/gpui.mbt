@@ -326,6 +326,34 @@ static void observed_text_focus_loss_fences(void) {
   assert(read_editor(h, data, bytes) == -GPUI_RESOURCE);
   finish(h);
 }
+static void close_revokes_focus_loss_delivery(void) {
+  for (int ime_first = 0; ime_first < 2; ++ime_first) {
+    for (int native_close = 0; native_close < 2; ++native_close) {
+      for (int close_first = 0; close_first < 2; ++close_first) {
+        struct host *h = fixture(); begin(h); drain_enter(h);
+        double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+        ime_commit_string(h, h->ime.proxy, 1, "old");
+        if (close_first) {
+          if (native_close) toplevel_close(h, NULL);
+          else assert(gpui_close(h->token, h->window) == GPUI_OK);
+        }
+        if (ime_first) ime_leave(h, h->ime.proxy);
+        else keyboard_leave(h, h->keyboard, 99, h->surface);
+        if (!close_first) {
+          if (native_close) toplevel_close(h, NULL);
+          else assert(gpui_close(h->token, h->window) == GPUI_OK);
+        }
+        int closed = 0;
+        while (read_editor(h, data, bytes) == 1) {
+          assert(data[0] != 21);
+          if (data[0] == 3) closed = 1;
+        }
+        assert(closed);
+        finish(h);
+      }
+    }
+  }
+}
 static void destroy_and_manager_removal_revoke_owned_payloads(void) {
   struct host *h = fixture(); begin(h); drain_enter(h);
   double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
@@ -1135,6 +1163,7 @@ int main(void) {
   serial_epoch_and_reactivation_fences(); lifecycle_and_removed_proxies();
   observed_text_precedes_keyboard_leave();
   observed_text_focus_loss_fences();
+  close_revokes_focus_loss_delivery();
   destroy_and_manager_removal_revoke_owned_payloads();
   destroy_reports_terminal_sequence_exhaustion();
   keys_modifiers_and_text_suppression(); owner_panel_requests_are_epoch_fenced();

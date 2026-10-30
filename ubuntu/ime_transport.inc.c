@@ -331,6 +331,14 @@ static void ime_preserve_before_focus_loss(struct host *h) {
       data->focus_loss_delivery = 1;
   }
 }
+/* A terminal window close supersedes an earlier natural-focus delivery.
+ * Clearing the admission bit keeps the normal stale-epoch filter authoritative. */
+static void ime_revoke_focus_loss_delivery(struct host *h) {
+  for (int i = 0; i < h->count; ++i) {
+    int slot = (h->read + i) % QUEUE_CAPACITY;
+    if (h->ime_queue[slot]) h->ime_queue[slot]->focus_loss_delivery = 0;
+  }
+}
 static void ime_invalidate(struct host *h, int emit_leave, int deactivate) {
   if (!h->ime.requested && h->ime.phase != IME_ACTIVE &&
       h->ime.phase != IME_ACTIVATING)
