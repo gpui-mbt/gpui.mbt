@@ -245,6 +245,115 @@ static void lifecycle_and_removed_proxies(void) {
   ime_leave(h, old); assert(h->ime.stage.cursor_present && h->ime.phase == IME_ACTIVE && h->count == 0);
   finish(h);
 }
+static void observed_text_precedes_keyboard_leave(void) {
+  struct host *h = fixture(); begin(h); drain_enter(h);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  ime_preedit_string(h, h->ime.proxy, 1, "にほん", "");
+  ime_commit_string(h, h->ime.proxy, 1, "日本");
+  keyboard_leave(h, h->keyboard, 99, h->surface);
+  /* A stale callback after leave must not join the old delivery. */
+  ime_commit_string(h, h->ime.proxy, 1, "late");
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 20 && data[10] == 1);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 21 && data[10] == 1);
+  assert(data[14] == 6 && !memcmp(bytes, "日本", 6));
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 23 && data[10] == 1);
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 6 && data[8] == 0);
+  assert(read_editor(h, data, bytes) == 0);
+  finish(h);
+}
+static void observed_text_focus_loss_fences(void) {
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  /* The IME can report natural loss before wl_keyboard.leave. */
+  struct host *h = fixture(); begin(h); drain_enter(h);
+  ime_commit_string(h, h->ime.proxy, 1, "前");
+  ime_leave(h, h->ime.proxy);
+  ime_commit_string(h, h->ime.proxy, 1, "late");
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 21 && data[10] == 1);
+  assert(data[14] == 3 && !memcmp(bytes, "前", 3));
+  assert(read_editor(h, data, bytes) == 1 && data[0] == 23);
+  assert(read_editor(h, data, bytes) == 0);
+  finish(h);
+
+  /* Explicit cancel still retracts pending old text before natural loss. */
+  h = fixture(); begin(h); drain_enter(h);
+  ime_commit_string(h, h->ime.proxy, 1, "old");
+  assert(gpui_text_session_cancel(h->token, h->window, 1) == 2);
+  keyboard_leave(h, h->keyboard, 99, h->surface);
+  while (read_editor(h, data, bytes) == 1) assert(data[0] != 21);
+  finish(h);
+
+  /* Explicit end also revokes old text; focus loss cannot re-admit it. */
+  h = fixture(); begin(h); drain_enter(h);
+  ime_commit_string(h, h->ime.proxy, 1, "old");
+  assert(gpui_text_session_end(h->token, h->window, 1) == GPUI_OK);
+  keyboard_leave(h, h->keyboard, 99, h->surface);
+  while (read_editor(h, data, bytes) == 1) assert(data[0] != 21);
+  finish(h);
+
+  /* Recreating the session before reading cannot inherit the captured text. */
+  h = fixture(); begin(h); drain_enter(h);
+  ime_commit_string(h, h->ime.proxy, 1, "old");
+  keyboard_leave(h, h->keyboard, 99, h->surface);
+  keyboard_enter(h, h->keyboard, 100, h->surface, NULL);
+  int replacement = gpui_text_session_begin(h->token, h->window, NULL, 0,
+      0, 0, 0, 0, 1, 1);
+  assert(replacement > 1);
+  while (read_editor(h, data, bytes) == 1) assert(data[0] != 21);
+  finish(h);
+
+  /* A window destroy revokes retained events too. */
+  h = fixture(); begin(h); drain_enter(h);
+  ime_commit_string(h, h->ime.proxy, 1, "old");
+  keyboard_leave(h, h->keyboard, 99, h->surface);
+  assert(gpui_destroy(h->token, h->window) == GPUI_OK);
+  while (read_editor(h, data, bytes) == 1) assert(data[0] != 21);
+  finish(h);
+
+  /* A removed input-method proxy cannot authorize the old delivery. */
+  h = fixture(); begin(h); drain_enter(h); h->scale = 1;
+  ime_commit_string(h, h->ime.proxy, 1, "old");
+  keyboard_leave(h, h->keyboard, 99, h->surface);
+  global_remove(h, NULL, h->ime.manager_name);
+  while (read_editor(h, data, bytes) == 1) assert(data[0] != 21);
+  finish(h);
+
+  /* Identity exhaustion remains terminal; no marked record can bypass it. */
+  h = fixture(); begin(h); drain_enter(h);
+  h->ime.epoch = h->ime.wire_epoch = INT_MAX;
+  ime_commit_string(h, h->ime.proxy, 1, "old");
+  keyboard_leave(h, h->keyboard, 99, h->surface);
+  assert(h->ime.exhausted);
+  assert(read_editor(h, data, bytes) == -GPUI_RESOURCE);
+  finish(h);
+}
+static void close_revokes_focus_loss_delivery(void) {
+  for (int ime_first = 0; ime_first < 2; ++ime_first) {
+    for (int native_close = 0; native_close < 2; ++native_close) {
+      for (int close_first = 0; close_first < 2; ++close_first) {
+        struct host *h = fixture(); begin(h); drain_enter(h);
+        double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+        ime_commit_string(h, h->ime.proxy, 1, "old");
+        if (close_first) {
+          if (native_close) toplevel_close(h, NULL);
+          else assert(gpui_close(h->token, h->window) == GPUI_OK);
+        }
+        if (ime_first) ime_leave(h, h->ime.proxy);
+        else keyboard_leave(h, h->keyboard, 99, h->surface);
+        if (!close_first) {
+          if (native_close) toplevel_close(h, NULL);
+          else assert(gpui_close(h->token, h->window) == GPUI_OK);
+        }
+        int closed = 0;
+        while (read_editor(h, data, bytes) == 1) {
+          assert(data[0] != 21);
+          if (data[0] == 3) closed = 1;
+        }
+        assert(closed);
+        finish(h);
+      }
+    }
+  }
+}
 static void destroy_and_manager_removal_revoke_owned_payloads(void) {
   struct host *h = fixture(); begin(h); drain_enter(h);
   double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
@@ -1052,6 +1161,9 @@ int main(void) {
   copies_staging_order_and_shared_serial(); independent_staging_survives_stale_peer_event();
   buffers_and_legacy_are_atomic();
   serial_epoch_and_reactivation_fences(); lifecycle_and_removed_proxies();
+  observed_text_precedes_keyboard_leave();
+  observed_text_focus_loss_fences();
+  close_revokes_focus_loss_delivery();
   destroy_and_manager_removal_revoke_owned_payloads();
   destroy_reports_terminal_sequence_exhaustion();
   keys_modifiers_and_text_suppression(); owner_panel_requests_are_epoch_fenced();
