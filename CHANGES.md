@@ -17,6 +17,9 @@
 
 ### Added
 
+- Prepare a TextField with newly measured preview and composition rollback
+  geometry while preserving the original editing state. Callers coordinate
+  scene, focus and host publication separately.
 - Prepare and adopt bounds-only TextSession geometry while retaining the same
   composing owner and delivery watermark. This is not an atomic host/scene
   publication and does not provide scale or font remeasurement.
