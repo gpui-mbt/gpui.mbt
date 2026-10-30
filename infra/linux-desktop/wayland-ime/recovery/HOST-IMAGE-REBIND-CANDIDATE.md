@@ -69,3 +69,21 @@ prepared without restoring that archive or running its application.
 This proposal makes no change to the active receipt, native execution workflow,
 candidate-table gate or user-facing capability claim. No app or IME was run by
 the image preparation job. The audit does not review or authorize native execution.
+
+## Unstarted image inspection candidate
+
+`host_image_inspect.py` checks the fixed unapproved candidate and verified image
+tar, loads the same open file descriptor into the local Docker daemon, rehashes
+it and requires the daemon's image ID to match. It creates an inert container
+by that exact ID, inspects its nonroot user, no-network, read-only-root, dropped
+capability and no-mount settings, verifies it remains in `created` state, then
+removes it. It never starts the container or opens the runtime archive. The
+`linux-ime-image-inspect-prepare.yml` lane retains `NOT_RUN` and false approval
+even when inspection succeeds. The Docker daemon is trusted for its own
+inspection; this is not remote attestation and does not bind a later container.
+
+This step does not implement the new approved receipt, nonroot runtime restore,
+strict recovery bind, or native launch. A later implementation must validate
+the identity and restrictions of the actual execution container and re-run the
+existing restore and deployment checks. The historical receipt's approval is
+not transferable to the new image.

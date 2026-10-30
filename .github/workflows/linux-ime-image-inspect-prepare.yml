@@ -1,0 +1,67 @@
+name: Linux IME unstarted image inspection
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/linux-ime-image-inspect-prepare.yml'
+      - 'infra/linux-desktop/wayland-ime/recovery/host_image_inspect.py'
+      - 'infra/linux-desktop/wayland-ime/recovery/test_host_image_inspect.py'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect-unstarted:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Check isolated-container constraints
+        run: python3 -m unittest discover -s infra/linux-desktop/wayland-ime/recovery -p 'test_host_image_*.py' -v
+      - name: Verify fixed image artifact metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          request = urllib.request.Request(
+              'https://api.github.com/repos/gpui-mbt/gpui.mbt/actions/artifacts/12987002222',
+              headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              artifact = json.load(response)
+          run = artifact.get('workflow_run', {})
+          if (artifact.get('id') != 12987002222 or artifact.get('expired') is not False
+                  or artifact.get('digest') != 'sha256:4e06934ee0fa482712802a1e94b14728b4988c1cb8d2804cac9e5973bf34986f'
+                  or run.get('id') != 41074635858 or run.get('head_sha') != '7a407aebd66d14538d9d9b0d6ca6932f6ad36692'):
+              raise SystemExit('image artifact metadata mismatch')
+          print('Fixed image artifact metadata matched')
+          PY
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          repository: gpui-mbt/gpui.mbt
+          run-id: 41074635858
+          artifact-ids: 12987002222
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpui-image-inspection/input
+      - name: Load verified bytes and inspect an unstarted isolated container
+        run: |
+          set -o pipefail
+          mkdir "$RUNNER_TEMP/gpui-image-inspection-result"
+          python3 infra/linux-desktop/wayland-ime/recovery/host_image_inspect.py \
+            --image "$RUNNER_TEMP/gpui-image-inspection/input/host-image.tar" \
+            | tee "$RUNNER_TEMP/gpui-image-inspection-result/result.json"
+      - name: Preserve incomplete status
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/gpui-image-inspection-result"
+          if [ ! -s "$RUNNER_TEMP/gpui-image-inspection-result/result.json" ]; then
+            printf '%s\n' '{"status":"incomplete","native_status":"NOT_RUN","approved_for_execution":false}' > "$RUNNER_TEMP/gpui-image-inspection-result/result.json"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: linux-ime-image-inspection-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/gpui-image-inspection-result/
+          if-no-files-found: error
