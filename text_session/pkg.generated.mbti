@@ -106,6 +106,7 @@ pub struct TextSession {
   // private fields
 }
 pub fn TextSession::apply_batch(Self, SessionTarget, Array[SessionOperation], (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]
+pub fn TextSession::apply_typed_insert(Self, SessionTarget, String, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]
 pub fn TextSession::close(Self) -> Result[Unit, SessionError]
 pub fn TextSession::complete_blur(Self, PendingEnd, ObservedEnd, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]
 pub fn TextSession::complete_blur_by_owner_discard(Self, PendingEnd, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[BatchReceipt, SessionError]

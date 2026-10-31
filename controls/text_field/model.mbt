@@ -742,6 +742,38 @@ pub fn TextField::replace_selection(
 }
 
 ///|
+/// Apply text from direct keyboard typing with the same validated candidate and
+/// undo grouping as a `TextInput` event. This is not an IME composition commit
+/// and rejects a live preview rather than resolving it.
+pub fn TextField::insert_typed(
+  self : TextField,
+  text : String,
+  measure : (@text.TextDocument) -> Result[
+    @text_layout.TextMeasurement,
+    TextFieldError,
+  ],
+  admit : (@text.TextDocument, @text_layout.TextMeasurement) -> Result[
+    Unit,
+    TextFieldError,
+  ],
+) -> Result[TextField, TextFieldError] {
+  if self.is_composing() {
+    return Err(CompositionActive)
+  }
+  if !self.focused || text.length() == 0 {
+    return Ok(self)
+  }
+  prepare_field_replacement(
+    self,
+    self.document.selection().normalized_range(),
+    text,
+    Some(Typing),
+    measure,
+    admit,
+  )
+}
+
+///|
 /// Whether a previous content edit is retained. Availability is independent of
 /// focus; undo itself is a no-op while the field is unfocused.
 pub fn TextField::can_undo(self : TextField) -> Bool {
@@ -1159,23 +1191,11 @@ pub fn TextField::handle_input(
     }
   }
   match event {
-    @primitives.TextInput(text~) => {
-      if !self.focused || text.length() == 0 {
-        return Ok((self, None))
-      }
-      match
-        prepare_field_replacement(
-          self,
-          self.document.selection().normalized_range(),
-          text,
-          Some(Typing),
-          measure,
-          admit,
-        ) {
+    @primitives.TextInput(text~) =>
+      match self.insert_typed(text, measure, admit) {
         Ok(candidate) => Ok((candidate, None))
         Err(error) => Err(error)
       }
-    }
     @primitives.KeyPressed(key~, modifiers~, repeat=_) => {
       if !self.focused {
         return Ok((self, None))
