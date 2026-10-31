@@ -349,6 +349,35 @@ key also retains the old key owner and refuses further admission; the current
 API cannot resolve that device-loss case. This narrow path is not an IME
 composition host, an OS-IME quiescence proof, or proof of safe consumer stop.
 
+#### Proposed direct-insert receipt contract
+
+The retained direct path needs a distinct, immutable insert observation rather
+than translating its `TextInput` into an IME `Commit`: a commit resolves an
+active preview, while an insert applies `SessionOperation::Insert` only when
+the original `TextSession` is not composing. A replacement, deletion or an
+unsupported IME observation must never be reinterpreted as a direct insert.
+
+The proposed receipt exposes this observation only for a nonstale native
+direct-origin text record whose window, original root, portable epoch and
+native direct epoch still match the retained binding. It carries its original
+native sequence separately from a monotonic portable text ordinal, together
+with the exact text. No direct-origin text record may be dispatched both as a
+platform `TextInput` and as this insert observation. Unknown, foreign,
+revoked, stale or differently bound records remain owned and unhandled.
+
+Repeated peeks of the same FIFO head prepare the same ordinal without advancing
+it. Only successful exact native ACK advances it; a failed ACK leaves the
+native head, candidate ordinal, original editing owner and any already-applied
+action/model stage available for explicit recovery. Applying `Insert` must use
+the original `TextSession` target and reject an active preview or pending end.
+The consumer must retain the field/binding generation and application stage
+before ACK and must reject a replay, delayed callback or replacement target.
+The host receipt itself cannot prove model, scene, caret or geometry completion.
+
+This section is a contract proposal, not an implemented API, clean registry
+consumer, direct-keyboard acceptance, or IME acceptance. Existing Windows input
+semantics and legacy readers are unchanged by the proposal.
+
 For one narrow unhandled case, `printable_release_candidate()` additionally
 identifies an ASCII printable native key release without Control, Alt or Meta,
 provided the original window, epoch, seat and proxy match and the native record
