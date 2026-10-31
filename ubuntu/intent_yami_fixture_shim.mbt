@@ -4,18 +4,24 @@ extern "C" fn fixture_intent_setup() -> Int32 = "gpui_review207_setup"
 ///|
 extern "C" fn fixture_intent_enter() -> Unit = "gpui_review207_enter"
 ///|
+extern "C" fn fixture_intent_set_window(window : Int32) -> Unit = "gpui_fixture_intent_set_window"
+
+///|
 pub extern "C" fn fixture_intent_commit() -> Unit = "gpui_review207_commit"
 ///|
 pub extern "C" fn fixture_intent_finish() -> Unit = "gpui_review207_finish"
 
 ///|
 /// FIXTURE ONLY. Do not ship this helper or treat it as live IME acceptance.
-pub fn fixture_intent_route(state : @text_host.TextInputState) -> RetainedOrderedRoute {
+pub fn fixture_intent_route(
+  state : @text_host.TextInputState, window : @platform.WindowId, root : UInt64,
+) -> RetainedOrderedRoute {
   let token = fixture_intent_setup()
   if token != 741 { abort("fixture start failed") }
+  fixture_intent_set_window(window.value().to_int())
   let host : Host = { token, stopped: false }
   let route = RetainedOrderedRoute::new(host).unwrap()
-  ignore(route.begin(@platform.WindowId::new(51L), 9UL, state).unwrap())
+  ignore(route.begin(window, root, state).unwrap())
   fixture_intent_enter()
   let entered = route.peek().unwrap().unwrap()
   ignore(entered.ack().unwrap())
