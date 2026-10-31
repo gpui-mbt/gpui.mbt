@@ -19,6 +19,8 @@ fn retained_test_route() -> RetainedOrderedRoute {
     geometry_requires_intent: false,
     geometry_native_attempted: false,
     geometry_intent_call: false,
+    geometry_identity: { marker: false, },
+    geometry_attempt_serial: 0UL,
     geometry_handoff: None,
     geometry_handoff_call: false,
     shortcuts: ShortcutKeyTracker::new(),
