@@ -337,6 +337,13 @@ binding is invalidated are refused while the original binding is unresolved.
 The consumer must retain the original field generation, event and action/model
 stage; an ACK or this host cutoff does not establish those stages.
 
+For retained same-epoch Ubuntu IME updates, if the session is inactive and
+its activation prerequisites are absent, the host rejects the update before
+changing its stored document or caret. The same owner and epoch may retry when
+those prerequisites return. This narrow guarantee does not cover begin,
+external-edit epoch replacement, serial exhaustion, compositor application,
+scene/runtime publication or other errors; it is not a cross-layer transaction.
+
 For a direct binding, `try_end_when_drained` rejects an unacknowledged FIFO,
 held physical key, or active XKB composition. It never cancels that
 composition implicitly; blur, keymap change and window cleanup retain it with

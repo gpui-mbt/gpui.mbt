@@ -1638,6 +1638,44 @@ static void retained_direct_post_cutoff_key(void) {
   assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
   retained_direct_snapshot_finish(h);
 }
+/* Simulate a requested but currently inactive retained session whose native
+ * activation prerequisites disappear before a geometry update. */
+static void retained_update_failed_activation_keeps_previous_state(void) {
+  struct host *h = fixture();
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  assert(gpui_claim_retained_route(h->token) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  const uint8_t old[] = "old", next[] = "new";
+  int epoch = gpui_retained_route_begin(h->token, 51, old, 3, 3, 3,
+                                        1, 2, 3, 4);
+  assert(epoch > 0);
+  ime_enter(h, h->ime.proxy, h->surface);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5];
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  h->ime.phase = IME_INACTIVE;
+  h->keyboard_focus_current = 0;
+  int prior_calls = call_count, prior_serial = h->ime.latest_serial;
+  assert(gpui_retained_route_update(h->token, 51, epoch, next, 3, 3, 3,
+                                     5, 6, 7, 8) == -GPUI_UNSUPPORTED);
+  fprintf(stderr, "RETAINED_UPDATE_FAILED document=%s rect=%d,%d,%d,%d epoch=%d\n",
+          h->ime.document, h->ime.rect[0], h->ime.rect[1], h->ime.rect[2],
+          h->ime.rect[3], h->ime.epoch);
+  assert(!strcmp((const char *)h->ime.document, "old"));
+  assert(h->ime.rect[0] == 1 && h->ime.rect[1] == 2 &&
+         h->ime.rect[2] == 3 && h->ime.rect[3] == 4);
+  assert(h->ime.epoch == epoch && h->ime.latest_serial == prior_serial &&
+         h->ime.requested && h->count == 0 && call_count == prior_calls);
+  h->keyboard_focus_current = 1;
+  assert(gpui_retained_route_update(h->token, 51, epoch, next, 3, 3, 3,
+                                     5, 6, 7, 8) == epoch);
+  assert(!strcmp((const char *)h->ime.document, "new") &&
+         h->ime.rect[0] == 5 && h->ime.rect[1] == 6 &&
+         h->ime.rect[2] == 7 && h->ime.rect[3] == 8);
+  finish(h);
+}
 static void retained_direct_rejects_held_and_error(void) {
   struct host *h = retained_direct_snapshot_fixture(1);
   assert(!h->direct_keys[21].pressed && h->retained_keys[21].prior == KEY_PRIOR_UNKNOWN);
@@ -2074,6 +2112,7 @@ static void window_proof_is_host_local_and_invalid_attempt_has_no_effect(void) {
   finish(second);
 }
 int main(void) {
+  retained_update_failed_activation_keeps_previous_state();
   retained_direct_post_cutoff_key();
   window_proof_is_host_local_and_invalid_attempt_has_no_effect();
   for (int scenario = 0; scenario < 19; ++scenario)
