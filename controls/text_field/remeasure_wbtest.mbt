@@ -162,3 +162,48 @@ test "remeasure validates before admission and preserves a plain field" {
   assert_false(next.is_composing())
   assert_eq(next.measurement().logical_rect().size().height(), 20.0)
 }
+
+///|
+test "remeasure preserves direct typing undo grouping" {
+  let admit = fn(_, _) { Ok(()) }
+  let initial = composition_private_field()
+  let first = initial.insert_typed("a", undo_revision_measure, admit).unwrap()
+  let second = first.insert_typed("b", undo_revision_measure, admit).unwrap()
+  let direct = second.insert_typed("c", undo_revision_measure, admit).unwrap()
+  let resized = second
+    .remeasure(
+      @primitives.Rect::new(0.0, 0.0, 180.0, 48.0).unwrap(),
+      18.0,
+      remeasure_test_measure,
+      admit,
+    )
+    .unwrap()
+  let after = resized.insert_typed("c", remeasure_test_measure, admit).unwrap()
+  assert_true(after.document() == direct.document())
+  assert_true(
+    after.undo(remeasure_test_measure, admit).unwrap().document() ==
+    direct.undo(undo_revision_measure, admit).unwrap().document(),
+  )
+}
+
+///|
+test "owner-authorized blur uses remeasured rollback without a callback" {
+  let admit = fn(_, _) { Ok(()) }
+  let original = composition_private_field()
+  let preview = original
+    .update_composition_utf8("PRE", 3, 3, undo_revision_measure, admit)
+    .unwrap()
+  let resized = preview
+    .remeasure(
+      @primitives.Rect::new(0.0, 0.0, 180.0, 48.0).unwrap(),
+      18.0,
+      remeasure_test_measure,
+      admit,
+    )
+    .unwrap()
+  // This models explicit owner-authorized discard, not native focus loss.
+  let restored = resized.with_focus(false).unwrap()
+  assert_false(restored.is_composing())
+  assert_true(restored.document() == original.document())
+  assert_eq(restored.measurement().logical_rect().size().height(), 20.0)
+}
