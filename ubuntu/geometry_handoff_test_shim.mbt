@@ -2,12 +2,11 @@
 /// FIXTURE ONLY. This synthetic route uses an invalid native host token and
 /// must never be used as a product dependency or native acceptance evidence.
 pub fn fixture_handoff_receipt(
-  state : @text_host.TextInputState,
+  state : @text_host.TextInputState, window : @platform.WindowId, root : UInt64,
 ) -> (RetainedOrderedRoute, RetainedOrderedReceipt) {
   let host : Host = { token: -1, stopped: true }
-  let window = @platform.WindowId::new(51L)
   let route : RetainedOrderedRoute = {
-    host, window: Some(window), root: 9UL, portable_epoch: 3UL,
+    host, window: Some(window), root, portable_epoch: 3UL,
     native_epoch: 7, direct_binding: false, direct_cutoff_complete: false,
     native_seat: 11L, native_proxy: 4, ordinal: 0L, closed: false,
     pending_geometry: None, geometry_generation: 0UL, geometry_handoff: None,
