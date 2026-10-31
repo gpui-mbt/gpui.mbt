@@ -89,6 +89,8 @@ struct host {
   int retained_route_claimed, retained_route_bound, retained_route_call;
   int retained_direct_call, retained_direct_window, retained_direct_epoch;
   int retained_direct_ended, retained_direct_device_lost;
+  int retained_direct_result_length, retained_direct_result_watermark;
+  int retained_direct_result_key, retained_direct_result_modifiers;
   /* Proof-only monotonic count of window creation attempts on this host.
    * Exhaustion disables the evidence, not existing window operations. */
   int retained_window_generation, retained_window_exhausted;
@@ -312,7 +314,8 @@ static void reset_direct_text(struct host *h, int disable, int clear_device) {
     h->direct_enabled = 0;
   if (h->terminal_retention && h->retained_route_bound &&
       h->retained_direct_epoch && !h->retained_direct_ended && h->compose &&
-      xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING) {
+      (xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING ||
+       h->retained_direct_result_length > 0)) {
     /* Blur, keymap change, or teardown must not silently discard an active
      * direct compose transaction belonging to the retained original owner. */
     cancel_key_repeat(h);
@@ -543,6 +546,11 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
   struct direct_key_state *pressed = key < GPUI_DIRECT_KEY_CAPACITY
                                          ? &h->direct_keys[key]
                                          : NULL;
+  if (h->retained_direct_result_length > 0 &&
+      state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+    if (!h->error) (void)input_failure(h, GPUI_BUSY);
+    return;
+  }
   uint32_t scalar = xkb_keysym_to_utf32(sym);
   if (state == WL_KEYBOARD_KEY_STATE_PRESSED ||
       (state == WL_KEYBOARD_KEY_STATE_RELEASED && h->repeat.armed &&
@@ -660,6 +668,19 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
       if (status == XKB_COMPOSE_COMPOSED) {
         length = xkb_compose_state_get_utf8(h->compose, (char *)text,
                                            sizeof(text));
+        if (length > GPUI_DIRECT_TEXT_MAX_BYTES && h->terminal_retention &&
+            h->retained_route_bound && h->retained_direct_epoch > 0 &&
+            h->retained_direct_epoch == h->direct_epoch &&
+            !h->retained_direct_ended) {
+          /* Keep the sole COMPOSED XKB result attached to the original
+           * retained owner. It is not a FIFO record or an applied commit. */
+          h->retained_direct_result_length = length;
+          h->retained_direct_result_watermark = h->seq;
+          h->retained_direct_result_key = (int)key;
+          h->retained_direct_result_modifiers = h->modifiers;
+          (void)input_failure(h, GPUI_RESOURCE);
+          return;
+        }
         reset_compose(h);
       } else if (status == XKB_COMPOSE_CANCELLED) {
         reset_compose(h);
@@ -1669,7 +1690,8 @@ static void release_window(struct host *h) {
     h->direct_enabled = 0;
     if (!(h->terminal_retention && h->retained_route_bound &&
           h->retained_direct_epoch && !h->retained_direct_ended && h->compose &&
-          xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING))
+          (xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING ||
+           h->retained_direct_result_length > 0)))
       reset_compose(h);
   }
   invalidate_input_serial(h, INPUT_SERIAL_NONE);
@@ -2380,6 +2402,7 @@ int32_t gpui_dispatch_retained(int32_t token, int32_t timeout) {
   /* Do not admit another native burst while a head awaits owner ACK. */
   if (h->count) return GPUI_BUSY;
   if (h->retained_direct_device_lost) return GPUI_BUSY;
+  if (h->retained_direct_result_length > 0) return GPUI_BUSY;
   return dispatch_host(h, timeout);
 }
 int32_t gpui_next(int32_t token, double *out) {
@@ -2583,6 +2606,7 @@ int32_t gpui_retained_direct_end_when_drained(int32_t token, int32_t window,
   if (h->window != window) return GPUI_STALE;
   if (h->count) return GPUI_BUSY;
   if (h->retained_direct_device_lost) return GPUI_BUSY;
+  if (h->retained_direct_result_length > 0) return GPUI_BUSY;
   if (h->state) return GPUI_STOPPING;
   if (h->error) return h->error;
   for (int i = 0; i < GPUI_DIRECT_KEY_CAPACITY; ++i)
@@ -2598,6 +2622,36 @@ int32_t gpui_retained_direct_end_when_drained(int32_t token, int32_t window,
   }
   h->retained_direct_ended = 1;
   return GPUI_OK;
+}
+/* Inspect the sole unresolved COMPOSED result without ACK or handoff. The
+ * caller supplies storage; this function never allocates or resets compose. */
+int32_t gpui_retained_direct_result(int32_t token, int32_t window, int32_t epoch,
+                                    uint8_t *out, int32_t capacity,
+                                    int32_t *fields, int32_t field_capacity) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return -status;
+  if (!h->terminal_retention || !h->retained_route_claimed ||
+      !h->retained_route_bound) return -GPUI_UNSUPPORTED;
+  if (window <= 0 || epoch <= 0 || h->retained_direct_window != window ||
+      h->retained_direct_epoch != epoch) return -GPUI_STALE;
+  if (!fields || field_capacity < 4 || capacity < 0 || (!out && capacity))
+    return -GPUI_INVALID;
+  int length = h->retained_direct_result_length;
+  if (!length) return 0;
+  if (!h->compose || xkb_compose_state_get_status(h->compose) != XKB_COMPOSE_COMPOSED ||
+      xkb_compose_state_get_utf8(h->compose, NULL, 0) != length)
+    return -GPUI_INVALID;
+  if (capacity && capacity <= length) return -GPUI_RESOURCE;
+  if (capacity) {
+    int got = xkb_compose_state_get_utf8(h->compose, (char *)out, (size_t)capacity);
+    if (got != length) return -GPUI_INVALID;
+  }
+  fields[0] = length;
+  fields[1] = h->retained_direct_result_watermark;
+  fields[2] = h->retained_direct_result_key;
+  fields[3] = h->retained_direct_result_modifiers;
+  return 1;
 }
 int32_t gpui_direct_keyboard_text_epoch(int32_t token, int32_t window) {
   struct host *h;

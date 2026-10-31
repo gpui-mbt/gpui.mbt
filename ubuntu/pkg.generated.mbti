@@ -170,6 +170,19 @@ pub fn RetainedDirectInsert::root(Self) -> UInt64
 pub fn RetainedDirectInsert::text(Self) -> String
 pub fn RetainedDirectInsert::window(Self) -> @platform.WindowId
 
+pub struct RetainedDirectResult {
+  // private fields
+}
+pub fn RetainedDirectResult::copy_into(Self, Bytes) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn RetainedDirectResult::epoch(Self) -> UInt64
+pub fn RetainedDirectResult::length(Self) -> Int
+pub fn RetainedDirectResult::modifiers(Self) -> Int
+pub fn RetainedDirectResult::native_epoch(Self) -> Int
+pub fn RetainedDirectResult::physical_key(Self) -> Int
+pub fn RetainedDirectResult::root(Self) -> UInt64
+pub fn RetainedDirectResult::watermark(Self) -> Int
+pub fn RetainedDirectResult::window(Self) -> @platform.WindowId
+
 pub struct RetainedEditorRecord {
   // private fields
 }
@@ -220,6 +233,7 @@ pub fn RetainedOrderedRoute::binding_epoch(Self) -> UInt64?
 pub fn RetainedOrderedRoute::native_epoch(Self) -> Int?
 pub fn RetainedOrderedRoute::new(Host) -> Result[Self, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::peek(Self) -> Result[RetainedOrderedReceipt?, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::pending_direct_result(Self) -> Result[RetainedDirectResult?, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::release(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::try_end_when_drained(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::update(Self, UInt64, @text_host.TextInputState) -> Result[Unit, @diagnostics.FrameworkError]
