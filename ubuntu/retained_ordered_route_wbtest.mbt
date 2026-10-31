@@ -8,6 +8,7 @@ fn retained_test_route() -> RetainedOrderedRoute {
     portable_epoch: 3UL,
     native_epoch: 7,
     direct_binding: false,
+    direct_cutoff_complete: false,
     native_seat: 11L,
     native_proxy: 4,
     ordinal: 0L,

@@ -583,7 +583,7 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
   }
   if (pressed) {
     if (h->retained_direct_epoch && h->retained_route_bound &&
-        (!h->direct_enabled || pressed->pressed)) {
+        ((!h->retained_direct_ended && !h->direct_enabled) || pressed->pressed)) {
       if (!h->error) (void)input_failure(h, GPUI_BUSY);
       return;
     }
@@ -1308,7 +1308,8 @@ static void keyboard_key(void *d, struct wl_keyboard *k, uint32_t serial,
     return;
   }
   if (h->retained_direct_epoch && h->retained_route_bound &&
-      !h->direct_enabled && state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+      !h->retained_direct_ended && !h->direct_enabled &&
+      state == WL_KEYBOARD_KEY_STATE_PRESSED) {
     if (!h->error) (void)input_failure(h, GPUI_BUSY);
     return;
   }

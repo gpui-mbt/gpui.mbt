@@ -343,7 +343,14 @@ composition implicitly; blur, keymap change and window cleanup retain it with
 the old owner. There is not yet a public way to resume or discard the
 composition after such a transition, so the route stays unresolved. A
 successful cutoff ends native admission for that
-binding; `release` remains a separate step and can still return Busy. Busy or
+binding; `release` remains a separate step and can still return Busy. Once
+cutoff has completed, later ordinary non-direct keyboard records can enter
+the retained FIFO and be delivered as platform keys while the old binding is
+still held. This requires the native cutoff to have succeeded; a partially
+failed begin is not a cutoff. The cutoff says nothing about records already
+ACKed into the consumer or pending actions, which the consumer must still
+resolve in order before dispatching later keys. A later FIFO record keeps
+release Busy until explicitly acknowledged. Busy or
 an error keeps the original binding owned. Keyboard removal with a pressed
 key also retains the old key owner and refuses further admission; the current
 API cannot resolve that device-loss case. This narrow path is not an IME
