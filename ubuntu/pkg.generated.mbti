@@ -159,6 +159,17 @@ pub(all) struct OutputInfo {
 pub fn OutputInfo::equal(Self, Self) -> Bool
 pub fn OutputInfo::not_equal(Self, Self) -> Bool
 
+pub struct RetainedDirectInsert {
+  // private fields
+}
+pub fn RetainedDirectInsert::epoch(Self) -> UInt64
+pub fn RetainedDirectInsert::native_epoch(Self) -> Int
+pub fn RetainedDirectInsert::native_sequence(Self) -> Int
+pub fn RetainedDirectInsert::ordinal(Self) -> Int64
+pub fn RetainedDirectInsert::root(Self) -> UInt64
+pub fn RetainedDirectInsert::text(Self) -> String
+pub fn RetainedDirectInsert::window(Self) -> @platform.WindowId
+
 pub struct RetainedEditorRecord {
   // private fields
 }
@@ -186,6 +197,7 @@ pub struct RetainedOrderedReceipt {
 pub fn RetainedOrderedReceipt::ack(Self) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn RetainedOrderedReceipt::composition_epoch(Self) -> Int
 pub fn RetainedOrderedReceipt::direct_epoch(Self) -> Int
+pub fn RetainedOrderedReceipt::direct_insert(Self) -> RetainedDirectInsert?
 pub fn RetainedOrderedReceipt::epoch(Self) -> UInt64
 pub fn RetainedOrderedReceipt::event(Self) -> RetainedOrderedEvent
 pub fn RetainedOrderedReceipt::is_direct_origin(Self) -> Bool

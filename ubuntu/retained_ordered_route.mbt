@@ -630,6 +630,58 @@ pub fn RetainedPhysicalRelease::claim_before_any_window(
 }
 
 ///|
+/// An explicitly typed direct-keyboard insertion at one retained FIFO head.
+/// The value carries no proof of application, model, scene or ACK completion.
+pub struct RetainedDirectInsert {
+  priv window : @platform.WindowId
+  priv root : UInt64
+  priv epoch : UInt64
+  priv native_epoch : Int32
+  priv native_sequence : Int32
+  priv ordinal : Int64
+  priv text : String
+}
+
+///|
+pub fn RetainedDirectInsert::window(
+  self : RetainedDirectInsert,
+) -> @platform.WindowId {
+  self.window
+}
+
+///|
+pub fn RetainedDirectInsert::root(self : RetainedDirectInsert) -> UInt64 {
+  self.root
+}
+
+///|
+pub fn RetainedDirectInsert::epoch(self : RetainedDirectInsert) -> UInt64 {
+  self.epoch
+}
+
+///|
+pub fn RetainedDirectInsert::native_epoch(self : RetainedDirectInsert) -> Int32 {
+  self.native_epoch
+}
+
+///|
+pub fn RetainedDirectInsert::native_sequence(
+  self : RetainedDirectInsert,
+) -> Int32 {
+  self.native_sequence
+}
+
+///|
+pub fn RetainedDirectInsert::ordinal(self : RetainedDirectInsert) -> Int64 {
+  self.ordinal
+}
+
+///|
+pub fn RetainedDirectInsert::text(self : RetainedDirectInsert) -> String {
+  self.text
+}
+
+///|
 pub struct RetainedOrderedReceipt {
   priv route : RetainedOrderedRoute
   priv record : RetainedEditorRecord
@@ -645,6 +697,17 @@ pub struct RetainedOrderedReceipt {
   priv candidate_seat : Int64
   priv candidate_proxy : Int32
   priv printable_release : RetainedPrintableRelease?
+  priv direct_insert : RetainedDirectInsert?
+}
+
+///|
+/// The direct insertion is not also delivered by `event()` as platform text.
+/// The original owner must retain its application stage before this receipt is
+/// ACKed; a typed insertion is not a composition commit or replacement edit.
+pub fn RetainedOrderedReceipt::direct_insert(
+  self : RetainedOrderedReceipt,
+) -> RetainedDirectInsert? {
+  self.direct_insert
 }
 
 ///|
@@ -861,11 +924,45 @@ fn RetainedOrderedRoute::prepare(
   let candidate = ShortcutKeyTracker::{ held: self.shortcuts.held, }
   let mut prepared : RetainedOrderedEvent = Unhandled(native_event)
   let mut printable_release : RetainedPrintableRelease? = None
+  let mut direct_insert : RetainedDirectInsert? = None
   if !record.is_stale() {
     match native_event {
       Some(Platform(event)) =>
         match self.window {
           Some(window) if window != record.window() => ()
+          Some(window) if self.direct_binding &&
+            !self.closed &&
+            self.root != 0UL &&
+            self.portable_epoch != 0UL &&
+            self.native_epoch > 0 &&
+            record.is_direct_origin() &&
+            !record.is_revoked() &&
+            record.composition_epoch() == 0 &&
+            record.direct_epoch() == self.native_epoch &&
+            event.window() == window &&
+            event.sequence() == record.sequence().to_int64() &&
+            event.kind() is @platform.Input(@primitives.TextInput(text~)) => {
+            if self.ordinal == 9223372036854775807L {
+              return Err(
+                ubuntu_text_host_error(
+                  @diagnostics.ResourceExhausted,
+                  operation,
+                ),
+              )
+            }
+            next_ordinal = self.ordinal + 1L
+            direct_insert = Some({
+              window,
+              root: self.root,
+              epoch: self.portable_epoch,
+              native_epoch: self.native_epoch,
+              native_sequence: record.sequence(),
+              ordinal: next_ordinal,
+              text,
+            })
+          }
+          _ if self.direct_binding &&
+            event.kind() is @platform.Input(@primitives.TextInput(..)) => ()
           _ if self.direct_binding &&
             (
               event.kind() is @platform.Input(@primitives.KeyPressed(..)) ||
@@ -974,6 +1071,7 @@ fn RetainedOrderedRoute::prepare(
     candidate_seat: next_seat,
     candidate_proxy: next_proxy,
     printable_release,
+    direct_insert,
   })
 }
 
@@ -1030,6 +1128,16 @@ fn RetainedOrderedReceipt::finish_ack(
     route.native_seat != self.expected_seat ||
     route.native_proxy != self.expected_proxy {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  match self.direct_insert {
+    Some(insert) if route.closed ||
+      !route.direct_binding ||
+      route.window != Some(insert.window) ||
+      route.native_epoch != insert.native_epoch ||
+      route.root != insert.root ||
+      route.portable_epoch != insert.epoch =>
+      return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+    _ => ()
   }
   match native_ack() {
     Err(error) => return Err(error)
