@@ -208,11 +208,14 @@ static int ime_send_state(struct host *h) {
   zwp_text_input_v1_commit_state(h->ime.proxy, (uint32_t)serial);
   return GPUI_OK;
 }
+static int ime_activation_ready(const struct host *h) {
+  return h->seat && h->seat_name && h->surface && h->window &&
+         h->keyboard_focus_current && h->ime.proxy;
+}
 static int ime_activate(struct host *h) {
   if (!h->ime.requested || h->ime.phase != IME_INACTIVE)
     return GPUI_OK;
-  if (!h->seat || !h->seat_name || !h->surface || !h->window ||
-      !h->keyboard_focus_current || !h->ime.proxy)
+  if (!ime_activation_ready(h))
     return GPUI_UNSUPPORTED;
   if (h->ime.latest_serial == INT_MAX) {
     h->ime.exhausted = 1;
@@ -1015,6 +1018,12 @@ int32_t gpui_text_session_update(int32_t token, int32_t window, int32_t epoch,
     ime_deactivate(h);
     return -GPUI_RESOURCE;
   }
+  /* A retained same-epoch update must not install a new shadow before an
+   * inactive session discovers it cannot activate.  Do not apply this
+   * preflight to external edits: those deliberately replace the epoch. */
+  if (!external_edit && h->ime.phase == IME_INACTIVE &&
+      !ime_activation_ready(h))
+    return -GPUI_UNSUPPORTED;
   if (external_edit) {
     if ((h->ime.phase == IME_ACTIVE || h->ime.phase == IME_ACTIVATING) &&
         h->ime.wire_epoch == h->ime.epoch) {
