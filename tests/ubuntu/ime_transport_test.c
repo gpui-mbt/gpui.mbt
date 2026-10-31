@@ -1438,6 +1438,24 @@ static void retained_raw_printable_release_has_original_identity(void) {
   finish(h);
 }
 
+static void install_current_keymap(struct host *h) {
+  char *source = xkb_keymap_get_as_string(h->keymap, XKB_KEYMAP_FORMAT_TEXT_V1);
+  assert(source);
+  size_t length = strlen(source) + 1;
+  char path[] = "/tmp/gpui-keymap-fixture-XXXXXX";
+  int fd = mkstemp(path); assert(fd >= 0);
+  assert(unlink(path) == 0);
+  size_t offset = 0;
+  while (offset < length) {
+    ssize_t n = write(fd, source + offset, length - offset);
+    assert(n > 0); offset += (size_t)n;
+  }
+  free(source);
+  keyboard_keymap(h, h->keyboard, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, fd,
+                  (uint32_t)length);
+  assert(h->direct_keymap_valid && h->keys);
+}
+
 /* The physical proof is a bounded admission-time observation, not an ACK or
  * a claim that a press has been dispatched to an application owner. */
 static void retained_physical_release_provenance(int scenario) {
@@ -1461,6 +1479,7 @@ static void retained_physical_release_provenance(int scenario) {
   assert(h->keymap);
   h->keys = xkb_state_new(h->keymap);
   assert(h->keys);
+  h->direct_keymap_valid = 1;
   uint32_t held_key = 49; /* evdev N */
   struct wl_array keys = {0};
   if (scenario == 7) h->retained_key_focus = INT_MAX;
@@ -1477,7 +1496,7 @@ static void retained_physical_release_provenance(int scenario) {
   else assert(h->retained_key_valid && h->retained_key_focus == (scenario == 11 ? 2 : 1));
   assert(read_editor(h, data, bytes) == 1 && data[0] == 6);
   int press_sequence = 0;
-  if (scenario >= 12) {
+  if (scenario >= 12 && scenario <= 14) {
     /* A callback without a usable keymap must not disappear from physical
      * ownership evidence; an unbounded key invalidates the whole snapshot. */
     struct xkb_state *saved_keys = h->keys;
@@ -1497,6 +1516,19 @@ static void retained_physical_release_provenance(int scenario) {
   assert(epoch > 0);
   ime_enter(h, h->ime.proxy, h->surface);
   assert(read_editor(h, data, bytes) == 1 && data[0] == 22);
+  if (scenario == 15 || scenario == 17) {
+    /* NO_KEYMAP keeps the old non-null XKB pointer in the legacy input path.
+     * It must not supply printable-release provenance for that stale map. */
+    struct xkb_state *old_keys = h->keys;
+    int fd = open("/dev/null", O_RDONLY); assert(fd >= 0);
+    keyboard_keymap(h, h->keyboard, WL_KEYBOARD_KEYMAP_FORMAT_NO_KEYMAP, fd, 0);
+    assert(h->keys == old_keys && !h->direct_keymap_valid);
+    if (scenario == 17) {
+      keyboard_enter(h, h->keyboard, 2, h->surface, &keys);
+      assert(!h->retained_key_valid && h->retained_key_focus == 2);
+      assert(read_editor(h, data, bytes) == 1 && data[0] == 6);
+    }
+  }
   if (scenario == 3) {
     h->ime.modifiers_valid = 1;
     h->ime.known_modifier_mask = 0;
@@ -1518,7 +1550,22 @@ static void retained_physical_release_provenance(int scenario) {
   assert(data[0] == 25 && data[8] == XKB_KEY_n && data[10] == epoch);
   int sequence = (int)data[2];
   assert(gpui_peek_retained_key_proof(h->token, 51, sequence + 1, proof, 6) == -GPUI_STALE);
-  if ((scenario >= 4 && scenario <= 7) || scenario == 14) {
+  if (scenario == 16 || scenario == 18) {
+    assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == 1);
+    assert(proof[3] == KEY_PRIOR_NONE);
+    if (scenario == 16) {
+      int fd = open("/dev/null", O_RDONLY); assert(fd >= 0);
+      keyboard_keymap(h, h->keyboard, WL_KEYBOARD_KEYMAP_FORMAT_NO_KEYMAP, fd, 0);
+      assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+      assert(h->count == 1 && h->queue[h->read][2] == sequence);
+    }
+    install_current_keymap(h);
+    assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+    assert(h->count == 1 && h->queue[h->read][2] == sequence);
+  }
+  if (scenario == 16 || scenario == 18) {
+    /* Stale, still-owned head checked above. */
+  } else if ((scenario >= 4 && scenario <= 7) || scenario == 14 || scenario == 15 || scenario == 17) {
     assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == 0);
   } else {
     proof[6] = 123456;
@@ -1569,6 +1616,22 @@ static void retained_physical_release_provenance(int scenario) {
   }
   assert(gpui_ack_retained_editor(h->token, 51, sequence) == GPUI_OK);
   assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == -GPUI_STALE);
+  if (scenario >= 15) {
+    /* A replacement keymap alone cannot recover prior proof; a fresh enter
+     * creates a new focus generation with a new held-key snapshot. */
+    if (scenario == 15 || scenario == 17) install_current_keymap(h);
+    assert(!h->retained_key_valid);
+    keyboard_enter(h, h->keyboard, 4, h->surface, &keys);
+    assert(h->retained_key_valid && h->retained_key_focus == (scenario == 17 ? 3 : 2));
+    assert(read_editor(h, data, bytes) == 1 && data[0] == 6);
+    keyboard_key(h, h->keyboard, 5, 0, held_key, WL_KEYBOARD_KEY_STATE_RELEASED);
+    assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+        bytes, sizeof(bytes), metadata, 5) == 1);
+    int fresh = (int)data[2];
+    assert(gpui_peek_retained_key_proof(h->token, 51, fresh, proof, 6) == 1);
+    assert(proof[2] == (scenario == 17 ? 3 : 2) && proof[3] == KEY_PRIOR_NONE);
+    assert(gpui_ack_retained_editor(h->token, 51, fresh) == GPUI_OK);
+  }
   if (scenario < 4) {
     keyboard_key(h, h->keyboard, 4, 0, held_key, WL_KEYBOARD_KEY_STATE_RELEASED);
     assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
@@ -1603,7 +1666,7 @@ static void window_proof_is_host_local_and_invalid_attempt_has_no_effect(void) {
 }
 int main(void) {
   window_proof_is_host_local_and_invalid_attempt_has_no_effect();
-  for (int scenario = 0; scenario < 15; ++scenario)
+  for (int scenario = 0; scenario < 19; ++scenario)
     retained_physical_release_provenance(scenario);
   retained_raw_printable_release_has_original_identity();
   retained_route_rejects_legacy_session_mutation();
