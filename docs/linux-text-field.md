@@ -50,12 +50,18 @@ remains unimplemented.
   document, restores its directional selection and both history stacks, and
   clears composition. Any measurement, cursor, geometry, raster or revision
   failure retains the complete preceding value and transaction.
-- `with_focus(false)` cancels using the originally admitted geometry. The font
-  style is immutable, ordinary editing and selection movement reject
-  `CompositionActive`, and `with_bounds` validates both the current preview and
-  saved original geometry before allowing a resize. Thus focus-loss restoration
-  cannot inherit a preview-only geometry assumption. The original scroll
-  position is restored within current bounds while keeping its head visible.
+- `with_focus(false)` cancels using the admitted rollback geometry. A native
+  owner must not interpret focus loss alone as permission to discard an active
+  composition; it first resolves an observed commit/cancel or an authorized
+  owner discard. Ordinary editing and selection movement reject
+  `CompositionActive`. `with_bounds` validates both the current preview and
+  saved original geometry before allowing a bounds-only resize.
+- `remeasure(bounds, font_size, measure, admit)` prepares both the current
+  document and the saved composition rollback under a new measurement
+  environment and font size. Failure returns no new field; the old field and
+  transaction remain intact. The measurement and admission callbacks may have
+  external effects, and the owner must check for reentrancy and coordinate
+  runtime, focus, scene and native host publication separately.
 
 `document()` and `measurement()` describe the current display candidate.
 `marked_range()` exposes only a visible preedit span, in document-relative

@@ -1,7 +1,8 @@
 ///|
 /// The composition owns an immutable original editing snapshot. Its original
-/// geometry was admitted under this field's immutable font style; bounds
-/// changes must validate both the preview and this saved geometry. Ordinary
+/// geometry was admitted under the field's font style; bounds changes must
+/// validate both the preview and this saved geometry. A style or measurement
+/// change must remeasure both snapshots. Ordinary
 /// editing is rejected until the owner explicitly commits or cancels.
 priv struct FieldComposition {
   transaction : @text.TextComposition
@@ -314,8 +315,8 @@ pub fn TextField::cancel_composition(
 
 ///|
 /// Focus loss cannot call a provider. Restore the already-admitted original
-/// snapshot under the same immutable style. with_bounds validates this saved
-/// geometry before allowing a resize, so blur cannot install stale geometry.
+/// snapshot under the current style. with_bounds validates this saved geometry
+/// and remeasure replaces it alongside the preview geometry.
 fn blur_field_composition(
   field : TextField,
 ) -> Result[TextField, TextFieldError] {
