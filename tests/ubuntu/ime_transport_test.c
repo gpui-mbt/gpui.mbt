@@ -1477,6 +1477,16 @@ static void retained_physical_release_provenance(int scenario) {
   else assert(h->retained_key_valid && h->retained_key_focus == (scenario == 11 ? 2 : 1));
   assert(read_editor(h, data, bytes) == 1 && data[0] == 6);
   int press_sequence = 0;
+  if (scenario >= 12) {
+    /* A callback without a usable keymap must not disappear from physical
+     * ownership evidence; an unbounded key invalidates the whole snapshot. */
+    struct xkb_state *saved_keys = h->keys;
+    h->keys = NULL;
+    keyboard_key(h, h->keyboard, 2, 0,
+        scenario == 14 ? GPUI_DIRECT_KEY_CAPACITY : held_key,
+        scenario == 13 ? WL_KEYBOARD_KEY_STATE_RELEASED : WL_KEYBOARD_KEY_STATE_PRESSED);
+    h->keys = saved_keys;
+  }
   if (scenario == 2) {
     keyboard_key(h, h->keyboard, 2, 0, held_key, WL_KEYBOARD_KEY_STATE_PRESSED);
     assert(read_editor(h, data, bytes) == 1 && data[0] == 11);
@@ -1508,7 +1518,7 @@ static void retained_physical_release_provenance(int scenario) {
   assert(data[0] == 25 && data[8] == XKB_KEY_n && data[10] == epoch);
   int sequence = (int)data[2];
   assert(gpui_peek_retained_key_proof(h->token, 51, sequence + 1, proof, 6) == -GPUI_STALE);
-  if (scenario >= 4 && scenario <= 7) {
+  if ((scenario >= 4 && scenario <= 7) || scenario == 14) {
     assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == 0);
   } else {
     proof[6] = 123456;
@@ -1516,7 +1526,7 @@ static void retained_physical_release_provenance(int scenario) {
     assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 6) == 1);
     assert(proof[6] == 123456 && proof[7] == 654321);
     assert(proof[0] == 1 && proof[1] == 49 && proof[2] == (scenario == 11 ? 2 : 1));
-    assert(proof[3] == (scenario == 0 || scenario >= 8 ? KEY_PRIOR_NONE : scenario == 2 ? KEY_PRIOR_ADMITTED : KEY_PRIOR_UNKNOWN));
+    assert(proof[3] == (scenario == 0 || (scenario >= 8 && scenario < 12) ? KEY_PRIOR_NONE : scenario == 2 ? KEY_PRIOR_ADMITTED : KEY_PRIOR_UNKNOWN));
     if (scenario >= 8) {
       assert(gpui_peek_retained_key_proof(h->token, 51, sequence, proof, 8) == 1);
       assert(proof[6] == (scenario == 9 ? 2 : scenario == 10 ? 0 : 1));
@@ -1593,7 +1603,7 @@ static void window_proof_is_host_local_and_invalid_attempt_has_no_effect(void) {
 }
 int main(void) {
   window_proof_is_host_local_and_invalid_attempt_has_no_effect();
-  for (int scenario = 0; scenario < 13; ++scenario)
+  for (int scenario = 0; scenario < 15; ++scenario)
     retained_physical_release_provenance(scenario);
   retained_raw_printable_release_has_original_identity();
   retained_route_rejects_legacy_session_mutation();
