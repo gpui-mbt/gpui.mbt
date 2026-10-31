@@ -73,6 +73,7 @@ struct key_repeat {
 };
 struct direct_key_state {
   int epoch, direct_origin, swallowed, pressed;
+  xkb_keysym_t symbol;
 };
 enum retained_key_prior { KEY_PRIOR_UNKNOWN = 0, KEY_PRIOR_NONE = 1,
                           KEY_PRIOR_ADMITTED = 2 };
@@ -548,12 +549,16 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
     cancel_key_repeat(h);
   if ((h->state != 0 && (h->direct_ever_enabled || h->ime.ever_enabled)) ||
       (h->error && h->ime.ever_enabled)) {
-    if (pressed && state == WL_KEYBOARD_KEY_STATE_RELEASED)
+    if (pressed && state == WL_KEYBOARD_KEY_STATE_RELEASED &&
+        !(h->retained_direct_epoch && pressed->direct_origin &&
+          pressed->epoch == h->retained_direct_epoch))
       memset(pressed, 0, sizeof(*pressed));
     return;
   }
   if (h->direct_exhausted && h->direct_ever_enabled) {
-    if (pressed && state == WL_KEYBOARD_KEY_STATE_RELEASED)
+    if (pressed && state == WL_KEYBOARD_KEY_STATE_RELEASED &&
+        !(h->retained_direct_epoch && pressed->direct_origin &&
+          pressed->epoch == h->retained_direct_epoch))
       memset(pressed, 0, sizeof(*pressed));
     (void)input_failure(h, GPUI_RESOURCE);
     return;
@@ -562,6 +567,11 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
     int epoch = pressed && pressed->pressed ? pressed->epoch : 0;
     int origin = pressed && pressed->pressed ? pressed->direct_origin : 0;
     int swallowed = pressed && pressed->swallowed;
+    if (pressed && origin && epoch == h->retained_direct_epoch &&
+        h->retained_route_bound && pressed->symbol) {
+      sym = pressed->symbol;
+      scalar = xkb_keysym_to_utf32(sym);
+    }
     if (pressed)
       memset(pressed, 0, sizeof(*pressed));
     if (!swallowed)
@@ -569,10 +579,16 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
     return;
   }
   if (pressed) {
+    if (h->retained_direct_epoch && h->retained_route_bound &&
+        (!h->direct_enabled || pressed->pressed)) {
+      if (!h->error) (void)input_failure(h, GPUI_BUSY);
+      return;
+    }
     pressed->pressed = 1;
     pressed->epoch = h->direct_epoch;
     pressed->direct_origin = h->direct_enabled;
     pressed->swallowed = 0;
+    pressed->symbol = sym;
   }
   if (!h->direct_enabled) {
     direct_key_record(h, 11, sym, scalar, h->direct_epoch, 0, 0);
@@ -1285,7 +1301,12 @@ static void keyboard_key(void *d, struct wl_keyboard *k, uint32_t serial,
   /* A replacement device cannot release a key held by the old retained
    * owner. Leave its key state intact and reject further native admission. */
   if (h->retained_direct_device_lost) {
-    (void)input_failure(h, GPUI_BUSY);
+    if (!h->error) (void)input_failure(h, GPUI_BUSY);
+    return;
+  }
+  if (h->retained_direct_epoch && h->retained_route_bound &&
+      !h->direct_enabled && state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+    if (!h->error) (void)input_failure(h, GPUI_BUSY);
     return;
   }
   if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
@@ -1998,8 +2019,6 @@ int32_t gpui_retained_route_native_epoch(int32_t token, int32_t window) {
   if (status) return -status;
   if (!h->terminal_retention || !h->retained_route_claimed ||
       !h->retained_route_bound) return -GPUI_UNSUPPORTED;
-  if (h->state) return -GPUI_STOPPING;
-  if (h->error) return -h->error;
   if (!h->ime.requested || h->window != window) return 0;
   return h->ime.epoch;
 }
@@ -2488,11 +2507,19 @@ int32_t gpui_retained_direct_begin(int32_t token, int32_t window) {
   if (status) return -status;
   if (!h->terminal_retention || !h->retained_route_claimed ||
       !h->retained_route_bound) return -GPUI_UNSUPPORTED;
+  if (h->state) return -GPUI_STOPPING;
+  if (h->error) return -h->error;
   if (h->retained_direct_epoch || h->ime.requested || h->ime.composition_enabled ||
       h->direct_enabled || h->count) return -GPUI_BUSY;
   if (h->ime.manager || h->ime.manager_name) return -GPUI_UNSUPPORTED;
+  if (!h->retained_key_valid || h->retained_key_ambiguous ||
+      !h->keyboard_focus_current ||
+      h->retained_key_keyboard != h->keyboard ||
+      h->retained_key_window != window || h->retained_key_seat != h->seat_name)
+    return -GPUI_BUSY;
   for (int i = 0; i < GPUI_DIRECT_KEY_CAPACITY; ++i)
-    if (h->direct_keys[i].pressed) return -GPUI_BUSY;
+    if (h->direct_keys[i].pressed || h->retained_keys[i].prior != KEY_PRIOR_NONE)
+      return -GPUI_BUSY;
   h->retained_direct_call = 1;
   status = gpui_direct_keyboard_text_mode(token, window, 1);
   h->retained_direct_call = 0;

@@ -1348,6 +1348,19 @@ static void retained_stale_owner_is_visible_not_implicitly_discarded(void) {
 }
 static void install_current_keymap(struct host *h);
 
+/* A direct binding may start only after this claimed route observed a valid
+ * empty keyboard-enter snapshot and the original focus event was acknowledged. */
+static void retained_direct_empty_enter(struct host *h) {
+  struct wl_array keys = {0};
+  keyboard_enter(h, h->keyboard, 1, h->surface, &keys);
+  assert(h->retained_key_valid);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5];
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 6);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+}
+
 /* No text-input manager: a direct fallback is a bound retained route, not a
  * legacy reader. The original binding owns accepted input across blur. */
 static void retained_direct_route_drains_before_cutoff(int blur) {
@@ -1367,6 +1380,7 @@ static void retained_direct_route_drains_before_cutoff(int blur) {
   assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
   assert(gpui_claim_retained_route(h->token) == GPUI_OK);
   assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  retained_direct_empty_enter(h);
   assert(gpui_direct_keyboard_text_mode(h->token, h->window, 1) == GPUI_UNSUPPORTED);
   /* A pending foreign/nontext record and an available IME manager cannot be
    * silently bypassed by fallback admission. */
@@ -1388,6 +1402,7 @@ static void retained_direct_route_drains_before_cutoff(int blur) {
   assert(!h->ime.requested && h->count == 0);
   assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
   assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  retained_direct_empty_enter(h);
   int epoch = gpui_retained_direct_begin(h->token, h->window);
   assert(epoch > 0 && h->direct_enabled);
   assert(gpui_direct_keyboard_text_mode(h->token, h->window, 0) == GPUI_UNSUPPORTED);
@@ -1450,6 +1465,7 @@ static void retained_direct_route_drains_before_cutoff(int blur) {
   assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
   if (!blur) {
     assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+    retained_direct_empty_enter(h);
     int next = gpui_retained_direct_begin(h->token, 51);
     assert(next > epoch);
     assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_STALE);
@@ -1476,6 +1492,7 @@ static void retained_direct_close_keeps_compose_owner(void) {
   assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
   assert(gpui_claim_retained_route(h->token) == GPUI_OK);
   assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  retained_direct_empty_enter(h);
   int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
   assert(xkb_compose_state_feed(h->compose, XKB_KEY_Multi_key) == XKB_COMPOSE_FEED_ACCEPTED);
   assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
@@ -1504,6 +1521,7 @@ static void retained_direct_device_loss_keeps_key_owner(void) {
   assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
   assert(gpui_claim_retained_route(h->token) == GPUI_OK);
   assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  retained_direct_empty_enter(h);
   int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
   keyboard_key(h, h->keyboard, 2, 0, 30, WL_KEYBOARD_KEY_STATE_PRESSED);
   assert(h->direct_keys[30].pressed && h->count == 2);
@@ -1544,6 +1562,7 @@ static void retained_direct_queue_full_retains_admitted_prefix(void) {
   assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
   assert(gpui_claim_retained_route(h->token) == GPUI_OK);
   assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  retained_direct_empty_enter(h);
   int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
   keyboard_key(h, h->keyboard, 1, 0, 30, WL_KEYBOARD_KEY_STATE_PRESSED);
   assert(h->count == 2);
@@ -1564,6 +1583,98 @@ static void retained_direct_queue_full_retains_admitted_prefix(void) {
   assert(data[8] == 1 && bytes[0] == 'a' && meta[1] == epoch && meta[4]);
   release_compose(h); xkb_state_unref(h->keys); xkb_keymap_unref(h->keymap);
   xkb_context_unref(h->xkb); finish(h);
+}
+static struct host *retained_direct_snapshot_fixture(int held) {
+  struct host *h = fixture();
+  h->ime.manager = NULL; h->ime.manager_name = 0;
+  h->xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(h->xkb);
+  struct xkb_rule_names names = {.layout = "us"};
+  h->keymap = xkb_keymap_new_from_names(h->xkb, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  assert(h->keymap);
+  h->keys = xkb_state_new(h->keymap); assert(h->keys);
+  h->direct_keymap_valid = 1;
+  const char compose[] = "<Multi_key> <a> <a> : \"a\"\n";
+  h->compose_table = xkb_compose_table_new_from_buffer(h->xkb, compose,
+      sizeof(compose) - 1, "C.UTF-8", XKB_COMPOSE_FORMAT_TEXT_V1,
+      XKB_COMPOSE_COMPILE_NO_FLAGS);
+  assert(h->compose_table);
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  assert(gpui_claim_retained_route(h->token) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  uint32_t key = 21;
+  struct wl_array keys = {0};
+  if (held) { keys.data = &key; keys.size = sizeof(key); }
+  keyboard_enter(h, h->keyboard, 1, h->surface, &keys);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5];
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 6);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  return h;
+}
+static void retained_direct_snapshot_finish(struct host *h) {
+  release_compose(h); xkb_state_unref(h->keys); xkb_keymap_unref(h->keymap);
+  xkb_context_unref(h->xkb); finish(h);
+}
+static void retained_direct_rejects_held_and_error(void) {
+  struct host *h = retained_direct_snapshot_fixture(1);
+  assert(!h->direct_keys[21].pressed && h->retained_keys[21].prior == KEY_PRIOR_UNKNOWN);
+  assert(gpui_retained_direct_begin(h->token, 51) == -GPUI_BUSY);
+  assert(!h->direct_enabled && !h->retained_direct_epoch);
+  retained_direct_snapshot_finish(h);
+  h = retained_direct_snapshot_fixture(0);
+  keyboard_repeat_info(h, h->keyboard, -1, 1);
+  assert(h->error == GPUI_INVALID && h->count == 0);
+  assert(gpui_retained_direct_begin(h->token, 51) == -GPUI_INVALID);
+  assert(!h->direct_enabled && !h->retained_direct_epoch);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  retained_direct_snapshot_finish(h);
+  h = retained_direct_snapshot_fixture(0);
+  /* A forwarded press lacks physical identity; an empty keyboard-enter array
+   * cannot establish it has no unresolved owner. */
+  h->retained_key_ambiguous = 1;
+  assert(gpui_retained_direct_begin(h->token, 51) == -GPUI_BUSY);
+  assert(!h->direct_enabled && !h->retained_direct_epoch);
+  retained_direct_snapshot_finish(h);
+}
+static void retained_direct_layout_change(int duplicate_press) {
+  struct host *h = retained_direct_snapshot_fixture(0);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  keyboard_key(h, h->keyboard, 2, 0, 21, WL_KEYBOARD_KEY_STATE_PRESSED);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5];
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 11 && data[8] == XKB_KEY_y);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 13);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  struct xkb_rule_names names = {.layout = "de"};
+  struct xkb_keymap *de = xkb_keymap_new_from_names(h->xkb, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  assert(de);
+  char *source = xkb_keymap_get_as_string(de, XKB_KEYMAP_FORMAT_TEXT_V1); assert(source);
+  size_t length = strlen(source) + 1; char path[] = "/tmp/gpui-direct-layout-XXXXXX";
+  int fd = mkstemp(path); assert(fd >= 0 && unlink(path) == 0);
+  size_t offset = 0;
+  while (offset < length) { ssize_t n = write(fd, source + offset, length - offset); assert(n > 0); offset += (size_t)n; }
+  free(source); xkb_keymap_unref(de);
+  keyboard_keymap(h, h->keyboard, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, fd, (uint32_t)length);
+  assert(!h->direct_enabled && h->direct_keys[21].pressed);
+  if (duplicate_press) {
+    keyboard_key(h, h->keyboard, 3, 0, 21, WL_KEYBOARD_KEY_STATE_PRESSED);
+    assert(h->error == GPUI_BUSY && h->count == 0);
+    assert(h->direct_keys[21].pressed && h->direct_keys[21].epoch == epoch &&
+           h->direct_keys[21].symbol == XKB_KEY_y);
+    assert(gpui_stop(h->token) == GPUI_BUSY);
+  } else {
+    keyboard_key(h, h->keyboard, 3, 0, 21, WL_KEYBOARD_KEY_STATE_RELEASED);
+    assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+        bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 12);
+    assert(data[8] == XKB_KEY_y && !meta[0] && meta[1] == epoch && meta[4]);
+    assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+    assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_OK);
+  }
+  retained_direct_snapshot_finish(h);
 }
 static void retained_direct_owner_survives_window_replacement(void) {
   struct host *h = fixture();
@@ -1894,6 +2005,9 @@ int main(void) {
   retained_direct_route_drains_before_cutoff(1);
   retained_direct_close_keeps_compose_owner();
   retained_direct_device_loss_keeps_key_owner();
+  retained_direct_rejects_held_and_error();
+  retained_direct_layout_change(0);
+  retained_direct_layout_change(1);
   retained_direct_queue_full_retains_admitted_prefix();
   retained_direct_owner_survives_window_replacement();
   retained_stale_owner_is_visible_not_implicitly_discarded();

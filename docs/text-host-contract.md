@@ -323,10 +323,17 @@ lifecycle records are acknowledged and release succeeds.
 When the native text-input manager is absent, `begin_direct(window, root)`
 can instead bind direct keyboard text to that same retained FIFO. It reserves
 the original window, root and portable/native epochs; starting with a pending
-native record, held physical key, or active native text session returns Busy.
+native record, held physical key, ambiguous forwarded press, unavailable or
+nonempty observed keyboard focus snapshot, or active native text session
+returns Busy. The claimed route must have observed a valid matching focus-enter
+snapshot and no physical press since it; this conservative start can require
+a later focus enter even after an earlier key was released.
 The host rejects this fallback if a text-input manager exists. Direct key and
 text observations carry the captured binding, and accepted old-binding
 records remain available after focus loss rather than being retargeted.
+For a key pressed by this binding, the matching physical release retains the
+press's keysym when the keyboard layout changes. New presses after the direct
+binding is invalidated are refused while the original binding is unresolved.
 The consumer must retain the original field generation, event and action/model
 stage; an ACK or this host cutoff does not establish those stages.
 
