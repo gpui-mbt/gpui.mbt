@@ -281,6 +281,8 @@ pub struct RetainedOrderedRoute {
   priv mut closed : Bool
   priv mut pending_geometry : RetainedGeometryPending?
   priv mut geometry_generation : UInt64
+  priv mut geometry_handoff : GeometryHandoff?
+  priv mut geometry_handoff_call : Bool
   priv shortcuts : ShortcutKeyTracker
 }
 
@@ -313,6 +315,8 @@ pub fn RetainedOrderedRoute::new(
     closed: false,
     pending_geometry: None,
     geometry_generation: 0UL,
+    geometry_handoff: None,
+    geometry_handoff_call: false,
     shortcuts: ShortcutKeyTracker::new(),
   })
 }
@@ -554,6 +558,9 @@ fn RetainedOrderedRoute::update_from(
   if self.pending_geometry is Some(_) {
     return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
   }
+  if self.geometry_handoff is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
   if self.geometry_generation == 18446744073709551615UL {
     return Err(
       ubuntu_text_host_error(@diagnostics.ResourceExhausted, operation),
@@ -616,6 +623,9 @@ fn RetainedOrderedRoute::retry_geometry_from(
     Some(value) => value
     None =>
       return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  if self.geometry_handoff is Some(GeometryReserved(_)) {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
   }
   if epoch != pending.epoch ||
     self.portable_epoch != pending.epoch ||
@@ -708,6 +718,9 @@ fn RetainedOrderedRoute::end_from(
   if self.pending_geometry is Some(_) {
     return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
   }
+  if self.geometry_handoff is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
   if epoch != self.portable_epoch || self.closed {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
@@ -749,6 +762,9 @@ fn RetainedOrderedRoute::release_from(
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let operation = "retained_release"
   if self.pending_geometry is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
+  if self.geometry_handoff is Some(_) {
     return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
   }
   if epoch != self.portable_epoch || !self.closed {
@@ -1395,6 +1411,9 @@ fn RetainedOrderedReceipt::finish_ack(
   if route.pending_geometry is Some(_) {
     return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
   }
+  if route.geometry_handoff is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
   if route.portable_epoch != self.epoch ||
     route.root != self.root ||
     route.ordinal != self.expected_ordinal ||
@@ -1421,5 +1440,303 @@ fn RetainedOrderedReceipt::finish_ack(
   route.shortcuts.held = self.candidate_shortcuts
   route.native_seat = self.candidate_seat
   route.native_proxy = self.candidate_proxy
+  Ok(())
+}
+
+///|
+priv enum GeometryHandoff {
+  GeometryReserved(GeometryOwnedText)
+  GeometryOwned(GeometryOwnedText)
+}
+
+///|
+/// An original native text observation transferred into the route's one-slot
+/// geometry recovery buffer. It has not been applied to a field or model.
+pub struct GeometryOwnedText {
+  priv receipt : RetainedOrderedReceipt
+  priv target : TextSessionTarget
+  priv native_text : TextSessionEvent
+  priv portable_text : @text_host.TextInputEvent
+  priv geometry_generation : UInt64
+}
+
+///|
+pub fn GeometryOwnedText::window(
+  self : GeometryOwnedText,
+) -> @platform.WindowId {
+  self.target.window
+}
+
+///|
+pub fn GeometryOwnedText::root(self : GeometryOwnedText) -> UInt64 {
+  self.receipt.root
+}
+
+///|
+pub fn GeometryOwnedText::epoch(self : GeometryOwnedText) -> UInt64 {
+  self.receipt.epoch
+}
+
+///|
+pub fn GeometryOwnedText::native_epoch(self : GeometryOwnedText) -> Int32 {
+  self.target.epoch
+}
+
+///|
+pub fn GeometryOwnedText::native_sequence(self : GeometryOwnedText) -> Int32 {
+  self.receipt.record.sequence
+}
+
+///|
+pub fn GeometryOwnedText::geometry_generation(
+  self : GeometryOwnedText,
+) -> UInt64 {
+  self.geometry_generation
+}
+
+///|
+pub fn GeometryOwnedText::native_target(
+  self : GeometryOwnedText,
+) -> TextSessionTarget {
+  self.target
+}
+
+///|
+pub fn GeometryOwnedText::event(
+  self : GeometryOwnedText,
+) -> @text_host.TextInputEvent {
+  self.portable_text
+}
+
+///|
+/// Return an independent copy of the full source text payload, including
+/// preedit fallback and styles. This value cannot mutate the retained slot.
+pub fn GeometryOwnedText::native_text(
+  self : GeometryOwnedText,
+) -> TextSessionEvent {
+  match self.native_text {
+    Preedit(text~, fallback~, cursor_utf16~, styles~) =>
+      Preedit(
+        text~,
+        fallback~,
+        cursor_utf16~,
+        styles=styles.map(fn(value) { value }),
+      )
+    other => other
+  }
+}
+
+///|
+/// The route-owned, ACKed observation, or None while its native ACK is
+/// unresolved. This is evidence of retained ownership, not model application.
+pub fn RetainedOrderedRoute::owned_geometry_text(
+  self : RetainedOrderedRoute,
+) -> GeometryOwnedText? {
+  if self.geometry_handoff_call {
+    return None
+  }
+  match self.geometry_handoff {
+    Some(GeometryOwned(value)) => Some(value)
+    _ => None
+  }
+}
+
+///|
+/// A slot reserved before an unsuccessful native ACK. The native head still
+/// owns this observation; it must not be applied or taken as ACKed.
+pub fn RetainedOrderedRoute::reserved_geometry_text(
+  self : RetainedOrderedRoute,
+) -> GeometryOwnedText? {
+  if self.geometry_handoff_call {
+    return None
+  }
+  match self.geometry_handoff {
+    Some(GeometryReserved(value)) => Some(value)
+    _ => None
+  }
+}
+
+///|
+/// While the native ACK call is in progress, neither reserved nor owned is a
+/// settled outcome. This is not evidence of success or failure.
+pub fn RetainedOrderedRoute::geometry_handoff_in_progress(
+  self : RetainedOrderedRoute,
+) -> Bool {
+  self.geometry_handoff_call
+}
+
+///|
+/// Transfer the route-owned observation to a caller that has already reserved
+/// bounded storage for the same editing owner. Call only after geometry retry
+/// succeeded. The caller must retain this value and process it before later
+/// route events, preserving its owner, stages and host lifetime. This transfer
+/// is not an assertion that any application action has completed.
+pub fn RetainedOrderedRoute::take_owned_geometry_text(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+) -> Result[GeometryOwnedText, @diagnostics.FrameworkError] {
+  let operation = "take_owned_geometry_text"
+  let owned = match self.geometry_handoff {
+    Some(GeometryOwned(value)) => value
+    _ => return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  if self.pending_geometry is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
+  if epoch != owned.receipt.epoch ||
+    self.portable_epoch != epoch ||
+    self.root != owned.receipt.root ||
+    self.window != Some(owned.target.window) ||
+    self.native_epoch != owned.target.epoch ||
+    self.closed {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  self.geometry_handoff = None
+  Ok(owned)
+}
+
+///|
+/// Reserve one recognized original text FIFO head while geometry is uncertain,
+/// then ACK that exact native head into the route-owned slot. An ACK failure
+/// keeps both the slot and native head; repeat with the same receipt to retry.
+/// Other event kinds, foreign or stale targets remain in native ownership.
+pub fn RetainedOrderedRoute::handoff_geometry_head(
+  self : RetainedOrderedRoute,
+  receipt : RetainedOrderedReceipt,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  self.handoff_geometry_from(
+    receipt,
+    fn() { self.host.peek_retained_editor() },
+    fn(record) { record.ack() },
+  )
+}
+
+///|
+fn geometry_text_identity(
+  receipt : RetainedOrderedReceipt,
+) -> (TextSessionTarget, TextSessionEvent, @text_host.TextInputEvent)? {
+  match (receipt.record.event(), receipt.event) {
+    (Some(TextSession(target, source)), Text(portable)) =>
+      match source {
+        Preedit(..) | Commit(deletion=None, position=None, ..) =>
+          Some((target, source, portable))
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn geometry_same_target(a : TextSessionTarget, b : TextSessionTarget) -> Bool {
+  a.window == b.window &&
+  a.sequence == b.sequence &&
+  a.epoch == b.epoch &&
+  a.seat == b.seat &&
+  a.proxy_generation == b.proxy_generation &&
+  a.serial == b.serial
+}
+
+///|
+fn RetainedOrderedRoute::handoff_geometry_from(
+  self : RetainedOrderedRoute,
+  receipt : RetainedOrderedReceipt,
+  peek : () -> Result[RetainedEditorRecord?, @diagnostics.FrameworkError],
+  ack : (RetainedEditorRecord) -> Result[Unit, @diagnostics.FrameworkError],
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  let operation = "handoff_geometry_head"
+  if self.geometry_handoff_call {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
+  let pending = match self.pending_geometry {
+    Some(value) => value
+    None =>
+      return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  if self.closed ||
+    self.direct_binding ||
+    self.window != Some(pending.window) ||
+    self.root != pending.root ||
+    self.portable_epoch != pending.epoch ||
+    self.native_epoch != pending.native_epoch ||
+    receipt.record.host.token != self.host.token ||
+    receipt.root != pending.root ||
+    receipt.epoch != pending.epoch ||
+    receipt.record.window != pending.window {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  let (original_target, _, _) = match geometry_text_identity(receipt) {
+    Some(value) => value
+    None =>
+      return Err(
+        ubuntu_text_host_error(@diagnostics.UnsupportedCapability, operation),
+      )
+  }
+  let fresh = match peek() {
+    Err(error) => return Err(error)
+    Ok(None) =>
+      return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+    Ok(Some(value)) => value
+  }
+  if fresh.is_stale() ||
+    fresh.is_revoked() ||
+    fresh.window() != pending.window ||
+    fresh.sequence() != receipt.record.sequence ||
+    original_target.window != pending.window ||
+    original_target.sequence != fresh.sequence().to_int64() ||
+    original_target.epoch != pending.native_epoch {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  let prepared = match self.prepare(fresh) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let (target, source, portable) = match geometry_text_identity(prepared) {
+    Some(value) => value
+    None =>
+      return Err(
+        ubuntu_text_host_error(@diagnostics.UnsupportedCapability, operation),
+      )
+  }
+  if !geometry_same_target(target, original_target) ||
+    prepared.expected_ordinal != self.ordinal ||
+    prepared.expected_shortcuts != self.shortcuts.held ||
+    prepared.expected_seat != self.native_seat ||
+    prepared.expected_proxy != self.native_proxy {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  let value = match self.geometry_handoff {
+    Some(GeometryOwned(_)) =>
+      return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+    Some(GeometryReserved(value)) => {
+      if value.geometry_generation != pending.generation ||
+        !geometry_same_target(value.target, target) {
+        return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+      }
+      value
+    }
+    None => {
+      let value = {
+        receipt: prepared,
+        target,
+        native_text: source,
+        portable_text: portable,
+        geometry_generation: pending.generation,
+      }
+      self.geometry_handoff = Some(GeometryReserved(value))
+      value
+    }
+  }
+  self.geometry_handoff_call = true
+  let result = ack(fresh)
+  self.geometry_handoff_call = false
+  match result {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  self.ordinal = value.receipt.candidate_ordinal
+  self.shortcuts.held = value.receipt.candidate_shortcuts
+  self.native_seat = value.receipt.candidate_seat
+  self.native_proxy = value.receipt.candidate_proxy
+  self.geometry_handoff = Some(GeometryOwned(value))
   Ok(())
 }

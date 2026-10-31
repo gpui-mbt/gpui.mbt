@@ -15,6 +15,8 @@ fn retained_test_route() -> RetainedOrderedRoute {
     closed: false,
     pending_geometry: None,
     geometry_generation: 0UL,
+    geometry_handoff: None,
+    geometry_handoff_call: false,
     shortcuts: ShortcutKeyTracker::new(),
   }
 }
