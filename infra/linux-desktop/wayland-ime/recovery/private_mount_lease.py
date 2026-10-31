@@ -70,6 +70,21 @@ class MountLease:
             self.close()
             raise
 
+    def __copy__(self):
+        raise TypeError('mount leases cannot be copied')
+
+    def __deepcopy__(self, memo):
+        raise TypeError('mount leases cannot be copied')
+
+    def __reduce__(self):
+        raise TypeError('mount leases cannot be serialized')
+
+    def __reduce_ex__(self, protocol):
+        raise TypeError('mount leases cannot be serialized')
+
+    def __getstate__(self):
+        raise TypeError('mount leases cannot be serialized')
+
     def _walk(self):
         fds, identities = [], []
         try:

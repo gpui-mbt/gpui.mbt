@@ -9,7 +9,9 @@ writability of every ancestor, private root and source component and retains
 all file descriptors. `revalidate()` reopens the complete path and compares
 device/inode identities, while rechecking ownership and modes on both the
 retained and reopened directories. A changed path, replaced ancestor, symlink,
-unsafe mode or closed lease is rejected. Closing releases the descriptors.
+unsafe mode or closed lease is rejected. Closing releases the descriptors. A lease cannot be copied, deep-copied, or
+pickled: duplicating bare integer descriptor values would let an old copy close
+a different file after the operating system reuses a descriptor number.
 
 The private root must be mode 0700 and owned by the designated bounded nonroot
 UID. All ancestors must be owned by root or that UID and not group/world
