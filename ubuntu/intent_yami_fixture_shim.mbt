@@ -49,3 +49,31 @@ pub extern "C" fn fixture_intent_fail_after_update() -> Unit = "gpui_fixture_fai
 
 ///| FIXTURE ONLY: count mocked Wayland requests to detect duplicate updates.
 pub extern "C" fn fixture_intent_wayland_calls() -> Int32 = "gpui_fixture_wayland_calls"
+
+///| FIXTURE ONLY: prepare the first physical focus after the route claim.
+extern "C" fn fixture_physical_windowless() -> Unit = "gpui_fixture_physical_windowless"
+
+///|
+extern "C" fn fixture_physical_focus(window : Int32) -> Unit = "gpui_fixture_physical_focus"
+
+///|
+pub extern "C" fn fixture_physical_release() -> Unit = "gpui_fixture_physical_release"
+
+///| FIXTURE ONLY: build first-window/focus provenance using native callbacks.
+pub fn fixture_physical_route(
+  state : @text_host.TextInputState, window : @platform.WindowId, root : UInt64,
+) -> RetainedOrderedRoute {
+  let token = fixture_intent_setup()
+  if token != 741 { abort("fixture start failed") }
+  fixture_physical_windowless()
+  let host : Host = { token, stopped: false }
+  let route = RetainedOrderedRoute::new(host).unwrap()
+  fixture_physical_focus(window.value().to_int())
+  let focus = route.peek().unwrap().unwrap()
+  ignore(focus.ack().unwrap())
+  ignore(route.begin(window, root, state).unwrap())
+  fixture_intent_enter()
+  let entered = route.peek().unwrap().unwrap()
+  ignore(entered.ack().unwrap())
+  route
+}

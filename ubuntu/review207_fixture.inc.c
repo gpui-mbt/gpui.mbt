@@ -15,6 +15,25 @@ int32_t gpui_retained_route_update(int32_t token, int32_t window, int32_t epoch,
 }
 void gpui_fixture_fail_after_update(void) { fixture_fail_after_update = 1; }
 int32_t gpui_fixture_wayland_calls(void) { return call_count; }
+/* Fixture only: arrange a first window/focus after the route claim, using
+ * normal XKB and native focus callbacks rather than manufacturing a proof. */
+void gpui_fixture_physical_windowless(void) { assert(active); active->window = 0; }
+void gpui_fixture_physical_focus(int32_t window) {
+  struct host *h = active; assert(h && window > 0 && !h->window);
+  retained_note_window_attempt(h);
+  h->window = window;
+  h->xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(h->xkb);
+  struct xkb_rule_names names = { .layout = "us" };
+  h->keymap = xkb_keymap_new_from_names(h->xkb, &names, XKB_KEYMAP_COMPILE_NO_FLAGS); assert(h->keymap);
+  h->keys = xkb_state_new(h->keymap); assert(h->keys);
+  h->direct_keymap_valid = 1;
+  struct wl_array keys = {0};
+  keyboard_enter(h, h->keyboard, 1, h->surface, &keys);
+}
+void gpui_fixture_physical_release(void) {
+  struct host *h = active; assert(h && h->keys);
+  keyboard_key(h, h->keyboard, 3, 0, 49, WL_KEYBOARD_KEY_STATE_RELEASED);
+}
 int32_t gpui_ack_retained_editor(int32_t token, int32_t window, int32_t sequence) {
   if (review207_fail_ack) { review207_fail_ack = 0; return GPUI_BUSY; }
   return gpui_review207_real_ack(token, window, sequence);
@@ -62,6 +81,9 @@ int32_t gpui_review207_state(int32_t *fields, int32_t capacity, uint8_t *bytes, 
 void gpui_review207_finish(void) {
   struct host *h = active; if (!h) return;
   for (int i = 0; i < QUEUE_CAPACITY; ++i) ime_free_slot(h, i);
+  if (h->keys) xkb_state_unref(h->keys);
+  if (h->keymap) xkb_keymap_unref(h->keymap);
+  if (h->xkb) xkb_context_unref(h->xkb);
   active = NULL; free(h);
 }
 /* Fixture only: bind fake native host to the synthetic consumer window. */
