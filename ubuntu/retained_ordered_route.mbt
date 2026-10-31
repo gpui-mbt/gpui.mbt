@@ -257,6 +257,61 @@ pub struct RetainedGeometryReceipt {
 }
 
 ///|
+/// One original route's immutable geometry intent. This is not native
+/// acceptance, permission to discard a record, or a scene receipt.
+pub struct RetainedGeometryIntent {
+  priv identity : GeometryIntentRouteIdentity
+  priv pending : RetainedGeometryPending
+}
+
+///|
+pub fn RetainedGeometryIntent::pending(
+  self : RetainedGeometryIntent,
+) -> RetainedGeometryPending {
+  self.pending
+}
+
+///|
+pub enum RetainedGeometryIntentStage {
+  GeometryIntentNotSubmitted
+  GeometryIntentOutcomeUncertain
+}
+
+///|
+priv struct GeometryIntentRouteIdentity {
+  mut marker : Bool
+}
+
+///|
+/// Route-owner thread only; no callback may run while these markers change.
+fn same_geometry_intent_route(
+  a : GeometryIntentRouteIdentity,
+  b : GeometryIntentRouteIdentity,
+) -> Bool {
+  let old_a = a.marker
+  let old_b = b.marker
+  a.marker = !old_b
+  let same = b.marker != old_b
+  a.marker = old_a
+  b.marker = old_b
+  same
+}
+
+///|
+fn same_geometry_intent_state(
+  a : @text_host.TextInputState,
+  b : @text_host.TextInputState,
+) -> Bool {
+  let same_preedit = match (a.preedit(), b.preedit()) {
+    (None, None) => true
+    (Some(left), Some(right)) =>
+      left.text() == right.text() && left.selection() == right.selection()
+    _ => false
+  }
+  a.document() == b.document() && a.caret() == b.caret() && same_preedit
+}
+
+///|
 pub fn RetainedGeometryReceipt::pending(
   self : RetainedGeometryReceipt,
 ) -> RetainedGeometryPending {
@@ -281,6 +336,10 @@ pub struct RetainedOrderedRoute {
   priv mut closed : Bool
   priv mut pending_geometry : RetainedGeometryPending?
   priv mut geometry_generation : UInt64
+  priv geometry_intent_identity : GeometryIntentRouteIdentity
+  priv mut geometry_requires_intent : Bool
+  priv mut geometry_native_attempted : Bool
+  priv mut geometry_intent_call : Bool
   priv mut geometry_handoff : GeometryHandoff?
   priv mut geometry_handoff_call : Bool
   priv shortcuts : ShortcutKeyTracker
@@ -315,6 +374,10 @@ pub fn RetainedOrderedRoute::new(
     closed: false,
     pending_geometry: None,
     geometry_generation: 0UL,
+    geometry_intent_identity: { marker: false, },
+    geometry_requires_intent: false,
+    geometry_native_attempted: false,
+    geometry_intent_call: false,
     geometry_handoff: None,
     geometry_handoff_call: false,
     shortcuts: ShortcutKeyTracker::new(),
@@ -503,6 +566,185 @@ pub fn RetainedOrderedRoute::pending_geometry(
 }
 
 ///|
+/// Reserve one exact original-owner candidate without entering native update.
+/// A nonempty FIFO is allowed: the caller can use the bounded geometry text
+/// handoff before submitting this same intent. No record is acknowledged here.
+pub fn RetainedOrderedRoute::reserve_geometry_intent(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+  state : @text_host.TextInputState,
+) -> Result[RetainedGeometryIntent, @diagnostics.FrameworkError] {
+  self.reserve_geometry_intent_from(epoch, state, fn(window, native_epoch) {
+    native_retained_route_native_epoch(self.host.token, window.value().to_int()) ==
+    native_epoch
+  })
+}
+
+///|
+fn RetainedOrderedRoute::reserve_geometry_intent_from(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+  state : @text_host.TextInputState,
+  native_current : (@platform.WindowId, Int32) -> Bool,
+) -> Result[RetainedGeometryIntent, @diagnostics.FrameworkError] {
+  let operation = "reserve_geometry_intent"
+  if self.geometry_intent_call ||
+    self.host.stopped ||
+    self.closed ||
+    self.direct_binding ||
+    epoch != self.portable_epoch ||
+    self.root == 0UL ||
+    self.native_epoch <= 0 ||
+    self.pending_geometry is Some(_) ||
+    self.geometry_handoff is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  if self.geometry_generation == 18446744073709551615UL {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.ResourceExhausted, operation),
+    )
+  }
+  let window = match self.window {
+    Some(value) => value
+    None =>
+      return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  match
+    validate_retained_update_input(window, self.native_epoch, state, operation) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let root = self.root
+  let native_epoch = self.native_epoch
+  let generation = self.geometry_generation
+  self.geometry_intent_call = true
+  let current = native_current(window, native_epoch)
+  self.geometry_intent_call = false
+  if !current ||
+    self.host.stopped ||
+    self.closed ||
+    self.direct_binding ||
+    self.window != Some(window) ||
+    self.root != root ||
+    self.portable_epoch != epoch ||
+    self.native_epoch != native_epoch ||
+    self.geometry_generation != generation ||
+    self.pending_geometry is Some(_) ||
+    self.geometry_handoff is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  self.geometry_generation += 1UL
+  let pending = {
+    window,
+    root,
+    epoch,
+    native_epoch,
+    state,
+    generation: self.geometry_generation,
+  }
+  self.pending_geometry = Some(pending)
+  self.geometry_requires_intent = true
+  self.geometry_native_attempted = false
+  Ok({ identity: self.geometry_intent_identity, pending, })
+}
+
+///|
+/// Inspect only the local phase of this current intent. Native submission
+/// success is returned separately as a RetainedGeometryReceipt.
+pub fn RetainedOrderedRoute::geometry_intent_stage(
+  self : RetainedOrderedRoute,
+  intent : RetainedGeometryIntent,
+) -> RetainedGeometryIntentStage? {
+  if self.geometry_intent_call || !self.geometry_intent_is_current(intent) {
+    return None
+  }
+  Some(
+    if self.geometry_native_attempted {
+      GeometryIntentOutcomeUncertain
+    } else {
+      GeometryIntentNotSubmitted
+    },
+  )
+}
+
+///|
+fn RetainedOrderedRoute::geometry_intent_is_current(
+  self : RetainedOrderedRoute,
+  intent : RetainedGeometryIntent,
+) -> Bool {
+  let pending = intent.pending
+  same_geometry_intent_route(self.geometry_intent_identity, intent.identity) &&
+  self.geometry_requires_intent &&
+  !self.host.stopped &&
+  !self.closed &&
+  !self.direct_binding &&
+  self.window == Some(pending.window) &&
+  self.root == pending.root &&
+  self.portable_epoch == pending.epoch &&
+  self.native_epoch == pending.native_epoch &&
+  self.geometry_generation == pending.generation &&
+  self.pending_geometry is Some(current) &&
+  current.generation == pending.generation &&
+  current.window == pending.window &&
+  current.root == pending.root &&
+  current.epoch == pending.epoch &&
+  current.native_epoch == pending.native_epoch &&
+  same_geometry_intent_state(current.state, pending.state)
+}
+
+///|
+/// Submit or retry only the original intent while it remains current. A Busy
+/// FIFO leaves it NotSubmitted; after native entry an error is uncertain.
+pub fn RetainedOrderedRoute::submit_geometry_intent(
+  self : RetainedOrderedRoute,
+  intent : RetainedGeometryIntent,
+) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError] {
+  self.submit_geometry_intent_from(
+    intent,
+    fn() {
+      native_retained_route_native_epoch(
+        self.host.token,
+        intent.pending.window.value().to_int(),
+      ) ==
+      intent.pending.native_epoch
+    },
+    fn() { self.require_empty("submit_geometry_intent") },
+    fn(window, native_epoch, candidate) {
+      self.host.retained_update(window, native_epoch, candidate)
+    },
+  )
+}
+
+///|
+fn RetainedOrderedRoute::submit_geometry_intent_from(
+  self : RetainedOrderedRoute,
+  intent : RetainedGeometryIntent,
+  native_current : () -> Bool,
+  empty : () -> Result[Unit, @diagnostics.FrameworkError],
+  native_update : (@platform.WindowId, Int32, @text_host.TextInputState) -> Result[
+    Int32,
+    @diagnostics.FrameworkError,
+  ],
+) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError] {
+  if self.geometry_intent_call || !self.geometry_intent_is_current(intent) {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.StaleHandle, "submit_geometry_intent"),
+    )
+  }
+  self.geometry_intent_call = true
+  let current = native_current()
+  let result = if !current || !self.geometry_intent_is_current(intent) {
+    Err(
+      ubuntu_text_host_error(@diagnostics.StaleHandle, "submit_geometry_intent"),
+    )
+  } else {
+    self.retry_geometry_from(intent.pending.epoch, empty, native_update)
+  }
+  self.geometry_intent_call = false
+  result
+}
+
+///|
 /// Update the same native IME session while the FIFO is empty. An error after
 /// native entry retains the attempted state; it does not prove scene or
 /// compositor publication. The native path sends document and caret, not the
@@ -547,6 +789,9 @@ fn RetainedOrderedRoute::update_from(
   ],
 ) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError] {
   let operation = "retained_update"
+  if self.geometry_intent_call {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
   if epoch != self.portable_epoch || self.closed {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
@@ -589,6 +834,8 @@ fn RetainedOrderedRoute::update_from(
     state,
     generation: self.geometry_generation,
   })
+  self.geometry_requires_intent = false
+  self.geometry_native_attempted = false
   self.retry_geometry_from(epoch, fn() { Ok(()) }, native_update)
 }
 
@@ -599,6 +846,11 @@ pub fn RetainedOrderedRoute::retry_geometry(
   self : RetainedOrderedRoute,
   epoch : UInt64,
 ) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError] {
+  if self.geometry_intent_call || self.geometry_requires_intent {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.Busy, "retained_geometry_retry"),
+    )
+  }
   self.retry_geometry_from(
     epoch,
     fn() { self.require_empty("retained_geometry_retry") },
@@ -640,6 +892,7 @@ fn RetainedOrderedRoute::retry_geometry_from(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
+  self.geometry_native_attempted = true
   let native = match
     native_update(pending.window, pending.native_epoch, pending.state) {
     Err(error) => return Err(error)
@@ -649,6 +902,8 @@ fn RetainedOrderedRoute::retry_geometry_from(
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
   self.pending_geometry = None
+  self.geometry_requires_intent = false
+  self.geometry_native_attempted = false
   Ok({ host_token: self.host.token, pending, })
 }
 
@@ -1532,7 +1787,7 @@ pub fn GeometryOwnedText::native_text(
 pub fn RetainedOrderedRoute::owned_geometry_text(
   self : RetainedOrderedRoute,
 ) -> GeometryOwnedText? {
-  if self.geometry_handoff_call {
+  if self.geometry_handoff_call || self.geometry_intent_call {
     return None
   }
   match self.geometry_handoff {
@@ -1547,7 +1802,7 @@ pub fn RetainedOrderedRoute::owned_geometry_text(
 pub fn RetainedOrderedRoute::reserved_geometry_text(
   self : RetainedOrderedRoute,
 ) -> GeometryOwnedText? {
-  if self.geometry_handoff_call {
+  if self.geometry_handoff_call || self.geometry_intent_call {
     return None
   }
   match self.geometry_handoff {
@@ -1557,12 +1812,12 @@ pub fn RetainedOrderedRoute::reserved_geometry_text(
 }
 
 ///|
-/// While the native ACK call is in progress, neither reserved nor owned is a
-/// settled outcome. This is not evidence of success or failure.
+/// While a native ACK or intent submission call is in progress, neither
+/// reserved nor owned is a settled observation. None is not proof of absence.
 pub fn RetainedOrderedRoute::geometry_handoff_in_progress(
   self : RetainedOrderedRoute,
 ) -> Bool {
-  self.geometry_handoff_call
+  self.geometry_handoff_call || self.geometry_intent_call
 }
 
 ///|
@@ -1644,7 +1899,7 @@ fn RetainedOrderedRoute::handoff_geometry_from(
   ack : (RetainedEditorRecord) -> Result[Unit, @diagnostics.FrameworkError],
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let operation = "handoff_geometry_head"
-  if self.geometry_handoff_call {
+  if self.geometry_handoff_call || self.geometry_intent_call {
     return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
   }
   let pending = match self.pending_geometry {
