@@ -1346,6 +1346,225 @@ static void retained_stale_owner_is_visible_not_implicitly_discarded(void) {
   assert(h->count > 0);
   finish(h);
 }
+static void install_current_keymap(struct host *h);
+
+/* No text-input manager: a direct fallback is a bound retained route, not a
+ * legacy reader. The original binding owns accepted input across blur. */
+static void retained_direct_route_drains_before_cutoff(int blur) {
+  struct host *h = fixture();
+  h->ime.manager = NULL; h->ime.manager_name = 0;
+  h->xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(h->xkb);
+  struct xkb_rule_names names = {.layout = "us"};
+  h->keymap = xkb_keymap_new_from_names(h->xkb, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  assert(h->keymap);
+  h->keys = xkb_state_new(h->keymap); assert(h->keys);
+  h->direct_keymap_valid = 1;
+  const char compose[] = "<Multi_key> <a> <a> : \"a\"\n";
+  h->compose_table = xkb_compose_table_new_from_buffer(h->xkb, compose,
+      sizeof(compose) - 1, "C.UTF-8", XKB_COMPOSE_FORMAT_TEXT_V1,
+      XKB_COMPOSE_COMPILE_NO_FLAGS);
+  assert(h->compose_table);
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  assert(gpui_claim_retained_route(h->token) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  assert(gpui_direct_keyboard_text_mode(h->token, h->window, 1) == GPUI_UNSUPPORTED);
+  /* A pending foreign/nontext record and an available IME manager cannot be
+   * silently bypassed by fallback admission. */
+  event(h, 6, 1, 0, 0);
+  assert(gpui_retained_direct_begin(h->token, 51) == -GPUI_BUSY);
+  double pending[GPUI_EDITOR_EVENT_FIELDS]; uint8_t pending_bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t pending_meta[5];
+  assert(gpui_peek_retained_editor(3, h->token, pending, GPUI_EDITOR_EVENT_FIELDS,
+      pending_bytes, sizeof(pending_bytes), pending_meta, 5) == 1);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)pending[2]) == GPUI_OK);
+  h->ime.manager = (struct zwp_text_input_manager_v1 *)(uintptr_t)104;
+  h->ime.manager_name = 118;
+  assert(gpui_retained_direct_begin(h->token, 51) == -GPUI_UNSUPPORTED);
+  h->ime.manager = NULL; h->ime.manager_name = 0;
+  /* The no-manager native text begin fails without leaving an active owner;
+   * a caller may explicitly release its hold before selecting direct mode. */
+  assert(gpui_retained_route_begin(h->token, 51, NULL, 0, 0, 0,
+      0, 0, 1, 1) == -GPUI_UNSUPPORTED);
+  assert(!h->ime.requested && h->count == 0);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  int epoch = gpui_retained_direct_begin(h->token, h->window);
+  assert(epoch > 0 && h->direct_enabled);
+  assert(gpui_direct_keyboard_text_mode(h->token, h->window, 0) == GPUI_UNSUPPORTED);
+  keyboard_key(h, h->keyboard, 2, 0, 30, WL_KEYBOARD_KEY_STATE_PRESSED);
+  assert(h->count == 2);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_BUSY);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_BUSY);
+  if (blur) keyboard_leave(h, h->keyboard, 3, h->surface);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5];
+  assert(gpui_next_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes)) == -GPUI_UNSUPPORTED);
+  for (int i = 0; i < 2; ++i) {
+    assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+        bytes, sizeof(bytes), meta, 5) == 1);
+    assert(!meta[0] && meta[1] == epoch && meta[4] && data[1] == 51);
+    assert(data[0] == (i == 0 ? 11 : 13));
+    if (i == 1) assert(data[8] == 1 && bytes[0] == 'a');
+    assert(gpui_ack_retained_editor(h->token, 52, (int)data[2]) == GPUI_STALE);
+    assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  }
+  if (blur) {
+    assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+        bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 6);
+    assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  }
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_BUSY);
+  keyboard_key(h, h->keyboard, 4, 0, 30, WL_KEYBOARD_KEY_STATE_RELEASED);
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 12);
+  assert(!meta[0] && meta[1] == epoch && meta[4]);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch + 1) == GPUI_STALE);
+  assert(xkb_compose_state_feed(h->compose, XKB_KEY_Multi_key) == XKB_COMPOSE_FEED_ACCEPTED);
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_BUSY);
+  if (!blur) {
+    int fd = open("/dev/null", O_RDONLY); assert(fd >= 0);
+    keyboard_keymap(h, h->keyboard, WL_KEYBOARD_KEYMAP_FORMAT_NO_KEYMAP, fd, 0);
+    assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+    assert(!h->direct_enabled && !h->direct_keymap_valid);
+    assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_BUSY);
+    install_current_keymap(h);
+    assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+    assert(!h->direct_enabled);
+    keyboard_leave(h, h->keyboard, 6, h->surface);
+    assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+    assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_BUSY);
+    assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+        bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 6);
+    assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+    assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_BUSY);
+    /* Re-enter for the later rebind check, not to resolve the old compose. */
+    h->keyboard_focus_current = 1;
+  }
+  /* Explicit fixture resolution; cutoff itself never discards composition. */
+  xkb_compose_state_reset(h->compose);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_OK);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  if (!blur) {
+    assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+    int next = gpui_retained_direct_begin(h->token, 51);
+    assert(next > epoch);
+    assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_STALE);
+    assert(gpui_retained_direct_end_when_drained(h->token, 51, next) == GPUI_OK);
+    assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  }
+  release_compose(h); xkb_state_unref(h->keys); xkb_keymap_unref(h->keymap);
+  xkb_context_unref(h->xkb); finish(h);
+}
+static void retained_direct_close_keeps_compose_owner(void) {
+  struct host *h = fixture();
+  h->ime.manager = NULL; h->ime.manager_name = 0;
+  h->xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(h->xkb);
+  struct xkb_rule_names names = {.layout = "us"};
+  h->keymap = xkb_keymap_new_from_names(h->xkb, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  assert(h->keymap);
+  h->keys = xkb_state_new(h->keymap); assert(h->keys);
+  h->direct_keymap_valid = 1;
+  const char compose[] = "<Multi_key> <a> <a> : \"a\"\n";
+  h->compose_table = xkb_compose_table_new_from_buffer(h->xkb, compose,
+      sizeof(compose) - 1, "C.UTF-8", XKB_COMPOSE_FORMAT_TEXT_V1,
+      XKB_COMPOSE_COMPILE_NO_FLAGS);
+  assert(h->compose_table);
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  assert(gpui_claim_retained_route(h->token) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  assert(xkb_compose_state_feed(h->compose, XKB_KEY_Multi_key) == XKB_COMPOSE_FEED_ACCEPTED);
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  assert(gpui_destroy(h->token, 51) == GPUI_OK);
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  assert(h->retained_direct_epoch == epoch && h->retained_route_bound);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_STALE);
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  release_compose(h); xkb_state_unref(h->keys); xkb_keymap_unref(h->keymap);
+  xkb_context_unref(h->xkb); finish(h);
+}
+static void retained_direct_device_loss_keeps_key_owner(void) {
+  struct host *h = fixture();
+  h->ime.manager = NULL; h->ime.manager_name = 0;
+  h->xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(h->xkb);
+  struct xkb_rule_names names = {.layout = "us"};
+  h->keymap = xkb_keymap_new_from_names(h->xkb, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  assert(h->keymap);
+  h->keys = xkb_state_new(h->keymap); assert(h->keys);
+  h->direct_keymap_valid = 1;
+  const char compose[] = "<Multi_key> <a> <a> : \"a\"\n";
+  h->compose_table = xkb_compose_table_new_from_buffer(h->xkb, compose,
+      sizeof(compose) - 1, "C.UTF-8", XKB_COMPOSE_FORMAT_TEXT_V1,
+      XKB_COMPOSE_COMPILE_NO_FLAGS);
+  assert(h->compose_table);
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  assert(gpui_claim_retained_route(h->token) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  keyboard_key(h, h->keyboard, 2, 0, 30, WL_KEYBOARD_KEY_STATE_PRESSED);
+  assert(h->direct_keys[30].pressed && h->count == 2);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5];
+  for (int i = 0; i < 2; ++i) {
+    assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+        bytes, sizeof(bytes), meta, 5) == 1);
+    assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  }
+  /* Device-removal cleanup must not erase the old pressed-key owner. */
+  reset_direct_text(h, 1, 1);
+  assert(h->retained_direct_device_lost && h->direct_keys[30].pressed);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_BUSY);
+  assert(gpui_dispatch_retained(h->token, 0) == GPUI_BUSY);
+  struct wl_keyboard *replacement = (struct wl_keyboard *)(uintptr_t)987;
+  h->keyboard = replacement;
+  keyboard_key(h, replacement, 3, 0, 30, WL_KEYBOARD_KEY_STATE_RELEASED);
+  assert(h->error == GPUI_BUSY && h->direct_keys[30].pressed && h->count == 0);
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  release_compose(h); xkb_state_unref(h->keys); xkb_keymap_unref(h->keymap);
+  xkb_context_unref(h->xkb); finish(h);
+}
+static void retained_direct_queue_full_retains_admitted_prefix(void) {
+  struct host *h = fixture();
+  h->ime.manager = NULL; h->ime.manager_name = 0;
+  h->xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(h->xkb);
+  struct xkb_rule_names names = {.layout = "us"};
+  h->keymap = xkb_keymap_new_from_names(h->xkb, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  assert(h->keymap);
+  h->keys = xkb_state_new(h->keymap); assert(h->keys);
+  h->direct_keymap_valid = 1;
+  const char compose[] = "<Multi_key> <a> <a> : \"a\"\n";
+  h->compose_table = xkb_compose_table_new_from_buffer(h->xkb, compose,
+      sizeof(compose) - 1, "C.UTF-8", XKB_COMPOSE_FORMAT_TEXT_V1,
+      XKB_COMPOSE_COMPILE_NO_FLAGS);
+  assert(h->compose_table);
+  assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
+  assert(gpui_claim_retained_route(h->token) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  keyboard_key(h, h->keyboard, 1, 0, 30, WL_KEYBOARD_KEY_STATE_PRESSED);
+  assert(h->count == 2);
+  while (h->count < QUEUE_CAPACITY - 1) event(h, 6, 1, 0, 0);
+  int old_count = h->count, old_seq = h->seq;
+  /* A second character needs key + text slots; admission is all-or-nothing. */
+  keyboard_key(h, h->keyboard, 2, 0, 48, WL_KEYBOARD_KEY_STATE_PRESSED);
+  assert(h->error == GPUI_RESOURCE && h->count == old_count && h->seq == old_seq);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_BUSY);
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5];
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 11 && !meta[0]);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 13 && !meta[0]);
+  assert(data[8] == 1 && bytes[0] == 'a' && meta[1] == epoch && meta[4]);
+  release_compose(h); xkb_state_unref(h->keys); xkb_keymap_unref(h->keymap);
+  xkb_context_unref(h->xkb); finish(h);
+}
 static void retained_direct_owner_survives_window_replacement(void) {
   struct host *h = fixture();
   assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
@@ -1671,6 +1890,11 @@ int main(void) {
   retained_raw_printable_release_has_original_identity();
   retained_route_rejects_legacy_session_mutation();
   retained_cutoff_generated_left_requires_ack();
+  retained_direct_route_drains_before_cutoff(0);
+  retained_direct_route_drains_before_cutoff(1);
+  retained_direct_close_keeps_compose_owner();
+  retained_direct_device_loss_keeps_key_owner();
+  retained_direct_queue_full_retains_admitted_prefix();
   retained_direct_owner_survives_window_replacement();
   retained_stale_owner_is_visible_not_implicitly_discarded();
   retained_peek_requires_explicit_exact_head_ack();

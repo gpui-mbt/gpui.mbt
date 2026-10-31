@@ -308,8 +308,8 @@ keeping a snapshot across blur does not mean that a later OS callback for the
 invalidated native session was received.
 
 `RetainedOrderedRoute` is the experimental gpui-owned translation layer above
-that FIFO. One route claims the host, and legacy text routes and composition or
-direct-text modes cannot be started alongside it. The route uses its own
+that FIFO. One route claims the host, and legacy text routes, composition, and
+legacy direct-text mode cannot be started alongside it. The route uses its own
 native session entrypoints; legacy raw session mutation is rejected while the
 route is claimed. A binding captures the root,
 window, native epoch, and, after Entered is acknowledged, seat and proxy
@@ -319,6 +319,28 @@ or shortcut state; those advance only after the exact native ACK succeeds.
 Foreign or stale targets, unmapped events, replacement, and position changes
 remain explicit unhandled records. Cutoff retains the binding until its
 lifecycle records are acknowledged and release succeeds.
+
+When the native text-input manager is absent, `begin_direct(window, root)`
+can instead bind direct keyboard text to that same retained FIFO. It reserves
+the original window, root and portable/native epochs; starting with a pending
+native record, held physical key, or active native text session returns Busy.
+The host rejects this fallback if a text-input manager exists. Direct key and
+text observations carry the captured binding, and accepted old-binding
+records remain available after focus loss rather than being retargeted.
+The consumer must retain the original field generation, event and action/model
+stage; an ACK or this host cutoff does not establish those stages.
+
+For a direct binding, `try_end_when_drained` rejects an unacknowledged FIFO,
+held physical key, or active XKB composition. It never cancels that
+composition implicitly; blur, keymap change and window cleanup retain it with
+the old owner. There is not yet a public way to resume or discard the
+composition after such a transition, so the route stays unresolved. A
+successful cutoff ends native admission for that
+binding; `release` remains a separate step and can still return Busy. Busy or
+an error keeps the original binding owned. Keyboard removal with a pressed
+key also retains the old key owner and refuses further admission; the current
+API cannot resolve that device-loss case. This narrow path is not an IME
+composition host, an OS-IME quiescence proof, or proof of safe consumer stop.
 
 For one narrow unhandled case, `printable_release_candidate()` additionally
 identifies an ASCII printable native key release without Control, Alt or Meta,

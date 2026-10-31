@@ -86,6 +86,8 @@ struct host {
   int token, window, state, wake_fd, error;
   int terminal_retention, terminal_preview_pending, terminal_preview_watermark;
   int retained_route_claimed, retained_route_bound, retained_route_call;
+  int retained_direct_call, retained_direct_window, retained_direct_epoch;
+  int retained_direct_ended, retained_direct_device_lost;
   /* Proof-only monotonic count of window creation attempts on this host.
    * Exhaustion disables the evidence, not existing window operations. */
   int retained_window_generation, retained_window_exhausted;
@@ -292,11 +294,33 @@ static int advance_direct_epoch(struct host *h) {
 static void reset_direct_text(struct host *h, int disable, int clear_device) {
   /* The same physical keyboard's consumed releases survive focus/keymap
    * resets. Removing that keyboard excludes old callbacks before clearing. */
-  if (clear_device)
-    memset(h->direct_keys, 0, sizeof(h->direct_keys));
+  if (clear_device) {
+    int retained_pressed = 0;
+    if (h->terminal_retention && h->retained_route_bound &&
+        h->retained_direct_epoch && !h->retained_direct_ended) {
+      for (int i = 0; i < GPUI_DIRECT_KEY_CAPACITY; ++i)
+        if (h->direct_keys[i].pressed) { retained_pressed = 1; break; }
+    }
+    if (retained_pressed)
+      h->retained_direct_device_lost = 1;
+    else
+      memset(h->direct_keys, 0, sizeof(h->direct_keys));
+  }
   if (disable)
     h->direct_enabled = 0;
-  (void)advance_direct_epoch(h);
+  if (h->terminal_retention && h->retained_route_bound &&
+      h->retained_direct_epoch && !h->retained_direct_ended && h->compose &&
+      xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING) {
+    /* Blur, keymap change, or teardown must not silently discard an active
+     * direct compose transaction belonging to the retained original owner. */
+    cancel_key_repeat(h);
+    if (h->direct_exhausted || h->direct_epoch == INT_MAX)
+      h->direct_exhausted = 1;
+    else
+      ++h->direct_epoch;
+  } else {
+    (void)advance_direct_epoch(h);
+  }
 }
 static void quiesce_host(struct host *h) {
   ime_invalidate(h, 1, 1);
@@ -1189,7 +1213,8 @@ static void keyboard_keymap(void *d, struct wl_keyboard *k, uint32_t format,
   h->direct_keymap_valid = 1;
   if (!h->compose_table)
     h->compose_attempted = 0;
-  if (was_enabled && require_direct_keyboard(h) == GPUI_OK)
+  if (was_enabled && !h->retained_direct_epoch &&
+      require_direct_keyboard(h) == GPUI_OK)
     h->direct_enabled = 1;
 }
 static void keyboard_enter(void *d, struct wl_keyboard *k, uint32_t serial,
@@ -1257,6 +1282,12 @@ static void keyboard_key(void *d, struct wl_keyboard *k, uint32_t serial,
   struct host *h = d;
   if (k != h->keyboard)
     return;
+  /* A replacement device cannot release a key held by the old retained
+   * owner. Leave its key state intact and reject further native admission. */
+  if (h->retained_direct_device_lost) {
+    (void)input_failure(h, GPUI_BUSY);
+    return;
+  }
   if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
     remember_input_serial(h, serial, INPUT_SERIAL_KEYBOARD);
   /* NO_KEYMAP leaves the legacy XKB pointer non-null; do not use it as
@@ -1574,7 +1605,10 @@ static void release_window(struct host *h) {
     reset_direct_text(h, 1, 0);
   else {
     h->direct_enabled = 0;
-    reset_compose(h);
+    if (!(h->terminal_retention && h->retained_route_bound &&
+          h->retained_direct_epoch && !h->retained_direct_ended && h->compose &&
+          xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING))
+      reset_compose(h);
   }
   invalidate_input_serial(h, INPUT_SERIAL_NONE);
   h->pointer_focus_current = 0;
@@ -1950,7 +1984,10 @@ int32_t gpui_retained_route_hold(int32_t token, int32_t enabled) {
   } else {
     if (!h->retained_route_bound) return GPUI_STALE;
     if (h->count || h->ime.requested || h->ime.phase == IME_ACTIVE ||
-        h->ime.phase == IME_ACTIVATING) return GPUI_BUSY;
+        h->ime.phase == IME_ACTIVATING ||
+        (h->retained_direct_epoch && !h->retained_direct_ended)) return GPUI_BUSY;
+    h->retained_direct_epoch = h->retained_direct_window = h->retained_direct_ended = 0;
+    h->retained_direct_device_lost = 0;
     h->retained_route_bound = 0;
   }
   return GPUI_OK;
@@ -1961,6 +1998,8 @@ int32_t gpui_retained_route_native_epoch(int32_t token, int32_t window) {
   if (status) return -status;
   if (!h->terminal_retention || !h->retained_route_claimed ||
       !h->retained_route_bound) return -GPUI_UNSUPPORTED;
+  if (h->state) return -GPUI_STOPPING;
+  if (h->error) return -h->error;
   if (!h->ime.requested || h->window != window) return 0;
   return h->ime.epoch;
 }
@@ -2280,6 +2319,7 @@ int32_t gpui_dispatch_retained(int32_t token, int32_t timeout) {
   if (timeout < 0 || timeout > 60000) return GPUI_INVALID;
   /* Do not admit another native burst while a head awaits owner ACK. */
   if (h->count) return GPUI_BUSY;
+  if (h->retained_direct_device_lost) return GPUI_BUSY;
   return dispatch_host(h, timeout);
 }
 int32_t gpui_next(int32_t token, double *out) {
@@ -2316,6 +2356,15 @@ static int stale_direct_record(const struct host *h, int slot) {
   const struct direct_event_meta *meta = &h->direct_queue[slot];
   if (meta->revoked)
     return 1;
+  /* Records admitted to a live retained-direct owner remain owned by that
+   * exact original binding across blur, close, or epoch invalidation. This is
+   * not permission to apply them to another owner or silently acknowledge. */
+  if (h->terminal_retention && h->retained_route_bound &&
+      h->retained_direct_epoch && !h->retained_direct_ended &&
+      meta->direct_origin && !meta->composition_epoch &&
+      meta->epoch == h->retained_direct_epoch &&
+      h->queue[slot][1] == h->retained_direct_window)
+    return 0;
   if (meta->composition_epoch &&
       (meta->composition_epoch != h->ime.epoch || !h->ime.composition_enabled ||
        h->queue[slot][1] != h->window))
@@ -2397,7 +2446,7 @@ int32_t gpui_direct_keyboard_text_mode(int32_t token, int32_t window,
     return GPUI_STALE;
   if (enabled != 0 && enabled != 1)
     return GPUI_INVALID;
-  if (enabled && h->retained_route_claimed) return GPUI_UNSUPPORTED;
+  if (h->retained_route_claimed && !h->retained_direct_call) return GPUI_UNSUPPORTED;
   if (h->direct_exhausted || (h->ime.exhausted && h->ime.ever_enabled))
     return GPUI_RESOURCE;
   if (!enabled) h->ime.composition_direct_pending = 0;
@@ -2428,6 +2477,58 @@ int32_t gpui_direct_keyboard_text_mode(int32_t token, int32_t window,
   h->direct_enabled = enabled;
   if (enabled)
     h->direct_ever_enabled = 1;
+  return GPUI_OK;
+}
+/* A direct fallback owns the same bounded FIFO and is only available when
+ * no text-input manager exists. Cutoff is a host admission fence; already
+ * returned records, model actions, and physical IME state remain caller-owned. */
+int32_t gpui_retained_direct_begin(int32_t token, int32_t window) {
+  struct host *h;
+  int status = window_check(token, window, &h);
+  if (status) return -status;
+  if (!h->terminal_retention || !h->retained_route_claimed ||
+      !h->retained_route_bound) return -GPUI_UNSUPPORTED;
+  if (h->retained_direct_epoch || h->ime.requested || h->ime.composition_enabled ||
+      h->direct_enabled || h->count) return -GPUI_BUSY;
+  if (h->ime.manager || h->ime.manager_name) return -GPUI_UNSUPPORTED;
+  for (int i = 0; i < GPUI_DIRECT_KEY_CAPACITY; ++i)
+    if (h->direct_keys[i].pressed) return -GPUI_BUSY;
+  h->retained_direct_call = 1;
+  status = gpui_direct_keyboard_text_mode(token, window, 1);
+  h->retained_direct_call = 0;
+  if (status) return -status;
+  h->retained_direct_window = window;
+  h->retained_direct_epoch = h->direct_epoch;
+  h->retained_direct_ended = 0;
+  return h->retained_direct_epoch;
+}
+int32_t gpui_retained_direct_end_when_drained(int32_t token, int32_t window,
+                                              int32_t epoch) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return status;
+  if (!h->terminal_retention || !h->retained_route_claimed ||
+      !h->retained_route_bound) return GPUI_UNSUPPORTED;
+  if (window <= 0 || epoch <= 0 || h->retained_direct_window != window ||
+      h->retained_direct_epoch != epoch) return GPUI_STALE;
+  if (h->retained_direct_ended) return GPUI_OK;
+  if (h->window != window) return GPUI_STALE;
+  if (h->count) return GPUI_BUSY;
+  if (h->retained_direct_device_lost) return GPUI_BUSY;
+  if (h->state) return GPUI_STOPPING;
+  if (h->error) return h->error;
+  for (int i = 0; i < GPUI_DIRECT_KEY_CAPACITY; ++i)
+    if (h->direct_keys[i].pressed) return GPUI_BUSY;
+  if (h->compose && xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING)
+    return GPUI_BUSY;
+  if (h->direct_enabled) {
+    if (h->direct_epoch != epoch) return GPUI_STALE;
+    h->retained_direct_call = 1;
+    status = gpui_direct_keyboard_text_mode(token, window, 0);
+    h->retained_direct_call = 0;
+    if (status) return status;
+  }
+  h->retained_direct_ended = 1;
   return GPUI_OK;
 }
 int32_t gpui_direct_keyboard_text_epoch(int32_t token, int32_t window) {
