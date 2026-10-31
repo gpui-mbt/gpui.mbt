@@ -26,9 +26,14 @@ int32_t gpui_terminal_retention_enable(int32_t host);
 int32_t gpui_terminal_retention_active(int32_t host);
 int32_t gpui_claim_retained_route(int32_t host);
 int32_t gpui_retained_route_hold(int32_t host, int32_t enabled);
+int32_t gpui_retained_terminal_seal(int32_t host, int32_t window,
+                                     int32_t destroyed_sequence);
 int32_t gpui_retained_route_native_epoch(int32_t host, int32_t window);
 /* Explicit no-IME-manager direct binding. Return positive epoch or -error. */
 int32_t gpui_retained_direct_begin(int32_t host, int32_t window);
+int32_t gpui_retained_direct_rebegin(int32_t host, int32_t window,
+                                       int32_t released_epoch,
+                                       int32_t acknowledged_sequence);
 int32_t gpui_retained_direct_end_when_drained(int32_t host, int32_t window,
                                               int32_t epoch);
 /* Borrowed exact FIFO head only; 0 means no physical-key evidence. */

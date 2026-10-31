@@ -182,6 +182,13 @@ int32_t gpui_ack_retained_editor(int32_t token, int32_t window, int32_t sequence
   if (!h->count || window <= 0 || sequence <= 0 ||
       h->queue[h->read][1] != window || h->queue[h->read][2] != sequence)
     return GPUI_STALE;
+  if (h->queue[h->read][0] == 4 &&
+      h->retained_destroyed_window == window &&
+      h->retained_destroyed_sequence == sequence &&
+      h->retained_destroyed_generation == h->retained_window_generation)
+    h->retained_destroyed_acked = 1;
+  h->retained_ack_window = window;
+  h->retained_ack_sequence = sequence;
   consume_event(h);
   return GPUI_OK;
 }
