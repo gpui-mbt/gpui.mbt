@@ -1261,6 +1261,13 @@ pub fn RetainedDirectResult::copy_into(
     route.closed {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
+  // Capacity zero is reserved by the native API for a metadata-only query;
+  // it cannot be interpreted as a successful copy of nonempty content.
+  if output.length() <= self.length {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.ResourceExhausted, operation),
+    )
+  }
   let fields = FixedArray::make(4, 0)
   let result = native_retained_direct_result(
     route.host.token,
