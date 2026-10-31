@@ -27,3 +27,7 @@ pub fn fixture_intent_route(
   ignore(entered.ack().unwrap())
   route
 }
+
+///|
+/// FIXTURE ONLY: change the fake native requested flag.
+pub extern "C" fn fixture_intent_set_requested(value : Int32) -> Unit = "gpui_fixture_intent_set_requested"

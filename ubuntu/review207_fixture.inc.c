@@ -52,3 +52,5 @@ void gpui_review207_finish(void) {
 }
 /* Fixture only: bind fake native host to the synthetic consumer window. */
 void gpui_fixture_intent_set_window(int32_t window) { assert(active && window > 0); active->window = window; }
+/* Fixture only: simulate native binding loss and restoration around reserve. */
+void gpui_fixture_intent_set_requested(int32_t value) { assert(active); active->ime.requested = value; }
