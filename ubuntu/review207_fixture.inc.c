@@ -54,3 +54,5 @@ void gpui_review207_finish(void) {
 void gpui_fixture_intent_set_window(int32_t window) { assert(active && window > 0); active->window = window; }
 /* Fixture only: simulate native binding loss and restoration around reserve. */
 void gpui_fixture_intent_set_requested(int32_t value) { assert(active); active->ime.requested = value; }
+/* Fixture only: a live native FIFO record from a controlled IME callback. */
+void gpui_fixture_intent_preedit(void) { ime_preedit_string(active, active->ime.proxy, 1, "にほん", ""); }

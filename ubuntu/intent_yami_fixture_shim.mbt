@@ -31,3 +31,6 @@ pub fn fixture_intent_route(
 ///|
 /// FIXTURE ONLY: change the fake native requested flag.
 pub extern "C" fn fixture_intent_set_requested(value : Int32) -> Unit = "gpui_fixture_intent_set_requested"
+
+///| Fixture-only simulated native preedit callback.
+pub extern "C" fn fixture_intent_preedit() -> Unit = "gpui_fixture_intent_preedit"
