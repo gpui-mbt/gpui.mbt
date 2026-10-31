@@ -628,12 +628,20 @@ fn RetainedOrderedRoute::attempt_geometry_from(
   ],
 ) -> RetainedGeometryAttempt {
   let operation = "retained_update"
+  if self.geometry_attempt_serial == 18446744073709551615UL {
+    return GeometryOutcomeUncertain(
+      ubuntu_text_host_error(@diagnostics.ResourceExhausted, operation),
+    )
+  }
   let window = match self.window {
     Some(value) => value
-    None =>
+    None => {
+      // Even a rejected new attempt revokes an earlier proof.
+      self.geometry_attempt_serial += 1UL
       return GeometryOutcomeUncertain(
         ubuntu_text_host_error(@diagnostics.StaleHandle, operation),
       )
+    }
   }
   if self.host.stopped ||
     self.closed ||
@@ -642,8 +650,8 @@ fn RetainedOrderedRoute::attempt_geometry_from(
     epoch != self.portable_epoch ||
     self.native_epoch <= 0 ||
     self.pending_geometry is Some(_) ||
-    self.geometry_handoff is Some(_) ||
-    self.geometry_attempt_serial == 18446744073709551615UL {
+    self.geometry_handoff is Some(_) {
+    self.geometry_attempt_serial += 1UL
     return GeometryOutcomeUncertain(
       ubuntu_text_host_error(@diagnostics.StaleHandle, operation),
     )

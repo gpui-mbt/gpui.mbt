@@ -198,3 +198,39 @@ test "repeated preflight produces a new receipt and old receipt cannot replay" {
   )
   assert_eq(calls.val, 0)
 }
+
+///|
+test "foreign update attempt revokes a previous same-owner preflight proof" {
+  let route = retained_test_route()
+  route.host.stopped = false
+  let state = retained_geometry_test_state("日本", 2.0)
+  let busy = fn() {
+    Err(@diagnostics.FrameworkError::new(@diagnostics.Busy, "fixture"))
+  }
+  let proof = match
+    route.attempt_geometry_from(3UL, state, busy, fn(_, _, _) { Ok(7) }) {
+    GeometryPreflightRejected(_, value) => value
+    _ => fail("initial proof missing")
+  }
+  let calls = Ref(0)
+  assert_true(
+    route.attempt_geometry_from(4UL, state, fn() { Ok(()) }, fn(_, _, _) {
+      calls.val += 1
+      Ok(7)
+    })
+    is GeometryOutcomeUncertain(_),
+  )
+  assert_true(
+    route.retry_preflight_geometry_from(proof, fn() { true }, fn() { Ok(()) }, fn(
+      _,
+      _,
+      _,
+    ) {
+      calls.val += 1
+      Ok(7)
+    })
+    is GeometryOutcomeUncertain(_),
+  )
+  assert_eq(calls.val, 0)
+  assert_true(route.pending_geometry() is None)
+}
