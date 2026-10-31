@@ -1616,6 +1616,54 @@ static void retained_direct_snapshot_finish(struct host *h) {
   release_compose(h); xkb_state_unref(h->keys); xkb_keymap_unref(h->keymap);
   xkb_context_unref(h->xkb); finish(h);
 }
+static void retained_compose_completion_requires_bounded_admission(int exhausted) {
+  struct host *h = retained_direct_snapshot_fixture(0);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  keyboard_key(h, h->keyboard, 2, 0, 25, WL_KEYBOARD_KEY_STATE_PRESSED);
+  keyboard_key(h, h->keyboard, 3, 0, 25, WL_KEYBOARD_KEY_STATE_RELEASED);
+  assert(h->count == 3 && h->queue[(h->read + 1) % QUEUE_CAPACITY][0] == 13);
+  direct_keyboard_key(h, 100, 1, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 100, 0, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 30, 1, XKB_KEY_a);
+  direct_keyboard_key(h, 30, 0, XKB_KEY_a);
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  if (exhausted) h->seq = INT_MAX;
+  else while (h->count < QUEUE_CAPACITY) event(h, 6, 1, 0, 0);
+  double saved_queue[QUEUE_CAPACITY][10];
+  struct direct_event_meta saved_direct[QUEUE_CAPACITY];
+  memcpy(saved_queue, h->queue, sizeof(saved_queue));
+  memcpy(saved_direct, h->direct_queue, sizeof(saved_direct));
+  int count = h->count, seq = h->seq;
+  direct_keyboard_key(h, 30, 1, XKB_KEY_a);
+  fprintf(stderr, "COMPOSE_COMPLETION_FULL status=%d error=%d count=%d seq=%d prefix_equal=%d epoch=%d\n",
+      xkb_compose_state_get_status(h->compose), h->error, h->count, h->seq,
+      !memcmp(saved_queue, h->queue, sizeof(saved_queue)) &&
+      !memcmp(saved_direct, h->direct_queue, sizeof(saved_direct)), h->retained_direct_epoch);
+  assert(h->error == GPUI_RESOURCE && h->count == count && h->seq == seq);
+  assert(!memcmp(saved_queue, h->queue, sizeof(saved_queue)) &&
+         !memcmp(saved_direct, h->direct_queue, sizeof(saved_direct)));
+  /* A failed admission may not consume the owner's unfinished composition. */
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  assert(h->retained_direct_epoch == epoch);
+  retained_direct_snapshot_finish(h);
+}
+static void retained_compose_completion_with_one_slot_is_admitted(void) {
+  struct host *h = retained_direct_snapshot_fixture(0);
+  assert(gpui_retained_direct_begin(h->token, 51) > 0);
+  direct_keyboard_key(h, 100, 1, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 100, 0, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 30, 1, XKB_KEY_a);
+  direct_keyboard_key(h, 30, 0, XKB_KEY_a);
+  while (h->count < QUEUE_CAPACITY - 1) event(h, 6, 1, 0, 0);
+  int seq = h->seq;
+  direct_keyboard_key(h, 30, 1, XKB_KEY_a);
+  int slot = (h->read + h->count - 1) % QUEUE_CAPACITY;
+  assert(!h->error && h->count == QUEUE_CAPACITY && h->seq == seq + 1);
+  assert(h->queue[slot][0] == 13 && h->direct_queue[slot].text_length == 1 &&
+         h->direct_queue[slot].text[0] == 'a');
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_NOTHING);
+  retained_direct_snapshot_finish(h);
+}
 static void retained_compose_modified_key_is_fail_closed(int meta, int full,
                                                           int earlier_ime,
                                                           int unknown) {
@@ -2221,6 +2269,9 @@ static void window_proof_is_host_local_and_invalid_attempt_has_no_effect(void) {
   finish(second);
 }
 int main(void) {
+  retained_compose_completion_requires_bounded_admission(0);
+  retained_compose_completion_requires_bounded_admission(1);
+  retained_compose_completion_with_one_slot_is_admitted();
   retained_compose_modified_key_is_fail_closed(0, 0, 0, 0);
   retained_compose_modified_key_is_fail_closed(1, 0, 0, 0);
   retained_compose_modified_key_is_fail_closed(0, 1, 0, 0);
