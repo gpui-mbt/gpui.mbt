@@ -33,6 +33,7 @@ pub fn TextField::element_node(Self, UInt64?) -> @element.ElementNode
 pub fn TextField::font_size(Self) -> Double
 pub fn TextField::handle_input(Self, @primitives.InputEvent, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, TextFieldError], (@text.TextDocument, @primitives.Point) -> Result[@text_layout.TextHit, TextFieldError]) -> Result[(Self, TextFieldAction?), TextFieldError]
 pub fn TextField::id(Self) -> UInt64
+pub fn TextField::insert_typed(Self, String, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, TextFieldError]) -> Result[Self, TextFieldError]
 pub fn TextField::is_composing(Self) -> Bool
 pub fn TextField::is_focused(Self) -> Bool
 pub fn TextField::marked_range(Self) -> @text.TextRange?

@@ -1224,3 +1224,152 @@ test "direct session insert and platform typing currently group undo differently
     )
   }
 }
+
+///|
+test "typed session insert matches platform typing undo and redo grouping" {
+  for (first, second) in [("a", "b"), ("日", "本"), ("🙂", "a")] {
+    let initial = field("", 0, 0)
+    let hit = fn(
+      _ : @text.TextDocument,
+      _ : @primitives.Point,
+    ) -> Result[@text_layout.TextHit, @text_field.TextFieldError] {
+      Err(@text_field.HitTestFailed)
+    }
+    let (typed_a, _) = initial
+      .handle_input(@primitives.TextInput(text=first), measure, admit, hit)
+      .unwrap()
+    let (typed_ab, _) = typed_a
+      .handle_input(@primitives.TextInput(text=second), measure, admit, hit)
+      .unwrap()
+    let session = @text_session.TextSession::new(
+      @platform.WindowId::new(1L),
+      7UL,
+      initial,
+    ).unwrap()
+    let first_target = session.target().unwrap()
+    let first_receipt = session
+      .apply_typed_insert(first_target, first, measure, admit)
+      .unwrap()
+    assert_true(first_receipt.acknowledges(first_target))
+    let after_first = session.snapshot()
+    assert_true(
+      session.apply_typed_insert(first_target, first, measure, admit) is Err(_),
+    )
+    assert_snapshot(after_first, session.snapshot())
+    ignore(
+      session
+      .apply_typed_insert(session.target().unwrap(), second, measure, admit)
+      .unwrap(),
+    )
+    let result = session.snapshot().field()
+    assert_eq(result.document().text(), first + second)
+    assert_eq(typed_ab.document().text(), first + second)
+    let platform_undo = typed_ab.undo(measure, admit).unwrap()
+    let session_undo = result.undo(measure, admit).unwrap()
+    assert_eq(platform_undo.document().text(), "")
+    assert_eq(session_undo.document().text(), "")
+    assert_eq(
+      platform_undo.redo(measure, admit).unwrap().document().text(),
+      first + second,
+    )
+    assert_eq(
+      session_undo.redo(measure, admit).unwrap().document().text(),
+      first + second,
+    )
+  }
+}
+
+///|
+test "typed session insert retains navigation boundary established on field" {
+  let initial = field("", 0, 0)
+  let hit = fn(
+    _ : @text.TextDocument,
+    _ : @primitives.Point,
+  ) -> Result[@text_layout.TextHit, @text_field.TextFieldError] {
+    Err(@text_field.HitTestFailed)
+  }
+  let (typed, _) = initial
+    .handle_input(@primitives.TextInput(text="a"), measure, admit, hit)
+    .unwrap()
+  let (moved, _) = typed
+    .handle_input(
+      @primitives.KeyPressed(
+        key=@primitives.ArrowRight,
+        modifiers=@primitives.Modifiers::none(),
+        repeat=false,
+      ),
+      measure,
+      admit,
+      hit,
+    )
+    .unwrap()
+  let (platform, _) = moved
+    .handle_input(@primitives.TextInput(text="b"), measure, admit, hit)
+    .unwrap()
+  let session = @text_session.TextSession::new(
+    @platform.WindowId::new(1L),
+    7UL,
+    moved,
+  ).unwrap()
+  ignore(
+    session
+    .apply_typed_insert(session.target().unwrap(), "b", measure, admit)
+    .unwrap(),
+  )
+  assert_eq(platform.undo(measure, admit).unwrap().document().text(), "a")
+  assert_eq(
+    session.snapshot().field().undo(measure, admit).unwrap().document().text(),
+    "a",
+  )
+}
+
+///|
+test "typed session insert rejects preview pending and failed admission atomically" {
+  let composing = owner()
+  ignore(apply(composing, [preview("にほん")]))
+  let before = composing.snapshot()
+  assert_true(
+    composing.apply_typed_insert(
+      composing.target().unwrap(),
+      "日",
+      measure,
+      admit,
+    )
+    is Err(@text_session.CompositionActive),
+  )
+  assert_snapshot(before, composing.snapshot())
+  let pending_session = owner()
+  let pending = pending_session
+    .request_end(pending_session.target().unwrap(), @text_session.Blur)
+    .unwrap()
+  let pending_before = pending_session.snapshot()
+  assert_true(
+    pending_session.apply_typed_insert(pending.target(), "日", measure, admit)
+    is Err(@text_session.PendingResolution),
+  )
+  assert_snapshot(pending_before, pending_session.snapshot())
+  let fresh = owner()
+  let fresh_before = fresh.snapshot()
+  let reject = fn(
+    _ : @text.TextDocument,
+    _ : @text_layout.TextMeasurement,
+  ) -> Result[Unit, @text_field.TextFieldError] {
+    Err(@text_field.AdmissionFailed)
+  }
+  assert_true(
+    fresh.apply_typed_insert(fresh.target().unwrap(), "日", measure, reject)
+    is Err(@text_session.FieldFailure(@text_field.AdmissionFailed)),
+  )
+  assert_snapshot(fresh_before, fresh.snapshot())
+  let target = fresh.target().unwrap()
+  let nested = fn(document) {
+    assert_reentrant(fresh.close())
+    measure(document)
+  }
+  assert_true(
+    fresh.apply_typed_insert(target, "日", nested, admit)
+    is Err(@text_session.Reentrant),
+  )
+  assert_snapshot(fresh_before, fresh.snapshot())
+  ignore(fresh.apply_typed_insert(target, "日", measure, admit).unwrap())
+}

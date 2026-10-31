@@ -84,7 +84,51 @@ pub fn TextSession::apply_batch(
   ],
 ) -> Result[BatchReceipt, SessionError] {
   // Copy before invoking user code: callbacks cannot rewrite the queued batch.
-  let operations = operations.copy()
+  let stages = operations.map(fn(operation) { StandardOperation(operation) })
+  self.apply_stages(target, stages, measure, admit)
+}
+
+///|
+/// An observed direct keyboard typing string under the original session
+/// target. Unlike Insert (a committed replacement), this follows TextField's
+/// existing TextInput typing/undo grouping. It rejects an active composition or
+/// pending end and has the same target, replay and atomicity checks as a batch.
+pub fn TextSession::apply_typed_insert(
+  self : TextSession,
+  target : SessionTarget,
+  text : String,
+  measure : (@text.TextDocument) -> Result[
+    @text_layout.TextMeasurement,
+    @text_field.TextFieldError,
+  ],
+  admit : (@text.TextDocument, @text_layout.TextMeasurement) -> Result[
+    Unit,
+    @text_field.TextFieldError,
+  ],
+) -> Result[BatchReceipt, SessionError] {
+  self.apply_stages(target, [TypedInsert(text)], measure, admit)
+}
+
+///|
+priv enum StagedOperation {
+  StandardOperation(SessionOperation)
+  TypedInsert(String)
+}
+
+///|
+fn TextSession::apply_stages(
+  self : TextSession,
+  target : SessionTarget,
+  operations : Array[StagedOperation],
+  measure : (@text.TextDocument) -> Result[
+    @text_layout.TextMeasurement,
+    @text_field.TextFieldError,
+  ],
+  admit : (@text.TextDocument, @text_layout.TextMeasurement) -> Result[
+    Unit,
+    @text_field.TextFieldError,
+  ],
+) -> Result[BatchReceipt, SessionError] {
   self.mutate(fn(state) {
     match validate_target(state, target) {
       Err(error) => return Err(error)
@@ -123,10 +167,23 @@ pub fn TextSession::apply_batch(
     let mut committed_changed = false
     let outcomes = []
     for operation in operations {
-      let (next, outcome) = match
-        stage_operation(field, operation, guarded_measure, guarded_admit) {
-        Ok(value) => value
-        Err(error) => return Err(error)
+      let (next, outcome) = match operation {
+        StandardOperation(value) =>
+          match stage_operation(field, value, guarded_measure, guarded_admit) {
+            Ok(result) => result
+            Err(error) => return Err(error)
+          }
+        TypedInsert(text) => {
+          if field.is_composing() {
+            return Err(CompositionActive)
+          }
+          let next = match
+            field.insert_typed(text, guarded_measure, guarded_admit) {
+            Ok(value) => value
+            Err(error) => return Err(FieldFailure(error))
+          }
+          (next, Committed(next))
+        }
       }
       committed_changed = committed_changed ||
         field.committed_document() != next.committed_document()
