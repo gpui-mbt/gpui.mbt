@@ -364,3 +364,34 @@ those IME acceptance criteria. Also open are compositor/GPU qualification,
 logical-resolution/scaled-mask quality, semantic accessibility, reusable
 field/picker behavior, and the backend recovery/resource/support gates. Text
 drawing or the local field prototype alone does not complete packet D.
+
+## Retained XKB compose capacity — 2026-10-31
+
+The retained direct route's bounded FIFO and XKB compose transaction have an
+additional admission dependency. In a native callback fixture at gpui #203
+`7b134c87029d027d5b85ff0d3121b74fcd977a3b`, a prior direct text `p` and the
+rest of 1,024 FIFO entries remain byte-for-byte intact, but the next `a`
+completes `Multi_key`, `a`, `a` after the FIFO is already full. XKB is fed and
+reset before capacity is checked: no composed `a` record is admitted, the host
+returns Resource, and its original composition state is gone. The prior
+accepted text record is not lost in this fixture. This is a controlled callback
+failure, not evidence of an OS live run. Reproduction log SHA-256:
+`8ec68f3818bbcc993dbbff446588a373113a37574978e71fee83974986f1b8ee`.
+
+A retained-only guard now rejects the completion key before feeding XKB when
+the FIFO is full or native sequence is exhausted. The original composition,
+owner and accepted FIFO remain; a completion with one available slot is still
+admitted. Resource remains latched and the pump cannot observe a later
+completion or cancellation, so this is fail-closed preservation, not recovery.
+This guard does not establish safety for every compose failure, such as an
+unsupported or overlong composed payload. No live IME acceptance follows.
+
+A complete contract still needs bounded admission and explicit resolution:
+reserve capacity or use a bounded owner-bound completion slot; preserve exact
+window/root/epoch/sequence, prior ACKed consumer actions, and physical-key
+ownership; distinguish observed XKB completion/cancellation from owner discard;
+keep FIFO ordering and avoid reassignment or silent retry; define saturation,
+timeout, focus loss, owner loss and shutdown. A blocked shortcut at the FIFO
+head must not prevent storing the later composition outcome that could resolve
+it. These requirements supplement the existing Ubuntu direct-input and
+composition tracks; they are not a new supported profile.

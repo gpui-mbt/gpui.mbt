@@ -618,6 +618,18 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
     (void)input_failure(h, admission);
     return;
   }
+  /* Feeding XKB can complete and reset a composition. If no result can be
+   * admitted, reject before feeding so the original owner can still inspect
+   * that composition. This is fail-closed, not a capacity recovery policy. */
+  if (h->terminal_retention && h->retained_route_bound &&
+      h->retained_direct_epoch == h->direct_epoch &&
+      !h->retained_direct_ended && h->compose &&
+      xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING &&
+      (h->count == QUEUE_CAPACITY || h->seq == INT_MAX)) {
+    pressed->swallowed = 1;
+    (void)input_failure(h, GPUI_RESOURCE);
+    return;
+  }
   uint8_t text[GPUI_DIRECT_TEXT_MAX_BYTES + 1];
   int length = 0;
   int emit_key = 1;
