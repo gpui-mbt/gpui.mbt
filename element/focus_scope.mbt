@@ -42,6 +42,15 @@ pub struct FocusScopeTarget {
 } derive(Eq)
 
 ///|
+/// A same-topology bounds replacement for one exact focus-scope revision.
+/// It is not a receipt for scene, text-session, or native-host publication.
+pub struct FocusBoundsProposal {
+  priv target : FocusScopeTarget
+  priv tree : ElementTree
+  priv revision : UInt64
+}
+
+///|
 pub extend FocusScopeTarget with Eq::{not_equal, equal}
 
 ///|
@@ -654,6 +663,86 @@ pub fn FocusScopeSession::scroll_wheel(
     Ok(value) => Ok(value)
     Err(error) => Err(Scroll(error))
   }
+}
+
+///|
+/// Stage bounds from a separately built element tree, preserving this session's
+/// focus acquisition, scope stack and non-bounds metadata. Both trees must
+/// have the same preorder, parent links and input metadata. Scroll, deferred,
+/// anchored, clipped and uniform-list layouts are conservatively unsupported.
+/// The root bounds may change, which permits a window resize. No state is
+/// published and no host or scene synchronization is implied.
+pub fn FocusScopeSession::prepare_bounds_tree(
+  self : FocusScopeSession,
+  target : FocusScopeTarget,
+  tree : ElementTree,
+) -> Result[FocusBoundsProposal, FocusScopeError] {
+  match self.validate(target) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let state = self.state.val
+  let revision = match focus_scope_revision(state) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let old = state.tree.nodes
+  let fresh = tree.nodes
+  if old.length() == 0 ||
+    old.length() != fresh.length() ||
+    state.tree.physical_viewport is Some(_) ||
+    tree.physical_viewport is Some(_) {
+    return Err(Element(LayoutBoundsMismatch))
+  }
+  let nodes : Array[ElementNode] = []
+  for index = 0; index < old.length(); index = index + 1 {
+    let a = old[index]
+    let b = fresh[index]
+    if a.scroll_viewport is Some(_) ||
+      b.scroll_viewport is Some(_) ||
+      a.uniform_list is Some(_) ||
+      b.uniform_list is Some(_) ||
+      a.deferred is Some(_) ||
+      b.deferred is Some(_) ||
+      a.deferred_group is Some(_) ||
+      b.deferred_group is Some(_) ||
+      a.anchored_after is Some(_) ||
+      b.anchored_after is Some(_) ||
+      a.window_clip is Some(_) ||
+      b.window_clip is Some(_) ||
+      a.id != b.id ||
+      a.parent != b.parent ||
+      a.focusable != b.focusable ||
+      a.tab_index != b.tab_index ||
+      a.tab_group_index != b.tab_group_index ||
+      a.tab_stop != b.tab_stop ||
+      a.pointer_events != b.pointer_events {
+      return Err(Element(LayoutBoundsMismatch))
+    }
+    nodes.push({ ..a, bounds: b.bounds, })
+  }
+  Ok({ target, tree: { ..state.tree, nodes, }, revision, })
+}
+
+///|
+/// Publish only while the exact original session target is current. This
+/// operation performs no callback or layout work. It only commits focus-tree
+/// bounds; coordinating other owners remains the caller's responsibility.
+pub fn FocusScopeSession::publish_bounds_tree(
+  self : FocusScopeSession,
+  proposal : FocusBoundsProposal,
+) -> Result[Unit, FocusScopeError] {
+  match self.validate(proposal.target) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let state = self.state.val
+  self.state.val = {
+    ..state,
+    tree: proposal.tree,
+    revision: proposal.revision,
+  }
+  Ok(())
 }
 
 ///|
