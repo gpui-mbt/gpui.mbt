@@ -13,6 +13,8 @@ fn retained_test_route() -> RetainedOrderedRoute {
     native_proxy: 4,
     ordinal: 0L,
     closed: false,
+    pending_geometry: None,
+    geometry_generation: 0UL,
     shortcuts: ShortcutKeyTracker::new(),
   }
 }

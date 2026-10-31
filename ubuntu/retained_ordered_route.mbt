@@ -156,6 +156,32 @@ fn Host::retained_update(
 }
 
 ///|
+/// Validate caller data before creating an uncertain native obligation.
+fn validate_retained_update_input(
+  window : @platform.WindowId,
+  epoch : Int32,
+  state : @text_host.TextInputState,
+  operation : String,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  if epoch <= 0 {
+    return Err(backend_error(3, operation))
+  }
+  match direct_window_token(window, operation) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match text_session_surrounding(state.document(), operation) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match text_session_rect(state.caret(), operation) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  Ok(())
+}
+
+///|
 fn Host::retained_end(
   self : Host,
   window : @platform.WindowId,
@@ -170,6 +196,71 @@ fn Host::retained_end(
     Err(error) => return Err(error)
   }
   outcome(native_retained_route_end(self.token, token, epoch), operation)
+}
+
+///|
+/// A host update whose failure may have changed native state. This immutable
+/// value keeps the exact attempted input; it is not a scene or compositor ACK.
+pub struct RetainedGeometryPending {
+  priv window : @platform.WindowId
+  priv root : UInt64
+  priv epoch : UInt64
+  priv native_epoch : Int32
+  priv state : @text_host.TextInputState
+  priv generation : UInt64
+}
+
+///|
+pub fn RetainedGeometryPending::window(
+  self : RetainedGeometryPending,
+) -> @platform.WindowId {
+  self.window
+}
+
+///|
+pub fn RetainedGeometryPending::root(self : RetainedGeometryPending) -> UInt64 {
+  self.root
+}
+
+///|
+pub fn RetainedGeometryPending::epoch(self : RetainedGeometryPending) -> UInt64 {
+  self.epoch
+}
+
+///|
+pub fn RetainedGeometryPending::native_epoch(
+  self : RetainedGeometryPending,
+) -> Int32 {
+  self.native_epoch
+}
+
+///|
+pub fn RetainedGeometryPending::state(
+  self : RetainedGeometryPending,
+) -> @text_host.TextInputState {
+  self.state
+}
+
+///|
+pub fn RetainedGeometryPending::generation(
+  self : RetainedGeometryPending,
+) -> UInt64 {
+  self.generation
+}
+
+///|
+/// Native host accepted this exact update. This does not imply presentation or
+/// compositor acknowledgement. Consumers must validate their owner separately.
+pub struct RetainedGeometryReceipt {
+  priv host_token : Int32
+  priv pending : RetainedGeometryPending
+}
+
+///|
+pub fn RetainedGeometryReceipt::pending(
+  self : RetainedGeometryReceipt,
+) -> RetainedGeometryPending {
+  self.pending
 }
 
 ///|
@@ -188,6 +279,8 @@ pub struct RetainedOrderedRoute {
   priv mut native_proxy : Int32
   priv mut ordinal : Int64
   priv mut closed : Bool
+  priv mut pending_geometry : RetainedGeometryPending?
+  priv mut geometry_generation : UInt64
   priv shortcuts : ShortcutKeyTracker
 }
 
@@ -218,6 +311,8 @@ pub fn RetainedOrderedRoute::new(
     native_proxy: 0,
     ordinal: 0L,
     closed: false,
+    pending_geometry: None,
+    geometry_generation: 0UL,
     shortcuts: ShortcutKeyTracker::new(),
   })
 }
@@ -395,35 +490,181 @@ pub fn RetainedOrderedRoute::native_epoch(
 }
 
 ///|
-/// Update the same native session while the retained FIFO is empty. Native
-/// geometry publication is still subject to the host's own failure semantics.
+/// The exact host update whose result is uncertain, if any. The caller must
+/// separately retain its editing owner, pending actions and scene state.
+pub fn RetainedOrderedRoute::pending_geometry(
+  self : RetainedOrderedRoute,
+) -> RetainedGeometryPending? {
+  self.pending_geometry
+}
+
+///|
+/// Update the same native IME session while the FIFO is empty. An error after
+/// native entry retains the attempted state; it does not prove scene or
+/// compositor publication. The native path sends document and caret, not the
+/// optional portable preedit stored in the captured state.
 pub fn RetainedOrderedRoute::update(
   self : RetainedOrderedRoute,
   epoch : UInt64,
   state : @text_host.TextInputState,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
+  match self.update_with_receipt(epoch, state) {
+    Err(error) => Err(error)
+    Ok(_) => Ok(())
+  }
+}
+
+///|
+/// Submit an update and capture the exact locally accepted native state.
+pub fn RetainedOrderedRoute::update_with_receipt(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+  state : @text_host.TextInputState,
+) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError] {
+  self.update_from(
+    epoch,
+    state,
+    fn() { self.require_empty("retained_update") },
+    fn(window, native_epoch, candidate) {
+      self.host.retained_update(window, native_epoch, candidate)
+    },
+  )
+}
+
+///|
+fn RetainedOrderedRoute::update_from(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+  state : @text_host.TextInputState,
+  empty : () -> Result[Unit, @diagnostics.FrameworkError],
+  native_update : (@platform.WindowId, Int32, @text_host.TextInputState) -> Result[
+    Int32,
+    @diagnostics.FrameworkError,
+  ],
+) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError] {
   let operation = "retained_update"
-  if epoch != self.portable_epoch || self.closed || self.direct_binding {
+  if epoch != self.portable_epoch || self.closed {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  if self.direct_binding {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.UnsupportedCapability, operation),
+    )
+  }
+  if self.pending_geometry is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
+  if self.geometry_generation == 18446744073709551615UL {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.ResourceExhausted, operation),
+    )
   }
   let window = match self.window {
     Some(value) => value
     None =>
       return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
-  match self.require_empty(operation) {
+  match
+    validate_retained_update_input(window, self.native_epoch, state, operation) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match empty() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  self.geometry_generation += 1UL
+  self.pending_geometry = Some({
+    window,
+    root: self.root,
+    epoch,
+    native_epoch: self.native_epoch,
+    state,
+    generation: self.geometry_generation,
+  })
+  self.retry_geometry_from(epoch, fn() { Ok(()) }, native_update)
+}
+
+///|
+/// Retry the exact uncertain host state under its original binding. Success
+/// clears only host uncertainty, not consumer or compositor obligations.
+pub fn RetainedOrderedRoute::retry_geometry(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError] {
+  self.retry_geometry_from(
+    epoch,
+    fn() { self.require_empty("retained_geometry_retry") },
+    fn(window, native_epoch, candidate) {
+      self.host.retained_update(window, native_epoch, candidate)
+    },
+  )
+}
+
+///|
+fn RetainedOrderedRoute::retry_geometry_from(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+  empty : () -> Result[Unit, @diagnostics.FrameworkError],
+  native_update : (@platform.WindowId, Int32, @text_host.TextInputState) -> Result[
+    Int32,
+    @diagnostics.FrameworkError,
+  ],
+) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError] {
+  let operation = "retained_geometry_retry"
+  let pending = match self.pending_geometry {
+    Some(value) => value
+    None =>
+      return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  if epoch != pending.epoch ||
+    self.portable_epoch != pending.epoch ||
+    self.root != pending.root ||
+    self.window != Some(pending.window) ||
+    self.native_epoch != pending.native_epoch ||
+    self.closed ||
+    self.direct_binding {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  match empty() {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
   let native = match
-    self.host.retained_update(window, self.native_epoch, state) {
+    native_update(pending.window, pending.native_epoch, pending.state) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  if native != self.native_epoch {
+  if native != pending.native_epoch {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
-  Ok(())
+  self.pending_geometry = None
+  Ok({ host_token: self.host.token, pending, })
+}
+
+///|
+/// Whether no later local geometry attempt or native binding replacement has
+/// invalidated the receipt. This alone says nothing about the caller's editing
+/// owner, queued observations, compositor or scene.
+pub fn RetainedOrderedRoute::geometry_receipt_is_current(
+  self : RetainedOrderedRoute,
+  receipt : RetainedGeometryReceipt,
+) -> Bool {
+  let value = receipt.pending
+  self.host.token == receipt.host_token &&
+  self.window == Some(value.window) &&
+  self.root == value.root &&
+  self.portable_epoch == value.epoch &&
+  self.native_epoch == value.native_epoch &&
+  !self.closed &&
+  !self.direct_binding &&
+  self.pending_geometry is None &&
+  self.geometry_generation == value.generation &&
+  native_retained_route_native_epoch(
+    self.host.token,
+    value.window.value().to_int(),
+  ) ==
+  value.native_epoch
 }
 
 ///|
@@ -464,6 +705,9 @@ fn RetainedOrderedRoute::end_from(
   ],
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let operation = "retained_end"
+  if self.pending_geometry is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
   if epoch != self.portable_epoch || self.closed {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
@@ -504,6 +748,9 @@ fn RetainedOrderedRoute::release_from(
   release_native : () -> Result[Unit, @diagnostics.FrameworkError],
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let operation = "retained_release"
+  if self.pending_geometry is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
   if epoch != self.portable_epoch || !self.closed {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
@@ -1145,6 +1392,9 @@ fn RetainedOrderedReceipt::finish_ack(
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let route = self.route
   let operation = "retained_ack"
+  if route.pending_geometry is Some(_) {
+    return Err(ubuntu_text_host_error(@diagnostics.Busy, operation))
+  }
   if route.portable_epoch != self.epoch ||
     route.root != self.root ||
     route.ordinal != self.expected_ordinal ||

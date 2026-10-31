@@ -337,6 +337,26 @@ binding is invalidated are refused while the original binding is unresolved.
 The consumer must retain the original field generation, event and action/model
 stage; an ACK or this host cutoff does not establish those stages.
 
+A retained IME geometry update stores one immutable candidate with its
+original window/root and portable/native epochs before native entry. Any
+returned failure or unexpected native epoch after entry leaves this candidate
+inspectable as uncertain; replacement updates, route record ACK and
+cutoff/release are Busy. Callers must not bypass the claimed route through the
+raw retained-record API. If a record arrives before recovery, it stays in the bounded FIFO;
+the empty-FIFO retry cannot proceed and there is not yet an owner-bound handoff
+to resolve that conflict.
+Only an exact-owner retry of the same candidate can clear that uncertainty.
+A successful native submission produces an opaque receipt and does not prove
+compositor, focus, model, runtime or scene publication. Consumers must retain
+their field identity, action and scene stages and validate them separately.
+The native update sends document and caret; an optional portable preedit is
+retained in the candidate for association but is not sent by this API.
+The receipt is current only while the captured binding and geometry generation
+remain unchanged. A direct-keyboard binding has no native IME geometry route;
+it returns Unsupported and direct scene/caret presentation remains a
+separate consumer responsibility. Terminal host failures may make retry
+impossible; the candidate and original owner remain unresolved.
+
 For a direct binding, `try_end_when_drained` rejects an unacknowledged FIFO,
 held physical key, or active XKB composition. It never cancels that
 composition implicitly; blur, keymap change and window cleanup retain it with

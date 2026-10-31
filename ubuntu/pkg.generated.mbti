@@ -184,6 +184,21 @@ pub fn RetainedEditorRecord::raw_field(Self, Int) -> Double?
 pub fn RetainedEditorRecord::sequence(Self) -> Int
 pub fn RetainedEditorRecord::window(Self) -> @platform.WindowId
 
+pub struct RetainedGeometryPending {
+  // private fields
+}
+pub fn RetainedGeometryPending::epoch(Self) -> UInt64
+pub fn RetainedGeometryPending::generation(Self) -> UInt64
+pub fn RetainedGeometryPending::native_epoch(Self) -> Int
+pub fn RetainedGeometryPending::root(Self) -> UInt64
+pub fn RetainedGeometryPending::state(Self) -> @text_host.TextInputState
+pub fn RetainedGeometryPending::window(Self) -> @platform.WindowId
+
+pub struct RetainedGeometryReceipt {
+  // private fields
+}
+pub fn RetainedGeometryReceipt::pending(Self) -> RetainedGeometryPending
+
 pub(all) enum RetainedOrderedEvent {
   Text(@text_host.TextInputEvent)
   Platform(@platform.Event)
@@ -217,12 +232,16 @@ pub struct RetainedOrderedRoute {
 pub fn RetainedOrderedRoute::begin(Self, @platform.WindowId, UInt64, @text_host.TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::begin_direct(Self, @platform.WindowId, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::binding_epoch(Self) -> UInt64?
+pub fn RetainedOrderedRoute::geometry_receipt_is_current(Self, RetainedGeometryReceipt) -> Bool
 pub fn RetainedOrderedRoute::native_epoch(Self) -> Int?
 pub fn RetainedOrderedRoute::new(Host) -> Result[Self, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::peek(Self) -> Result[RetainedOrderedReceipt?, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::pending_geometry(Self) -> RetainedGeometryPending?
 pub fn RetainedOrderedRoute::release(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::retry_geometry(Self, UInt64) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::try_end_when_drained(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::update(Self, UInt64, @text_host.TextInputState) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::update_with_receipt(Self, UInt64, @text_host.TextInputState) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError]
 
 pub(all) enum RetainedPhysicalPrior {
   Unknown
