@@ -257,6 +257,64 @@ pub struct RetainedGeometryReceipt {
 }
 
 ///|
+/// An opaque proof that this exact candidate was rejected before native
+/// update. It permits only a same-route, same-owner retry while current.
+pub struct RetainedGeometryPreflight {
+  priv identity : GeometryRouteIdentity
+  priv window : @platform.WindowId
+  priv root : UInt64
+  priv epoch : UInt64
+  priv native_epoch : Int32
+  priv geometry_generation : UInt64
+  priv attempt_serial : UInt64
+  priv state : @text_host.TextInputState
+}
+
+///|
+pub fn RetainedGeometryPreflight::identity(
+  self : RetainedGeometryPreflight,
+) -> (@platform.WindowId, UInt64, UInt64, Int32) {
+  (self.window, self.root, self.epoch, self.native_epoch)
+}
+
+///|
+pub fn RetainedGeometryPreflight::state(
+  self : RetainedGeometryPreflight,
+) -> @text_host.TextInputState {
+  self.state
+}
+
+///|
+pub enum RetainedGeometryAttempt {
+  GeometryAccepted(RetainedGeometryReceipt)
+  GeometryPreflightRejected(
+    @diagnostics.FrameworkError,
+    RetainedGeometryPreflight
+  )
+  GeometryOutcomeUncertain(@diagnostics.FrameworkError)
+}
+
+///|
+priv struct GeometryRouteIdentity {
+  mut marker : Bool
+}
+
+///|
+/// Owner-thread only; no callbacks may run while the marker is changed.
+fn same_geometry_route(
+  a : GeometryRouteIdentity,
+  b : GeometryRouteIdentity,
+) -> Bool {
+  let old_a = a.marker
+  let old_b = b.marker
+  a.marker = !old_b
+  let same = b.marker != old_b
+  a.marker = old_a
+  b.marker = old_b
+  same
+}
+
+///|
 pub fn RetainedGeometryReceipt::pending(
   self : RetainedGeometryReceipt,
 ) -> RetainedGeometryPending {
@@ -281,6 +339,8 @@ pub struct RetainedOrderedRoute {
   priv mut closed : Bool
   priv mut pending_geometry : RetainedGeometryPending?
   priv mut geometry_generation : UInt64
+  priv geometry_identity : GeometryRouteIdentity
+  priv mut geometry_attempt_serial : UInt64
   priv mut geometry_handoff : GeometryHandoff?
   priv mut geometry_handoff_call : Bool
   priv shortcuts : ShortcutKeyTracker
@@ -315,6 +375,8 @@ pub fn RetainedOrderedRoute::new(
     closed: false,
     pending_geometry: None,
     geometry_generation: 0UL,
+    geometry_identity: { marker: false, },
+    geometry_attempt_serial: 0UL,
     geometry_handoff: None,
     geometry_handoff_call: false,
     shortcuts: ShortcutKeyTracker::new(),
@@ -536,6 +598,185 @@ pub fn RetainedOrderedRoute::update_with_receipt(
 }
 
 ///|
+/// Attempt one exact geometry update. A preflight receipt is issued only when
+/// the route proves the native update was never entered. All other errors are
+/// uncertain and retain whatever pending candidate the route owns.
+pub fn RetainedOrderedRoute::attempt_geometry(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+  state : @text_host.TextInputState,
+) -> RetainedGeometryAttempt {
+  self.attempt_geometry_from(
+    epoch,
+    state,
+    fn() { self.require_empty("retained_update") },
+    fn(window, native_epoch, candidate) {
+      self.host.retained_update(window, native_epoch, candidate)
+    },
+  )
+}
+
+///|
+fn RetainedOrderedRoute::attempt_geometry_from(
+  self : RetainedOrderedRoute,
+  epoch : UInt64,
+  state : @text_host.TextInputState,
+  empty : () -> Result[Unit, @diagnostics.FrameworkError],
+  native_update : (@platform.WindowId, Int32, @text_host.TextInputState) -> Result[
+    Int32,
+    @diagnostics.FrameworkError,
+  ],
+) -> RetainedGeometryAttempt {
+  let operation = "retained_update"
+  if self.geometry_attempt_serial == 18446744073709551615UL {
+    return GeometryOutcomeUncertain(
+      ubuntu_text_host_error(@diagnostics.ResourceExhausted, operation),
+    )
+  }
+  let window = match self.window {
+    Some(value) => value
+    None => {
+      // Even a rejected new attempt revokes an earlier proof.
+      self.geometry_attempt_serial += 1UL
+      return GeometryOutcomeUncertain(
+        ubuntu_text_host_error(@diagnostics.StaleHandle, operation),
+      )
+    }
+  }
+  if self.host.stopped ||
+    self.closed ||
+    self.direct_binding ||
+    self.root == 0UL ||
+    epoch != self.portable_epoch ||
+    self.native_epoch <= 0 ||
+    self.pending_geometry is Some(_) ||
+    self.geometry_handoff is Some(_) {
+    self.geometry_attempt_serial += 1UL
+    return GeometryOutcomeUncertain(
+      ubuntu_text_host_error(@diagnostics.StaleHandle, operation),
+    )
+  }
+  let serial = self.geometry_attempt_serial
+  let generation = self.geometry_generation
+  let root = self.root
+  let native_epoch = self.native_epoch
+  match self.update_from(epoch, state, empty, native_update) {
+    Ok(receipt) => GeometryAccepted(receipt)
+    Err(error) =>
+      // update_from increments geometry_generation and installs its pending
+      // candidate before every native call. A reentrant or later operation
+      // changes the attempt serial and prevents issuing a rejection proof.
+      if self.geometry_attempt_serial == serial + 1UL &&
+        self.geometry_generation == generation &&
+        self.window == Some(window) &&
+        self.root == root &&
+        self.portable_epoch == epoch &&
+        self.native_epoch == native_epoch &&
+        !self.host.stopped &&
+        !self.closed &&
+        !self.direct_binding &&
+        self.pending_geometry is None &&
+        self.geometry_handoff is None {
+        GeometryPreflightRejected(error, {
+          identity: self.geometry_identity,
+          window,
+          root,
+          epoch,
+          native_epoch,
+          geometry_generation: generation,
+          attempt_serial: self.geometry_attempt_serial,
+          state,
+        })
+      } else {
+        GeometryOutcomeUncertain(error)
+      }
+  }
+}
+
+///|
+/// Retry only the immutable candidate from this current route-bound proof.
+/// A later attempted update, owner change, host failure or route replacement
+/// makes the old proof unusable; no native action follows a failed recheck.
+pub fn RetainedOrderedRoute::retry_preflight_geometry(
+  self : RetainedOrderedRoute,
+  proof : RetainedGeometryPreflight,
+) -> RetainedGeometryAttempt {
+  self.retry_preflight_geometry_from(
+    proof,
+    fn() {
+      native_retained_route_native_epoch(
+        self.host.token,
+        proof.window.value().to_int(),
+      ) ==
+      proof.native_epoch
+    },
+    fn() { self.require_empty("retained_update") },
+    fn(window, native_epoch, candidate) {
+      self.host.retained_update(window, native_epoch, candidate)
+    },
+  )
+}
+
+///|
+/// Synchronous local inspection only; this does not acknowledge any input or
+/// publish a scene. A subsequent operation can revoke the proof immediately.
+pub fn RetainedOrderedRoute::preflight_geometry_is_current(
+  self : RetainedOrderedRoute,
+  proof : RetainedGeometryPreflight,
+) -> Bool {
+  self.preflight_fields_current(proof) &&
+  native_retained_route_native_epoch(
+    self.host.token,
+    proof.window.value().to_int(),
+  ) ==
+  proof.native_epoch &&
+  self.preflight_fields_current(proof)
+}
+
+///|
+fn RetainedOrderedRoute::retry_preflight_geometry_from(
+  self : RetainedOrderedRoute,
+  proof : RetainedGeometryPreflight,
+  native_current : () -> Bool,
+  empty : () -> Result[Unit, @diagnostics.FrameworkError],
+  native_update : (@platform.WindowId, Int32, @text_host.TextInputState) -> Result[
+    Int32,
+    @diagnostics.FrameworkError,
+  ],
+) -> RetainedGeometryAttempt {
+  if !self.preflight_fields_current(proof) ||
+    !native_current() ||
+    !self.preflight_fields_current(proof) {
+    return GeometryOutcomeUncertain(
+      ubuntu_text_host_error(
+        @diagnostics.StaleHandle,
+        "retained_preflight_retry",
+      ),
+    )
+  }
+  self.attempt_geometry_from(proof.epoch, proof.state, empty, native_update)
+}
+
+///|
+fn RetainedOrderedRoute::preflight_fields_current(
+  self : RetainedOrderedRoute,
+  proof : RetainedGeometryPreflight,
+) -> Bool {
+  same_geometry_route(self.geometry_identity, proof.identity) &&
+  !self.host.stopped &&
+  !self.closed &&
+  !self.direct_binding &&
+  self.window == Some(proof.window) &&
+  self.root == proof.root &&
+  self.portable_epoch == proof.epoch &&
+  self.native_epoch == proof.native_epoch &&
+  self.geometry_generation == proof.geometry_generation &&
+  self.geometry_attempt_serial == proof.attempt_serial &&
+  self.pending_geometry is None &&
+  self.geometry_handoff is None
+}
+
+///|
 fn RetainedOrderedRoute::update_from(
   self : RetainedOrderedRoute,
   epoch : UInt64,
@@ -547,6 +788,14 @@ fn RetainedOrderedRoute::update_from(
   ],
 ) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError] {
   let operation = "retained_update"
+  // Every update attempt revokes earlier preflight receipts, even when this
+  // attempt is rejected before native entry. Never wrap and revive one.
+  if self.geometry_attempt_serial == 18446744073709551615UL {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.ResourceExhausted, operation),
+    )
+  }
+  self.geometry_attempt_serial += 1UL
   if epoch != self.portable_epoch || self.closed {
     return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
   }
