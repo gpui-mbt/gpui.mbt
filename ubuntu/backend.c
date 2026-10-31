@@ -1152,6 +1152,10 @@ static void keyboard_keymap(void *d, struct wl_keyboard *k, uint32_t format,
     close(fd);
     return;
   }
+  /* Any new keymap or NO_KEYMAP changes the authority for translating raw
+   * keys. Retain the legacy input behavior, but invalidate physical evidence
+   * until a fresh focus-enter snapshot under a usable map. */
+  h->retained_key_valid = 0;
   if (h->ime.phase == IME_DRAINING_MODIFIERS)
     ime_invalidate(h, 1, 1);
   int was_enabled = h->direct_enabled;
@@ -1204,7 +1208,7 @@ static void keyboard_enter(void *d, struct wl_keyboard *k, uint32_t serial,
   if (h->retained_route_claimed && h->retained_key_focus < INT_MAX)
     ++h->retained_key_focus;
   if (h->retained_route_claimed && h->keyboard_focus_current && h->window &&
-      k && h->seat && h->seat_name &&
+      h->direct_keymap_valid && h->keys && k && h->seat && h->seat_name &&
       h->retained_key_focus > 0 && h->retained_key_focus < INT_MAX && keys &&
       keys->size % sizeof(uint32_t) == 0 &&
       keys->size <= GPUI_DIRECT_KEY_CAPACITY * sizeof(uint32_t) &&
@@ -1255,6 +1259,10 @@ static void keyboard_key(void *d, struct wl_keyboard *k, uint32_t serial,
     return;
   if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
     remember_input_serial(h, serial, INPUT_SERIAL_KEYBOARD);
+  /* NO_KEYMAP leaves the legacy XKB pointer non-null; do not use it as
+   * evidence that the physical release was translated under a current map. */
+  if (!h->direct_keymap_valid)
+    h->retained_key_valid = 0;
   if (!h->keys) {
     /* A key callback received without a usable keymap cannot be translated or
      * admitted, but it still invalidates a since-focus absence claim for that
