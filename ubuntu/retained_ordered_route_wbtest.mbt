@@ -623,7 +623,8 @@ test "direct retained candidates keep original epoch and reject foreign origin" 
     direct_origin: true,
   }
   let accepted = route.prepare(record).unwrap()
-  assert_true(accepted.event() is Platform(_))
+  assert_true(accepted.event() is Unhandled(_))
+  assert_eq(accepted.direct_insert().unwrap().text(), "a")
   assert_eq(accepted.root(), 9UL)
   assert_eq(accepted.epoch(), 3UL)
   assert_eq(accepted.native_sequence(), 21)
