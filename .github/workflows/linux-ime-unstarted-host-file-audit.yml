@@ -1,0 +1,73 @@
+name: Linux IME unstarted host file audit
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/linux-ime-unstarted-host-file-audit.yml'
+      - 'infra/linux-desktop/wayland-ime/recovery/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit-unstarted-host-files:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Test audit and refusal paths
+        run: python3 -m unittest discover -s infra/linux-desktop/wayland-ime/recovery -p test_audit_unstarted_host_files.py -v
+      - name: Check fixed image artifact and successful source run metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          base = 'https://api.github.com/repos/gpui-mbt/gpui.mbt/actions/'
+          headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'}
+          def get(path):
+              with urllib.request.urlopen(urllib.request.Request(base + path, headers=headers), timeout=30) as response:
+                  return json.load(response)
+          artifact = get('artifacts/12987002222')
+          source = get('runs/41074635858')
+          head = '7a407aebd66d14538d9d9b0d6ca6932f6ad36692'
+          if (artifact.get('id') != 12987002222 or artifact.get('name') != 'linux-ime-host-image-' + head
+              or artifact.get('expired') is not False
+              or artifact.get('digest') != 'sha256:4e06934ee0fa482712802a1e94b14728b4988c1cb8d2804cac9e5973bf34986f'
+              or artifact.get('workflow_run', {}).get('id') != 41074635858
+              or artifact.get('workflow_run', {}).get('head_sha') != head
+              or source.get('id') != 41074635858 or source.get('head_sha') != head
+              or source.get('status') != 'completed' or source.get('conclusion') != 'success'
+              or source.get('repository', {}).get('full_name') != 'gpui-mbt/gpui.mbt'):
+              raise SystemExit('fixed image artifact or source run metadata mismatch')
+          print('fixed image artifact metadata matched; native NOT_RUN')
+          PY
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          repository: gpui-mbt/gpui.mbt
+          run-id: 41074635858
+          artifact-ids: 12987002222
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpui-host-file-audit/image
+      - name: Audit files in the same unstarted fixed image container
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/gpui-host-file-audit/result"
+          python3 infra/linux-desktop/wayland-ime/recovery/audit_unstarted_host_files.py \
+            --image "$RUNNER_TEMP/gpui-host-file-audit/image/host-image.tar" \
+            | tee "$RUNNER_TEMP/gpui-host-file-audit/result/result.json"
+      - name: Preserve incomplete status
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/gpui-host-file-audit/result"
+          if [ ! -s "$RUNNER_TEMP/gpui-host-file-audit/result/result.json" ]; then
+            printf '%s\n' '{"status":"incomplete","native_status":"NOT_RUN","approved_for_execution":false}' > "$RUNNER_TEMP/gpui-host-file-audit/result/result.json"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: linux-ime-unstarted-host-files-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/gpui-host-file-audit/result/
+          if-no-files-found: error
