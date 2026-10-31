@@ -337,6 +337,21 @@ binding is invalidated are refused while the original binding is unresolved.
 The consumer must retain the original field generation, event and action/model
 stage; an ACK or this host cutoff does not establish those stages.
 
+`reserve_geometry_intent` can retain one exact same-route/window/root/epoch
+candidate before entering native update, including while the native FIFO is
+nonempty. It returns an opaque route-bound intent; a Busy submit leaves it
+`GeometryIntentNotSubmitted` and does not enter native update. The existing
+bounded `handoff_geometry_head` can preserve one supported later text record
+while this intent is held. `submit_geometry_intent` accepts only the current
+intent and sets `GeometryIntentOutcomeUncertain` before entering the native
+update; a returned error then preserves that state and candidate. A successful
+submission returns the existing native-local geometry receipt. A previously
+consumed, foreign-route or replaced intent cannot be submitted again. The
+legacy `retry_geometry` does not bypass this intent capability. Slot capacity,
+unsupported/nontext or multiple pending records can still block submission;
+the route does not apply the transferred event or publish a scene. During an
+intent submission or handoff, slot getters are not evidence of absence.
+
 A retained IME geometry update stores one immutable candidate with its
 original window/root and portable/native epochs before native entry. Any
 returned failure or unexpected native epoch after entry leaves this candidate

@@ -197,6 +197,16 @@ pub fn RetainedEditorRecord::raw_field(Self, Int) -> Double?
 pub fn RetainedEditorRecord::sequence(Self) -> Int
 pub fn RetainedEditorRecord::window(Self) -> @platform.WindowId
 
+pub struct RetainedGeometryIntent {
+  // private fields
+}
+pub fn RetainedGeometryIntent::pending(Self) -> RetainedGeometryPending
+
+pub enum RetainedGeometryIntentStage {
+  GeometryIntentNotSubmitted
+  GeometryIntentOutcomeUncertain
+}
+
 pub struct RetainedGeometryPending {
   // private fields
 }
@@ -246,6 +256,7 @@ pub fn RetainedOrderedRoute::begin(Self, @platform.WindowId, UInt64, @text_host.
 pub fn RetainedOrderedRoute::begin_direct(Self, @platform.WindowId, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::binding_epoch(Self) -> UInt64?
 pub fn RetainedOrderedRoute::geometry_handoff_in_progress(Self) -> Bool
+pub fn RetainedOrderedRoute::geometry_intent_stage(Self, RetainedGeometryIntent) -> RetainedGeometryIntentStage?
 pub fn RetainedOrderedRoute::geometry_receipt_is_current(Self, RetainedGeometryReceipt) -> Bool
 pub fn RetainedOrderedRoute::handoff_geometry_head(Self, RetainedOrderedReceipt) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::native_epoch(Self) -> Int?
@@ -254,8 +265,10 @@ pub fn RetainedOrderedRoute::owned_geometry_text(Self) -> GeometryOwnedText?
 pub fn RetainedOrderedRoute::peek(Self) -> Result[RetainedOrderedReceipt?, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::pending_geometry(Self) -> RetainedGeometryPending?
 pub fn RetainedOrderedRoute::release(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::reserve_geometry_intent(Self, UInt64, @text_host.TextInputState) -> Result[RetainedGeometryIntent, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::reserved_geometry_text(Self) -> GeometryOwnedText?
 pub fn RetainedOrderedRoute::retry_geometry(Self, UInt64) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::submit_geometry_intent(Self, RetainedGeometryIntent) -> Result[RetainedGeometryReceipt, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::take_owned_geometry_text(Self, UInt64) -> Result[GeometryOwnedText, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::try_end_when_drained(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::update(Self, UInt64, @text_host.TextInputState) -> Result[Unit, @diagnostics.FrameworkError]
