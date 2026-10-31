@@ -61,6 +61,8 @@ static void mock_surface_destroy(struct wl_surface *p) { assert(p); call(16); }
 #define wl_surface_destroy mock_surface_destroy
 
 #define gpui_ack_retained_editor gpui_review207_real_ack
+#define gpui_retained_route_update gpui_fixture_real_route_update
 #include "review207_backend_original.inc.c"
 #undef gpui_ack_retained_editor
+#undef gpui_retained_route_update
 #include "review207_fixture.inc.c"

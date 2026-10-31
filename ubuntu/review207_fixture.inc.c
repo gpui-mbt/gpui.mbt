@@ -1,6 +1,19 @@
 /* Mock protocol requests and controlled callback injection only. The host,
  * retained FIFO, editor decoder and exact ACK below are production code. */
 static int review207_fail_ack;
+static int fixture_fail_after_update;
+int32_t gpui_retained_route_update(int32_t token, int32_t window, int32_t epoch,
+    const uint8_t *text, int32_t length, int32_t cursor, int32_t anchor,
+    int32_t x, int32_t y, int32_t width, int32_t height) {
+  int32_t result = gpui_fixture_real_route_update(token, window, epoch, text,
+      length, cursor, anchor, x, y, width, height);
+  if (fixture_fail_after_update && result > 0) {
+    fixture_fail_after_update = 0;
+    return -GPUI_BUSY;
+  }
+  return result;
+}
+void gpui_fixture_fail_after_update(void) { fixture_fail_after_update = 1; }
 int32_t gpui_ack_retained_editor(int32_t token, int32_t window, int32_t sequence) {
   if (review207_fail_ack) { review207_fail_ack = 0; return GPUI_BUSY; }
   return gpui_review207_real_ack(token, window, sequence);
@@ -18,7 +31,7 @@ int32_t gpui_review207_setup(void) {
   h->ime.manager_name = 118;
   h->ime.proxy = (struct zwp_text_input_v1 *)(uintptr_t)105;
   h->ime.proxy_generation = 4;
-  call_count = 0; review207_fail_ack = 0; review206_activate_hook = NULL;
+  call_count = 0; review207_fail_ack = 0; fixture_fail_after_update = 0; review206_activate_hook = NULL;
   active = h; return h->token;
 }
 void gpui_review207_enter(void) { ime_enter(active, active->ime.proxy, active->surface); }

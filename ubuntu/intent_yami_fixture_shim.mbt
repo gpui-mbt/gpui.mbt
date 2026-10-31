@@ -43,3 +43,6 @@ pub extern "C" fn fixture_intent_nontext() -> Unit = "gpui_review207_nontext"
 
 ///| FIXTURE ONLY: corrupt the queued text epoch to make the native head stale.
 pub extern "C" fn fixture_intent_stale_epoch() -> Unit = "gpui_review207_wrong_epoch"
+
+///| FIXTURE ONLY: return Busy after the real native update has taken effect.
+pub extern "C" fn fixture_intent_fail_after_update() -> Unit = "gpui_fixture_fail_after_update"
