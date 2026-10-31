@@ -342,9 +342,17 @@ original window/root and portable/native epochs before native entry. Any
 returned failure or unexpected native epoch after entry leaves this candidate
 inspectable as uncertain; replacement updates, route record ACK and
 cutoff/release are Busy. Callers must not bypass the claimed route through the
-raw retained-record API. If a record arrives before recovery, it stays in the bounded FIFO;
-the empty-FIFO retry cannot proceed and there is not yet an owner-bound handoff
-to resolve that conflict.
+raw retained-record API. During uncertainty, `handoff_geometry_head` can
+reserve one exact same-owner native Preedit or Commit before ACK, then hold
+it in a bounded route-owned slot without applying any action. ACK failure
+leaves the reserved slot and native head; retry uses the same exact identity.
+After native geometry retry succeeds, `take_owned_geometry_text` transfers
+the original record into caller-owned bounded storage. The caller must reserve
+its original field owner and storage before handoff, preserve host lifetime,
+and process that record before later events. The handoff does not prove field,
+action, model or scene completion. Unsupported, unknown, stale, foreign or
+nontext records remain at the native head. One occupied slot or more native
+records can still prevent the empty-FIFO retry; these cases remain unresolved.
 Only an exact-owner retry of the same candidate can clear that uncertainty.
 A successful native submission produces an opaque receipt and does not prove
 compositor, focus, model, runtime or scene publication. Consumers must retain
