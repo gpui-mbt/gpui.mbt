@@ -14,6 +14,7 @@ int32_t gpui_retained_route_update(int32_t token, int32_t window, int32_t epoch,
   return result;
 }
 void gpui_fixture_fail_after_update(void) { fixture_fail_after_update = 1; }
+int32_t gpui_fixture_wayland_calls(void) { return call_count; }
 int32_t gpui_ack_retained_editor(int32_t token, int32_t window, int32_t sequence) {
   if (review207_fail_ack) { review207_fail_ack = 0; return GPUI_BUSY; }
   return gpui_review207_real_ack(token, window, sequence);

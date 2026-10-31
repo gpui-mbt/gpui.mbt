@@ -46,3 +46,6 @@ pub extern "C" fn fixture_intent_stale_epoch() -> Unit = "gpui_review207_wrong_e
 
 ///| FIXTURE ONLY: return Busy after the real native update has taken effect.
 pub extern "C" fn fixture_intent_fail_after_update() -> Unit = "gpui_fixture_fail_after_update"
+
+///| FIXTURE ONLY: count mocked Wayland requests to detect duplicate updates.
+pub extern "C" fn fixture_intent_wayland_calls() -> Int32 = "gpui_fixture_wayland_calls"
