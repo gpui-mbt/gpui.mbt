@@ -82,6 +82,18 @@ scope intact. Ordinary removal preserves a surviving current owner.
 
 `refresh_layout` delegates to the existing same-topology, non-scroll bounds-only
 refresh. Exact owners and scopes survive, but old admission targets do not.
+For an adapter that assembles its tree from more than one prepaint result,
+`prepare_bounds_tree` instead checks a separately built tree for matching
+preorder, parent links, and input metadata, and stages only its bounds. The root
+may resize. The caller must ensure retained IDs still denote the same live
+bindings; numeric equality alone is not an identity proof. Scroll, uniform-list,
+deferred, anchored, clipped and explicit physical-viewport trees are rejected.
+`publish_bounds_tree` accepts that proposal once, on the original current
+session target, without callbacks. It preserves focus acquisition, modal stack,
+and all retained non-bounds metadata. The proposal is one local focus owner;
+it does not publish scene, runtime, text field or native host state and is not
+an atomic transaction across them. Owners must retain recovery state if any
+other publication fails or invalidates this proposal.
 `replace_tree` clears focus and revokes all scopes and prior targets, even if the
 caller supplies the same numeric IDs or an old snapshot. It is not reconciliation.
 `close` is terminal across all session copies and leaves an empty readable
