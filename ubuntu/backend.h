@@ -150,6 +150,8 @@ int32_t gpui_peek_retained_editor(int32_t abi, int32_t host, double *event,
     int32_t event_capacity, uint8_t *text, int32_t text_capacity,
     int32_t *metadata, int32_t metadata_capacity);
 int32_t gpui_ack_retained_editor(int32_t host, int32_t window, int32_t sequence);
+int32_t gpui_retained_direct_result(int32_t host, int32_t window, int32_t epoch,
+    uint8_t *out, int32_t capacity, int32_t *fields, int32_t field_capacity);
 int32_t gpui_present(int32_t host, int32_t window, const double *data,
                      int32_t length);
 /* v2 records: kind(0=quad,1=text), the same19 common fields as v1,

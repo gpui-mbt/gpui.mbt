@@ -395,3 +395,19 @@ timeout, focus loss, owner loss and shutdown. A blocked shortcut at the FIFO
 head must not prevent storing the later composition outcome that could resolve
 it. These requirements supplement the existing Ubuntu direct-input and
 composition tracks; they are not a new supported profile.
+
+A separate controlled XKB callback on #204 `07735094f506502b307f55e2ddfea4218574490c`
+used a compose table producing 200 ASCII bytes. XKB accepted the mapping; the
+128-byte direct FIFO payload limit rejected the result after XKB had reset it:
+`max=128 compose=0 error=8 count=0 epoch=2`. The result had not entered the
+FIFO. Probe log SHA-256:
+`10275a173b7399f203e99b451daf0bdb7d9e7a87fd775a3d13e5daed959d1d60`.
+
+The retained route now holds this oversized COMPOSED result in its original
+XKB owner and exposes a read-only receipt with original window/root/epochs,
+prior FIFO watermark, physical key and modifiers. The consumer provides a
+bounded buffer to inspect the exact bytes. This is neither a FIFO ACK nor a
+model application; no handoff or recovery API exists. The Resource latch
+continues to block pumping, and cutoff, release and stop cannot discard the
+result. A later owner-authorized resolution needs an independently reviewed
+contract and tests. The fixture does not establish real-compositor behavior.

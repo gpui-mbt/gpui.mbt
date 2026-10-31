@@ -1616,6 +1616,55 @@ static void retained_direct_snapshot_finish(struct host *h) {
   release_compose(h); xkb_state_unref(h->keys); xkb_keymap_unref(h->keymap);
   xkb_context_unref(h->xkb); finish(h);
 }
+static void retained_oversized_compose_is_inspectable(void) {
+  struct host *h = retained_direct_snapshot_fixture(0);
+  xkb_compose_table_unref(h->compose_table);
+  char table[512];
+  int p = snprintf(table, sizeof(table), "<Multi_key> <a> : \"");
+  memset(table + p, 'q', 200); p += 200;
+  p += snprintf(table + p, sizeof(table) - p, "\"\n");
+  h->compose_table = xkb_compose_table_new_from_buffer(h->xkb, table, p,
+      "C.UTF-8", XKB_COMPOSE_FORMAT_TEXT_V1, 0);
+  assert(h->compose_table);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  keyboard_key(h, h->keyboard, 2, 0, 25, WL_KEYBOARD_KEY_STATE_PRESSED);
+  keyboard_key(h, h->keyboard, 3, 0, 25, WL_KEYBOARD_KEY_STATE_RELEASED);
+  int watermark = h->seq, before = h->count;
+  direct_keyboard_key(h, 100, 1, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 100, 0, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 30, 1, XKB_KEY_a);
+  assert(h->error == GPUI_RESOURCE && h->count == before && h->seq == watermark);
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSED);
+  int32_t fields[4] = {0}; uint8_t bytes[201], small[200];
+  memset(bytes, 0, sizeof(bytes)); memset(small, 0x5a, sizeof(small));
+  assert(gpui_retained_direct_result(h->token, 51, epoch, NULL, 0, fields, 4) == 1);
+  assert(fields[0] == 200 && fields[1] == watermark && fields[2] == 30 && fields[3] == 0);
+  assert(gpui_retained_direct_result(h->token, 52, epoch, bytes, 201, fields, 4) == -GPUI_STALE);
+  assert(gpui_retained_direct_result(h->token, 51, epoch + 1, bytes, 201, fields, 4) == -GPUI_STALE);
+  assert(gpui_retained_direct_result(h->token, 51, epoch, small, 200, fields, 4) == -GPUI_RESOURCE);
+  for (int i = 0; i < 200; ++i) assert(small[i] == 0x5a);
+  assert(gpui_retained_direct_result(h->token, 51, epoch, bytes, 201, fields, 4) == 1);
+  for (int i = 0; i < 200; ++i) assert(bytes[i] == 'q');
+  assert(bytes[200] == 0);
+  int seq = h->seq;
+  direct_keyboard_key(h, 44, 1, XKB_KEY_z);
+  assert(h->seq == seq && h->count == before);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t payload[GPUI_EDITOR_MAX_PAYLOAD]; int32_t meta[5];
+  while (h->count) {
+    assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+        payload, sizeof(payload), meta, 5) == 1);
+    assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  }
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_BUSY);
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  keyboard_leave(h, h->keyboard, 4, h->surface);
+  assert(gpui_retained_direct_result(h->token, 51, epoch, bytes, 201, fields, 4) == 1);
+  assert(!memcmp(bytes, table + strlen("<Multi_key> <a> : \""), 200));
+  (void)gpui_destroy(h->token, 51);
+  assert(gpui_retained_direct_result(h->token, 51, epoch, bytes, 201, fields, 4) == 1);
+  assert(!memcmp(bytes, table + strlen("<Multi_key> <a> : \""), 200));
+  retained_direct_snapshot_finish(h);
+}
 static void retained_compose_completion_requires_bounded_admission(int exhausted) {
   struct host *h = retained_direct_snapshot_fixture(0);
   int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
@@ -2269,6 +2318,7 @@ static void window_proof_is_host_local_and_invalid_attempt_has_no_effect(void) {
   finish(second);
 }
 int main(void) {
+  retained_oversized_compose_is_inspectable();
   retained_compose_completion_requires_bounded_admission(0);
   retained_compose_completion_requires_bounded_admission(1);
   retained_compose_completion_with_one_slot_is_admitted();

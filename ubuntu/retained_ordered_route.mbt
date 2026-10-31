@@ -1173,3 +1173,177 @@ fn RetainedOrderedReceipt::finish_ack(
   route.native_proxy = self.candidate_proxy
   Ok(())
 }
+
+///|
+#borrow(output, fields)
+extern "C" fn native_retained_direct_result(
+  host : Int32,
+  window : Int32,
+  epoch : Int32,
+  output : Bytes,
+  capacity : Int32,
+  fields : FixedArray[Int32],
+  field_capacity : Int32,
+) -> Int32 = "gpui_retained_direct_result"
+
+///|
+/// An unresolved XKB result larger than direct FIFO text admission allows.
+/// It remains in the host; this value does not acknowledge or apply it.
+pub struct RetainedDirectResult {
+  priv route : RetainedOrderedRoute
+  priv window : @platform.WindowId
+  priv root : UInt64
+  priv epoch : UInt64
+  priv native_epoch : Int32
+  priv length : Int32
+  priv watermark : Int32
+  priv key : Int32
+  priv modifiers : Int32
+}
+
+///|
+pub fn RetainedDirectResult::window(
+  self : RetainedDirectResult,
+) -> @platform.WindowId {
+  self.window
+}
+
+///|
+pub fn RetainedDirectResult::root(self : RetainedDirectResult) -> UInt64 {
+  self.root
+}
+
+///|
+pub fn RetainedDirectResult::epoch(self : RetainedDirectResult) -> UInt64 {
+  self.epoch
+}
+
+///|
+pub fn RetainedDirectResult::native_epoch(self : RetainedDirectResult) -> Int32 {
+  self.native_epoch
+}
+
+///|
+pub fn RetainedDirectResult::length(self : RetainedDirectResult) -> Int32 {
+  self.length
+}
+
+///|
+pub fn RetainedDirectResult::watermark(self : RetainedDirectResult) -> Int32 {
+  self.watermark
+}
+
+///|
+pub fn RetainedDirectResult::physical_key(self : RetainedDirectResult) -> Int32 {
+  self.key
+}
+
+///|
+pub fn RetainedDirectResult::modifiers(self : RetainedDirectResult) -> Int32 {
+  self.modifiers
+}
+
+///|
+/// Copy the unresolved original bytes into caller-owned storage of at least
+/// `length() + 1` bytes, including a trailing zero. No allocation, ACK, action,
+/// text-session application or host release is implied.
+pub fn RetainedDirectResult::copy_into(
+  self : RetainedDirectResult,
+  output : Bytes,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  let route = self.route
+  let operation = "retained_direct_result_copy"
+  if route.window != Some(self.window) ||
+    route.root != self.root ||
+    route.portable_epoch != self.epoch ||
+    route.native_epoch != self.native_epoch ||
+    !route.direct_binding ||
+    route.closed {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  // Capacity zero is reserved by the native API for a metadata-only query;
+  // it cannot be interpreted as a successful copy of nonempty content.
+  if output.length() <= self.length {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.ResourceExhausted, operation),
+    )
+  }
+  let fields = FixedArray::make(4, 0)
+  let result = native_retained_direct_result(
+    route.host.token,
+    self.window.value().to_int(),
+    self.native_epoch,
+    output,
+    output.length(),
+    fields,
+    fields.length(),
+  )
+  if result < 0 {
+    return Err(backend_error(-result, operation))
+  }
+  if result != 1 ||
+    fields[0] != self.length ||
+    fields[1] != self.watermark ||
+    fields[2] != self.key ||
+    fields[3] != self.modifiers {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  Ok(())
+}
+
+///|
+/// Inspect a retained oversized XKB result without consuming it. The captured
+/// watermark denotes the last previously admitted native sequence; this result
+/// has no FIFO sequence and cannot be retargeted, acknowledged, or applied by
+/// this API. No public handoff exists and the route remains unresolved.
+pub fn RetainedOrderedRoute::pending_direct_result(
+  self : RetainedOrderedRoute,
+) -> Result[RetainedDirectResult?, @diagnostics.FrameworkError] {
+  let operation = "retained_direct_result"
+  if !self.direct_binding || self.closed || self.native_epoch <= 0 {
+    return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  let window = match self.window {
+    Some(value) => value
+    None =>
+      return Err(ubuntu_text_host_error(@diagnostics.StaleHandle, operation))
+  }
+  let fields = FixedArray::make(4, 0)
+  let empty = Bytes::make(0, (0).to_byte())
+  let result = native_retained_direct_result(
+    self.host.token,
+    window.value().to_int(),
+    self.native_epoch,
+    empty,
+    0,
+    fields,
+    fields.length(),
+  )
+  if result < 0 {
+    return Err(backend_error(-result, operation))
+  }
+  if result == 0 {
+    return Ok(None)
+  }
+  if result != 1 ||
+    fields[0] <= 128 ||
+    fields[1] < 0 ||
+    fields[2] < 0 ||
+    fields[3] < 0 ||
+    fields[3] > 15 {
+    return Err(ubuntu_text_host_error(@diagnostics.InvalidInput, operation))
+  }
+  Ok(
+    Some({
+      route: self,
+      window,
+      root: self.root,
+      epoch: self.portable_epoch,
+      native_epoch: self.native_epoch,
+      length: fields[0],
+      watermark: fields[1],
+      key: fields[2],
+      modifiers: fields[3],
+    }),
+  )
+}
