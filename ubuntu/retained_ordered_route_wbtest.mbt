@@ -7,6 +7,7 @@ fn retained_test_route() -> RetainedOrderedRoute {
     root: 9UL,
     portable_epoch: 3UL,
     native_epoch: 7,
+    direct_binding: false,
     native_seat: 11L,
     native_proxy: 4,
     ordinal: 0L,
@@ -595,4 +596,66 @@ test "physical evidence decodes host-local window history without inventing owne
   fields[5] = 51
   let prior = decode_physical_release(candidate, fields, "fixture").unwrap()
   assert_true(prior.prior() is PressAdmitted(5, _))
+}
+
+///|
+test "direct retained candidates keep original epoch and reject foreign origin" {
+  let route = retained_test_route()
+  route.direct_binding = true
+  let window = @platform.WindowId::new(51L)
+  let event = @platform.Event::new(
+    window,
+    21L,
+    1.0,
+    @platform.Input(@primitives.TextInput(text="a")),
+  )
+  let fields = FixedArray::make(217, 0.0)
+  let record : RetainedEditorRecord = {
+    host: route.host,
+    window,
+    sequence: 21,
+    event: Some(Platform(event)),
+    raw_fields: fields,
+    stale: false,
+    direct_epoch: 7,
+    composition_epoch: 0,
+    revoked: false,
+    direct_origin: true,
+  }
+  let accepted = route.prepare(record).unwrap()
+  assert_true(accepted.event() is Platform(_))
+  assert_eq(accepted.root(), 9UL)
+  assert_eq(accepted.epoch(), 3UL)
+  assert_eq(accepted.native_sequence(), 21)
+  assert_true(
+    route.prepare({ ..record, direct_epoch: 8, }).unwrap().event()
+    is Unhandled(_),
+  )
+  assert_true(
+    route.prepare({ ..record, direct_origin: false, }).unwrap().event()
+    is Unhandled(_),
+  )
+  assert_true(
+    route.prepare({ ..record, stale: true, }).unwrap().event() is Unhandled(_),
+  )
+  let other = @platform.WindowId::new(52L)
+  let other_event = @platform.Event::new(
+    other,
+    21L,
+    1.0,
+    @platform.Input(@primitives.TextInput(text="a")),
+  )
+  assert_true(
+    route
+    .prepare({ ..record, window: other, event: Some(Platform(other_event)), })
+    .unwrap()
+    .event()
+    is Unhandled(_),
+  )
+  let failed = accepted.finish_ack(fn() {
+    Err(@diagnostics.FrameworkError::new(@diagnostics.Busy, "native_ack"))
+  })
+  assert_true(failed is Err(_))
+  assert_true(route.window is Some(_))
+  assert_true(accepted.finish_ack(fn() { Ok(()) }) is Ok(_))
 }
