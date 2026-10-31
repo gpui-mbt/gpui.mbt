@@ -37,3 +37,9 @@ pub extern "C" fn fixture_intent_preedit() -> Unit = "gpui_fixture_intent_preedi
 
 ///| Fixture-only later native commit callback.
 pub extern "C" fn fixture_intent_commit_next() -> Unit = "gpui_review207_commit_next"
+
+///| FIXTURE ONLY: enqueue an ordinary non-text platform record.
+pub extern "C" fn fixture_intent_nontext() -> Unit = "gpui_review207_nontext"
+
+///| FIXTURE ONLY: corrupt the queued text epoch to make the native head stale.
+pub extern "C" fn fixture_intent_stale_epoch() -> Unit = "gpui_review207_wrong_epoch"
