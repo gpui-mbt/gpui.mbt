@@ -1,0 +1,19 @@
+name: Linux IME private mount source lease
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/linux-ime-private-mount-lease.yml'
+      - 'infra/linux-desktop/wayland-ime/recovery/private_mount_lease.py'
+      - 'infra/linux-desktop/wayland-ime/recovery/test_private_mount_lease.py'
+permissions:
+  contents: read
+jobs:
+  private-mount-source-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify path and lifetime rejection fixtures
+        run: python3 -m unittest discover -s infra/linux-desktop/wayland-ime/recovery -p test_private_mount_lease.py -v
