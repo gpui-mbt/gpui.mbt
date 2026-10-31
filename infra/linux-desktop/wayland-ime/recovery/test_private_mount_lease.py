@@ -1,4 +1,6 @@
+import copy
 import os
+import pickle
 from pathlib import Path
 import tempfile
 import unittest
@@ -24,6 +26,23 @@ class PrivateMountLeaseTests(unittest.TestCase):
         with self.assertRaisesRegex(LeaseError, 'closed'):
             lease.revalidate()
         lease.close()
+
+    def test_copy_and_serialization_refused_before_fd_reuse(self):
+        lease = MountLease(str(self.root), 'source', self.owner)
+        operations = [copy.copy, copy.deepcopy] + [lambda obj, protocol=protocol: pickle.dumps(obj, protocol=protocol)
+                                                     for protocol in range(pickle.HIGHEST_PROTOCOL + 1)]
+        for operation in operations:
+            with self.subTest(operation=operation), self.assertRaises(TypeError):
+                operation(lease)
+        lowest_fd = min(lease._fds)
+        lease.close()
+        unrelated = os.open('/dev/null', os.O_RDONLY)
+        try:
+            self.assertEqual(unrelated, lowest_fd, 'fixture must actually reuse a closed lease descriptor')
+            lease.close()
+            os.fstat(unrelated)
+        finally:
+            os.close(unrelated)
 
     def test_replaced_directory_is_detected(self):
         with MountLease(str(self.root), 'source', self.owner) as lease:
