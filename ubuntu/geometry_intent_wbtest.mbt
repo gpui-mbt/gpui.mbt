@@ -200,3 +200,28 @@ test "intent submission hides in-progress stage and blocks reentrant handoff" {
   )
   assert_true(route.owned_geometry_text() is None)
 }
+
+///|
+test "intent reservation errors install nothing and a current owner may retry" {
+  let route = retained_test_route()
+  route.host.stopped = false
+  let state = retained_geometry_test_state("x", 2.0)
+  let initial_generation = route.geometry_generation
+  assert_true(
+    route.reserve_geometry_intent_from(4UL, state, fn(_, _) { true }) is Err(_),
+  )
+  assert_true(route.pending_geometry() is None)
+  assert_eq(route.geometry_generation, initial_generation)
+  assert_true(
+    route.reserve_geometry_intent_from(3UL, state, fn(_, _) { false }) is Err(_),
+  )
+  assert_true(route.pending_geometry() is None)
+  assert_eq(route.geometry_generation, initial_generation)
+  let intent = route
+    .reserve_geometry_intent_from(3UL, state, fn(_, _) { true })
+    .unwrap()
+  assert_true(
+    route.geometry_intent_stage(intent) is Some(GeometryIntentNotSubmitted),
+  )
+  assert_eq(intent.pending().generation(), initial_generation + 1UL)
+}

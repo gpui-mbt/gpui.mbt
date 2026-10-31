@@ -339,7 +339,9 @@ stage; an ACK or this host cutoff does not establish those stages.
 
 `reserve_geometry_intent` can retain one exact same-route/window/root/epoch
 candidate before entering native update, including while the native FIFO is
-nonempty. It returns an opaque route-bound intent; a Busy submit leaves it
+nonempty. A returned reservation error installs no new intent and never enters
+native geometry update; the caller must still revalidate its original field,
+model, route and candidate before retry. It returns an opaque route-bound intent; a Busy submit leaves it
 `GeometryIntentNotSubmitted` and does not enter native update. The existing
 bounded `handoff_geometry_head` can preserve one supported later text record
 while this intent is held. `submit_geometry_intent` accepts only the current

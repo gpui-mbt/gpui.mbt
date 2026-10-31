@@ -569,6 +569,9 @@ pub fn RetainedOrderedRoute::pending_geometry(
 /// Reserve one exact original-owner candidate without entering native update.
 /// A nonempty FIFO is allowed: the caller can use the bounded geometry text
 /// handoff before submitting this same intent. No record is acknowledged here.
+/// An Err from this synchronous reservation leaves the route without a newly
+/// installed intent and never invokes the native geometry update. This does not
+/// prove that the caller's field, model, scene or external host state is current.
 pub fn RetainedOrderedRoute::reserve_geometry_intent(
   self : RetainedOrderedRoute,
   epoch : UInt64,
