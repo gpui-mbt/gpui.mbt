@@ -1255,9 +1255,23 @@ static void keyboard_key(void *d, struct wl_keyboard *k, uint32_t serial,
     return;
   if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
     remember_input_serial(h, serial, INPUT_SERIAL_KEYBOARD);
-  if (!h->keys)
+  if (!h->keys) {
+    /* A key callback received without a usable keymap cannot be translated or
+     * admitted, but it still invalidates a since-focus absence claim for that
+     * physical key. Out-of-range keys invalidate the whole bounded snapshot. */
+    if (h->retained_key_valid) {
+      if (key >= GPUI_DIRECT_KEY_CAPACITY) {
+        h->retained_key_valid = 0;
+      } else {
+        struct retained_key_slot *key_state = &h->retained_keys[key];
+        memset(key_state, 0, sizeof(*key_state));
+        key_state->prior = KEY_PRIOR_UNKNOWN;
+      }
+    }
     return;
+  }
   if (h->direct_enabled && key >= GPUI_DIRECT_KEY_CAPACITY) {
+    h->retained_key_valid = 0;
     (void)input_failure(h, GPUI_INVALID);
     return;
   }
