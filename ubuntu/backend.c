@@ -78,6 +78,13 @@ struct direct_key_state {
 enum retained_key_prior { KEY_PRIOR_UNKNOWN = 0, KEY_PRIOR_NONE = 1,
                           KEY_PRIOR_ADMITTED = 2 };
 struct retained_key_slot { int prior, press_sequence, press_window; };
+struct retained_direct_rearm {
+  int window, epoch, disabled_epoch, window_generation, focus_generation;
+  int cutoff, released;
+  uint32_t seat;
+  struct wl_keyboard *keyboard;
+  struct xkb_keymap *keymap;
+};
 enum input_serial_origin {
   INPUT_SERIAL_NONE,
   INPUT_SERIAL_POINTER,
@@ -93,6 +100,11 @@ struct host {
    * Exhaustion disables the evidence, not existing window operations. */
   int retained_window_generation, retained_window_exhausted;
   int retained_claim_before_window;
+  int retained_destroyed_window, retained_destroyed_sequence;
+  int retained_destroyed_generation, retained_destroyed_acked;
+  int retained_terminal_sealed;
+  int retained_ack_window, retained_ack_sequence;
+  struct retained_direct_rearm retained_rearm;
   int terminal_receipt_generation;
   struct ime_payload terminal_preview;
   pthread_t owner;
@@ -1996,6 +2008,33 @@ int32_t gpui_terminal_retention_active(int32_t token) {
   if (status) return -status;
   return h->terminal_retention ? 1 : 0;
 }
+static int retained_rearm_same_focus(const struct host *h) {
+  const struct retained_direct_rearm *p = &h->retained_rearm;
+  return p->window > 0 && p->window == h->window &&
+      p->window_generation > 0 && !h->retained_window_exhausted &&
+      p->window_generation == h->retained_window_generation &&
+      p->focus_generation > 0 && p->focus_generation == h->retained_key_focus &&
+      h->retained_key_valid && !h->retained_key_ambiguous &&
+      h->keyboard_focus_current && h->direct_keymap_valid &&
+      p->keyboard && p->keyboard == h->keyboard &&
+      h->retained_key_keyboard == h->keyboard &&
+      p->keymap && p->keymap == h->keymap && h->keys && h->xkb &&
+      p->seat && p->seat == h->seat_name &&
+      h->retained_key_seat == h->seat_name && h->retained_key_window == h->window;
+}
+static int retained_rearm_keys_released(const struct host *h) {
+  for (int i = 0; i < GPUI_DIRECT_KEY_CAPACITY; ++i)
+    if (h->direct_keys[i].pressed) return 0;
+  return 1;
+}
+static void retained_capture_direct_owner(struct host *h) {
+  h->retained_rearm = (struct retained_direct_rearm){
+    .window = h->window, .epoch = h->retained_direct_epoch,
+    .window_generation = h->retained_window_generation,
+    .focus_generation = h->retained_key_focus,
+    .seat = h->seat_name, .keyboard = h->keyboard, .keymap = h->keymap,
+  };
+}
 int32_t gpui_retained_route_hold(int32_t token, int32_t enabled) {
   struct host *h;
   int status = check(token, &h);
@@ -2004,6 +2043,7 @@ int32_t gpui_retained_route_hold(int32_t token, int32_t enabled) {
     return GPUI_UNSUPPORTED;
   if (enabled != 0 && enabled != 1) return GPUI_INVALID;
   if (enabled) {
+    if (h->retained_terminal_sealed) return GPUI_STOPPING;
     if (h->retained_route_bound) return GPUI_BUSY;
     h->retained_route_bound = 1;
   } else {
@@ -2011,10 +2051,53 @@ int32_t gpui_retained_route_hold(int32_t token, int32_t enabled) {
     if (h->count || h->ime.requested || h->ime.phase == IME_ACTIVE ||
         h->ime.phase == IME_ACTIVATING ||
         (h->retained_direct_epoch && !h->retained_direct_ended)) return GPUI_BUSY;
+    if (h->retained_direct_epoch && h->retained_direct_ended &&
+        h->retained_rearm.cutoff &&
+        h->retained_rearm.epoch == h->retained_direct_epoch &&
+        h->retained_rearm.disabled_epoch == h->direct_epoch &&
+        retained_rearm_same_focus(h) && retained_rearm_keys_released(h))
+      h->retained_rearm.released = 1;
+    else
+      memset(&h->retained_rearm, 0, sizeof(h->retained_rearm));
     h->retained_direct_epoch = h->retained_direct_window = h->retained_direct_ended = 0;
     h->retained_direct_device_lost = 0;
     h->retained_route_bound = 0;
   }
+  return GPUI_OK;
+}
+int32_t gpui_retained_terminal_seal(int32_t token, int32_t window,
+                                     int32_t sequence) {
+  struct host *h;
+  int status = check(token, &h);
+  if (status) return status;
+  if (!h->terminal_retention || !h->retained_route_claimed)
+    return GPUI_UNSUPPORTED;
+  if (window <= 0 || sequence <= 0) return GPUI_INVALID;
+  if (h->retained_terminal_sealed || h->state) return GPUI_STOPPING;
+  if (h->error) return h->error;
+  if (h->retained_window_exhausted) return GPUI_RESOURCE;
+  if (h->retained_destroyed_window != window ||
+      h->retained_destroyed_sequence != sequence ||
+      h->retained_destroyed_generation <= 0 ||
+      h->retained_destroyed_generation != h->retained_window_generation ||
+      h->seq != sequence) return GPUI_STALE;
+  if (!h->retained_destroyed_acked || h->window || h->count ||
+      h->retained_route_bound || h->retained_direct_epoch ||
+      h->retained_direct_device_lost || h->direct_enabled || h->repeat.armed ||
+      h->frame || h->terminal_preview_pending || h->ime.requested ||
+      h->ime.phase != IME_INACTIVE || h->ime.composition_enabled ||
+      h->ime.composition_preview || h->ime.composition_stopping ||
+      h->ime.composition_direct_pending || h->ime_queue_bytes)
+    return GPUI_BUSY;
+  for (int i = 0; i < GPUI_DIRECT_KEY_CAPACITY; ++i)
+    if (h->direct_keys[i].pressed) return GPUI_BUSY;
+  if (h->compose &&
+      xkb_compose_state_get_status(h->compose) != XKB_COMPOSE_NOTHING)
+    return GPUI_BUSY;
+  /* An empty poll while a window can reopen is not a terminal fence. The
+   * owner-thread transition forbids new creation and callback dispatch. */
+  h->retained_terminal_sealed = 1;
+  h->state = 1;
   return GPUI_OK;
 }
 int32_t gpui_retained_route_native_epoch(int32_t token, int32_t window) {
@@ -2236,7 +2319,14 @@ int32_t gpui_destroy(int32_t token, int32_t window) {
   }
   ime_invalidate(h, 1, 1);
   event(h, 4, 0, 0, 0);
+  int destroyed_sequence = h->seq;
   release_window(h);
+  if (!h->error && h->terminal_retention && h->retained_route_claimed) {
+    h->retained_destroyed_window = window;
+    h->retained_destroyed_sequence = destroyed_sequence;
+    h->retained_destroyed_generation = h->retained_window_generation;
+    h->retained_destroyed_acked = 0;
+  }
   return h->error;
 }
 int32_t gpui_title(int32_t token, int32_t window, const uint8_t *title,
@@ -2340,6 +2430,7 @@ int32_t gpui_dispatch_retained(int32_t token, int32_t timeout) {
   if (status) return status;
   if (!h->terminal_retention) return GPUI_UNSUPPORTED;
   if (timeout < 0 || timeout > 60000) return GPUI_INVALID;
+  if (h->retained_terminal_sealed) return GPUI_STOPPING;
   /* Do not admit another native burst while a head awaits owner ACK. */
   if (h->count) return GPUI_BUSY;
   if (h->retained_direct_device_lost) return GPUI_BUSY;
@@ -2531,6 +2622,49 @@ int32_t gpui_retained_direct_begin(int32_t token, int32_t window) {
   h->retained_direct_window = window;
   h->retained_direct_epoch = h->direct_epoch;
   h->retained_direct_ended = 0;
+  retained_capture_direct_owner(h);
+  return h->retained_direct_epoch;
+}
+int32_t gpui_retained_direct_rebegin(int32_t token, int32_t window,
+                                       int32_t released_epoch,
+                                       int32_t acknowledged_sequence) {
+  struct host *h;
+  int status = window_check(token, window, &h);
+  if (status) return -status;
+  if (!h->terminal_retention || !h->retained_route_claimed)
+    return -GPUI_UNSUPPORTED;
+  if (released_epoch <= 0 || acknowledged_sequence <= 0) return -GPUI_INVALID;
+  if (h->state || h->retained_terminal_sealed) return -GPUI_STOPPING;
+  if (h->error) return -h->error;
+  if (h->direct_exhausted || h->direct_epoch == INT_MAX ||
+      (h->ime.exhausted && h->ime.ever_enabled) || h->retained_window_exhausted)
+    return -GPUI_RESOURCE;
+  if (h->retained_route_bound || h->retained_direct_epoch || h->count ||
+      h->direct_enabled || h->retained_direct_device_lost || h->repeat.armed ||
+      h->ime.requested || h->ime.phase != IME_INACTIVE ||
+      h->ime.composition_enabled || h->ime.composition_preview ||
+      h->ime.composition_stopping || h->ime.composition_direct_pending ||
+      h->terminal_preview_pending || h->ime_queue_bytes ||
+      !retained_rearm_keys_released(h)) return -GPUI_BUSY;
+  if (h->ime.manager || h->ime.manager_name) return -GPUI_UNSUPPORTED;
+  const struct retained_direct_rearm *p = &h->retained_rearm;
+  if (!p->cutoff || !p->released || p->epoch != released_epoch ||
+      p->disabled_epoch != h->direct_epoch || !retained_rearm_same_focus(h) ||
+      h->retained_ack_window != window ||
+      h->retained_ack_sequence != acknowledged_sequence ||
+      h->seq != acknowledged_sequence) return -GPUI_STALE;
+  if (!h->compose || !h->compose_table ||
+      xkb_compose_state_get_status(h->compose) != XKB_COMPOSE_NOTHING)
+    return -GPUI_BUSY;
+  /* Historical UNKNOWN slots are not absence evidence. Only this explicit
+   * consumer-resolved ACK suffix can reuse the released direct owner. */
+  ++h->direct_epoch;
+  h->direct_enabled = h->direct_ever_enabled = 1;
+  h->retained_route_bound = 1;
+  h->retained_direct_window = window;
+  h->retained_direct_epoch = h->direct_epoch;
+  h->retained_direct_ended = 0;
+  retained_capture_direct_owner(h);
   return h->retained_direct_epoch;
 }
 int32_t gpui_retained_direct_end_when_drained(int32_t token, int32_t window,
@@ -2552,6 +2686,8 @@ int32_t gpui_retained_direct_end_when_drained(int32_t token, int32_t window,
     if (h->direct_keys[i].pressed) return GPUI_BUSY;
   if (h->compose && xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING)
     return GPUI_BUSY;
+  int rearm = h->direct_enabled && h->direct_epoch == epoch &&
+      h->retained_rearm.epoch == epoch && retained_rearm_same_focus(h);
   if (h->direct_enabled) {
     if (h->direct_epoch != epoch) return GPUI_STALE;
     h->retained_direct_call = 1;
@@ -2560,6 +2696,12 @@ int32_t gpui_retained_direct_end_when_drained(int32_t token, int32_t window,
     if (status) return status;
   }
   h->retained_direct_ended = 1;
+  if (rearm) {
+    h->retained_rearm.cutoff = 1;
+    h->retained_rearm.disabled_epoch = h->direct_epoch;
+  } else {
+    memset(&h->retained_rearm, 0, sizeof(h->retained_rearm));
+  }
   return GPUI_OK;
 }
 int32_t gpui_direct_keyboard_text_epoch(int32_t token, int32_t window) {

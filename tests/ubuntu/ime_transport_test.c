@@ -1638,6 +1638,258 @@ static void retained_direct_post_cutoff_key(void) {
   assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
   retained_direct_snapshot_finish(h);
 }
+static void assert_terminal_seal_refused(struct host *h, int window,
+                                          int sequence, int expected) {
+  struct host before = *h;
+  assert(gpui_retained_terminal_seal(h->token, window, sequence) == expected);
+  assert(!memcmp(&before, h, sizeof(before)));
+}
+static struct host *terminal_seal_fixture(void) {
+  struct host *h = retained_direct_snapshot_fixture(0);
+  retained_note_window_attempt(h);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  return h;
+}
+static int terminal_destroy_and_ack(struct host *h) {
+  assert(gpui_destroy(h->token, 51) == GPUI_OK);
+  int sequence = h->seq;
+  assert(!h->window && h->count == 1 && h->queue[h->read][0] == 4);
+  assert(h->retained_destroyed_window == 51 &&
+         h->retained_destroyed_sequence == sequence &&
+         h->retained_destroyed_generation == 1 && !h->retained_destroyed_acked);
+  assert_terminal_seal_refused(h, 51, sequence, GPUI_BUSY);
+  assert(gpui_ack_retained_editor(h->token, 52, sequence) == GPUI_STALE);
+  assert(gpui_ack_retained_editor(h->token, 51, sequence + 1) == GPUI_STALE);
+  assert(!h->retained_destroyed_acked && h->count == 1);
+  assert(gpui_ack_retained_editor(h->token, 51, sequence) == GPUI_OK);
+  assert(h->retained_destroyed_acked && !h->count);
+  return sequence;
+}
+static void terminal_seal_requires_actual_destroy_and_exact_ack(void) {
+  struct host *h = terminal_seal_fixture();
+  assert_terminal_seal_refused(h, 51, h->seq, GPUI_STALE);
+  assert(gpui_close(h->token, 51) == GPUI_OK);
+  assert_terminal_seal_refused(h, 51, h->seq, GPUI_STALE);
+  assert(gpui_ack_retained_editor(h->token, 51, h->seq) == GPUI_OK);
+  int sequence = terminal_destroy_and_ack(h);
+  assert_terminal_seal_refused(h, 0, sequence, GPUI_INVALID);
+  assert_terminal_seal_refused(h, 51, 0, GPUI_INVALID);
+  assert_terminal_seal_refused(h, 52, sequence, GPUI_STALE);
+  assert_terminal_seal_refused(h, 51, sequence + 1, GPUI_STALE);
+  assert(gpui_retained_terminal_seal(h->token, 51, sequence) == GPUI_OK);
+  assert(h->retained_terminal_sealed && h->state == 1);
+  assert(gpui_create(h->token, 640, 480, NULL, 0) == -GPUI_STOPPING);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_STOPPING);
+  assert(gpui_dispatch_retained(h->token, 0) == GPUI_STOPPING);
+  assert_terminal_seal_refused(h, 51, sequence, GPUI_STOPPING);
+  event(h, 11, XKB_KEY_Return, 0, 0);
+  assert(!h->count && h->seq == sequence);
+  assert(gpui_stop(h->token) == GPUI_OK && active == NULL);
+}
+static void terminal_seal_rejects_reopen_and_failed_destroy(void) {
+  struct host *h = terminal_seal_fixture();
+  int sequence = terminal_destroy_and_ack(h);
+  retained_note_window_attempt(h);
+  assert_terminal_seal_refused(h, 51, sequence, GPUI_STALE);
+  h->window = 52;
+  assert_terminal_seal_refused(h, 51, sequence, GPUI_STALE);
+  h->window = 0;
+  assert_terminal_seal_refused(h, 51, sequence, GPUI_STALE);
+  retained_direct_snapshot_finish(h);
+
+  h = terminal_seal_fixture();
+  h->error = GPUI_NATIVE;
+  assert(gpui_destroy(h->token, 51) == GPUI_NATIVE);
+  assert(!h->retained_destroyed_window && !h->retained_destroyed_acked);
+  h->error = 0;
+  assert_terminal_seal_refused(h, 51, h->seq, GPUI_STALE);
+  retained_direct_snapshot_finish(h);
+}
+static void terminal_seal_preserves_every_unresolved_native_obligation(void) {
+  struct host *h = terminal_seal_fixture();
+  int sequence = terminal_destroy_and_ack(h);
+  int *blocked[] = {
+    &h->window, &h->count, &h->retained_route_bound, &h->retained_direct_epoch,
+    &h->retained_direct_device_lost, &h->direct_enabled, &h->repeat.armed,
+    &h->terminal_preview_pending, &h->ime.requested, &h->ime.phase,
+    &h->ime.composition_enabled, &h->ime.composition_preview,
+    &h->ime.composition_stopping, &h->ime.composition_direct_pending,
+    &h->direct_keys[28].pressed,
+  };
+  for (size_t i = 0; i < sizeof(blocked) / sizeof(blocked[0]); ++i) {
+    assert(!*blocked[i]);
+    *blocked[i] = 1;
+    assert_terminal_seal_refused(h, 51, sequence, GPUI_BUSY);
+    *blocked[i] = 0;
+  }
+  h->ime.phase = IME_DRAINING_MODIFIERS;
+  assert_terminal_seal_refused(h, 51, sequence, GPUI_BUSY);
+  h->ime.phase = IME_INACTIVE;
+  h->retained_destroyed_acked = 0;
+  assert_terminal_seal_refused(h, 51, sequence, GPUI_BUSY);
+  h->retained_destroyed_acked = 1;
+  h->ime_queue_bytes = sizeof(struct ime_payload);
+  assert_terminal_seal_refused(h, 51, sequence, GPUI_BUSY);
+  h->ime_queue_bytes = 0;
+  h->error = GPUI_RESOURCE;
+  assert_terminal_seal_refused(h, 51, sequence, GPUI_RESOURCE);
+  h->error = 0;
+  h->retained_window_exhausted = 1;
+  assert_terminal_seal_refused(h, 51, sequence, GPUI_RESOURCE);
+  h->retained_window_exhausted = 0;
+  assert(xkb_compose_state_feed(h->compose, XKB_KEY_Multi_key) == XKB_COMPOSE_FEED_ACCEPTED);
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  assert_terminal_seal_refused(h, 51, sequence, GPUI_BUSY);
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  retained_direct_snapshot_finish(h);
+}
+static void retained_ack_all(struct host *h) {
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  while (h->count) assert(read_editor(h, data, bytes) == 1);
+}
+static void assert_direct_rearm_refused(struct host *h, int window, int epoch,
+                                         int sequence, int expected) {
+  struct host before = *h;
+  assert(gpui_retained_direct_rebegin(h->token, window, epoch, sequence) == -expected);
+  assert(!memcmp(&before, h, sizeof(before)));
+}
+static void retained_direct_rearm_keeps_history_and_allows_resolved_suffix(void) {
+  struct host *h = retained_direct_snapshot_fixture(0);
+  retained_note_window_attempt(h);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  keyboard_key(h, h->keyboard, 2, 0, 30, WL_KEYBOARD_KEY_STATE_PRESSED);
+  keyboard_key(h, h->keyboard, 3, 0, 30, WL_KEYBOARD_KEY_STATE_RELEASED);
+  retained_ack_all(h);
+  assert(h->retained_keys[30].prior == KEY_PRIOR_UNKNOWN);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  assert(h->retained_rearm.released && h->retained_rearm.epoch == epoch);
+  keyboard_key(h, h->keyboard, 4, 0, 28, WL_KEYBOARD_KEY_STATE_PRESSED);
+  assert_direct_rearm_refused(h, 51, epoch, h->seq, GPUI_BUSY);
+  retained_ack_all(h);
+  assert_direct_rearm_refused(h, 51, epoch, h->seq, GPUI_BUSY);
+  keyboard_key(h, h->keyboard, 5, 0, 28, WL_KEYBOARD_KEY_STATE_RELEASED);
+  assert_direct_rearm_refused(h, 51, epoch, h->seq, GPUI_BUSY);
+  retained_ack_all(h);
+  keyboard_key(h, h->keyboard, 6, 0, 1, WL_KEYBOARD_KEY_STATE_PRESSED);
+  keyboard_key(h, h->keyboard, 7, 0, 1, WL_KEYBOARD_KEY_STATE_RELEASED);
+  retained_ack_all(h);
+  struct retained_key_slot history[GPUI_DIRECT_KEY_CAPACITY];
+  memcpy(history, h->retained_keys, sizeof(history));
+  assert(history[30].prior == KEY_PRIOR_UNKNOWN &&
+         history[28].prior == KEY_PRIOR_UNKNOWN && history[1].prior == KEY_PRIOR_UNKNOWN);
+  int sequence = h->seq;
+  int next = gpui_retained_direct_rebegin(h->token, 51, epoch, sequence);
+  assert(next > epoch && h->retained_route_bound && h->direct_enabled &&
+         h->retained_direct_epoch == next && !h->retained_rearm.released);
+  assert(!memcmp(history, h->retained_keys, sizeof(history)));
+  assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_BUSY);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, next) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_STALE);
+  assert(gpui_retained_direct_rebegin(h->token, 51, next, sequence) > next);
+  assert(!memcmp(history, h->retained_keys, sizeof(history)));
+  retained_direct_snapshot_finish(h);
+}
+static void retained_direct_rearm_rejects_changed_owner_and_unresolved_input(void) {
+  struct host *h = terminal_seal_fixture();
+  int epoch = h->retained_rearm.epoch, sequence = h->seq;
+  assert(epoch > 0 && sequence > 0 && h->retained_rearm.released);
+  assert_direct_rearm_refused(h, 52, epoch, sequence, GPUI_STALE);
+  assert_direct_rearm_refused(h, 51, epoch + 1, sequence, GPUI_STALE);
+  assert_direct_rearm_refused(h, 51, epoch, sequence + 1, GPUI_STALE);
+  assert_direct_rearm_refused(h, 51, 0, sequence, GPUI_INVALID);
+  int *changed[] = {
+    &h->retained_key_focus, &h->retained_window_generation, &h->direct_epoch,
+    &h->retained_ack_sequence,
+  };
+  for (size_t i = 0; i < sizeof(changed) / sizeof(changed[0]); ++i) {
+    ++*changed[i];
+    assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_STALE);
+    --*changed[i];
+  }
+  int *blocked[] = {
+    &h->retained_route_bound, &h->retained_direct_epoch, &h->count,
+    &h->direct_enabled, &h->retained_direct_device_lost, &h->repeat.armed,
+    &h->ime.requested, &h->ime.phase, &h->ime.composition_enabled,
+    &h->ime.composition_preview, &h->terminal_preview_pending,
+    &h->direct_keys[28].pressed,
+  };
+  for (size_t i = 0; i < sizeof(blocked) / sizeof(blocked[0]); ++i) {
+    assert(!*blocked[i]);
+    *blocked[i] = 1;
+    assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_BUSY);
+    *blocked[i] = 0;
+  }
+  h->retained_key_valid = 0;
+  assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_STALE);
+  h->retained_key_valid = 1;
+  h->retained_key_ambiguous = 1;
+  assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_STALE);
+  h->retained_key_ambiguous = 0;
+  h->direct_keymap_valid = 0;
+  assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_STALE);
+  h->direct_keymap_valid = 1;
+  struct wl_keyboard *keyboard = h->keyboard;
+  h->keyboard = (struct wl_keyboard *)(uintptr_t)0x9991;
+  assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_STALE);
+  h->keyboard = keyboard;
+  struct xkb_keymap *keymap = h->keymap;
+  h->keymap = (struct xkb_keymap *)(uintptr_t)0x9992;
+  assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_STALE);
+  h->keymap = keymap;
+  ++h->seat_name;
+  assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_STALE);
+  --h->seat_name;
+  h->retained_rearm.released = 0;
+  assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_STALE);
+  h->retained_rearm.released = 1;
+  h->error = GPUI_RESOURCE;
+  assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_RESOURCE);
+  h->error = 0;
+  assert(xkb_compose_state_feed(h->compose, XKB_KEY_Multi_key) == XKB_COMPOSE_FEED_ACCEPTED);
+  assert_direct_rearm_refused(h, 51, epoch, sequence, GPUI_BUSY);
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  retained_direct_snapshot_finish(h);
+}
+static void retained_direct_ordinary_begin_keeps_strict_history_gate(void) {
+  struct host *h = retained_direct_snapshot_fixture(0);
+  retained_note_window_attempt(h);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  keyboard_key(h, h->keyboard, 2, 0, 30, WL_KEYBOARD_KEY_STATE_PRESSED);
+  keyboard_key(h, h->keyboard, 3, 0, 30, WL_KEYBOARD_KEY_STATE_RELEASED);
+  retained_ack_all(h);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 1) == GPUI_OK);
+  assert(gpui_retained_direct_begin(h->token, 51) == -GPUI_BUSY);
+  assert(h->retained_keys[30].prior == KEY_PRIOR_UNKNOWN && !h->direct_enabled);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  assert_direct_rearm_refused(h, 51, epoch, h->seq, GPUI_STALE);
+  retained_direct_snapshot_finish(h);
+}
+static void retained_direct_rearm_refuses_real_focus_and_keymap_changes(void) {
+  struct host *h = terminal_seal_fixture();
+  int epoch = h->retained_rearm.epoch;
+  keyboard_leave(h, h->keyboard, 2, h->surface);
+  retained_ack_all(h);
+  assert_direct_rearm_refused(h, 51, epoch, h->seq, GPUI_STALE);
+  struct wl_array keys = {0};
+  keyboard_enter(h, h->keyboard, 3, h->surface, &keys);
+  retained_ack_all(h);
+  assert(h->keyboard_focus_current && h->retained_key_valid);
+  assert_direct_rearm_refused(h, 51, epoch, h->seq, GPUI_STALE);
+  retained_direct_snapshot_finish(h);
+
+  h = terminal_seal_fixture();
+  epoch = h->retained_rearm.epoch;
+  install_current_keymap(h);
+  retained_ack_all(h);
+  assert_direct_rearm_refused(h, 51, epoch, h->seq, GPUI_STALE);
+  retained_direct_snapshot_finish(h);
+}
 static void retained_direct_rejects_held_and_error(void) {
   struct host *h = retained_direct_snapshot_fixture(1);
   assert(!h->direct_keys[21].pressed && h->retained_keys[21].prior == KEY_PRIOR_UNKNOWN);
@@ -2074,6 +2326,13 @@ static void window_proof_is_host_local_and_invalid_attempt_has_no_effect(void) {
   finish(second);
 }
 int main(void) {
+  retained_direct_rearm_keeps_history_and_allows_resolved_suffix();
+  retained_direct_rearm_rejects_changed_owner_and_unresolved_input();
+  retained_direct_ordinary_begin_keeps_strict_history_gate();
+  retained_direct_rearm_refuses_real_focus_and_keymap_changes();
+  terminal_seal_requires_actual_destroy_and_exact_ack();
+  terminal_seal_rejects_reopen_and_failed_destroy();
+  terminal_seal_preserves_every_unresolved_native_obligation();
   retained_direct_post_cutoff_key();
   window_proof_is_host_local_and_invalid_attempt_has_no_effect();
   for (int scenario = 0; scenario < 19; ++scenario)

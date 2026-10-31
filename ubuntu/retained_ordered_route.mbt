@@ -184,6 +184,7 @@ pub struct RetainedOrderedRoute {
   priv mut native_epoch : Int32
   priv mut direct_binding : Bool
   priv mut direct_cutoff_complete : Bool
+  priv mut released_direct : (@platform.WindowId, UInt64, Int32)?
   priv mut native_seat : Int64
   priv mut native_proxy : Int32
   priv mut ordinal : Int64
@@ -214,6 +215,7 @@ pub fn RetainedOrderedRoute::new(
     native_epoch: 0,
     direct_binding: false,
     direct_cutoff_complete: false,
+    released_direct: None,
     native_seat: 0L,
     native_proxy: 0,
     ordinal: 0L,
@@ -514,6 +516,11 @@ fn RetainedOrderedRoute::release_from(
   match release_native() {
     Err(error) => return Err(error)
     Ok(_) => ()
+  }
+  self.released_direct = if self.direct_binding && self.direct_cutoff_complete {
+    self.window.map(window => (window, epoch, self.native_epoch))
+  } else {
+    None
   }
   self.window = None
   self.root = 0UL

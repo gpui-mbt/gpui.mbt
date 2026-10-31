@@ -215,12 +215,14 @@ pub struct RetainedOrderedRoute {
   // private fields
 }
 pub fn RetainedOrderedRoute::begin(Self, @platform.WindowId, UInt64, @text_host.TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::begin_after_resolved_cutoff(Self, @platform.WindowId, UInt64, UInt64, Int) -> Result[UInt64, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::begin_direct(Self, @platform.WindowId, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::binding_epoch(Self) -> UInt64?
 pub fn RetainedOrderedRoute::native_epoch(Self) -> Int?
 pub fn RetainedOrderedRoute::new(Host) -> Result[Self, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::peek(Self) -> Result[RetainedOrderedReceipt?, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::release(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn RetainedOrderedRoute::seal_destroyed(Self, @platform.WindowId, Int) -> Result[RetainedTerminalReceipt, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::try_end_when_drained(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
 pub fn RetainedOrderedRoute::update(Self, UInt64, @text_host.TextInputState) -> Result[Unit, @diagnostics.FrameworkError]
 
@@ -246,6 +248,12 @@ pub struct RetainedPrintableRelease {
 pub fn RetainedPrintableRelease::keysym(Self) -> Int
 pub fn RetainedPrintableRelease::modifiers(Self) -> @primitives.Modifiers
 pub fn RetainedPrintableRelease::target(Self) -> TextSessionTarget
+
+pub struct RetainedTerminalReceipt {
+  // private fields
+}
+pub fn RetainedTerminalReceipt::native_sequence(Self) -> Int
+pub fn RetainedTerminalReceipt::window(Self) -> @platform.WindowId
 
 pub struct TerminalPreviewReceipt {
   // private fields
