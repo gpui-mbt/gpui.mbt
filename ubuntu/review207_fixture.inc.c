@@ -50,3 +50,5 @@ void gpui_review207_finish(void) {
   for (int i = 0; i < QUEUE_CAPACITY; ++i) ime_free_slot(h, i);
   active = NULL; free(h);
 }
+/* Fixture only: bind fake native host to the synthetic consumer window. */
+void gpui_fixture_intent_set_window(int32_t window) { assert(active && window > 0); active->window = window; }
