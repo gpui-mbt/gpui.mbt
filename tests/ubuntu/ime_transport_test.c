@@ -1616,6 +1616,28 @@ static void retained_direct_snapshot_finish(struct host *h) {
   release_compose(h); xkb_state_unref(h->keys); xkb_keymap_unref(h->keymap);
   xkb_context_unref(h->xkb); finish(h);
 }
+static void retained_direct_post_cutoff_key(void) {
+  struct host *h = retained_direct_snapshot_fixture(0);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) == GPUI_OK);
+  assert(h->retained_direct_ended && h->retained_route_bound && !h->direct_enabled);
+  keyboard_key(h, h->keyboard, 2, 0, 28, WL_KEYBOARD_KEY_STATE_PRESSED);
+  fprintf(stderr, "POST_CUTOFF_ENTER error=%d count=%d ended=%d bound=%d\n",
+      h->error, h->count, h->retained_direct_ended, h->retained_route_bound);
+  assert(!h->error && h->count == 1);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t meta[5];
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 11 && !meta[4]);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_BUSY);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  keyboard_key(h, h->keyboard, 3, 0, 28, WL_KEYBOARD_KEY_STATE_RELEASED);
+  assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5) == 1 && data[0] == 12 && !meta[4]);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  assert(gpui_retained_route_hold(h->token, 0) == GPUI_OK);
+  retained_direct_snapshot_finish(h);
+}
 static void retained_direct_rejects_held_and_error(void) {
   struct host *h = retained_direct_snapshot_fixture(1);
   assert(!h->direct_keys[21].pressed && h->retained_keys[21].prior == KEY_PRIOR_UNKNOWN);
@@ -2052,6 +2074,7 @@ static void window_proof_is_host_local_and_invalid_attempt_has_no_effect(void) {
   finish(second);
 }
 int main(void) {
+  retained_direct_post_cutoff_key();
   window_proof_is_host_local_and_invalid_attempt_has_no_effect();
   for (int scenario = 0; scenario < 19; ++scenario)
     retained_physical_release_provenance(scenario);

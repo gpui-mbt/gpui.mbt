@@ -183,6 +183,7 @@ pub struct RetainedOrderedRoute {
   priv mut portable_epoch : UInt64
   priv mut native_epoch : Int32
   priv mut direct_binding : Bool
+  priv mut direct_cutoff_complete : Bool
   priv mut native_seat : Int64
   priv mut native_proxy : Int32
   priv mut ordinal : Int64
@@ -212,6 +213,7 @@ pub fn RetainedOrderedRoute::new(
     portable_epoch: 0UL,
     native_epoch: 0,
     direct_binding: false,
+    direct_cutoff_complete: false,
     native_seat: 0L,
     native_proxy: 0,
     ordinal: 0L,
@@ -271,6 +273,7 @@ pub fn RetainedOrderedRoute::begin(
   self.root = root
   self.ordinal = 0L
   self.closed = false
+  self.direct_cutoff_complete = false
   self.shortcuts.held = 0
   match self.host.retained_begin(window, state) {
     Ok(native) => self.native_epoch = native
@@ -337,6 +340,7 @@ pub fn RetainedOrderedRoute::begin_direct(
   self.root = root
   self.native_epoch = 0
   self.direct_binding = true
+  self.direct_cutoff_complete = false
   self.native_seat = 0L
   self.native_proxy = 0
   self.ordinal = 0L
@@ -477,6 +481,7 @@ fn RetainedOrderedRoute::end_from(
     Ok(_) => ()
   }
   self.closed = true
+  self.direct_cutoff_complete = self.direct_binding
   Ok(())
 }
 
@@ -514,6 +519,7 @@ fn RetainedOrderedRoute::release_from(
   self.root = 0UL
   self.native_epoch = 0
   self.direct_binding = false
+  self.direct_cutoff_complete = false
   self.native_seat = 0L
   self.native_proxy = 0
   self.closed = false
@@ -963,6 +969,24 @@ fn RetainedOrderedRoute::prepare(
           }
           _ if self.direct_binding &&
             event.kind() is @platform.Input(@primitives.TextInput(..)) => ()
+          Some(window) if self.direct_binding &&
+            self.direct_cutoff_complete &&
+            self.closed &&
+            !record.is_direct_origin() &&
+            !record.is_revoked() &&
+            record.composition_epoch() == 0 &&
+            event.window() == window &&
+            event.sequence() == record.sequence().to_int64() &&
+            (
+              event.kind() is @platform.Input(@primitives.KeyPressed(..)) ||
+              event.kind() is @platform.Input(@primitives.KeyReleased(..))
+            ) => prepared = Platform(event)
+          _ if self.direct_binding &&
+            self.direct_cutoff_complete &&
+            (
+              event.kind() is @platform.Input(@primitives.KeyPressed(..)) ||
+              event.kind() is @platform.Input(@primitives.KeyReleased(..))
+            ) => ()
           _ if self.direct_binding &&
             (
               event.kind() is @platform.Input(@primitives.KeyPressed(..)) ||
