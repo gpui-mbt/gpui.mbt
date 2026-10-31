@@ -49,7 +49,7 @@ class HostAuditTests(unittest.TestCase):
         cid = 'c'*64
         image_id = 'sha256:'+'d'*64
         fake = lambda command, **kwargs: ({'load':'', 'image':image_id, 'create':cid,
-                                            'inspect':'[]', 'rm':''}[command[0]])
+                                            'inspect':'[{"Id": "'+cid+'"}]', 'rm':''}[command[0]])
         candidate = {'image_id': image_id, 'image_tar_sha256':'e'*64, 'approved_for_execution':False}
         with patch.object(audit.gate, 'check_image'), patch.object(audit.gate, 'stream_digest', return_value='e'*64), \
              patch.object(audit.inspect, 'run_docker', side_effect=fake) as docker, \
@@ -62,11 +62,32 @@ class HostAuditTests(unittest.TestCase):
         self.assertEqual(docker.call_args_list[-1].args[0], ['rm', '-v', cid])
         self.assertNotIn('start', [c.args[0][0] for c in docker.call_args_list])
 
+    def test_inspection_must_return_created_container_id(self):
+        with patch.object(audit.inspect, 'run_docker', return_value='[{"Id":"other"}]'), \
+             patch.object(audit.inspect, 'check_container') as check:
+            with self.assertRaisesRegex(ValueError, 'identity changed'):
+                audit.check_own_container('c'*64, 'sha256:' + 'd'*64)
+        check.assert_not_called()
+
+    def test_copy_uses_same_explicit_daemon_and_clears_context(self):
+        class Result:
+            returncode = 0
+        payload = tar_bytes([('target', b'bytes', tarfile.REGTYPE)]).getvalue()
+        def fake_run(command, **kwargs):
+            self.assertEqual(command[:2], ['docker', '--host=unix:///var/run/docker.sock'])
+            self.assertNotIn('DOCKER_HOST', kwargs['env'])
+            self.assertNotIn('DOCKER_CONTEXT', kwargs['env'])
+            kwargs['stdout'].write(payload)
+            return Result()
+        with patch.dict('os.environ', {'DOCKER_HOST': 'tcp://bad', 'DOCKER_CONTEXT':'bad'}), \
+             patch.object(audit.subprocess, 'run', side_effect=fake_run):
+            self.assertEqual(audit.copy_digest('c'*64, '/usr/bin/alias'), hashlib.sha256(b'bytes').hexdigest())
+
     def test_copy_failure_still_removes_created_container(self):
         cid = 'c'*64
         image_id = 'sha256:'+'d'*64
         fake = lambda command, **kwargs: ({'load':'', 'image':image_id, 'create':cid,
-                                            'inspect':'[]', 'rm':''}[command[0]])
+                                            'inspect':'[{"Id": "'+cid+'"}]', 'rm':''}[command[0]])
         candidate = {'image_id': image_id, 'image_tar_sha256':'e'*64, 'approved_for_execution':False}
         with patch.object(audit.gate, 'check_image'), patch.object(audit.gate, 'stream_digest', return_value='e'*64), \
              patch.object(audit.inspect, 'run_docker', side_effect=fake) as docker, \

@@ -66,12 +66,19 @@ def copy_digest(container, path):
     def limit_output():
         resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_TAR, MAX_TAR))
     with tempfile.TemporaryFile() as stream:
-        result = subprocess.run(['docker', 'cp', '-L', container + ':' + path, '-'],
-                                stdout=stream, stderr=subprocess.PIPE, timeout=30,
+        result = subprocess.run(inspect.DOCKER + ['cp', '-L', container + ':' + path, '-'],
+                                stdout=stream, stderr=subprocess.PIPE, timeout=30, env=inspect.docker_env(),
                                 preexec_fn=limit_output, check=False)
         gate.require(result.returncode == 0, 'docker copy failed: ' + path)
         gate.require(stream.tell() <= MAX_TAR, 'docker copy exceeds limit')
         return digest_single_tar(stream)
+
+
+def check_own_container(container, image_id):
+    data = gate.json_bytes(inspect.run_docker(['inspect', container]))
+    gate.require(isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict)
+                 and data[0].get('Id') == container, 'created container identity changed')
+    inspect.check_container(data, image_id)
 
 
 def audit(image, candidate, recipe):
@@ -91,13 +98,13 @@ def audit(image, candidate, recipe):
         container = inspect.run_docker(['create', '--network=none', '--read-only', '--cap-drop=ALL',
             '--security-opt=no-new-privileges', '--user=65534:65534', '--entrypoint=/bin/false', image_id])
         gate.require(re.fullmatch(r'[0-9a-f]{64}', container), 'invalid created container ID')
-        inspect.check_container(gate.json_bytes(inspect.run_docker(['inspect', container])), image_id)
+        check_own_container(container, image_id)
         records = []
         for path, wanted in sorted(expected.items()):
             actual = copy_digest(container, path)
             records.append({'path': path, 'expected_sha256': wanted, 'actual_sha256': actual,
                             'match': actual == wanted})
-        inspect.check_container(gate.json_bytes(inspect.run_docker(['inspect', container])), image_id)
+        check_own_container(container, image_id)
         return {'status': 'matched' if all(r['match'] for r in records) else 'mismatch',
                 'image_id': image_id, 'image_tar_sha256': candidate['image_tar_sha256'],
                 'host_files': records, 'native_status': 'NOT_RUN', 'approved_for_execution': False}
