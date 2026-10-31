@@ -1,0 +1,23 @@
+///|
+/// FIXTURE ONLY: the native FIFO is real but protocol requests are mocked.
+extern "C" fn fixture_intent_setup() -> Int32 = "gpui_review207_setup"
+///|
+extern "C" fn fixture_intent_enter() -> Unit = "gpui_review207_enter"
+///|
+pub extern "C" fn fixture_intent_commit() -> Unit = "gpui_review207_commit"
+///|
+pub extern "C" fn fixture_intent_finish() -> Unit = "gpui_review207_finish"
+
+///|
+/// FIXTURE ONLY. Do not ship this helper or treat it as live IME acceptance.
+pub fn fixture_intent_route(state : @text_host.TextInputState) -> RetainedOrderedRoute {
+  let token = fixture_intent_setup()
+  if token != 741 { abort("fixture start failed") }
+  let host : Host = { token, stopped: false }
+  let route = RetainedOrderedRoute::new(host).unwrap()
+  ignore(route.begin(@platform.WindowId::new(51L), 9UL, state).unwrap())
+  fixture_intent_enter()
+  let entered = route.peek().unwrap().unwrap()
+  ignore(entered.ack().unwrap())
+  route
+}
