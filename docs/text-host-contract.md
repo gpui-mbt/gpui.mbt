@@ -349,6 +349,53 @@ key also retains the old key owner and refuses further admission; the current
 API cannot resolve that device-loss case. This narrow path is not an IME
 composition host, an OS-IME quiescence proof, or proof of safe consumer stop.
 
+#### Proposed direct-insert receipt contract
+
+The retained direct path needs a distinct, immutable insert observation rather
+than translating its `TextInput` into an IME `Commit`: a commit resolves an
+active preview, while a direct typed insertion requires the original
+`TextSession` not to be composing. A replacement, deletion or an unsupported
+IME observation must never be reinterpreted as a direct typed insertion.
+
+The existing `SessionOperation::Insert` is not yet a behavior-preserving
+mapping for direct keyboard typing. It records each `replace_selection` as a
+separate undo group, while `TextField::handle_input(TextInput)` coalesces an
+adjacent typing run. For example, typing `a` then `b` and undoing once returns
+the latter to an empty document but leaves `a` after two `Insert` operations;
+the same difference occurs for `日` then `本`. A characterization test records
+this gap; its passing result is not an undo-compatibility pass.
+
+A viable follow-on is a target-bound `TextSession` typing operation, separate
+from the existing committed-insert semantics, that invokes the same TextField
+typing/coalescing path, atomically preserves the session target/revision and
+replay fence, and rejects active preview or pending end. This requires a small
+public contract/API addition and review; it must not change `Insert` semantics
+or the existing Windows/other consumer path implicitly. Whichever API is
+adopted must match existing typing undo/redo boundaries, including navigation,
+selection changes, Unicode and rejected edits, before this mapping is accepted.
+
+The proposed receipt exposes this observation only for a nonstale native
+direct-origin text record whose window, original root, portable epoch and
+native direct epoch still match the retained binding. It carries its original
+native sequence separately from a monotonic portable text ordinal, together
+with the exact text. No direct-origin text record may be dispatched both as a
+platform `TextInput` and as this insert observation. Unknown, foreign,
+revoked, stale or differently bound records remain owned and unhandled.
+
+Repeated peeks of the same FIFO head prepare the same ordinal without advancing
+it. Only successful exact native ACK advances it; a failed ACK leaves the
+native head, candidate ordinal, original editing owner and any already-applied
+action/model stage available for explicit recovery. Applying the typed insert
+must use the original `TextSession` target and reject an active preview or
+pending end, while preserving the existing typing undo/redo grouping.
+The consumer must retain the field/binding generation and application stage
+before ACK and must reject a replay, delayed callback or replacement target.
+The host receipt itself cannot prove model, scene, caret or geometry completion.
+
+This section is a contract proposal, not an implemented API, clean registry
+consumer, direct-keyboard acceptance, or IME acceptance. Existing Windows input
+semantics and legacy readers are unchanged by the proposal.
+
 For one narrow unhandled case, `printable_release_candidate()` additionally
 identifies an ASCII printable native key release without Control, Alt or Meta,
 provided the original window, epoch, seat and proxy match and the native record

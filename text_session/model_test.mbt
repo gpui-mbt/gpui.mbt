@@ -1162,3 +1162,65 @@ test "terminal close is idempotent across copied handles and preserves the final
   assert_eq(calls[0], 0)
   assert_snapshot(closed, session.snapshot())
 }
+
+///|
+/// Characterization: this intentionally demonstrates different history, not
+/// a passing undo-compatibility contract for direct keyboard delivery.
+test "direct session insert and platform typing currently group undo differently" {
+  for (first, second) in [("a", "b"), ("日", "本")] {
+    let initial = field("", 0, 0)
+    let hit = fn(
+      _ : @text.TextDocument,
+      _ : @primitives.Point,
+    ) -> Result[@text_layout.TextHit, @text_field.TextFieldError] {
+      Err(@text_field.HitTestFailed)
+    }
+    let (typed_a, _) = initial
+      .handle_input(@primitives.TextInput(text=first), measure, admit, hit)
+      .unwrap()
+    let (typed_ab, _) = typed_a
+      .handle_input(@primitives.TextInput(text=second), measure, admit, hit)
+      .unwrap()
+    let session = @text_session.TextSession::new(
+      @platform.WindowId::new(1L),
+      7UL,
+      initial,
+    ).unwrap()
+    ignore(
+      session
+      .apply_batch(
+        session.target().unwrap(),
+        [@text_session.Insert(first)],
+        measure,
+        admit,
+      )
+      .unwrap(),
+    )
+    ignore(
+      session
+      .apply_batch(
+        session.target().unwrap(),
+        [@text_session.Insert(second)],
+        measure,
+        admit,
+      )
+      .unwrap(),
+    )
+    let inserted_ab = session.snapshot().field()
+    assert_eq(typed_ab.document().text(), first + second)
+    assert_eq(inserted_ab.document().text(), first + second)
+    let typed_undo = typed_ab.undo(measure, admit).unwrap()
+    let insert_undo = inserted_ab.undo(measure, admit).unwrap()
+    assert_eq(typed_undo.document().text(), "")
+    assert_eq(insert_undo.document().text(), first)
+    assert_eq(insert_undo.undo(measure, admit).unwrap().document().text(), "")
+    assert_eq(
+      typed_undo.redo(measure, admit).unwrap().document().text(),
+      first + second,
+    )
+    assert_eq(
+      insert_undo.redo(measure, admit).unwrap().document().text(),
+      first + second,
+    )
+  }
+}
