@@ -34,3 +34,6 @@ pub extern "C" fn fixture_intent_set_requested(value : Int32) -> Unit = "gpui_fi
 
 ///| Fixture-only simulated native preedit callback.
 pub extern "C" fn fixture_intent_preedit() -> Unit = "gpui_fixture_intent_preedit"
+
+///| Fixture-only later native commit callback.
+pub extern "C" fn fixture_intent_commit_next() -> Unit = "gpui_review207_commit_next"
