@@ -337,6 +337,18 @@ binding is invalidated are refused while the original binding is unresolved.
 The consumer must retain the original field generation, event and action/model
 stage; an ACK or this host cutoff does not establish those stages.
 
+`attempt_geometry` distinguishes an opaque `GeometryPreflightRejected` receipt
+from `GeometryOutcomeUncertain`. The former is issued only when this exact
+route-bound attempt never entered native update. It retains the original state,
+window/root, portable/native epochs, route identity and one-shot attempt
+serial. `retry_preflight_geometry` accepts only that same candidate after a
+synchronous route/native owner recheck. A later update attempt revokes old
+proofs, including another preflight rejection; exhaustion fails closed.
+`preflight_geometry_is_current` is a momentary observation, not permission to
+discard consumer records or an authorization for another thread to act later.
+This receipt does not itself drain the FIFO or resolve a consumer's staged
+scene and owner. Calls through raw host APIs remain outside this route contract.
+
 A retained IME geometry update stores one immutable candidate with its
 original window/root and portable/native epochs before native entry. Any
 returned failure or unexpected native epoch after entry leaves this candidate
