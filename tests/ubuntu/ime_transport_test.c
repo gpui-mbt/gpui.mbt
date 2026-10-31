@@ -1616,6 +1616,115 @@ static void retained_direct_snapshot_finish(struct host *h) {
   release_compose(h); xkb_state_unref(h->keys); xkb_keymap_unref(h->keymap);
   xkb_context_unref(h->xkb); finish(h);
 }
+static void retained_compose_modified_key_is_fail_closed(int meta, int full,
+                                                          int earlier_ime,
+                                                          int unknown) {
+  struct host *h = retained_direct_snapshot_fixture(0);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  h->ime.ever_enabled = earlier_ime;
+  /* An accepted direct insertion must survive the later blocked shortcut. */
+  keyboard_key(h, h->keyboard, 2, 0, 25, WL_KEYBOARD_KEY_STATE_PRESSED);
+  keyboard_key(h, h->keyboard, 3, 0, 25, WL_KEYBOARD_KEY_STATE_RELEASED);
+  assert(h->count == 3 && h->queue[(h->read + 1) % QUEUE_CAPACITY][0] == 13);
+  direct_keyboard_key(h, 100, WL_KEYBOARD_KEY_STATE_PRESSED, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 100, WL_KEYBOARD_KEY_STATE_RELEASED, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 30, WL_KEYBOARD_KEY_STATE_PRESSED, XKB_KEY_a);
+  direct_keyboard_key(h, 30, WL_KEYBOARD_KEY_STATE_RELEASED, XKB_KEY_a);
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  uint32_t modkey = meta ? 125 : 29;
+  keyboard_key(h, h->keyboard, 4, 0, modkey, WL_KEYBOARD_KEY_STATE_PRESSED);
+  xkb_mod_index_t mod = xkb_keymap_mod_get_index(h->keymap,
+      meta ? XKB_MOD_NAME_LOGO : XKB_MOD_NAME_CTRL);
+  assert(mod != XKB_MOD_INVALID && mod < 32);
+  keyboard_modifiers(h, h->keyboard, 5, (uint32_t)1 << mod, 0, 0, 0);
+  assert(h->modifiers == (meta ? 8 : 2));
+  if (full) while (h->count < QUEUE_CAPACITY) event(h, 6, 1, 0, 0);
+  int count = h->count, seq = h->seq;
+  double saved_queue[QUEUE_CAPACITY][10];
+  struct direct_event_meta saved_direct[QUEUE_CAPACITY];
+  memcpy(saved_queue, h->queue, sizeof(saved_queue));
+  memcpy(saved_direct, h->direct_queue, sizeof(saved_direct));
+  if (unknown) direct_keyboard_key(h, 44, 1, XKB_KEY_NoSymbol);
+  else keyboard_key(h, h->keyboard, 6, 0, 44, WL_KEYBOARD_KEY_STATE_PRESSED);
+  assert(h->error == (full ? GPUI_RESOURCE : GPUI_BUSY));
+  assert(h->count == count && h->seq == seq && h->retained_direct_epoch == epoch);
+  assert(!memcmp(saved_queue, h->queue, sizeof(saved_queue)) &&
+         !memcmp(saved_direct, h->direct_queue, sizeof(saved_direct)));
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  assert(h->direct_keys[44].pressed && h->direct_keys[44].swallowed);
+  if (unknown) direct_keyboard_key(h, 44, 0, XKB_KEY_NoSymbol);
+  else keyboard_key(h, h->keyboard, 7, 0, 44, WL_KEYBOARD_KEY_STATE_RELEASED);
+  assert(!h->direct_keys[44].pressed && h->count == count && h->seq == seq);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  int32_t metadata[5]; int texts = 0;
+  while (h->count) {
+    assert(gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+        bytes, sizeof(bytes), metadata, 5) == 1);
+    if (data[0] == 13) {
+      ++texts; assert(data[8] == 1 && bytes[0] == 'p' && metadata[4]);
+    }
+    assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  }
+  assert(texts == 1 && h->retained_route_bound);
+  assert(gpui_retained_direct_end_when_drained(h->token, 51, epoch) ==
+      (full ? GPUI_RESOURCE : GPUI_BUSY));
+  /* The latch has no public clear: pumping later observed compose input is
+   * blocked. This fixture establishes retention, not composition recovery. */
+  assert(pump_impl(h, 0, 0) == (full ? GPUI_RESOURCE : GPUI_BUSY));
+  keyboard_leave(h, h->keyboard, 8, h->surface);
+  assert(h->retained_direct_epoch == epoch && h->retained_route_bound &&
+         xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  assert(gpui_stop(h->token) == GPUI_BUSY);
+  retained_direct_snapshot_finish(h);
+}
+static void retained_compose_modifier_alone_remains_composable(int meta) {
+  struct host *h = retained_direct_snapshot_fixture(0);
+  assert(gpui_retained_direct_begin(h->token, 51) > 0);
+  direct_keyboard_key(h, 100, 1, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 100, 0, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 30, 1, XKB_KEY_a);
+  direct_keyboard_key(h, 30, 0, XKB_KEY_a);
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  /* Simulate modifier state arriving before the physical modifier press. */
+  h->modifiers = meta ? 8 : 2;
+  int code = meta ? 125 : 29;
+  xkb_keysym_t sym = meta ? XKB_KEY_Super_L : XKB_KEY_Control_L;
+  direct_keyboard_key(h, code, 1, sym);
+  direct_keyboard_key(h, code, 0, sym);
+  assert(!h->error && xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  h->modifiers = 0;
+  direct_keyboard_key(h, 30, 1, XKB_KEY_a);
+  direct_keyboard_key(h, 30, 0, XKB_KEY_a);
+  assert(!h->error && xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_NOTHING);
+  assert(h->count == 3 && h->queue[(h->read + 2) % QUEUE_CAPACITY][0] == 13);
+  assert(h->direct_queue[(h->read + 2) % QUEUE_CAPACITY].text_length == 1 &&
+         h->direct_queue[(h->read + 2) % QUEUE_CAPACITY].text[0] == 'a');
+  retained_direct_snapshot_finish(h);
+}
+static void legacy_direct_modified_key_keeps_existing_policy(void) {
+  struct host *h = fixture();
+  h->ime.manager = NULL; h->ime.manager_name = 0;
+  h->xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(h->xkb);
+  struct xkb_rule_names names = {.layout = "us"};
+  h->keymap = xkb_keymap_new_from_names(h->xkb, &names, 0); assert(h->keymap);
+  h->keys = xkb_state_new(h->keymap); assert(h->keys);
+  h->direct_keymap_valid = 1;
+  const char compose[] = "<Multi_key> <a> <a> : \"a\"\n";
+  h->compose_table = xkb_compose_table_new_from_buffer(h->xkb, compose,
+      sizeof(compose) - 1, "C.UTF-8", XKB_COMPOSE_FORMAT_TEXT_V1, 0);
+  assert(h->compose_table);
+  assert(gpui_direct_keyboard_text_mode(h->token, 51, 1) == GPUI_OK);
+  direct_keyboard_key(h, 100, 1, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 100, 0, XKB_KEY_Multi_key);
+  direct_keyboard_key(h, 30, 1, XKB_KEY_a);
+  direct_keyboard_key(h, 30, 0, XKB_KEY_a);
+  assert(xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING);
+  h->modifiers = 2;
+  direct_keyboard_key(h, 44, 1, XKB_KEY_z);
+  assert(!h->error && h->count == 1 && h->queue[h->read][0] == 11 &&
+         xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_NOTHING);
+  retained_direct_snapshot_finish(h);
+}
 static void retained_direct_post_cutoff_key(void) {
   struct host *h = retained_direct_snapshot_fixture(0);
   int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
@@ -2112,6 +2221,14 @@ static void window_proof_is_host_local_and_invalid_attempt_has_no_effect(void) {
   finish(second);
 }
 int main(void) {
+  retained_compose_modified_key_is_fail_closed(0, 0, 0, 0);
+  retained_compose_modified_key_is_fail_closed(1, 0, 0, 0);
+  retained_compose_modified_key_is_fail_closed(0, 1, 0, 0);
+  retained_compose_modified_key_is_fail_closed(0, 0, 1, 0);
+  retained_compose_modified_key_is_fail_closed(0, 0, 0, 1);
+  retained_compose_modifier_alone_remains_composable(0);
+  retained_compose_modifier_alone_remains_composable(1);
+  legacy_direct_modified_key_keeps_existing_policy();
   retained_update_failed_activation_keeps_previous_state();
   retained_direct_post_cutoff_key();
   window_proof_is_host_local_and_invalid_attempt_has_no_effect();

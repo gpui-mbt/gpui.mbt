@@ -179,6 +179,7 @@ static int native_e2e_enabled(void) {
 }
 static void ime_raw_keyboard_key(struct host *h, uint32_t state,
                                   xkb_keysym_t symbol);
+static int ime_modifier_symbol(xkb_keysym_t symbol);
 static void remember_input_serial(struct host *h, uint32_t serial,
                                   enum input_serial_origin origin) {
   int focused = origin == INPUT_SERIAL_POINTER
@@ -547,6 +548,15 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
       (state == WL_KEYBOARD_KEY_STATE_RELEASED && h->repeat.armed &&
        h->repeat.key == key))
     cancel_key_repeat(h);
+  /* A fail-closed swallowed key has no admitted press. Its matching release
+   * can clear the physical slot even if an earlier IME set ever_enabled. */
+  if (h->error && state == WL_KEYBOARD_KEY_STATE_RELEASED && pressed &&
+      pressed->pressed && pressed->swallowed && pressed->direct_origin &&
+      h->terminal_retention && h->retained_route_bound &&
+      pressed->epoch == h->retained_direct_epoch) {
+    memset(pressed, 0, sizeof(*pressed));
+    return;
+  }
   if ((h->state != 0 && (h->direct_ever_enabled || h->ime.ever_enabled)) ||
       (h->error && h->ime.ever_enabled)) {
     if (pressed && state == WL_KEYBOARD_KEY_STATE_RELEASED &&
@@ -612,7 +622,22 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
   int length = 0;
   int emit_key = 1;
   if (h->modifiers & (2 | 8)) {
-    reset_compose(h);
+    if (h->terminal_retention && h->retained_route_bound &&
+        h->retained_direct_epoch == h->direct_epoch &&
+        !h->retained_direct_ended && h->compose &&
+        xkb_compose_state_get_status(h->compose) == XKB_COMPOSE_COMPOSING) {
+      /* A modified editing key is not an observed cancellation.  Refuse its
+       * admission while preserving the original composition and accepted FIFO.
+       * Keep the physical press only to consume its matching release. */
+      if (!ime_modifier_symbol(sym)) {
+        pressed->swallowed = 1;
+        (void)input_failure(h, h->count == QUEUE_CAPACITY || h->seq == INT_MAX
+                                  ? GPUI_RESOURCE : GPUI_BUSY);
+        return;
+      }
+    } else {
+      reset_compose(h);
+    }
   } else {
     enum xkb_compose_feed_result feed = xkb_compose_state_feed(h->compose, sym);
     enum xkb_compose_status status = xkb_compose_state_get_status(h->compose);

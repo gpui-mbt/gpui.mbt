@@ -344,6 +344,18 @@ those prerequisites return. This narrow guarantee does not cover begin,
 external-edit epoch replacement, serial exhaustion, compositor application,
 scene/runtime publication or other errors; it is not a cross-layer transaction.
 
+When a retained direct XKB composition is active, a Control/Meta-modified
+non-modifier press is not treated as permission to cancel the composition.
+The host rejects that press before admission, preserves the original compose
+state and accepted FIFO, and latches Busy (Resource if its queue/sequence is
+exhausted). A modifier key by itself leaves the composition active. A matching
+release, if already dispatched, only clears the unadmitted physical press.
+The rejected shortcut is not a retained FIFO record; callers must not report it
+as applied. The latched error has no public clear: the pump stops, so later
+compose completion or cancellation cannot be observed through this host, and
+this is a fail-closed unresolved owner, not a recovery mechanism. Existing
+legacy direct behavior is unchanged.
+
 For a direct binding, `try_end_when_drained` rejects an unacknowledged FIFO,
 held physical key, or active XKB composition. It never cancels that
 composition implicitly; blur, keymap change and window cleanup retain it with
