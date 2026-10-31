@@ -567,8 +567,11 @@ static void direct_keyboard_key(struct host *h, uint32_t key, uint32_t state,
     int epoch = pressed && pressed->pressed ? pressed->epoch : 0;
     int origin = pressed && pressed->pressed ? pressed->direct_origin : 0;
     int swallowed = pressed && pressed->swallowed;
+    /* `pressed` is established only by a physical press in this retained
+     * binding, which always stores the symbol. NoSymbol (0) is a valid saved
+     * value, not evidence that the old key identity was unavailable. */
     if (pressed && origin && epoch == h->retained_direct_epoch &&
-        h->retained_route_bound && pressed->symbol) {
+        h->retained_route_bound) {
       sym = pressed->symbol;
       scalar = xkb_keysym_to_utf32(sym);
     }

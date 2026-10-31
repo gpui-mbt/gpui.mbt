@@ -1676,6 +1676,63 @@ static void retained_direct_layout_change(int duplicate_press) {
   }
   retained_direct_snapshot_finish(h);
 }
+static int retained_direct_peek(struct host *h, double *data, int32_t *meta) {
+  uint8_t bytes[GPUI_EDITOR_MAX_PAYLOAD];
+  return gpui_peek_retained_editor(3, h->token, data, GPUI_EDITOR_EVENT_FIELDS,
+      bytes, sizeof(bytes), meta, 5);
+}
+static void retained_direct_change_layout(struct host *h, const char *layout) {
+  struct xkb_rule_names names = {.layout = layout};
+  struct xkb_keymap *map = xkb_keymap_new_from_names(h->xkb, &names, 0); assert(map);
+  char *source = xkb_keymap_get_as_string(map, XKB_KEYMAP_FORMAT_TEXT_V1); assert(source);
+  size_t length = strlen(source) + 1;
+  char path[] = "/tmp/gpui-direct-map-XXXXXX";
+  int fd = mkstemp(path); assert(fd >= 0 && unlink(path) == 0);
+  size_t offset = 0;
+  while (offset < length) {
+    ssize_t n = write(fd, source + offset, length - offset);
+    assert(n > 0); offset += (size_t)n;
+  }
+  free(source); xkb_keymap_unref(map);
+  keyboard_keymap(h, h->keyboard, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, fd, (uint32_t)length);
+}
+static void retained_direct_nosymbol_keeps_identity(void) {
+  struct host *h = retained_direct_snapshot_fixture(0);
+  char *original = xkb_keymap_get_as_string(h->keymap, XKB_KEYMAP_FORMAT_TEXT_V1);
+  assert(original);
+  char *key = strstr(original, "key <AD06>"); assert(key);
+  char *start = strchr(key, '['), *end = strchr(start, ']'); assert(start && end);
+  const char replace[] = "[ NoSymbol ]";
+  size_t prefix = (size_t)(start-original), suffix = strlen(end+1);
+  size_t length = prefix + sizeof(replace)-1 + suffix + 1;
+  char *source = malloc(length); assert(source);
+  memcpy(source, original, prefix); memcpy(source+prefix, replace, sizeof(replace)-1);
+  memcpy(source+prefix+sizeof(replace)-1, end+1, suffix+1); free(original);
+  char path[] = "/tmp/gpui-direct-nosymbol-XXXXXX";
+  int fd = mkstemp(path); assert(fd >= 0 && unlink(path) == 0);
+  size_t offset = 0;
+  while (offset < length) { ssize_t n = write(fd, source+offset, length-offset); assert(n > 0); offset += (size_t)n; }
+  free(source);
+  keyboard_keymap(h, h->keyboard, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, fd, (uint32_t)length);
+  assert(h->direct_keymap_valid && xkb_state_key_get_one_sym(h->keys, 21+8) == XKB_KEY_NoSymbol);
+  retained_direct_empty_enter(h);
+  int epoch = gpui_retained_direct_begin(h->token, 51); assert(epoch > 0);
+  keyboard_key(h, h->keyboard, 2, 0, 21, WL_KEYBOARD_KEY_STATE_PRESSED);
+  double data[GPUI_EDITOR_EVENT_FIELDS]; int32_t meta[5];
+  assert(retained_direct_peek(h, data, meta) == 1 && data[0] == 11 && data[8] == XKB_KEY_NoSymbol && !meta[0]);
+  assert(h->direct_keys[21].pressed && h->direct_keys[21].symbol == XKB_KEY_NoSymbol);
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK && !h->count);
+  retained_direct_change_layout(h, "de");
+  keyboard_key(h, h->keyboard, 3, 0, 21, WL_KEYBOARD_KEY_STATE_RELEASED);
+  assert(retained_direct_peek(h, data, meta) == 1 && data[0] == 12);
+  int symbol = (int)data[8], stale=meta[0];
+  assert(gpui_ack_retained_editor(h->token, 51, (int)data[2]) == GPUI_OK);
+  int cutoff = gpui_retained_direct_end_when_drained(h->token, 51, epoch);
+  fprintf(stderr, "NOSYMBOL_LAYOUT press=0 release=%d stale=%d epoch=%d expected_epoch=%d cutoff=%d held=%d\n",
+      symbol, stale, meta[1], epoch, cutoff, h->direct_keys[21].pressed);
+  assert(symbol == XKB_KEY_NoSymbol && !stale);
+  retained_direct_snapshot_finish(h);
+}
 static void retained_direct_owner_survives_window_replacement(void) {
   struct host *h = fixture();
   assert(gpui_terminal_retention_enable(h->token) == GPUI_OK);
@@ -2008,6 +2065,7 @@ int main(void) {
   retained_direct_rejects_held_and_error();
   retained_direct_layout_change(0);
   retained_direct_layout_change(1);
+  retained_direct_nosymbol_keeps_identity();
   retained_direct_queue_full_retains_admitted_prefix();
   retained_direct_owner_survives_window_replacement();
   retained_stale_owner_is_visible_not_implicitly_discarded();
