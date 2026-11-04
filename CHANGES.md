@@ -4,6 +4,12 @@
 
 ### Fixed
 
+- Deliver Ubuntu/Windows text-host `FocusLost` observations when either the
+  platform or text pump reads the owned window's focus-loss record first.
+  Draining an already parked record does not duplicate the observation;
+  inactive sessions and unrelated windows do not receive a text notification.
+  Keep Ubuntu forwarded keys ahead of later native platform records.
+
 - Reject stale Ubuntu/Windows text-session end requests before native teardown,
   so an old owner cannot end the current owner's native session. Keep ordinary
   platform events queued across text-session end and restart; applications can

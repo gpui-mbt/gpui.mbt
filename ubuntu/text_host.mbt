@@ -8,6 +8,14 @@
 /// records it parks while the application pumps both queues.
 pub struct TextHostRoute {
   priv host : Host
+  priv editor_reader : ((Int32) -> Result[
+    EditorEvent?,
+    @diagnostics.FrameworkError,
+  ])?
+  priv metrics_reader : ((@platform.WindowId) -> Result[
+    (Double, Double, Double),
+    @diagnostics.FrameworkError,
+  ])?
   priv queue : @text_host.TextHostQueue
   priv mut native_epoch : Int32
   priv mut window : @platform.WindowId?
@@ -30,6 +38,8 @@ fn ubuntu_text_host_error(
 pub fn TextHostRoute::new(host : Host) -> TextHostRoute {
   {
     host,
+    editor_reader: None,
+    metrics_reader: None,
     queue: @text_host.TextHostQueue::new(),
     native_epoch: 0,
     window: None,
@@ -49,7 +59,7 @@ pub fn TextHostRoute::next_platform_event(
     None => ()
   }
   while true {
-    let event = match self.host.next_editor_event(timeout_ms~) {
+    let event = match self.read_editor_event(timeout_ms) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -58,15 +68,53 @@ pub fn TextHostRoute::next_platform_event(
       Some(value) => value
     }
     match event {
-      Platform(value) => return Ok(Some(value))
-      TextSession(target, value) =>
+      Platform(value) =>
+        match self.observe_platform(value) {
+          Err(error) => {
+            ignore(self.queue.park(value))
+            return Err(error)
+          }
+          Ok(_) => return Ok(Some(value))
+        }
+      TextSession(target, value) => {
         match self.absorb(target, value) {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
+        match self.queue.take_parked() {
+          Some(event) => return Ok(Some(event))
+          None => ()
+        }
+      }
     }
   } nobreak {
     Ok(None)
+  }
+}
+
+///|
+fn TextHostRoute::read_editor_event(
+  self : TextHostRoute,
+  timeout_ms : Int32,
+) -> Result[EditorEvent?, @diagnostics.FrameworkError] {
+  match self.editor_reader {
+    Some(read) => read(timeout_ms)
+    None => self.host.next_editor_event(timeout_ms~)
+  }
+}
+
+///|
+fn TextHostRoute::observe_platform(
+  self : TextHostRoute,
+  event : @platform.Event,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  if !self.queue.is_active() {
+    return Ok(())
+  }
+  match (self.window, event.kind()) {
+    (Some(window), @platform.FocusChanged(false)) if window == event.window() =>
+      self.queue.emit(@text_host.FocusLost)
+    _ => Ok(())
   }
 }
 
@@ -129,7 +177,11 @@ fn TextHostRoute::absorb(
         Ok(_) => Ok(())
       }
     Forward(key, pressed, modifiers) => {
-      let scale = match self.host.window_metrics(target.window) {
+      let metrics = match self.metrics_reader {
+        Some(read) => read(target.window)
+        None => self.host.window_metrics(target.window)
+      }
+      let scale = match metrics {
         Err(error) => return Err(error)
         Ok((_, _, value)) => value
       }
@@ -278,7 +330,7 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn next_text_input(
     None => ()
   }
   while true {
-    let event = match self.host.next_editor_event(timeout_ms=timeout) {
+    let event = match self.read_editor_event(timeout) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -306,15 +358,12 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn next_text_input(
             ),
           )
         }
-        match value.kind() {
-          @platform.FocusChanged(false) => {
-            match self.queue.emit(@text_host.FocusLost) {
-              Err(error) => return Err(error)
-              Ok(_) => ()
-            }
-            return Ok(self.queue.take_text())
-          }
-          _ => ()
+        match self.observe_platform(value) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        if self.queue.has_text() {
+          return Ok(self.queue.take_text())
         }
       }
     }
