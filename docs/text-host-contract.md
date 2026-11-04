@@ -1,9 +1,9 @@
 # Native text host contract (GP-01B)
 
 Status: additive contract in `text_host/`, implemented by `platform/macos` over
-the AppKit `NSTextInputClient` client. Other hosts do not implement it yet. A
-host that provides the trait still needs an exact-source runtime profile before
-it can claim text or IME support.
+the AppKit `NSTextInputClient` client and by the opt-in Ubuntu and Windows
+`TextHostRoute` adapters. A host that provides the trait still needs an
+exact-source runtime profile before it can claim text or IME support.
 
 ## Why this package exists
 
@@ -40,8 +40,10 @@ bounded and a full queue reports failure instead of dropping a record.
 - `cancel_text_input(epoch)` cancels the active composition and returns the
   replacement epoch. It does not commit the preedit. The returned value is the
   only valid epoch for later calls; a host is not required to increment it.
-- `end_text_input(epoch)` revokes the session. Repeated or stale epochs are
-  rejected by the host.
+- `end_text_input(epoch)` revokes the session. Zero, repeated, inactive or stale
+  epochs are rejected before calling the native end operation. A failed native
+  end leaves the adapter's current epoch, started state and queues unchanged;
+  this does not establish rollback of effects inside a native host.
 - `next_text_input(timeout_ms?)` drains one ordered observation. A timeout is
   `Ok(None)`, not an error.
 
@@ -49,6 +51,32 @@ An epoch is host-issued and never reused across sessions. Numeric values are
 diagnostic; callers must retain the exact value returned by the host. A host
 must reject a stale window, root, epoch, sequence, or replacement before it
 publishes a document or acknowledges a commit.
+
+## Parked platform event lifetime
+
+Ordinary platform events belong to the application event stream, not to one
+text-input epoch. For `TextHostQueue` and the Ubuntu/Windows adapters:
+
+- `cancel` invalidates the old text epoch but retains parked platform events.
+- `end` revokes text ownership and discards pending text observations, while
+  retaining parked platform events in FIFO order.
+- `begin` issues a fresh text epoch without clearing parked platform events,
+  including events parked while no text session was active. Each event keeps
+  its original window, sequence and payload even if the new session uses a
+  different window.
+- `reset` discards both text state and parked events. It is the explicit
+  teardown operation for a destroyed window or a stopped host.
+
+Applications must continue using `TextHostRoute::next_platform_event` to drain
+already parked events after `end_text_input`, even before another session
+begins. For example, when `next_text_input` returns `FocusLost`, ending that
+session must not erase the ordinary `FocusChanged(false)` record parked while
+reading it. Text end/begin does not free the bounded 1024-event parking capacity;
+only draining or explicit reset does.
+
+This preserves the parked ordinary-event FIFO. It does not add a combined
+text/platform ordering protocol or acknowledge pending text commits. Consumers
+must resolve the required text observations before revoking the text epoch.
 
 ## Event values
 
