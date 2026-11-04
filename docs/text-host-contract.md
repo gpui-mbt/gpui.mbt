@@ -74,6 +74,13 @@ session must not erase the ordinary `FocusChanged(false)` record parked while
 reading it. Text end/begin does not free the bounded 1024-event parking capacity;
 only draining or explicit reset does.
 
+Both Ubuntu/Windows pumps observe a newly read `FocusChanged(false)` for the
+active session's window. Each such native record queues one `FocusLost` after
+any preceding text observations, even when `next_platform_event` reads it
+first. Reading the ordinary record later from the parked FIFO does not emit it
+again. An inactive route or a focus record for another window produces no text
+observation; the ordinary record is still delivered unchanged.
+
 This preserves the parked ordinary-event FIFO. It does not add a combined
 text/platform ordering protocol or acknowledge pending text commits. Consumers
 must resolve the required text observations before revoking the text epoch.
@@ -173,7 +180,8 @@ represented by the insertion-only portable vocabulary, so the route fails with
 IMM32 begin needs the document, caret and owner generation; the portable `root`
 provides `owner_generation`. `next_text_input` parks ordinary platform records
 for `next_platform_event`, so an application can pump both without losing
-input. A window focus loss emits `FocusLost` once. The route is opt-in:
+input. Each owned-window focus-loss record emits `FocusLost` once, regardless
+of which pump reads it first. The route is opt-in:
 `Host::require_capability(TextInput)` stays unadvertised until an exact-source
 IME run qualifies it.
 

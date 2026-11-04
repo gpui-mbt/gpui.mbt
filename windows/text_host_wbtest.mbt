@@ -163,3 +163,258 @@ test "portable end keeps parked platform events through a new session" {
   assert_true(second.kind() is @platform.CloseRequested)
   assert_true(route.end_text_input(next) is Ok(_))
 }
+
+///|
+fn focus_test_reader(
+  events : Array[EditorEvent],
+) -> (Int32) -> Result[EditorEvent?, @diagnostics.FrameworkError] {
+  _timeout => {
+    if events.length() == 0 {
+      Ok(None)
+    } else {
+      Ok(Some(events.remove(0)))
+    }
+  }
+}
+
+///|
+fn focus_test_route() -> (TextHostRoute, Array[EditorEvent]) {
+  let events : Array[EditorEvent] = []
+  let route : TextHostRoute = {
+    host: { token: 0, stopped: false, },
+    editor_reader: Some(focus_test_reader(events)),
+    queue: @text_host.TextHostQueue::new(),
+    native_epoch: 0,
+    owner: 0,
+    window: None,
+    started: false,
+  }
+  (route, events)
+}
+
+///|
+test "platform-first focus loss preserves preceding text and platform record" {
+  let (route, events) = focus_test_route()
+  let window = @platform.WindowId::new(1L)
+  let epoch = route.begin_text_input(window, 1UL).unwrap()
+  route.started = true
+  route.native_epoch = 1
+  let target : TextSessionTarget = {
+    window,
+    sequence: 1L,
+    epoch: 1,
+    owner_generation: 1,
+  }
+  for
+    event in [
+      TextSession(
+        target,
+        Marked(
+          text="a",
+          cursor_utf16=Some(1),
+          attributes=[],
+          replacement_range=@text.TextRange::new(0, 0).unwrap(),
+        ),
+      ),
+      TextSession(
+        target,
+        Inserted(
+          text="ab",
+          replacement_range=@text.TextRange::new(0, 0).unwrap(),
+        ),
+      ),
+      Platform(
+        @platform.Event::new(window, 3L, 1.5, @platform.FocusChanged(false)),
+      ),
+    ] {
+    events.push(event)
+  }
+  let platform = route.next_platform_event(timeout_ms=0).unwrap().unwrap()
+  assert_eq(platform.window().value(), 1L)
+  assert_eq(platform.sequence(), 3L)
+  assert_eq(platform.scale(), 1.5)
+  assert_true(platform.kind() is @platform.FocusChanged(false))
+  let first = route.next_text_input(timeout_ms=0).unwrap().unwrap()
+  assert_true(first.kind() is @text_host.Preedit(text="a", cursor=1))
+  assert_eq(first.epoch(), epoch)
+  assert_eq(first.sequence(), 1L)
+  let commit = route.next_text_input(timeout_ms=0).unwrap().unwrap()
+  assert_true(commit.kind() is @text_host.Commit(text="ab"))
+  assert_eq(commit.epoch(), epoch)
+  assert_eq(commit.sequence(), 2L)
+  let focus = route.next_text_input(timeout_ms=0).unwrap().unwrap()
+  assert_true(focus.kind() is @text_host.FocusLost)
+  assert_eq(focus.window().value(), 1L)
+  assert_eq(focus.epoch(), epoch)
+  assert_eq(focus.sequence(), 3L)
+  assert_true(route.next_text_input(timeout_ms=0) is Ok(None))
+}
+
+///|
+test "text-first focus loss parks records once and preserves each observation" {
+  let (route, events) = focus_test_route()
+  let window = @platform.WindowId::new(1L)
+  let epoch = route.begin_text_input(window, 1UL).unwrap()
+  for
+    event in [
+      Platform(@platform.Event::new(window, 1L, 2.0, @platform.CloseRequested)),
+      Platform(
+        @platform.Event::new(window, 2L, 1.5, @platform.FocusChanged(false)),
+      ),
+      Platform(
+        @platform.Event::new(window, 3L, 1.25, @platform.FocusChanged(false)),
+      ),
+    ] {
+    events.push(event)
+  }
+  let first = route.next_text_input(timeout_ms=0).unwrap().unwrap()
+  assert_true(first.kind() is @text_host.FocusLost)
+  assert_eq(first.epoch(), epoch)
+  assert_eq(first.sequence(), 1L)
+  let close = route.next_platform_event(timeout_ms=0).unwrap().unwrap()
+  assert_eq(close.sequence(), 1L)
+  assert_eq(close.scale(), 2.0)
+  assert_true(close.kind() is @platform.CloseRequested)
+  let focus = route.next_platform_event(timeout_ms=0).unwrap().unwrap()
+  assert_eq(focus.sequence(), 2L)
+  assert_eq(focus.scale(), 1.5)
+  assert_true(focus.kind() is @platform.FocusChanged(false))
+  let second = route.next_text_input(timeout_ms=0).unwrap().unwrap()
+  assert_true(second.kind() is @text_host.FocusLost)
+  assert_eq(second.sequence(), 2L)
+  let focus = route.next_platform_event(timeout_ms=0).unwrap().unwrap()
+  assert_eq(focus.sequence(), 3L)
+  assert_eq(focus.scale(), 1.25)
+  assert_true(focus.kind() is @platform.FocusChanged(false))
+  assert_true(route.next_text_input(timeout_ms=0) is Ok(None))
+}
+
+///|
+test "inactive and foreign focus loss never reaches the text consumer" {
+  let (route, events) = focus_test_route()
+  let window = @platform.WindowId::new(1L)
+  let foreign = @platform.WindowId::new(2L)
+  for
+    event in [
+      Platform(
+        @platform.Event::new(window, 1L, 1.0, @platform.FocusChanged(false)),
+      ),
+    ] {
+    events.push(event)
+  }
+  assert_true(route.next_text_input(timeout_ms=0) is Ok(None))
+  assert_eq(
+    route.next_platform_event(timeout_ms=0).unwrap().unwrap().sequence(),
+    1L,
+  )
+  let epoch = route.begin_text_input(window, 1UL).unwrap()
+  for
+    event in [
+      Platform(
+        @platform.Event::new(foreign, 2L, 1.0, @platform.FocusChanged(false)),
+      ),
+      Platform(
+        @platform.Event::new(foreign, 3L, 1.0, @platform.FocusChanged(false)),
+      ),
+      Platform(
+        @platform.Event::new(window, 4L, 1.0, @platform.FocusChanged(true)),
+      ),
+    ] {
+    events.push(event)
+  }
+  assert_eq(
+    route.next_platform_event(timeout_ms=0).unwrap().unwrap().sequence(),
+    2L,
+  )
+  assert_true(route.next_text_input(timeout_ms=0) is Ok(None))
+  assert_eq(
+    route.next_platform_event(timeout_ms=0).unwrap().unwrap().sequence(),
+    3L,
+  )
+  assert_eq(
+    route.next_platform_event(timeout_ms=0).unwrap().unwrap().sequence(),
+    4L,
+  )
+  assert_true(route.next_text_input(timeout_ms=0) is Ok(None))
+  assert_true(route.end_text_input(epoch) is Ok(_))
+}
+
+///|
+test "cancel and end clear focus text while parked events survive rebegin" {
+  let (route, events) = focus_test_route()
+  let window = @platform.WindowId::new(1L)
+  let epoch = route.begin_text_input(window, 1UL).unwrap()
+  for
+    event in [
+      Platform(
+        @platform.Event::new(window, 1L, 1.0, @platform.FocusChanged(false)),
+      ),
+      Platform(
+        @platform.Event::new(window, 2L, 1.0, @platform.FocusChanged(false)),
+      ),
+      Platform(
+        @platform.Event::new(window, 3L, 1.0, @platform.FocusChanged(false)),
+      ),
+    ] {
+    events.push(event)
+  }
+  assert_eq(
+    route.next_platform_event(timeout_ms=0).unwrap().unwrap().sequence(),
+    1L,
+  )
+  let replacement = route.cancel_text_input(epoch).unwrap()
+  let focus = route.next_text_input(timeout_ms=0).unwrap().unwrap()
+  assert_true(focus.kind() is @text_host.FocusLost)
+  assert_eq(focus.epoch(), replacement)
+  assert_eq(focus.sequence(), 2L)
+  assert_true(route.end_text_input(replacement) is Ok(_))
+  let next = route.begin_text_input(window, 1UL).unwrap()
+  assert_eq(
+    route.next_platform_event(timeout_ms=0).unwrap().unwrap().sequence(),
+    2L,
+  )
+  assert_eq(
+    route.next_platform_event(timeout_ms=0).unwrap().unwrap().sequence(),
+    3L,
+  )
+  assert_true(route.end_text_input(next) is Ok(_))
+  let final_epoch = route.begin_text_input(window, 1UL).unwrap()
+  assert_true(route.next_text_input(timeout_ms=0) is Ok(None))
+  assert_true(route.end_text_input(final_epoch) is Ok(_))
+}
+
+///|
+test "both pumps propagate reader errors and requested timeouts" {
+  let calls : Array[Int32] = []
+  let route : TextHostRoute = {
+    host: { token: 0, stopped: false, },
+    editor_reader: Some(timeout => {
+      calls.push(timeout)
+      Err(
+        @diagnostics.FrameworkError::new(
+          @diagnostics.InvalidInput,
+          "fixture_reader",
+          subsystem="fixture",
+        ),
+      )
+    }),
+    queue: @text_host.TextHostQueue::new(),
+    native_epoch: 0,
+    owner: 0,
+    window: None,
+    started: false,
+  }
+  let epoch = route.begin_text_input(@platform.WindowId::new(1L), 1UL).unwrap()
+  match route.next_platform_event(timeout_ms=7) {
+    Err(error) => assert_eq(error.operation(), "fixture_reader")
+    _ => fail("platform pump must propagate the reader error")
+  }
+  match route.next_text_input(timeout_ms=9) {
+    Err(error) => assert_eq(error.operation(), "fixture_reader")
+    _ => fail("text pump must propagate the reader error")
+  }
+  assert_eq(calls.length(), 2)
+  assert_eq(calls[0], 7)
+  assert_eq(calls[1], 9)
+  assert_true(route.end_text_input(epoch) is Ok(_))
+}
