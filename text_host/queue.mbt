@@ -62,7 +62,6 @@ pub fn TextHostQueue::begin(
   self.window = Some(window)
   self.sequence = 0L
   self.text = []
-  self.parked = []
   self.failure = None
   self.state = None
   Ok(self.epoch)
@@ -105,7 +104,8 @@ pub fn TextHostQueue::cancel(
 }
 
 ///|
-/// Revoke the session. Repeated or stale epochs are `StaleHandle`.
+/// Revoke the session while retaining parked platform events. Repeated or stale
+/// epochs are `StaleHandle`.
 pub fn TextHostQueue::end(
   self : TextHostQueue,
   epoch : UInt64,
@@ -123,6 +123,7 @@ pub fn TextHostQueue::end(
 /// or host stop, where no further observation can be delivered.
 pub fn TextHostQueue::reset(self : TextHostQueue) -> Unit {
   self.clear()
+  self.parked = []
 }
 
 ///|
@@ -243,7 +244,6 @@ fn TextHostQueue::clear(self : TextHostQueue) -> Unit {
   self.window = None
   self.sequence = 0L
   self.text = []
-  self.parked = []
   self.failure = None
   self.state = None
 }

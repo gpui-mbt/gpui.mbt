@@ -128,6 +128,89 @@ test "text host queue bounds parking and survives cancel" {
   assert_true(bounded.end(bounded_epoch) is Ok(_))
   let reused = bounded.begin(window).unwrap()
   assert_true(reused > bounded_epoch)
+  assert_false(bounded.park(first))
+  for sequence in 1L..<1025L {
+    assert_eq(bounded.take_parked().unwrap().sequence(), sequence)
+  }
+  assert_true(bounded.take_parked() is None)
   assert_true(bounded.park(first))
-  assert_true(bounded.has_parked())
+  bounded.reset()
+  assert_true(bounded.take_parked() is None)
+}
+
+///|
+test "end preserves parked focus and input events across replacement sessions" {
+  let queue = @text_host.TextHostQueue::new()
+  let first_window = @platform.WindowId::new(1L)
+  let next_window = @platform.WindowId::new(2L)
+  let epoch = queue.begin(first_window).unwrap()
+  let document = @text.TextDocument::new("abc").unwrap()
+  let caret = @primitives.Rect::new(0.0, 0.0, 1.0, 16.0).unwrap()
+  ignore(
+    queue
+    .update(epoch, @text_host.TextInputState::new(document, caret))
+    .unwrap(),
+  )
+  assert_true(queue.emit(@text_host.Preedit(text="に", cursor=1)) is Ok(_))
+  assert_true(
+    queue.park(
+      @platform.Event::new(first_window, 8L, 1.0, @platform.FocusChanged(false)),
+    ),
+  )
+  assert_true(
+    queue.park(
+      @platform.Event::new(first_window, 9L, 1.0, @platform.CloseRequested),
+    ),
+  )
+  queue.fail(@diagnostics.UnsupportedCapability)
+  assert_true(queue.end(epoch) is Ok(_))
+  assert_false(queue.is_active())
+  assert_true(queue.state() is None)
+  assert_true(queue.failure() is None)
+  assert_true(queue.take_text() is None)
+  assert_true(queue.end(epoch) is Err(_))
+  let next = queue.begin(next_window).unwrap()
+  assert_true(next != epoch)
+  assert_true(queue.end(epoch) is Err(_))
+  assert_true(
+    queue.park(@platform.Event::new(next_window, 1L, 1.0, @platform.Created)),
+  )
+  let first = queue.take_parked().unwrap()
+  assert_eq(first.window().value(), 1L)
+  assert_eq(first.sequence(), 8L)
+  assert_true(first.kind() is @platform.FocusChanged(false))
+  let second = queue.take_parked().unwrap()
+  assert_eq(second.window().value(), 1L)
+  assert_eq(second.sequence(), 9L)
+  assert_true(second.kind() is @platform.CloseRequested)
+  let third = queue.take_parked().unwrap()
+  assert_eq(third.window().value(), 2L)
+  assert_eq(third.sequence(), 1L)
+  assert_true(queue.take_parked() is None)
+  assert_true(queue.end(next) is Ok(_))
+}
+
+///|
+test "parked events survive beginning sessions after inactive periods" {
+  let queue = @text_host.TextHostQueue::new()
+  let window = @platform.WindowId::new(1L)
+  assert_true(
+    queue.park(@platform.Event::new(window, 1L, 1.0, @platform.Created)),
+  )
+  let first = queue.begin(window).unwrap()
+  assert_true(
+    queue.park(
+      @platform.Event::new(window, 2L, 1.0, @platform.FocusChanged(false)),
+    ),
+  )
+  assert_true(queue.end(first) is Ok(_))
+  assert_true(
+    queue.park(@platform.Event::new(window, 3L, 1.0, @platform.CloseRequested)),
+  )
+  let second = queue.begin(window).unwrap()
+  for sequence in 1L..<4L {
+    assert_eq(queue.take_parked().unwrap().sequence(), sequence)
+  }
+  assert_true(queue.take_parked() is None)
+  assert_true(queue.end(second) is Ok(_))
 }

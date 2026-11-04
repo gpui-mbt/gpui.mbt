@@ -4,6 +4,12 @@
 
 ### Fixed
 
+- Reject stale Ubuntu/Windows text-session end requests before native teardown,
+  so an old owner cannot end the current owner's native session. Keep ordinary
+  platform events queued across text-session end and restart; applications can
+  still drain pending focus, key and resize events through `next_platform_event`.
+  Explicit route reset continues to discard all queued state.
+
 - Match pinned GPUI/Taffy f32 distributed main-axis placement in bounded
   device-grid zero-flex lines, including forward/reverse flow and wrapping.
   Preserve raw Double layout and large-extent fallback behavior; do not change

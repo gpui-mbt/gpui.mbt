@@ -245,6 +245,11 @@ pub impl @text_host.TextInputHost for TextHostRoute with fn end_text_input(
   self,
   epoch,
 ) {
+  if !self.queue.is_active() || epoch == 0UL || epoch != self.queue.epoch() {
+    return Err(
+      ubuntu_text_host_error(@diagnostics.StaleHandle, "end_text_input"),
+    )
+  }
   if self.started {
     match self.host.end_text_session(self.window.unwrap(), self.native_epoch) {
       Err(error) => return Err(error)
