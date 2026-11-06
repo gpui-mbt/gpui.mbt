@@ -39,12 +39,15 @@ post-M3.
 
 ## 2. Actual state to reconcile
 
-1. `text_session/` is merged and portable-tested, but no host or example imports
-   it. `platform.Backend` has no text-session method.
+1. `text_session/` is merged and portable-tested. The macOS host now
+   implements `text_host.TextInputHost` and `text_adapter/` consumes it into
+   `text_session`/`TextField`; Ubuntu, Windows and X11 have no host route yet.
+   `platform.Backend` is unchanged.
 2. `element.FocusScopeSession` exists as a portable modal controller, but no
    native Dialog consumes it.
-3. `accessibility/` has role/name/bounds and `Invoke` only; TextField value and
-   selection are not represented.
+3. `accessibility/` has role/name/bounds, `Invoke`, and bounded `TextField`/
+   `StaticText` value plus `TextField` selection. Native AX/UIA/AT-SPI mapping
+   and Dialog semantics remain open.
 4. macOS text input exists only in draft PRs #89/#107. Main has no
    `NSTextInputClient` bridge, and real Kotoeri acceptance is `NOT_RUN`.
 5. Ubuntu/Wayland has an opt-in text-input-v1 route; Windows has a private
@@ -65,7 +68,9 @@ See [the contract](../docs/text-host-contract.md).
 ### GP-02-L / GP-02-W / GP-02-M — per-OS routes
 
 Connect the existing Linux and Windows experimental routes through the host seam.
-Rebase and qualify the macOS draft. Each OS has its own evidence row; one OS
+The macOS route now implements the seam (synthetic AppKit evidence plus a
+forced-key-state focus case); real Kotoeri, real window focus and candidate
+placement remain `NOT_RUN`. Each OS has its own evidence row; one OS
 does not fill another. Real Japanese IME and candidate placement remain separate
 from build or synthetic-event success.
 

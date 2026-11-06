@@ -53,8 +53,11 @@ history checks do not yet qualify the new hosted GPU cases.
 This is not a general editor. Actual compositor-delivered typing into the field
 and Japanese IME remain unrun. The direct XKB/locale-Compose path is distinct
 from a public native TextInput/IME protocol. General bidi, rich text, color-glyph
-output, multi-cursor, drag/word selection and semantic accessibility remain
-missing or unqualified at their respective layers. See the
+output, multi-cursor, exact word segmentation and semantic accessibility remain
+missing or unqualified at their respective layers. The bounded field now has
+Option/Ctrl word navigation and word deletion, pointer drag selection, and
+double/triple-click selection when the host publishes
+`PointerButtonMultiClick`; Linux backends do not publish it yet. See the
 [field guide](linux-text-field.md) for the bounded implemented behavior and the
 [Linux text guide](linux-text.md#ubuntu-grayscale-scene-text) for frame limits.
 

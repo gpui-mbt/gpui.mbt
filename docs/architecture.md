@@ -36,11 +36,15 @@ optional MCP adapter ──> semantic capability + diagnostics
 migration host-service bridge ──> semantic capability + diagnostics
 
 target backend ──> platform API + renderer API + scene
+target backend ──optional text transport──> text_host
 target FFI     ──> native OS / graphics / text APIs
 
 primitives ──> MoonBit standard/core only
 text ─────────> MoonBit standard/core only
 text_layout ──> text + primitives + MoonBit standard/core
+text_host ──> platform + text + primitives + diagnostics
+text_session ──> platform + text + text_layout + controls/text_field
+text_adapter ──> text_host + text_session + controls/text_field + text + text_layout + platform + primitives + diagnostics
 platform/linux_text ──> text_layout + text + primitives + Linux PangoFT2/Fontconfig FFI
 ubuntu ──private raster ABI──> platform/linux_text
 ubuntu ──UTF-16 validation──> text
@@ -218,12 +222,18 @@ for FFI, build, font-fixture, and dependency/license boundaries.
 
 The reusable application layer adds `app -> platform/scene/diagnostics/primitives`
 and `platform/macos_app -> app/platform/platform/macos/platform/macos_text/
-controls/text_field/scene/text/text_layout/primitives/diagnostics`.
+controls/text_field/scene/text/text_adapter/text_host/text_layout/text_session/
+primitives/diagnostics`.
 `platform/testing` adds `primitives` and `scene` for deterministic frame and
 backend fixtures. The first macOS slice adds checked edges
 `platform -> primitives/diagnostics/scene`,
 `platform/macos -> platform/primitives/diagnostics/scene`, and
 `examples/native_macos -> platform/macos/platform/primitives/diagnostics/scene`.
+The optional text transport adds `platform/macos -> text_host`,
+`text_adapter -> text_host/text_session/controls/text_field/text/text_layout/
+platform/primitives/diagnostics`, and
+`examples/native_macos -> controls/text_field/platform/macos_app/text/
+text_adapter/text_layout/text_session`.
 The portable Backend trait includes frame submission in this first slice; a
 separate renderer interface is deferred. No reverse edge from core, element,
 layout, or scene to a backend is permitted. Native OS dependencies and ABI

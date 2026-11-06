@@ -11,7 +11,7 @@ Build GPUI-style user interfaces in MoonBit.
 - **Scene data** — ordered quads and bounded plain-text items, rectangle clip chains, affine transforms, opacity, and canonical `SceneSnapshot` data. The browser uses its system font; experimental Ubuntu, Windows, and macOS renderers draw documented grayscale subsets. macOS uses CoreText system sans for bounded single-line text; this does not add a general editor. The macOS host also exposes an opt-in bounded text-composition transport for external input methods.
 - **Linux text** — merged [PR #27](https://github.com/f4ah6o/gpui.mbt/pull/27) provides copied PangoFT2 measurement, caret, and hit-test geometry; Ubuntu's GLES host now also presents supported plain-text items through grayscale masks. This is not text input, an editor, or a general Linux support claim; see the [Linux text guide](docs/linux-text.md).
 - **Semantic capabilities** — one typed operation can be bound to GUI actions, direct MoonBit calls, and optional MCP dispatch with shared domain validation. A checked JavaScript stdio fixture exercises the pinned stateless MCP wire adapter.
-- **macOS** — an AppKit + Metal native host with windows, input, clipboard/cursors, scale/resize events, quad and bounded single-line grayscale text presentation, CoreText measurement, an opt-in bounded text-composition transport (`NSTextInputClient`), and an experimental renderer-recovery path. Real Japanese IME qualification remains pending.
+- **macOS** — an AppKit + Metal native host with windows, input, clipboard/cursors, scale/resize events, quad and bounded single-line grayscale text presentation, CoreText measurement, an opt-in bounded text-composition transport (`NSTextInputClient`), the optional `text_host` transport consumed by `text_adapter`, and an experimental renderer-recovery path. Real Japanese IME and window-focus qualification remain pending.
 - **Ubuntu / Wayland** — a Wayland + EGL/OpenGL ES 2 native host with window lifecycle, input, clipboard/cursor services, scale handling, quad presentation, and bounded grayscale text frames.
 - **Windows** — an experimental one-window Win32/D3D11 hardware-or-WARP slice with basic input, quad presentation, bounded grayscale text, a focused single-line text field, and a native fixture that reuses the shared Button model. The private IMM32 text-session ingress is opt-in and default-off; real Japanese IME and Button physical-input qualification remain open. See the [Windows native guide](docs/windows-native.md) and [Button fixture guide](docs/windows-button.md).
 - **Browser** — Weekboard, a small website-launch task board using the shared MoonBit app/layout/event/scene model and a Canvas 2D host, plus the retained interaction lab for service and lifecycle proofs.
@@ -129,13 +129,14 @@ Subscriptions are explicitly canceled with `unsubscribe`. Deterministic timer te
 | `layout/` | Deterministic flex layout and recursive layout trees |
 | `element/` | Element trees, hit testing, event routing, focus, scroll state, drag gestures, and element-to-scene bridging |
 | `controls/button/` | Shared enabled, loading, focus, keyboard/pointer activation, and scene-paint semantics |
-| `controls/text_field/` | Bounded single-line document/selection editing, composition transactions, undo/redo and paint items |
+| `controls/text_field/` | Bounded single-line document/selection editing, word navigation and deletion, pointer drag selection, double/triple-click word selection from host-published multi-click events, composition transactions, undo/redo and paint items |
 | `text_session/` | Live composition ownership, window/root/field generations, ordered preview/commit/cancel and observed end resolution |
 | `text_host/` | Optional native text transport: host-issued epochs, committed document, caret/candidate geometry and ordered events |
-| `accessibility/` | Portable semantic tree, node identities, roles, state and `Invoke` action validation |
+| `text_adapter/` | Portable glue between one `TextInputHost` and one live `TextSession`; validates epoch/window, maps observations to session operations, republishes the committed document and caret, and can apply an already-fetched observation after the caller re-binds the session |
+| `accessibility/` | Portable semantic tree, node identities, roles, state, bounded text value/selection for editable and static text, and `Invoke` action validation |
 | `scene/` | Quad paint commands, bounded text snapshot items, validation, canonical snapshots, transforms, opacity, and clips |
 | `platform/` | Portable backend/window/event contracts plus the macOS backend |
-| `platform/macos_app/` | Reusable macOS app-layer CoreText labels, TextField callbacks, cursor state and window startup |
+| `platform/macos_app/` | Reusable macOS app-layer CoreText labels, TextField callbacks, cursor state, window startup and the `MacosTextFieldHost` text-host integration |
 | `platform/windows_app/` | Reusable Windows app-layer DirectWrite labels, TextField callbacks, cursor state and window startup |
 | `ubuntu/` | Ubuntu Wayland/EGL/GLES2 native backend |
 | `x11/` | Experimental Xlib/EGL/GLES2 native backend |

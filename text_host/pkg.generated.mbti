@@ -56,7 +56,7 @@ pub fn TextPreedit::text(Self) -> String
 pub(open) trait TextInputHost {
   fn begin_text_input(Self, @platform.WindowId, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
   fn update_text_input(Self, UInt64, TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
-  fn cancel_text_input(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+  fn cancel_text_input(Self, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
   fn end_text_input(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
   fn next_text_input(Self, timeout_ms? : Int) -> Result[TextInputEvent?, @diagnostics.FrameworkError]
 }

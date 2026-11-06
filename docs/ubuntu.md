@@ -257,7 +257,9 @@ from the source-level proof and from later publication rebuilds. Held-repeat
 remains a pending reusable case; GPUI IME is explicitly skipped. These passes
 do not qualify every catalog case, physical devices or general desktop repeat
 accuracy. Japanese
-GPUI IME, general bidi and drag selection remain unimplemented/unqualified.
+GPUI IME, general bidi and compositor-qualified drag selection remain
+unimplemented/unqualified; the shared field has bounded pointer drag selection,
+but no Ubuntu compositor run qualifies it.
 Any GTK/IBus/Mozc conversion baseline qualifies only that environment, not
 GPUI IME. See the [exact-source qualification](native-input-qualification.json).
 The

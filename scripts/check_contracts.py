@@ -653,6 +653,12 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         # Optional native text transport above platform values. Hosts implement
         # it without changing the general Backend interface.
         "text_host": {"diagnostics", "platform", "primitives", "text"},
+        # Portable adapter from ordered host observations to the live session.
+        # It owns no native handle and keeps the field/history authority below.
+        "text_adapter": {
+            "controls/text_field", "diagnostics", "platform", "primitives",
+            "text", "text_host", "text_layout", "text_session",
+        },
         # Reusable button state stays portable above hit-testing and scene data.
         "controls/button": {"primitives", "element", "scene"},
         "controls/command_palette": {"text", "text_layout", "primitives", "element", "controls/text_field", "capability", "diagnostics", "scene"},
@@ -661,18 +667,24 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
         "layout": {"primitives"},
         "scene": {"primitives"},
         "platform": {"primitives", "diagnostics", "scene"},
-        "platform/macos": {"platform", "primitives", "diagnostics", "scene", "platform/testing"},
+        # The macOS backend implements the optional text-host transport without
+        # changing the general Backend interface.
+        "platform/macos": {
+            "platform", "primitives", "diagnostics", "scene", "platform/testing",
+            "text_host",
+        },
         "platform/linux_text": {"text_layout", "text", "primitives"},
         "platform/windows_text": {"text", "text_layout", "primitives"},
         # Native text measurers are platform leaves. The frame-readback seam is
         # portable in shape and depends only on the shared platform contract.
         "platform/macos_text": {"text_layout", "text", "primitives"},
         # Reusable macOS app-layer helpers above the backend: CoreText scene
-        # labels, TextField callbacks, cursor state and one-window startup.
+        # labels, TextField callbacks, the optional text-host integration,
+        # cursor state and one-window startup.
         "platform/macos_app": {
             "app", "controls/text_field", "diagnostics", "platform",
             "platform/macos", "platform/macos_text", "primitives", "scene",
-            "text", "text_layout",
+            "text", "text_adapter", "text_host", "text_layout", "text_session",
         },
         # Reusable Windows app-layer helpers above the backend: DirectWrite
         # scene labels and TextField callbacks, cursor state and window startup.
@@ -682,7 +694,11 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
             "text_layout",
         },
         "platform/testing": {"platform", "diagnostics", "primitives", "scene"},
-        "examples/native_macos": {"platform/macos", "platform", "primitives", "diagnostics", "scene"},
+        # The native sample also proves the reusable text-host helper end to end.
+        "examples/native_macos": {
+            "platform/macos", "platform", "primitives", "diagnostics", "scene",
+            "platform/macos_app", "text", "text_adapter", "text_host",
+        },
         "ubuntu": {
             "accessibility", "platform", "platform/linux_text", "platform/testing",
             "text", "primitives", "diagnostics", "scene",
@@ -718,7 +734,8 @@ def validate_runtime_dependencies(root: Path) -> list[str]:
             "capability", "controls/command_palette", "controls/text_field",
             "diagnostics", "element", "platform", "platform/macos",
             "platform/macos_text", "platform/testing", "primitives", "scene",
-            "text", "text_layout",
+            "text", "text_adapter", "text_host", "text_layout",
+            "text_session",
         },
         "examples/linux_text_field": {
             "ubuntu", "platform", "platform/linux_text", "controls/text_field",

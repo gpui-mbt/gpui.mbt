@@ -1,8 +1,11 @@
 # Native text host contract (GP-01B)
 
-Status: additive contract in `text_host/`. The package is headless; no native
-host implements it in this change. A host that provides the trait still needs an
-exact-source runtime profile before it can claim text or IME support.
+Status: additive contract in `text_host/`. The macOS AppKit host implements it
+and a portable `text_adapter/` consumes it; Ubuntu, Windows and X11 keep
+returning `UnsupportedCapability`. A host that provides the trait still needs an
+exact-source runtime profile before it can claim text or IME support. The macOS
+route has synthetic `NSTextInputClient` evidence only; real Kotoeri/IME stays
+`NOT_RUN`.
 
 ## Why this package exists
 
@@ -104,6 +107,84 @@ transactions. `text_host` does not add a second history, a second focus model,
 or a second text value model. UTF-16 remains the offset unit of
 `TextDocument`, `TextSelection` and the existing field API.
 
+## macOS route (GP-02-M)
+
+`platform/macos.Host` implements `TextInputHost`. Two additive native
+operations keep the transport single-owner:
+
+- op 22 takes the first queued composition frame for one window token (wait is
+  0-250 ms) and leaves every other queued event in order. With an active
+  session, composition frames therefore no longer appear on `next_event`; that
+  is the single-owner rule, and applications that never call the text API are
+  unaffected.
+- op 23 reports the AppKit key state for the window; `text_host` derives
+  `FocusLost` from it. A test-only op 24 forces the key state under
+  `GPUI_TESTING` + `GPUI_NATIVE_E2E=1`; it never changes the real window state.
+
+Boundary rules:
+
+- one live session per host; a second `begin_text_input` is `Busy`.
+- epochs start at 1, increase monotonically and are never reused, including
+  after a failed native enable. Every other epoch is `StaleHandle`.
+- `update_text_input` publishes the committed document boundary and the painted
+  caret; the caret is rounded outward to integer logical pixels for AppKit.
+  The committed document is not retained by the host: `text_session` stays the
+  only document authority.
+- `FocusLost` is reported at most once, only after the session observed key
+  focus, and carries a negative synthetic sequence that cannot collide with the
+  native per-window sequence.
+- `end_text_input` disables the client and drains at most 64 leftover
+  composition frames for that window, so a revoked transport leaves no
+  stragglers.
+- `Capability::TextInput` is advertised; `Capability::TextInputGeometry` is not,
+  because AppKit places the candidate window from the supplied caret rectangle
+  and no candidate geometry is reported back to the portable layer.
+
+Run the synthetic proof with `./script/test_macos.sh`; it prints
+`GPUI_MACOS_TEXT_HOST {...}` after preedit, commit, cancel, stale-epoch and
+forced focus-loss cases. Real keyboard focus acquisition, candidate placement
+and Japanese IME remain `NOT_RUN`.
+
+## Portable adapter (`text_adapter/`)
+
+`text_adapter` is the application-facing glue between one `TextInputHost` and
+one live `TextSession`:
+
+- `start_host_text(session, host, caret)` begins the transport and publishes
+  the current committed document and caret; a rejected handoff ends it again.
+- `receive_host_text(session, host, binding, measure, admit)` validates the
+  event window and epoch before the document, maps `Preedit` to a checked
+  `Preview`, applies `Commit`/`Cancel` through `TextSession::apply_batch`,
+  republishes the committed document and painted caret, returns `FocusLost`
+  after ending the transport, and treats `Geometry` as a caret update.
+- `end_host_text(session, host, binding)` revokes the binding; callers re-arm
+  with a fresh start after the next real focus.
+
+The adapter owns no document, history or focus model. It maps host failures and
+session rejections into distinct error variants so a caller cannot retag one as
+the other. `platform/macos_app.MacosTextFieldHost` wraps the adapter for
+one-call app integration: it creates the CoreText-backed field and session,
+starts the transport, applies pumped observations to its stored field, and
+reports a focus-loss or ended state. The host remains a caller-supplied value,
+so the helper is testable with a fixture transport.
+
+`text_adapter.apply_host_text_event` separates fetching an observation from
+applying it, so a host can re-bind the portable session to the current field
+before a preview starts. `examples/macos_command_palette --text-host` uses that
+split: it opens the palette, applies synthetic preedit/commit/cancel frames,
+install the resulting field through `CommandPalette::install_field`, and checks
+that the committed query filters the list and that cancel preserves it. This is
+transport evidence, not real IME qualification (`real_ime: NOT_RUN`). The
+sample's interactive ASCII key path is unchanged.
+
+Wiring composition into the live loop was attempted and reverted: with the text
+client enabled, the sample's palette loop observes the synthetic commit frame
+but no preview frame, so the adapter rejects the commit with
+`session_no_composition`. The host keeps only the newest composition frame, and
+the loop's event pump drains the generic queue between frames. A live
+composition path needs a dedicated frame pump (or a host-side composition
+queue) before it can be claimed.
+
 ## Evidence boundary
 
 This package has a transport fixture and headless tests only. They establish
@@ -114,8 +195,11 @@ profile:
 
 - Linux/Wayland: text-input-v1 + IBus/Mozc profile, including candidate panel.
 - Windows: IMM32 route, with real IME and UIA recorded separately.
-- macOS: NSTextInputClient route on Apple Silicon, with real Kotoeri composition
-  and blur/cancel evidence.
+- macOS: the NSTextInputClient route is implemented and synthetic start/update/
+  commit/cancel/focus-loss cases run in `./script/test_macos.sh`. The focus case
+  forces the key state through the test hook because the automation context
+  cannot take real keyboard focus. Real Kotoeri composition, candidate
+  placement, and window-activation focus remain `NOT_RUN`.
 
 Unavailable profiles remain `NOT_RUN`. Build-only or synthetic-event results do
 not become `PASS`.

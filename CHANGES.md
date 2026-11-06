@@ -9,6 +9,49 @@
   `platform.Backend` and `text_session/`, plus
   `Capability::TextInputGeometry`. The package is additive; existing hosts keep
   returning `UnsupportedCapability` until they implement it.
+- Implement `text_host.TextInputHost` for `@macos.Host`. The route issues
+  monotonic never-reused epochs, keeps one live session per host, accepts the
+  committed document boundary plus the outward-rounded painted caret, reports
+  `FocusLost` once after observed key focus, and revokes the epoch on end after
+  draining leftover composition frames. `Capability::TextInput` is now
+  advertised on macOS; `TextInputGeometry` is not.
+- Add the additive native operations 22 (take one queued composition frame for a
+  window without reordering other events) and 23 (report the AppKit key state),
+  plus the test-only op 24 used by the E2E harness to force the key state.
+- Add the portable `text_adapter/` package: `start_host_text`,
+  `receive_host_text` and `end_host_text` validate the event window/epoch, map
+  `Preedit`/`Commit`/`Cancel` through `TextSession::apply_batch`, republish the
+  committed document and caret, and return `FocusLost` after ending the
+  transport.
+- Add `examples/native_macos --text-host` and run it from
+  `script/test_macos.sh`; it prints `GPUI_MACOS_TEXT_HOST {...}` after synthetic
+  preedit, commit, cancel, stale-epoch and forced focus-loss cases.
+- Add bounded portable text values and selections to the semantic accessibility
+  tree: `NodeSpec::with_text`, `AccessibilityTextSelection`,
+  `SemanticNode::value`/`selection`, and the corresponding limits and typed
+  rejections. Only `TextField` may carry a selection; values are capped at 4,096
+  UTF-16 code units per node and 1,048,576 per snapshot.
+- Add word navigation and word deletion (Option-only on macOS, Ctrl-only plus
+  the existing shortcuts elsewhere) and pointer drag selection to the shared
+  `TextField`. Word boundaries use a documented bounded rule and snap to
+  measured cursor stops; double-click selection and full Unicode segmentation
+  remain out of scope.
+- Add `platform/macos_app.MacosTextFieldHost`, a reusable CoreText-backed
+  TextField/session transport wrapper (`start`, `pump`, `end`, `field`,
+  `binding`, `is_ended`), and move `examples/native_macos --text-host` onto it.
+- Add `text_adapter.apply_host_text_event` so a caller can re-bind the
+  portable session before applying an already-fetched observation.
+- Add a `--text-host` mode to the macOS command palette sample and run it from
+  `script/build_macos_command_palette.sh --e2e`. It applies synthetic
+  preedit/commit/cancel frames, installs the field through
+  `CommandPalette::install_field`, and checks query filtering; the interactive
+  ASCII path is unchanged and real IME remains unqualified.
+- Add `InputEvent::PointerButtonMultiClick` (position, button, modifiers,
+  click count) for double/triple clicks. `TextField` selects the word on count
+  2 and the whole document on count 3; macOS publishes the variant from
+  `NSEvent.clickCount` and gains `post_test_click_count` for E2E. Linux and
+  Windows backends still send ordinary presses. Exhaustive `InputEvent` matches
+  need a new arm.
 
 ## 0.10.1 - 2026-10-20
 
@@ -30,6 +73,13 @@
 
 ### Changed
 
+- The macOS composition caret handoff now rounds fractional logical extents
+  outward instead of rejecting them, so a painted `TextField` caret can be sent
+  without a caller-side pixel conversion.
+- While a macOS text session is active, composition frames are owned by the
+  text route: `next_text_input` removes them from the shared queue and
+  `next_event` no longer delivers them. Applications that never call the text
+  API keep the previous behavior.
 - Windows `Host::next_event` and `Host::dispatch` decode composition records
   without changing the typed editor FIFO. The portable composition session and
   `GPUI_WINDOWS_FIELD_IME` editor session cannot both be armed; the second
@@ -58,6 +108,10 @@
   must enable it explicitly and keep the logical caret rectangle current for
   candidate placement. Exhaustive `EventKind` matches already needed a
   `Composition` arm since 0.10.0.
+- A macOS application that starts a text-host session owns that window's
+  composition frames and must not also apply `EventKind::Composition` values.
+  There is one text session per host; a second `begin_text_input` returns
+  `Busy`. Real Japanese IME and real window-focus acquisition remain `NOT_RUN`.
 - The public `TextInput` and `DirectKeyboardText` capabilities are unchanged;
   do not infer text-input support from composition availability.
 - Composition and full `EditorEvent` sessions are mutually exclusive. Use

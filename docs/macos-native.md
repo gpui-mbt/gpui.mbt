@@ -14,7 +14,7 @@ On macOS 13 or newer, install the pinned MoonBit toolchain from
 ./script/build_and_run.sh --build  # build _build/macos/GpuiNative.app
 ./script/build_and_run.sh --smoke  # MoonBit lifecycle + frame smoke
 ./script/build_and_run.sh --test-hooks # build opt-in native E2E host hooks
-./script/test_macos.sh             # native GPU/input/lifecycle E2E + smoke
+./script/test_macos.sh             # native GPU/input/lifecycle/text-host E2E + smoke
 ```
 
 Moon runs the module pre-build configuration for native and LLVM builds, so
@@ -41,8 +41,10 @@ load AppKit.
 
 `app/` provides the portable `WindowView`/`run_window` loop, `scene.SceneBuilder`
 provides deterministic scene composition, and `platform/macos_app/` provides
-CoreText scene labels, TextField measure/admit/hit callbacks, cursor state and a
-one-window startup helper. `script/build_macos_app.sh` packages a MoonBit package
+CoreText scene labels, TextField measure/admit/hit callbacks, cursor state, a
+one-window startup helper, and `MacosTextFieldHost`, which wires one focused
+`TextField` to the optional `text_host` transport through `text_adapter` while
+keeping the host supplied by the caller. `script/build_macos_app.sh` packages a MoonBit package
 as a `.app` bundle and can run the opt-in synthetic smoke flow. See
 [Reusable native application runtime](app-runtime.md) for the API and limits.
 These helpers do not add a general editor, native menus, or a general
@@ -52,7 +54,9 @@ composition transport described below.
 ## Implemented boundary
 
 `platform.Backend` is the portable initial interface. `platform/macos.Host`
-implements it, with a target-specific startup factory. `require_capability` returns UnsupportedCapability for text input, accessibility,
+implements it, with a target-specific startup factory, and additionally
+implements `text_host.TextInputHost`. `require_capability` reports text input
+and returns UnsupportedCapability for text-input geometry, accessibility,
 menus, renderer recovery, and cross-thread commands. A target-specific
 `recover_renderer` operation can rebuild Metal device/queue/pipeline state and
 rebind live layers; recovery capability remains unadvertised until hosted Metal
@@ -64,14 +68,15 @@ scene, and application event values contain no OS or GPU pointers.
 | start / stop | Main-thread only; duplicate start is Busy; stop is idempotent; failed GPU setup rolls back; a host epoch rejects handles from earlier starts. |
 | create / title / size | Atomic logical token publication, owned UTF-8 title including embedded NUL, finite bounded content size, multiple windows. |
 | close / destroy | Close requests await application policy. Destruction drops pending callbacks for the token, releases the surface before the window, and enqueues a terminal event. Tokens are monotonic and never reused. |
-| next_event | Bounded 0–250 ms wait; per-window monotonic sequence, captured scale, logical pointer positions, focus/move/resize/backing-scale notifications, portable control/character keys and AppKit scroll-wheel events. Scroll deltas preserve `NSEvent.scrollingDeltaX/Y`: precise values are points and non-precise values are line/row counts; the backend does not normalize units. |
+| next_event | Bounded 0–250 ms wait; per-window monotonic sequence, captured scale, logical pointer positions, focus/move/resize/backing-scale notifications, portable control/character keys and AppKit scroll-wheel events. Repeated mouse-downs publish `PointerButtonMultiClick` with the AppKit click count; ordinary presses stay `PointerButtonPressed`. Scroll deltas preserve `NSEvent.scrollingDeltaX/Y`: precise values are points and non-precise values are line/row counts; the backend does not normalize units. |
 | wake / request_exit | UI-owner wake event and quiescing transition; new windows are rejected after exit is requested. Cross-thread enqueue is still pending. |
 | present | SceneSnapshot v1 quads plus bounded single-line `text` and `text_run` items, affine transforms, opacity, ordered rectangle clip chains, paint order and alpha blending. Text uses CoreText system sans and CoreGraphics grayscale coverage at the drawable scale; font sizes are limited to 32 points, multiline, bidirectional, unsupported/color glyphs and unknown item kinds return typed errors. |
 | text measurement | `platform/macos_text.measure` copies CoreText logical/ink bounds, ascent and scalar caret geometry into `TextMeasurement`. Use the system sans family (`"sans"`) at the same logical size used for rendering. |
 | metrics | Current logical size and backing scale; sampled before presenting to avoid using old queued resize metadata for a current drawable. |
 | display snapshot | `Host::display_snapshot()` returns a copied list capped at 16 screens. Full and visible frames use AppKit global screen points; mode dimensions are CoreGraphics pixels, scale is backing pixels per point, and refresh is optional when CoreGraphics reports no rate. Entries mark the primary screen and, when present, the screen containing a GPUI key window. Ordering is temporary and display IDs are not exposed. The call returns `Busy` if the screen set changes during sampling, `ResourceExhausted` above the cap, and `NativeFailure` when a CoreGraphics mode query fails. This is an on-demand, non-atomic snapshot with no display-change event. |
 | clipboard / cursor | UTF-8 string clipboard and arrow/pointing-hand/text cursors. Clipboard busy/conversion failures are typed. Native E2E uses a unique private pasteboard for roundtrip checks and dispatches each supported cursor kind; it does not read or replace the user's General Pasteboard. |
-| text composition | `set_text_composition` enables a per-window `NSTextInputClient`; non-Command keys then go through `interpretKeyEvents`. `start`/`update`/`commit`/`cancel` are published as `EventKind::Composition`, with preedit text and a UTF-16 cursor. `set_text_composition_caret` supplies the logical caret rectangle used by `firstRectForCharacterRange` for candidate placement. `finish_text_composition` commits or cancels marked text explicitly. Preedit is capped at 16,384 UTF-16 units and commit at 65,536; malformed or oversized frames return typed errors. Enter commits marked text without a second application key event, and Escape cancels it without forwarding Escape. Composition is off by default; Windows/Linux IME is not included. |
+| text composition | `set_text_composition` enables a per-window `NSTextInputClient`; non-Command keys then go through `interpretKeyEvents`. `start`/`update`/`commit`/`cancel` are published as `EventKind::Composition`, with preedit text and a UTF-16 cursor. `set_text_composition_caret` supplies the logical caret rectangle used by `firstRectForCharacterRange` for candidate placement; fractional painted sizes are rounded outward to integer logical pixels at the host boundary. `finish_text_composition` commits or cancels marked text explicitly. Preedit is capped at 16,384 UTF-16 units and commit at 65,536; malformed or oversized frames return typed errors. Enter commits marked text without a second application key event, and Escape cancels it without forwarding Escape. Composition is off by default; Windows/Linux IME is not included. |
+| text host | `Host` implements `text_host.TextInputHost`: `begin`/`update`/`cancel`/`end`/`next`. One session per host; monotonic never-reused epochs; `update` publishes the committed document boundary and the outward-rounded painted caret; native op 22 takes one queued composition frame per window token and op 23 reports the AppKit key state, so an active session is the single owner of composition frames. `FocusLost` is reported once after observed focus with a negative synthetic sequence. `end` disables the client and drains at most 64 leftover frames. `Capability::TextInput` is advertised; `TextInputGeometry` is not. Portable glue lives in `text_adapter/`. |
 | renderer recovery | Explicitly rebuilds the shared Metal device, queue and pipeline and rebinds every live `CAMetalLayer`, preserving logical window identities. Automatic recovery remains unimplemented. |
 
 Geometry remains logical until the native boundary. `CAMetalLayer.drawableSize`
@@ -124,7 +129,9 @@ as bounded top-left RGBA8. `Host::post_test_click` and
 `Host::post_test_escape` send scoped NSEvents through the owned NSWindow for
 autonomous app-loop validation; they require the `--test-hooks` dylib and are
 not physical hardware input. `Host::post_test_composition` drives the real
-`setMarkedText`/`insertText`/`unmarkText` callbacks. The native E2E checks
+`setMarkedText`/`insertText`/`unmarkText` callbacks, and
+`Host::post_test_focus` forces the key state the text route consults without
+changing real AppKit activation. The native E2E checks
 start/update/commit/cancel, a printable key routed through `interpretKeyEvents`,
 and Enter/Escape resolution without duplicate application keys. A real-Kotoeri
 run is opt-in (`GPUI_MACOS_REAL_IME=1`) and was not completed in the headless
@@ -145,6 +152,23 @@ round-trips UTF-8 through a unique private pasteboard; cursor smoke exercises
 the three supported native cursor selections and unsupported-tag handling.
 General Pasteboard exchange and visible cursor confirmation remain open. The
 tests do not establish bounded memory over sustained churn.
+
+`script/build_macos_command_palette.sh --e2e` also runs a
+`--text-host` palette mode: synthetic preedit/commit/cancel frames go through
+the text host, the accepted field is installed with
+`CommandPalette::install_field`, and the committed query must filter the list.
+The sample's interactive ASCII path is unchanged and real IME remains `NOT_RUN`;
+wiring composition into the live event loop is not done because the loop
+observes no preview frame, only the commit (see `docs/text-host-contract.md`).
+
+`examples/native_macos --text-host` (run by `script/test_macos.sh`) drives the
+MoonBit transport on a real AppKit window: it starts a session, posts synthetic
+`NSTextInputClient` start/update/commit/cancel frames, applies them through
+`text_session`/`TextField`, rejects a stale epoch, forces a focus loss through the
+`GPUI_TESTING` key-state hook, and ends the transport. It prints
+`GPUI_MACOS_TEXT_HOST {...}` with `real_ime: "NOT_RUN"` and
+`real_window_focus: "NOT_RUN"`; the automation context cannot take real keyboard
+focus and the hook does not change the real AppKit key state.
 
 The MoonBit smoke executable uses the portable Backend interface and checks
 creation, two completed GPU frames, resize, close request, destruction and event

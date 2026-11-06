@@ -218,6 +218,15 @@ Unicode scalar boundaries; surrogate-interior and UTF-8 scalar-interior offsets
 are rejected. These helpers do not establish grapheme segmentation, a native
 IME session, or live document/session ownership.
 
+A native host may additionally implement the optional `text_host/` transport
+(`begin`/`update`/`cancel`/`end`/`next`) without changing `platform.Backend`.
+The portable `text_adapter/` maps those ordered observations into the existing
+`text_session/` transactions and the `controls/text_field/` value model, so the
+transport owns no second document, history or focus model. macOS implements the
+route over `NSTextInputClient`; Ubuntu, Windows and X11 continue to return
+`UnsupportedCapability`. Synthetic macOS evidence is not Japanese IME
+qualification. See [the text host contract](text-host-contract.md).
+
 The UTF-8 range paragraph below is the **M0 design target**, not the implemented
 public offset contract. UTF-8 text bytes at an FFI/wire boundary do not change
 the units of existing MoonBit range values. Keep conversion explicit against
