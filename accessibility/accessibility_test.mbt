@@ -500,3 +500,189 @@ test "accessibility bounds node count depth and snapshot text" {
     _ => assert_true(false)
   }
 }
+
+///|
+fn accessibility_test_field(
+  key : UInt64,
+  parent_key : UInt64,
+  value : String,
+  selection : @accessibility.AccessibilityTextSelection?,
+) -> @accessibility.NodeSpec {
+  @accessibility.NodeSpec::new(
+    key,
+    Some(parent_key),
+    @accessibility.TextField,
+    "Name",
+    accessibility_test_bounds(),
+  )
+  .with_text(value, selection)
+  .unwrap()
+}
+
+///|
+test "text value and selection are committed and copied" {
+  let model = @accessibility.AccessibilityModel::new().unwrap()
+  let selection = @accessibility.AccessibilityTextSelection::new(3, 6).unwrap()
+  let snapshot = model
+    .publish([
+      accessibility_test_root(1UL),
+      accessibility_test_field(2UL, 1UL, "日本語abc", Some(selection)),
+    ])
+    .unwrap()
+  let node = snapshot.nodes()[1]
+  match node.value() {
+    Some(value) => assert_eq(value, "日本語abc")
+    None => assert_true(false)
+  }
+  match node.selection() {
+    Some(current) => {
+      assert_eq(current.anchor(), 3)
+      assert_eq(current.head(), 6)
+    }
+    None => assert_true(false)
+  }
+  // A node without text publishes neither field.
+  assert_true(node_without_text_value_is_none())
+}
+
+///|
+fn node_without_text_value_is_none() -> Bool {
+  let model = @accessibility.AccessibilityModel::new().unwrap()
+  let snapshot = model
+    .publish([
+      accessibility_test_root(1UL),
+      accessibility_test_button(2UL, 1UL, "Save"),
+    ])
+    .unwrap()
+  snapshot.nodes()[1].value() is None && snapshot.nodes()[1].selection() is None
+}
+
+///|
+test "static text accepts a value but not a selection" {
+  let label = @accessibility.NodeSpec::new(
+    2UL,
+    Some(1UL),
+    @accessibility.StaticText,
+    "Label",
+    accessibility_test_bounds(),
+  )
+  assert_true(label.with_text("hello", None) is Ok(_))
+  let selection = @accessibility.AccessibilityTextSelection::new(0, 1).unwrap()
+  assert_true(
+    label.with_text("hello", Some(selection))
+    is Err(@accessibility.SelectionNotAllowed),
+  )
+}
+
+///|
+test "values are limited to editable and static text roles" {
+  let button = accessibility_test_button(2UL, 1UL, "Save")
+  assert_true(
+    button.with_text("x", None) is Err(@accessibility.ValueNotAllowed),
+  )
+  let list = @accessibility.NodeSpec::new(
+    2UL,
+    Some(1UL),
+    @accessibility.List,
+    "Items",
+    accessibility_test_bounds(),
+  )
+  assert_true(list.with_text("x", None) is Err(@accessibility.ValueNotAllowed))
+}
+
+///|
+test "value and selection bounds are checked" {
+  let field = @accessibility.NodeSpec::new(
+    2UL,
+    Some(1UL),
+    @accessibility.TextField,
+    "Name",
+    accessibility_test_bounds(),
+  )
+  let too_long = "a".repeat(@accessibility.max_value_units + 1)
+  assert_true(
+    field.with_text(too_long, None) is Err(@accessibility.ValueTooLong),
+  )
+  let outside = @accessibility.AccessibilityTextSelection::new(3, 3).unwrap()
+  assert_true(
+    field.with_text("ab", Some(outside)) is Err(@accessibility.InvalidSelection),
+  )
+  assert_true(
+    @accessibility.AccessibilityTextSelection::new(-1, 0)
+    is Err(@accessibility.InvalidSelection),
+  )
+  let empty = @accessibility.AccessibilityTextSelection::new(0, 0).unwrap()
+  assert_true(field.with_text("", Some(empty)) is Ok(_))
+}
+
+///|
+test "snapshot value budget is enforced" {
+  let model = @accessibility.AccessibilityModel::new().unwrap()
+  let bounded = "x".repeat(@accessibility.max_value_units)
+  let specs : Array[@accessibility.NodeSpec] = [accessibility_test_root(1UL)]
+  let mut index = 0
+  while index < 257 {
+    specs.push(
+      accessibility_test_field(index.to_uint64() + 2UL, 1UL, bounded, None),
+    )
+    index += 1
+  }
+  match model.publish(specs) {
+    Err(@accessibility.SnapshotValueTooLong) => ()
+    _ => assert_true(false)
+  }
+  // One fewer full-size value fits inside the snapshot budget.
+  let fitting : Array[@accessibility.NodeSpec] = [accessibility_test_root(1UL)]
+  index = 0
+  while index < 256 {
+    fitting.push(
+      accessibility_test_field(index.to_uint64() + 2UL, 1UL, bounded, None),
+    )
+    index += 1
+  }
+  assert_true(model.publish(fitting) is Ok(_))
+}
+
+///|
+test "text updates keep node identity and replace the value" {
+  let model = @accessibility.AccessibilityModel::new().unwrap()
+  let first = model
+    .publish([
+      accessibility_test_root(1UL),
+      accessibility_test_field(2UL, 1UL, "one", None),
+    ])
+    .unwrap()
+  let original = first.nodes()[1].id()
+  let selection = @accessibility.AccessibilityTextSelection::new(2, 2).unwrap()
+  let second = model
+    .publish([
+      accessibility_test_root(1UL),
+      accessibility_test_field(2UL, 1UL, "two", Some(selection)),
+    ])
+    .unwrap()
+  assert_true(second.nodes()[1].id() == original)
+  match second.nodes()[1].value() {
+    Some(value) => assert_eq(value, "two")
+    None => assert_true(false)
+  }
+  match second.nodes()[1].selection() {
+    Some(current) => assert_eq(current.head(), 2)
+    None => assert_true(false)
+  }
+  // Removing the value in a later commit clears both fields.
+  let third = model
+    .publish([
+      accessibility_test_root(1UL),
+      @accessibility.NodeSpec::new(
+        2UL,
+        Some(1UL),
+        @accessibility.TextField,
+        "Name",
+        accessibility_test_bounds(),
+      ),
+    ])
+    .unwrap()
+  assert_true(third.nodes()[1].id() == original)
+  assert_true(third.nodes()[1].value() is None)
+  assert_true(third.nodes()[1].selection() is None)
+}

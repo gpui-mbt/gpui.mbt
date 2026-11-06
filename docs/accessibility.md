@@ -73,11 +73,30 @@ A platform adapter can issue its operating-system notification only after
 Reading or retaining an older snapshot is observational only and does not
 grant action authority.
 
-The current semantic fields are role, name, logical-point bounds, enabled,
-loading, focused, supported actions, parent, and ordered children. This first
-slice omits values, text ranges/selections/caret, live event notifications,
-native role mapping, and platform-specific state. Those can be added through
-compatible portable fields after separate design review.
+The semantic fields are role, name, logical-point bounds, enabled, loading,
+focused, supported actions, parent, and ordered children. Editable (`TextField`)
+and `StaticText` nodes can additionally carry a committed UTF-16 value through
+`NodeSpec::with_text`; only `TextField` may attach a directional UTF-16
+selection, and the selection must stay inside the value. The value is committed
+display text: a composition preview is never part of it. Composition ranges,
+caret geometry, live event notifications, native role mapping, and
+platform-specific state remain outside this slice.
+
+## Text value and selection rules
+
+- `NodeSpec::with_text(value, selection)` accepts `TextField` and `StaticText`
+  only; every other role returns `ValueNotAllowed`.
+- A value is capped at 4,096 UTF-16 code units per node and 1,048,576 code
+  units across one snapshot.
+- A selection is accepted only for `TextField`; `StaticText` and other roles
+  return `SelectionNotAllowed`.
+- `AccessibilityTextSelection::new(anchor, head)` rejects negative offsets, and
+  attaching it rejects offsets beyond the value (`InvalidSelection`).
+- The committed snapshot exposes `SemanticNode::value()` and
+  `SemanticNode::selection()`; both are copied values, and a node without text
+  returns `None`.
+- Native AX/UIA/AT-SPI value and selection mapping is not included; adapters
+  must map these portable fields to their own bounded native state.
 
 ## Bounds and action rules
 
@@ -87,6 +106,8 @@ The bounded contract is:
 - at most 256 levels, with the root counted as level 1
 - at most 4,096 MoonBit string units per name
 - at most 1,048,576 name units across one snapshot
+- at most 4,096 UTF-16 code units per node value
+- at most 1,048,576 value units across one snapshot
 - at most one supported action per node in this slice
 
 Only `Invoke` is implemented. Action support is distinct from current

@@ -14,7 +14,11 @@ pub let max_node_count : Int
 
 pub let max_snapshot_name_units : Int
 
+pub let max_snapshot_value_units : Int
+
 pub let max_tree_depth : Int
+
+pub let max_value_units : Int
 
 // Errors
 
@@ -40,6 +44,11 @@ pub(all) enum AccessibilityError {
   TooManyNodes
   NameTooLong
   SnapshotTextTooLong
+  ValueNotAllowed
+  SelectionNotAllowed
+  InvalidSelection
+  ValueTooLong
+  SnapshotValueTooLong
   DuplicateAction
   TooManyActions
   MultipleFocusedNodes
@@ -85,6 +94,16 @@ pub fn AccessibilitySnapshot::node(Self, NodeId) -> SemanticNode?
 pub fn AccessibilitySnapshot::nodes(Self) -> Array[SemanticNode]
 pub fn AccessibilitySnapshot::revision(Self) -> UInt64
 
+pub(all) struct AccessibilityTextSelection {
+  anchor : Int
+  head : Int
+} derive(Eq)
+pub fn AccessibilityTextSelection::anchor(Self) -> Int
+pub fn AccessibilityTextSelection::equal(Self, Self) -> Bool
+pub fn AccessibilityTextSelection::head(Self) -> Int
+pub fn AccessibilityTextSelection::new(Int, Int) -> Result[Self, AccessibilityError]
+pub fn AccessibilityTextSelection::not_equal(Self, Self) -> Bool
+
 pub(all) enum ActionError {
   ForeignOwner
   StaleNode
@@ -123,6 +142,7 @@ pub fn NodeSpec::with_actions(Self, Array[AccessibilityAction]) -> Result[Self, 
 pub fn NodeSpec::with_enabled(Self, Bool) -> Self
 pub fn NodeSpec::with_focused(Self, Bool) -> Self
 pub fn NodeSpec::with_loading(Self, Bool) -> Self
+pub fn NodeSpec::with_text(Self, String, AccessibilityTextSelection?) -> Result[Self, AccessibilityError]
 
 pub struct SemanticNode {
   // private fields
@@ -136,7 +156,9 @@ pub fn SemanticNode::is_loading(Self) -> Bool
 pub fn SemanticNode::name(Self) -> String
 pub fn SemanticNode::parent(Self) -> NodeId?
 pub fn SemanticNode::role(Self) -> AccessibilityRole
+pub fn SemanticNode::selection(Self) -> AccessibilityTextSelection?
 pub fn SemanticNode::supported_actions(Self) -> Array[AccessibilityAction]
+pub fn SemanticNode::value(Self) -> String?
 
 // Type aliases
 

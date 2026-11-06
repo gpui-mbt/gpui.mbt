@@ -46,6 +46,11 @@ pub(all) enum AccessibilityError {
   TooManyNodes
   NameTooLong
   SnapshotTextTooLong
+  ValueNotAllowed
+  SelectionNotAllowed
+  InvalidSelection
+  ValueTooLong
+  SnapshotValueTooLong
   DuplicateAction
   TooManyActions
   MultipleFocusedNodes
@@ -94,6 +99,47 @@ pub fn NodeId::key(self : NodeId) -> UInt64 {
 }
 
 ///|
+/// A directional UTF-16 selection inside a node's bounded text value. Offsets
+/// are code-unit indices, matching the portable text model; the anchor is where
+/// the selection started and the head is the active end. The committed value is
+/// the committed document text, not a composition preview.
+pub(all) struct AccessibilityTextSelection {
+  anchor : Int32
+  head : Int32
+} derive(Eq)
+
+///|
+pub extend AccessibilityTextSelection with Eq::{not_equal, equal}
+
+///|
+/// Construct a non-negative selection. The value-length check happens when the
+/// selection is attached to a node, because the node owns the value.
+pub fn AccessibilityTextSelection::new(
+  anchor : Int32,
+  head : Int32,
+) -> Result[AccessibilityTextSelection, AccessibilityError] {
+  if anchor < 0 || head < 0 {
+    Err(InvalidSelection)
+  } else {
+    Ok({ anchor, head, })
+  }
+}
+
+///|
+pub fn AccessibilityTextSelection::anchor(
+  self : AccessibilityTextSelection,
+) -> Int32 {
+  self.anchor
+}
+
+///|
+pub fn AccessibilityTextSelection::head(
+  self : AccessibilityTextSelection,
+) -> Int32 {
+  self.head
+}
+
+///|
 /// A portable node description using a caller-owned key for continuity across
 /// adjacent commits. Parent keys refer to an earlier ancestor in pre-order.
 pub struct NodeSpec {
@@ -106,6 +152,8 @@ pub struct NodeSpec {
   priv loading : Bool
   priv focused : Bool
   priv actions : Array[AccessibilityAction]
+  priv value : String?
+  priv selection : AccessibilityTextSelection?
 }
 
 ///|
@@ -126,6 +174,8 @@ pub fn NodeSpec::new(
     loading: false,
     focused: false,
     actions: [],
+    value: None,
+    selection: None,
   }
 }
 
@@ -176,6 +226,37 @@ pub fn NodeSpec::with_actions(
 }
 
 ///|
+/// Attach the committed text value and optional selection. Values are bounded
+/// and allowed only for `TextField` and `StaticText`; a selection is allowed
+/// only for `TextField` and must stay inside the value. The value is UTF-16
+/// code units, matching the portable text model.
+pub fn NodeSpec::with_text(
+  self : NodeSpec,
+  value : String,
+  selection : AccessibilityTextSelection?,
+) -> Result[NodeSpec, AccessibilityError] {
+  if self.role != TextField && self.role != StaticText {
+    return Err(ValueNotAllowed)
+  }
+  if value.length() > max_value_units {
+    return Err(ValueTooLong)
+  }
+  match selection {
+    None => ()
+    Some(current) =>
+      if self.role != TextField {
+        return Err(SelectionNotAllowed)
+      } else if current.anchor < 0 ||
+        current.head < 0 ||
+        current.anchor > value.length() ||
+        current.head > value.length() {
+        return Err(InvalidSelection)
+      }
+  }
+  Ok({ ..self, value: Some(value), selection, })
+}
+
+///|
 /// One immutable semantic node in a committed snapshot.
 pub struct SemanticNode {
   priv id : NodeId
@@ -188,6 +269,8 @@ pub struct SemanticNode {
   priv loading : Bool
   priv focused : Bool
   priv actions : Array[AccessibilityAction]
+  priv value : String?
+  priv selection : AccessibilityTextSelection?
 }
 
 ///|
@@ -242,6 +325,22 @@ pub fn SemanticNode::supported_actions(
   self : SemanticNode,
 ) -> Array[AccessibilityAction] {
   copy_actions(self.actions)
+}
+
+///|
+/// The committed text value for an editable or static-text node. The value is
+/// copied display text; a composition preview is never part of it.
+pub fn SemanticNode::value(self : SemanticNode) -> String? {
+  self.value
+}
+
+///|
+/// The directional UTF-16 selection inside `value`, when the node is an
+/// editable text field and the owner published one.
+pub fn SemanticNode::selection(
+  self : SemanticNode,
+) -> AccessibilityTextSelection? {
+  self.selection
 }
 
 ///|
@@ -349,6 +448,14 @@ pub let max_tree_depth : Int32 = 256
 
 ///|
 pub let max_name_units : Int32 = 4096
+
+///|
+/// Maximum UTF-16 code units in one node value.
+pub let max_value_units : Int32 = 4096
+
+///|
+/// Maximum UTF-16 code units across all node values in one snapshot.
+pub let max_snapshot_value_units : Int32 = 1_048_576
 
 ///|
 pub let max_snapshot_name_units : Int32 = 1_048_576
@@ -505,6 +612,8 @@ pub fn AccessibilityModel::publish(
             loading: spec.loading,
             focused: spec.focused,
             actions: copy_actions(spec.actions),
+            value: spec.value,
+            selection: spec.selection,
           })
         }
         index += 1
@@ -642,6 +751,7 @@ fn validate_specs(specs : Array[NodeSpec]) -> Result[Unit, AccessibilityError] {
   let mut roots = 0
   let mut focused = 0
   let mut total_name_units = 0
+  let mut total_value_units = 0
   let mut ancestors : Array[UInt64] = []
   let mut index = 0
   while index < specs.length() {
@@ -663,6 +773,34 @@ fn validate_specs(specs : Array[NodeSpec]) -> Result[Unit, AccessibilityError] {
     total_name_units += name_units
     if total_name_units > max_snapshot_name_units {
       return Err(SnapshotTextTooLong)
+    }
+    match spec.value {
+      None => if spec.selection is Some(_) { return Err(InvalidSelection) }
+      Some(text) => {
+        if spec.role != TextField && spec.role != StaticText {
+          return Err(ValueNotAllowed)
+        }
+        let value_units = text.length()
+        if value_units > max_value_units {
+          return Err(ValueTooLong)
+        }
+        total_value_units += value_units
+        if total_value_units > max_snapshot_value_units {
+          return Err(SnapshotValueTooLong)
+        }
+        match spec.selection {
+          None => ()
+          Some(selection) =>
+            if spec.role != TextField {
+              return Err(SelectionNotAllowed)
+            } else if selection.anchor < 0 ||
+              selection.head < 0 ||
+              selection.anchor > value_units ||
+              selection.head > value_units {
+              return Err(InvalidSelection)
+            }
+        }
+      }
     }
     if spec.focused {
       focused += 1
