@@ -452,6 +452,174 @@ fn MacPaletteSession::blur(
 }
 
 ///|
+/// Composition transport bound to the palette's search field. The binding
+/// epoch is stable for one palette-open window; the portable session is
+/// re-bound to the current field before a preview starts, so ordinary key
+/// edits never apply to a stale document.
+struct MacPaletteTextHost {
+  window : @platform.WindowId
+  root : UInt64
+  session : @text_session.TextSession
+  binding : @text_adapter.HostTextSession
+  mut field : @text_field.TextField
+}
+
+///|
+fn MacPaletteTextHost::start(
+  host : @macos.Host,
+  window : @platform.WindowId,
+  root : UInt64,
+  field : @text_field.TextField,
+) -> Result[MacPaletteTextHost, @diagnostics.FrameworkError] {
+  let caret = match field.caret_rect() {
+    Ok(value) => value
+    Err(_) =>
+      return Err(
+        mac_palette_error(
+          "palette_text_host_caret", "the search field refused caret geometry",
+        ),
+      )
+  }
+  let session = match @text_session.TextSession::new(window, root, field) {
+    Ok(value) => value
+    Err(_) =>
+      return Err(
+        mac_palette_error(
+          "palette_text_host_session", "the session rejected the search field",
+        ),
+      )
+  }
+  let binding = match @text_adapter.start_host_text(session, host, caret) {
+    Ok(value) => value
+    Err(_) =>
+      return Err(
+        mac_palette_error(
+          "palette_text_host_start", "the host refused text input",
+        ),
+      )
+  }
+  Ok({ window, root, session, binding, field, })
+}
+
+///|
+fn MacPaletteTextHost::field(
+  self : MacPaletteTextHost,
+) -> @text_field.TextField {
+  self.field
+}
+
+///|
+fn MacPaletteTextHost::binding(
+  self : MacPaletteTextHost,
+) -> @text_adapter.HostTextSession {
+  self.binding
+}
+
+///|
+fn mac_palette_text_error(error : @text_adapter.HostTextError) -> String {
+  match error {
+    @text_adapter.Session(@text_session.SessionError::Closed) =>
+      "session_closed"
+    @text_adapter.Session(@text_session.SessionError::StaleBinding) =>
+      "session_stale_binding"
+    @text_adapter.Session(@text_session.SessionError::StaleSession) =>
+      "session_stale_session"
+    @text_adapter.Session(@text_session.SessionError::StaleRevision) =>
+      "session_stale_revision"
+    @text_adapter.Session(@text_session.SessionError::CompositionActive) =>
+      "session_composition_active"
+    @text_adapter.Session(@text_session.SessionError::NoComposition) =>
+      "session_no_composition"
+    @text_adapter.Session(_) => "session"
+    @text_adapter.Host(failure) =>
+      failure.operation() +
+      ":" +
+      failure.code().label() +
+      ":" +
+      failure.message().unwrap_or("")
+    @text_adapter.Closed => "closed"
+    @text_adapter.StaleEpoch => "stale_epoch"
+    @text_adapter.StaleWindow => "stale_window"
+    @text_adapter.InvalidEvent => "invalid_event"
+  }
+}
+
+///|
+/// Fetch at most one observation. Before a preview starts, the session is
+/// re-bound to the current palette field so keyboard edits since the last
+/// observation cannot be overwritten.
+fn MacPaletteTextHost::pump(
+  self : MacPaletteTextHost,
+  host : @macos.Host,
+  current : @text_field.TextField,
+) -> Result[@text_adapter.HostTextOutcome, @diagnostics.FrameworkError] {
+  let event = match host.next_text_input(timeout_ms=0) {
+    Err(_) =>
+      return Err(
+        mac_palette_error(
+          "palette_text_host_read", "the host text queue failed",
+        ),
+      )
+    Ok(None) => return Ok(@text_adapter.Idle)
+    Ok(Some(value)) => value
+  }
+  // Only a preview may start from the current field. Commits and cancels must
+  // keep the session's own composition state, so they are never re-bound.
+  let session_field = self.session.snapshot().field()
+  let starts_preview = match event.kind() {
+    @text_host.Preedit(..) => true
+    _ => false
+  }
+  if starts_preview &&
+    !session_field.is_composing() &&
+    session_field.revision() != current.revision() {
+    match self.session.rebind(self.window, self.root, current) {
+      Err(_) =>
+        return Err(
+          mac_palette_error(
+            "palette_text_host_sync", "the session rejected the current field",
+          ),
+        )
+      Ok(_) => ()
+    }
+  }
+  match
+    @text_adapter.apply_host_text_event(
+      self.session,
+      host,
+      self.binding,
+      event,
+      mac_palette_measure,
+      mac_palette_admit,
+    ) {
+    Err(error) =>
+      Err(
+        mac_palette_error(
+          "palette_text_host_apply",
+          "the adapter rejected an observation: " +
+          mac_palette_text_error(error),
+        ),
+      )
+    Ok(outcome) => {
+      match outcome {
+        @text_adapter.Applied(receipt) =>
+          self.field = receipt.snapshot().field()
+        _ => ()
+      }
+      Ok(outcome)
+    }
+  }
+}
+
+///|
+fn MacPaletteTextHost::end(
+  self : MacPaletteTextHost,
+  host : @macos.Host,
+) -> Unit {
+  ignore(@text_adapter.end_host_text(self.session, host, self.binding))
+}
+
+///|
 fn MacPaletteSession::sync_metrics(
   self : MacPaletteSession,
   width : Double,

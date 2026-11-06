@@ -160,7 +160,7 @@ fn run(
 }
 
 ///|
-fn main {
+fn run_demo_mode() -> Unit {
   let smoke = @env.args().contains("--smoke")
   match @macos.Host::start() {
     Err(e) => abort("macOS startup: " + e.code().label())
@@ -189,5 +189,14 @@ fn main {
         Ok(_) => ()
       }
     }
+  }
+}
+
+///|
+fn main {
+  if @env.args().contains("--text-host") {
+    run_text_host_mode()
+  } else {
+    run_demo_mode()
   }
 }

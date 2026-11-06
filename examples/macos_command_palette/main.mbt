@@ -370,6 +370,246 @@ fn mac_palette_handle_event(
 }
 
 ///|
+fn mac_palette_apply_text(
+  host : @macos.Host,
+  session : MacPaletteSession,
+  holder : MacPaletteTextHost,
+) -> Result[Bool, @diagnostics.FrameworkError] {
+  match holder.pump(host, session.palette.field()) {
+    Err(error) => Err(error)
+    Ok(@text_adapter.Idle) => Ok(false)
+    Ok(@text_adapter.FocusLost) =>
+      Err(
+        mac_palette_error(
+          "palette_text_focus", "the transport lost focus during the case",
+        ),
+      )
+    Ok(@text_adapter.Applied(_)) =>
+      match session.palette.install_field(holder.field()) {
+        Ok(_) => Ok(true)
+        Err(_) =>
+          Err(
+            mac_palette_error(
+              "palette_text_install", "the palette rejected a composition field",
+            ),
+          )
+      }
+  }
+}
+
+///|
+fn mac_palette_wait_text(
+  host : @macos.Host,
+  session : MacPaletteSession,
+  holder : MacPaletteTextHost,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  let mut applied = false
+  for _ in 0..<64 {
+    match mac_palette_apply_text(host, session, holder) {
+      Err(error) => return Err(error)
+      Ok(true) => {
+        applied = true
+        break
+      }
+      Ok(false) => ignore(host.next_event(timeout_ms=4))
+    }
+  }
+  if !applied {
+    return Err(
+      mac_palette_error(
+        "palette_text_wait", "no composition observation arrived",
+      ),
+    )
+  }
+  Ok(())
+}
+
+///|
+fn mac_palette_text_host_cases(
+  host : @macos.Host,
+  window : @platform.WindowId,
+  session : MacPaletteSession,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  match session.palette.open(session.tree) {
+    Ok(_) => ()
+    Err(_) =>
+      return Err(
+        mac_palette_error(
+          "palette_text_open", "the shared palette refused to open",
+        ),
+      )
+  }
+  let holder = match
+    MacPaletteTextHost::start(host, window, 1UL, session.palette.field()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let binding = holder.binding()
+  let document = match @text.TextDocument::new("") {
+    Ok(value) => value
+    Err(_) =>
+      return Err(
+        mac_palette_error(
+          "palette_text_document", "empty document was rejected",
+        ),
+      )
+  }
+  let caret = match session.palette.field().caret_rect() {
+    Ok(value) => value
+    Err(_) =>
+      return Err(
+        mac_palette_error(
+          "palette_text_caret", "the search field refused caret geometry",
+        ),
+      )
+  }
+  match host.post_test_composition(window, @primitives.Start) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match
+    host.post_test_composition(
+      window,
+      @primitives.Update(text="にほん", cursor_utf16=3),
+    ) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match mac_palette_wait_text(host, session, holder) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  if !session.palette.field().is_composing() {
+    return Err(
+      mac_palette_error(
+        "palette_text_preedit", "the preview did not reach the palette field",
+      ),
+    )
+  }
+  if session.palette.field().committed_document().text() != "" {
+    return Err(
+      mac_palette_error(
+        "palette_text_preedit", "the preview changed the committed document",
+      ),
+    )
+  }
+  match host.post_test_composition(window, @primitives.Commit(text="日本")) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match mac_palette_wait_text(host, session, holder) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  if session.palette.field().committed_document().text() != "日本" {
+    return Err(
+      mac_palette_error(
+        "palette_text_commit", "the commit did not reach the palette field",
+      ),
+    )
+  }
+  if session.palette.picker().query() != "日本" {
+    return Err(
+      mac_palette_error(
+        "palette_text_query", "the palette did not filter the committed text",
+      ),
+    )
+  }
+  match host.post_test_composition(window, @primitives.Start) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match
+    host.post_test_composition(
+      window,
+      @primitives.Update(text="あ", cursor_utf16=1),
+    ) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match mac_palette_wait_text(host, session, holder) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match host.finish_text_composition(window, false) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match mac_palette_wait_text(host, session, holder) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  if session.palette.field().committed_document().text() != "日本" ||
+    session.palette.field().is_composing() {
+    return Err(
+      mac_palette_error(
+        "palette_text_cancel", "cancel changed the committed palette value",
+      ),
+    )
+  }
+  holder.end(host)
+  match
+    host.update_text_input(
+      binding.epoch(),
+      @text_host.TextInputState::new(document, caret),
+    ) {
+    Err(error) =>
+      match error.code() {
+        @diagnostics.StaleHandle => ()
+        _ => return Err(error)
+      }
+    Ok(_) =>
+      return Err(
+        mac_palette_error(
+          "palette_text_stale", "the transport stayed live after end",
+        ),
+      )
+  }
+  println(
+    "GPUI_MACOS_COMMAND_PALETTE_TEXT_HOST {\"commit\":true,\"cancel\":true,\"query\":\"日本\",\"synthetic_input\":true,\"real_ime\":\"NOT_RUN\"}",
+  )
+  Ok(())
+}
+
+///|
+fn mac_palette_text_host_run(
+  host : @macos.Host,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  if @env.get_env_var("GPUI_NATIVE_E2E") != Some("1") {
+    return Err(
+      mac_palette_error(
+        "palette_text_host_e2e", "set GPUI_NATIVE_E2E=1 to enable the test hooks",
+      ),
+    )
+  }
+  let window = match
+    host.create_window(
+      "gpui.mbt command palette — text host",
+      MAC_PALETTE_WIDTH,
+      MAC_PALETTE_HEIGHT,
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let result = match host.window_metrics(window) {
+    Err(error) => Err(error)
+    Ok((width, height, scale)) =>
+      match MacPaletteSession::new(width, height, scale) {
+        Err(error) => Err(error)
+        Ok(session) => mac_palette_text_host_cases(host, window, session)
+      }
+  }
+  match host.destroy_window(window) {
+    Err(error) =>
+      match result {
+        Err(_) => result
+        Ok(_) => Err(error)
+      }
+    Ok(_) => result
+  }
+}
+
+///|
 fn mac_palette_run(
   host : @macos.Host,
   e2e : Bool,
@@ -529,17 +769,27 @@ fn mac_palette_run(
 ///|
 fn main {
   let e2e = @env.args().contains("--e2e")
+  let text_host = @env.args().contains("--text-host")
   match @macos.Host::start() {
     Err(error) => abort("macOS host startup: " + error.code().label())
     Ok(host) => {
-      let result = mac_palette_run(host, e2e)
+      let result = if text_host {
+        mac_palette_text_host_run(host)
+      } else {
+        mac_palette_run(host, e2e)
+      }
       let stopped = host.stop()
       match result {
         Err(error) =>
           println(
             "macOS command palette failed: \{error.operation()}: \{error.code().label()}",
           )
-        Ok(_) => if e2e { println("GPUI_MACOS_COMMAND_PALETTE_E2E PASS") }
+        Ok(_) =>
+          if text_host {
+            println("GPUI_MACOS_COMMAND_PALETTE_TEXT_HOST PASS")
+          } else if e2e {
+            println("GPUI_MACOS_COMMAND_PALETTE_E2E PASS")
+          }
       }
       match stopped {
         Err(error) =>

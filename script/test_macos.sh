@@ -9,3 +9,10 @@ xcrun clang -fobjc-arc -Wall -Wextra -Werror tests/native/macos_e2e.m \
 if [[ "${1:-}" == --build-only ]]; then exit 0; fi
 GPUI_NATIVE_E2E=1 _build/macos/macos_e2e
 ./script/build_and_run.sh --smoke
+# Synthetic AppKit composition through the MoonBit text-host transport. This is
+# transport evidence only; real Kotoeri/IME qualification stays NOT_RUN.
+./script/build_and_run.sh --test-hooks >/dev/null
+APP_BUNDLE="_build/macos/GpuiNative.app"
+GPUI_NATIVE_E2E=1 \
+  GPUI_MACOS_LIBRARY="$APP_BUNDLE/Contents/Frameworks/libgpui_macos.dylib" \
+  "$APP_BUNDLE/Contents/MacOS/GpuiNative" --text-host

@@ -11,7 +11,10 @@ import {
   "f4ah6o/gpui/primitives",
   "f4ah6o/gpui/scene",
   "f4ah6o/gpui/text",
+  "f4ah6o/gpui/text_adapter",
+  "f4ah6o/gpui/text_host",
   "f4ah6o/gpui/text_layout",
+  "f4ah6o/gpui/text_session",
 }
 
 // Values
@@ -35,6 +38,24 @@ pub fn MacosTextFieldAdapter::font_size(Self) -> Double
 pub fn MacosTextFieldAdapter::hit(Self, @text.TextDocument, @primitives.Point) -> Result[@text_layout.TextHit, @text_field.TextFieldError]
 pub fn MacosTextFieldAdapter::measure(Self, @text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError]
 pub fn MacosTextFieldAdapter::new(Double) -> Result[Self, @text_field.TextFieldError]
+
+pub struct MacosTextFieldHost {
+  // private fields
+}
+pub fn MacosTextFieldHost::adapter(Self) -> MacosTextFieldAdapter
+pub fn[T : @text_host.TextInputHost] MacosTextFieldHost::end(Self, T) -> Result[Unit, MacosTextFieldHostError]
+pub fn MacosTextFieldHost::field(Self) -> @text_field.TextField
+pub fn MacosTextFieldHost::is_ended(Self) -> Bool
+pub fn[T : @text_host.TextInputHost] MacosTextFieldHost::pump(Self, T, timeout_ms? : Int) -> Result[@text_adapter.HostTextOutcome, MacosTextFieldHostError]
+pub fn MacosTextFieldHost::session(Self) -> @text_session.TextSession
+pub fn[T : @text_host.TextInputHost] MacosTextFieldHost::start(UInt64, @platform.WindowId, UInt64, @primitives.Rect, Double, @text.TextDocument, T) -> Result[Self, MacosTextFieldHostError]
+
+pub(all) enum MacosTextFieldHostError {
+  Field(@text_field.TextFieldError)
+  Adapter(@text_adapter.HostTextError)
+  InvalidCaret
+  Ended
+}
 
 pub(all) enum MacosTextPaintError {
   Text(@macos_text.MacosTextError)

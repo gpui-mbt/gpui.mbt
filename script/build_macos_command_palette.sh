@@ -96,6 +96,7 @@ if [[ "$MODE" == build ]]; then
   echo "$APP_BUNDLE"
 elif [[ "$MODE" == e2e ]]; then
   GPUI_NATIVE_E2E=1 GPUI_MACOS_LIBRARY="$APP_LIBRARY" "$APP_BINARY" --e2e
+  GPUI_NATIVE_E2E=1 GPUI_MACOS_LIBRARY="$APP_LIBRARY" "$APP_BINARY" --text-host
 else
   GPUI_MACOS_LIBRARY="$APP_LIBRARY" "$APP_BINARY" >"$LOG_FILE" 2>&1 &
   APP_PID="$!"

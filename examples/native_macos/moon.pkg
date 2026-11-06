@@ -1,10 +1,16 @@
 import {
   "f4ah6o/gpui/platform/macos",
+  "f4ah6o/gpui/platform/macos_app",
   "f4ah6o/gpui/platform",
   "f4ah6o/gpui/primitives",
   "f4ah6o/gpui/scene",
   "f4ah6o/gpui/diagnostics",
+  "f4ah6o/gpui/text",
+  "f4ah6o/gpui/text_adapter",
+  "f4ah6o/gpui/text_host",
   "moonbitlang/core/env",
 }
+
+supported_targets = "native"
 
 pkgtype(kind: "executable")
