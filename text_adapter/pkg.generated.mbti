@@ -1,0 +1,50 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/gpui/text_adapter"
+
+import {
+  "f4ah6o/gpui/controls/text_field",
+  "f4ah6o/gpui/diagnostics",
+  "f4ah6o/gpui/platform",
+  "f4ah6o/gpui/primitives",
+  "f4ah6o/gpui/text",
+  "f4ah6o/gpui/text_host",
+  "f4ah6o/gpui/text_layout",
+  "f4ah6o/gpui/text_session",
+}
+
+// Values
+pub fn[T : @text_host.TextInputHost] apply_host_text_event(@text_session.TextSession, T, HostTextSession, @text_host.TextInputEvent, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError]) -> Result[HostTextOutcome, HostTextError]
+
+pub fn[T : @text_host.TextInputHost] end_host_text(@text_session.TextSession, T, HostTextSession) -> Result[Unit, HostTextError]
+
+pub fn[T : @text_host.TextInputHost] receive_host_text(@text_session.TextSession, T, HostTextSession, (@text.TextDocument) -> Result[@text_layout.TextMeasurement, @text_field.TextFieldError], (@text.TextDocument, @text_layout.TextMeasurement) -> Result[Unit, @text_field.TextFieldError], timeout_ms? : Int) -> Result[HostTextOutcome, HostTextError]
+
+pub fn[T : @text_host.TextInputHost] start_host_text(@text_session.TextSession, T, @primitives.Rect) -> Result[HostTextSession, HostTextError]
+
+// Errors
+
+// Types and methods
+pub(all) enum HostTextError {
+  Session(@text_session.SessionError)
+  Host(@diagnostics.FrameworkError)
+  Closed
+  StaleEpoch
+  StaleWindow
+  InvalidEvent
+}
+
+pub(all) enum HostTextOutcome {
+  Idle
+  Applied(@text_session.BatchReceipt)
+  FocusLost
+}
+
+pub struct HostTextSession {
+  // private fields
+}
+pub fn HostTextSession::epoch(Self) -> UInt64
+pub fn HostTextSession::window(Self) -> @platform.WindowId
+
+// Type aliases
+
+// Traits
