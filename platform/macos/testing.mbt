@@ -20,6 +20,29 @@ pub fn Host::post_test_click(
 }
 
 ///|
+/// Post a synthetic primary click with an explicit AppKit click count. A count
+/// of 2 or more drives the portable `PointerButtonMultiClick` path. Requires
+/// GPUI_NATIVE_E2E=1 and a test-hooks dylib.
+pub fn Host::post_test_click_count(
+  self : Host,
+  window : @platform.WindowId,
+  point : @primitives.Point,
+  click_count : Int32,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  match self.check() {
+    Err(failure) => return Err(failure)
+    Ok(_) => ()
+  }
+  if click_count < 1 || click_count > 3 {
+    return Err(error(@diagnostics.InvalidInput, "post_test_click_count"))
+  }
+  status(
+    test_post_click_count(window.value(), point.x(), point.y(), click_count),
+    "post_test_click_count",
+  )
+}
+
+///|
 fn test_modifier_bits(modifiers : @primitives.Modifiers) -> Int32 {
   let mut bits = 0
   if modifiers.shift() {
@@ -95,6 +118,26 @@ pub fn Host::post_test_composition(
     test_post_composition(window.value(), kind, cursor, bytes, bytes.length()),
     "post_test_composition",
   )
+}
+
+///|
+/// Override the key state reported by the text route. `None` restores the real
+/// AppKit state; `Some(true)`/`Some(false)` force it for deterministic E2E.
+/// Requires GPUI_NATIVE_E2E=1 and a test-hooks dylib.
+pub fn Host::post_test_focus(
+  self : Host,
+  focused : Bool?,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  match self.check() {
+    Err(failure) => return Err(failure)
+    Ok(_) => ()
+  }
+  let value = match focused {
+    None => -1.0
+    Some(true) => 1.0
+    Some(false) => 0.0
+  }
+  status(call(24, 0, value, 0.0, b"", 0), "post_test_focus")
 }
 
 ///|

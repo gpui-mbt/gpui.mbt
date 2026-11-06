@@ -36,10 +36,13 @@ static id<MTLCommandQueue> queue;
 static id<MTLRenderPipelineState> pipeline;
 static id<MTLTexture> white_mask_texture;
 static int64_t next_token, result_token, host_epoch;
+static int64_t focus_result; // last op-23 window key query (0/1)
 static NSData *text_result;
 static int state; // 0 uninitialized/stopped, 1 running, 2 quiescing
 static BOOL overflow, background_host;
 #ifdef GPUI_TESTING
+/* -1 uses the real AppKit key state; 0/1 force it for deterministic E2E only. */
+static int test_focus_override = -1;
 static NSData *frame_pixels;
 static NSUInteger frame_width, frame_height, frame_stride;
 static int64_t frame_window_token;
@@ -138,7 +141,12 @@ static int modifiers(NSEvent *event) {
   if (!owner || owner.closing) return;
   resize_surface(owner);
   NSPoint p = [self convertPoint:event.locationInWindow fromView:nil];
-  emit(owner, kind, p.x, p.y, modifiers(event), (int)event.buttonNumber, 0);
+  // A repeated mouse-down is published as its own kind; the repeat slot carries
+  // the AppKit click count (0 for ordinary presses, at least 2 here).
+  NSInteger clicks = (NSInteger)event.clickCount;
+  int out_kind = (kind == 8 && clicks >= 2) ? 18 : kind;
+  emit(owner, out_kind, p.x, p.y, modifiers(event), (int)event.buttonNumber,
+       (int)(out_kind == 18 ? clicks : 0));
 }
 - (void)mouseMoved:(NSEvent *)e { [self pointer:e kind:7]; }
 - (void)mouseDragged:(NSEvent *)e { [self pointer:e kind:7]; }
@@ -668,6 +676,19 @@ static BOOL ensure_background_policy(NSApplication *application) {
   return application.activationPolicy == NSApplicationActivationPolicyAccessory;
 }
 
+// Pump AppKit once when the framework queue is empty. The generic event pump
+// and the text composition take operation share this wait; neither may pop an
+// unrelated event out of order.
+static int pump_native(double milliseconds) {
+  if (!events.count) {
+    NSDate *until = [NSDate dateWithTimeIntervalSinceNow:milliseconds/1000];
+    NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:until inMode:NSDefaultRunLoopMode dequeue:YES];
+    if (event) [NSApp sendEvent:event];
+    [NSApp updateWindows];
+  }
+  if (overflow) { overflow = NO; return 13; }
+  return 0;
+}
 static int32_t native_call(int32_t op, int64_t token, double x, double y, const uint8_t *bytes, int32_t len) {
   if (![NSThread isMainThread]) return 18;
   if (len < 0 || len > 16*1024*1024 || (len && !bytes)) return 5;
@@ -737,17 +758,23 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
     if (op == 6) {
       if (!isfinite(x) || x < 0 || x > 250) return 5;
       current=nil;
-      if (!events.count) {
-        NSDate *until = [NSDate dateWithTimeIntervalSinceNow:x/1000];
-        NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:until inMode:NSDefaultRunLoopMode dequeue:YES];
-        if (event) [NSApp sendEvent:event];
-        [NSApp updateWindows];
-      }
-      if (overflow) { overflow=NO; return 13; }
+      int pump = pump_native(x);
+      if (pump) return pump;
       if (events.count) { current=events[0]; [events removeObjectAtIndex:0]; }
       return 0;
     }
     if (op == 10) { emit(nil,14,0,0,0,0,0); return 0; }
+#ifdef GPUI_TESTING
+    /* Deterministic focus injection for the text-host E2E. It never changes
+     * the window's real AppKit key state. */
+    if (op == 24) {
+      const char *enabled = getenv("GPUI_NATIVE_E2E");
+      if (!enabled || strcmp(enabled, "1") != 0) return 9;
+      if (x != -1.0 && x != 0.0 && x != 1.0) return 5;
+      test_focus_override = (int)x;
+      return 0;
+    }
+#endif
     if (op == 12) {
       switch ((int)x) { case 0: [[NSCursor arrowCursor] set]; break; case 1: [[NSCursor pointingHandCursor] set]; break; case 2: [[NSCursor IBeamCursor] set]; break; default: return 9; }
       return 0;
@@ -829,6 +856,42 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
         }
         return 0;
       }
+      // Take one queued composition frame for this window. Other events stay
+      // in order for the generic pump, so the two readers never reorder each
+      // other. Nothing queued returns an empty current record (kind 0).
+      case 22: {
+        if (!isfinite(x) || x < 0 || x > 250) return 5;
+        current=nil;
+        NSInteger found = -1;
+        for (NSInteger i = 0; i < (NSInteger)events.count; i++) {
+          NSDictionary *queued = events[i];
+          if ([queued[@"kind"] longLongValue] == 17 &&
+              [queued[@"token"] longLongValue] == token) { found = i; break; }
+        }
+        if (found < 0) {
+          int pump = pump_native(x);
+          if (pump) return pump;
+          for (NSInteger i = 0; i < (NSInteger)events.count; i++) {
+            NSDictionary *queued = events[i];
+            if ([queued[@"kind"] longLongValue] == 17 &&
+                [queued[@"token"] longLongValue] == token) { found = i; break; }
+          }
+        }
+        if (found >= 0) { current = events[found]; [events removeObjectAtIndex:found]; }
+        return 0;
+      }
+      // Query the AppKit key state for this window. The result is exposed as
+      // integer field 10 so the text route can synthesize a focus loss without
+      // consuming the window's ordinary FocusChanged event.
+      case 23:
+#ifdef GPUI_TESTING
+        focus_result = test_focus_override >= 0 ? test_focus_override :
+            (w.window.isKeyWindow ? 1 : 0);
+#else
+        focus_result = w.window.isKeyWindow ? 1 : 0;
+#endif
+        current = nil;
+        return 0;
       default: return 9;
     }
   }
@@ -841,7 +904,8 @@ static int64_t native_integer(int32_t field) {
     case 2:return [current[@"token"] longLongValue]; case 3:return [current[@"seq"] longLongValue];
     case 4:return [current[@"mods"] longLongValue]; case 5:return [current[@"code"] longLongValue];
     case 6:return [current[@"repeat"] longLongValue]; case 7:return 1;
-    case 8:return [(current[@"text"] ?: text_result) length]; case 9:return host_epoch; default:return 0;
+    case 8:return [(current[@"text"] ?: text_result) length]; case 9:return host_epoch;
+    case 10:return focus_result; default:return 0;
   }
 }
 enum { MACOS_DISPLAY_CAPACITY = 16, MACOS_DISPLAY_FIELDS = 14 };
@@ -1034,6 +1098,39 @@ int32_t gpui_macos_test_post_click_v1(int64_t token, double x, double y) {
   return 0;
 #else
   (void)token; (void)x; (void)y;
+  return 9;
+#endif
+}
+
+int32_t gpui_macos_test_post_click_count_v1(int64_t token, double x, double y,
+                                            int32_t click_count) {
+#ifdef GPUI_TESTING
+  if (![NSThread isMainThread]) return 18;
+  const char *enabled = getenv("GPUI_NATIVE_E2E");
+  if (!enabled || strcmp(enabled, "1") != 0) return 9;
+  if (click_count < 1 || click_count > 3) return 5;
+  GPWindow *target = windows[@(token)];
+  if (!target || !target.window || target.closing) return 10;
+  NSView *content = target.window.contentView;
+  if (!isfinite(x) || !isfinite(y) || x < 0 || y < 0 ||
+      x >= content.bounds.size.width || y >= content.bounds.size.height)
+    return 5;
+  NSPoint location = [content convertPoint:NSMakePoint(x, y) toView:nil];
+  NSTimeInterval timestamp = NSProcessInfo.processInfo.systemUptime;
+  NSEvent *down = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown
+      location:location modifierFlags:0 timestamp:timestamp
+      windowNumber:target.window.windowNumber context:nil eventNumber:1
+      clickCount:(NSInteger)click_count pressure:1.0];
+  NSEvent *up = [NSEvent mouseEventWithType:NSEventTypeLeftMouseUp
+      location:location modifierFlags:0 timestamp:timestamp + 0.001
+      windowNumber:target.window.windowNumber context:nil eventNumber:1
+      clickCount:(NSInteger)click_count pressure:0.0];
+  if (!down || !up) return 16;
+  [target.window sendEvent:down];
+  [target.window sendEvent:up];
+  return 0;
+#else
+  (void)token; (void)x; (void)y; (void)click_count;
   return 9;
 #endif
 }

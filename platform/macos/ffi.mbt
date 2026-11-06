@@ -62,6 +62,14 @@ extern "C" fn frame_copy(
 extern "C" fn test_post_click(window : Int64, x : Double, y : Double) -> Int32 = "gpui_macos_test_post_click"
 
 ///|
+extern "C" fn test_post_click_count(
+  window : Int64,
+  x : Double,
+  y : Double,
+  click_count : Int32,
+) -> Int32 = "gpui_macos_test_post_click_count"
+
+///|
 extern "C" fn test_post_escape(window : Int64) -> Int32 = "gpui_macos_test_post_escape"
 
 ///|

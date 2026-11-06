@@ -29,7 +29,7 @@ pub fn Host::next_event(
     4 => @platform.ScaleChanged
     5 => @platform.FocusChanged(true)
     6 => @platform.FocusChanged(false)
-    7 | 8 | 9 => {
+    7 | 8 | 9 | 18 => {
       let position = match @primitives.Point::new(number(1), number(2)) {
         Ok(value) => value
         Err(_) => return Err(error(@diagnostics.InvalidInput, "next_event"))
@@ -45,6 +45,18 @@ pub fn Host::next_event(
         match tag {
           8 => @primitives.PointerButtonPressed(position~, button~, modifiers~)
           9 => @primitives.PointerButtonReleased(position~, button~, modifiers~)
+          18 => {
+            let click_count = integer(6).to_int()
+            if click_count < 2 {
+              return Err(error(@diagnostics.InvalidInput, "next_event"))
+            }
+            @primitives.PointerButtonMultiClick(
+              position~,
+              button~,
+              modifiers~,
+              click_count~,
+            )
+          }
           _ => @primitives.PointerMoved(position~)
         },
       )
@@ -125,38 +137,48 @@ fn decode_scroll_event(
 ///|
 /// Decode one native composition frame. The preedit and commit bounds are in
 /// UTF-16 code units, matching AppKit's ranges and MoonBit's string length.
-fn decode_composition_event(
+fn decode_composition(
   code : Int32,
   text : String,
   cursor : Double,
-) -> Result[@platform.EventKind, @diagnostics.FrameworkError] {
+  operation : String,
+) -> Result[@primitives.CompositionEvent, @diagnostics.FrameworkError] {
   match code {
-    0 => Ok(@platform.Composition(@primitives.Start))
+    0 => Ok(@primitives.Start)
     1 => {
       if text.length() > 16_384 {
-        return Err(error(@diagnostics.ResourceExhausted, "next_event"))
+        return Err(error(@diagnostics.ResourceExhausted, operation))
       }
       if cursor.is_nan() ||
         cursor.is_inf() ||
         cursor < 0.0 ||
         cursor > text.length().to_double() ||
         cursor.to_int().to_double() != cursor {
-        return Err(error(@diagnostics.InvalidInput, "next_event"))
+        return Err(error(@diagnostics.InvalidInput, operation))
       }
-      Ok(
-        @platform.Composition(
-          @primitives.Update(text~, cursor_utf16=cursor.to_int()),
-        ),
-      )
+      Ok(@primitives.Update(text~, cursor_utf16=cursor.to_int()))
     }
     2 =>
       if text.length() > 65_536 {
-        Err(error(@diagnostics.ResourceExhausted, "next_event"))
+        Err(error(@diagnostics.ResourceExhausted, operation))
       } else {
-        Ok(@platform.Composition(@primitives.Commit(text~)))
+        Ok(@primitives.Commit(text~))
       }
-    3 => Ok(@platform.Composition(@primitives.Cancel))
-    _ => Err(error(@diagnostics.NativeFailure, "next_event"))
+    3 => Ok(@primitives.Cancel)
+    _ => Err(error(@diagnostics.NativeFailure, operation))
+  }
+}
+
+///|
+/// Decode one native composition frame into a platform event.
+fn decode_composition_event(
+  code : Int32,
+  text : String,
+  cursor : Double,
+) -> Result[@platform.EventKind, @diagnostics.FrameworkError] {
+  match decode_composition(code, text, cursor, "next_event") {
+    Err(failure) => Err(failure)
+    Ok(value) => Ok(@platform.Composition(value))
   }
 }
 
