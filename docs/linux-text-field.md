@@ -87,7 +87,14 @@ windows, protocol integration or an OS-level Japanese composition session.
   capability. It does not advertise the public `TextInput`/IME capability, a
   Wayland text-input protocol, candidate-window positioning, or Japanese IME.
 - Editing supports text commits, cursor-stop Left/Right, Home/End, Backspace,
-  Delete, Shift-extended selection, click-to-place, and horizontal scrolling.
+  Delete, Shift-extended selection, click-to-place, pointer drag selection,
+  Option/Alt and Ctrl word navigation and word deletion, and horizontal
+  scrolling. Word boundaries use a bounded rule (whitespace, ASCII/CJK
+  punctuation and the katakana middle dot separate words) and snap to measured
+  cursor stops; this is not full Unicode segmentation. A host-provided
+  `PointerButtonMultiClick` selects the word on a double click and the whole
+  document on a triple click; the Ubuntu and X11 adapters do not emit that event
+  yet, so it is unqualified on Linux.
   Ctrl/Meta+A selects the entire document from anchor 0 to its UTF-16 length
   while focused. It uses the selection-only transition, retaining undo/redo
   groups and snapshots; repeating an already full selection is a no-op.
@@ -101,7 +108,7 @@ windows, protocol integration or an OS-level Japanese composition session.
   selected logical-line rectangle remains shared across that run.
 - The field viewport clips selection, text, and caret locally. Horizontal
   scrolling keeps the active caret in view. This does not add general scroll
-  widgets, drag-selection, word navigation, bidi editing, or wrapping.
+  widgets, bidi editing, or wrapping.
 - The existing Ubuntu clipboard API is reused. Copy writes the selected text;
   cut prepares and raster-admits the edit first, writes clipboard data, and
   installs the candidate only after a successful write. Paste uses the
@@ -450,7 +457,8 @@ Ubuntu backend packet D or qualify gpui.mbt as a supported Linux desktop
 framework. The bounded field remains single-line LTR and rejects unsupported
 unknown-glyph, color-glyph, and reflow/resource-limit cases. Text masks remain
 logical-resolution and may soften under output scaling. IME, qualified desktop
-repeat timing, general bidi and drag selection remain open. The isolated native
+repeat timing, general bidi, exact platform word-segmentation rules and
+Linux multi-click event emission remain open. The isolated native
 input passes do not establish general desktop readiness. Undo/redo is bounded
 as above; it does not establish a full editor history
 system. See the [known hosted-compositor stability note](ubuntu.md#known-hosted-compositor-observation).

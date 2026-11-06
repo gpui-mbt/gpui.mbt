@@ -46,6 +46,9 @@ pub struct TextField {
   priv revision : Int32
   priv history : FieldHistory
   priv composition : FieldComposition?
+  /// Anchor of an in-progress pointer drag. `None` means no drag is active;
+  /// pointer movement only extends the selection while this is set.
+  priv drag_anchor : Int32?
 }
 
 ///|
@@ -544,6 +547,7 @@ pub fn TextField::new(
     revision: 0,
     history: FieldHistory::empty(),
     composition: None,
+    drag_anchor: None,
   }
   Ok({
     ..provisional,
@@ -852,10 +856,15 @@ pub fn TextField::with_focus(
   self : TextField,
   focused : Bool,
 ) -> Result[TextField, TextFieldError] {
-  if focused {
+  let result = if focused {
     field_changed_selection(self, self.document, true)
   } else {
     blur_field_composition(self)
+  }
+  match result {
+    Err(error) => Err(error)
+    // A drag never survives a focus transition, including a synthetic refocus.
+    Ok(value) => Ok({ ..value, drag_anchor: None, })
   }
 }
 
@@ -1041,6 +1050,191 @@ fn delete_field_selection(
 }
 
 ///|
+/// Bounded word-boundary rule for the single-line field. Whitespace, ASCII
+/// punctuation, CJK punctuation and the katakana middle dot separate words;
+/// every other scalar is a word character. This is deliberately not full
+/// Unicode word segmentation, and targets snap to the measured cursor stops.
+fn field_word_separator(c : Char) -> Bool {
+  let scalar = c.to_int()
+  c.is_whitespace() ||
+  c.is_ascii_punctuation() ||
+  (scalar >= 0x3000 && scalar <= 0x303F) ||
+  scalar == 0x30FB
+}
+
+///|
+fn last_stop_at_or_before(stops : Array[Int32], target : Int32) -> Int32 {
+  let mut result = stops[0]
+  for stop in stops {
+    if stop > target {
+      return result
+    }
+    result = stop
+  }
+  result
+}
+
+///|
+/// UTF-16 offset of the start of the word before `offset`.
+fn field_word_stop_left(text : String, offset : Int32) -> Int32 {
+  let starts : Array[Int32] = []
+  let ends : Array[Int32] = []
+  let separators : Array[Bool] = []
+  let mut position : Int32 = 0
+  for c in text.iter() {
+    starts.push(position)
+    position += if c.to_int() > 0xFFFF { 2 } else { 1 }
+    ends.push(position)
+    separators.push(field_word_separator(c))
+  }
+  if starts.length() == 0 {
+    return 0
+  }
+  let mut index = 0
+  while index < ends.length() && ends[index] <= offset {
+    index += 1
+  }
+  while index > 0 && separators[index - 1] {
+    index -= 1
+  }
+  while index > 0 && !separators[index - 1] {
+    index -= 1
+  }
+  if index >= starts.length() {
+    position
+  } else {
+    starts[index]
+  }
+}
+
+///|
+/// UTF-16 offset of the end of the word after `offset`.
+fn field_word_stop_right(text : String, offset : Int32) -> Int32 {
+  let starts : Array[Int32] = []
+  let separators : Array[Bool] = []
+  let mut position : Int32 = 0
+  for c in text.iter() {
+    starts.push(position)
+    position += if c.to_int() > 0xFFFF { 2 } else { 1 }
+    separators.push(field_word_separator(c))
+  }
+  if starts.length() == 0 {
+    return 0
+  }
+  let mut index = 0
+  while index < starts.length() && starts[index] < offset {
+    index += 1
+  }
+  while index < starts.length() && separators[index] {
+    index += 1
+  }
+  while index < starts.length() && !separators[index] {
+    index += 1
+  }
+  if index >= starts.length() {
+    position
+  } else {
+    starts[index]
+  }
+}
+
+///|
+/// UTF-16 word range around `offset`, snapped to measured cursor stops. The
+/// range is the word after leading separators; a position at the end of the
+/// text selects the last word.
+fn field_word_range_at(field : TextField, offset : Int32) -> (Int32, Int32) {
+  let text = field.document.text()
+  let stops = field_stops(field.measurement)
+  let raw_end = field_word_stop_right(text, offset)
+  let raw_start = field_word_stop_left(text, raw_end)
+  let start = last_stop_at_or_before(stops, raw_start)
+  let end = first_stop_at_or_after(stops, raw_end)
+  (start, end)
+}
+
+///|
+fn selection_word_left(
+  field : TextField,
+  shift : Bool,
+) -> Result[TextField, TextFieldError] {
+  let selection = field.document.selection()
+  let stops = field_stops(field.measurement)
+  let target = if !shift && !selection.is_collapsed() {
+    selection.normalized_range().start()
+  } else {
+    last_stop_at_or_before(
+      stops,
+      field_word_stop_left(field.document.text(), selection.head()),
+    )
+  }
+  let anchor = if shift { selection.anchor() } else { target }
+  field_selection_at(field, anchor, target, field.focused)
+}
+
+///|
+fn selection_word_right(
+  field : TextField,
+  shift : Bool,
+) -> Result[TextField, TextFieldError] {
+  let selection = field.document.selection()
+  let stops = field_stops(field.measurement)
+  let target = if !shift && !selection.is_collapsed() {
+    selection.normalized_range().end()
+  } else {
+    first_stop_at_or_after(
+      stops,
+      field_word_stop_right(field.document.text(), selection.head()),
+    )
+  }
+  let anchor = if shift { selection.anchor() } else { target }
+  field_selection_at(field, anchor, target, field.focused)
+}
+
+///|
+fn delete_word_field_selection(
+  field : TextField,
+  backward : Bool,
+  measure : (@text.TextDocument) -> Result[
+    @text_layout.TextMeasurement,
+    TextFieldError,
+  ],
+  admit : (@text.TextDocument, @text_layout.TextMeasurement) -> Result[
+    Unit,
+    TextFieldError,
+  ],
+) -> Result[TextField, TextFieldError] {
+  let selection = field.document.selection()
+  let range = if !selection.is_collapsed() {
+    selection.normalized_range()
+  } else {
+    let stops = field_stops(field.measurement)
+    let head = selection.head()
+    let text = field.document.text()
+    let target = if backward {
+      last_stop_at_or_before(stops, field_word_stop_left(text, head))
+    } else {
+      first_stop_at_or_after(stops, field_word_stop_right(text, head))
+    }
+    let start = if backward { target } else { head }
+    let end = if backward { head } else { target }
+    if start == end {
+      return Ok(field)
+    }
+    @text.TextRange::new(start, end).unwrap()
+  }
+  let group_kind = if selection.is_collapsed() {
+    if backward {
+      Some(Backspace)
+    } else {
+      Some(ForwardDelete)
+    }
+  } else {
+    None
+  }
+  prepare_field_replacement(field, range, "", group_kind, measure, admit)
+}
+
+///|
 fn is_field_shortcut(key : @primitives.Key, letter : String) -> Bool {
   match key {
     @primitives.Character(label) =>
@@ -1067,18 +1261,17 @@ fn nearest_field_stop(field : TextField, layout_x : Double) -> Int32 {
 }
 
 ///|
-fn handle_field_click(
+/// Resolve a pointer position to the nearest checked caret stop. The position
+/// is clamped into the field's content box, so a drag that leaves the field
+/// still tracks to the first or last stop.
+fn field_head_at_position(
   field : TextField,
   position : @primitives.Point,
-  modifiers : @primitives.Modifiers,
   hit_test : (@text.TextDocument, @primitives.Point) -> Result[
     @text_layout.TextHit,
     TextFieldError,
   ],
-) -> Result[TextField, TextFieldError] {
-  if !field.bounds.contains(position) {
-    return Ok(field)
-  }
+) -> Result[Int32, TextFieldError] {
   let content = field_content_bounds(field.bounds)
   let x = if position.x() < content.left() {
     content.left()
@@ -1118,13 +1311,57 @@ fn handle_field_click(
   if hit.resolved_is_cursor_position() != mapped_caret.is_cursor_position() {
     return Err(InvalidHitResult)
   }
-  let head = if hit.resolved_is_cursor_position() {
-    resolved
+  if hit.resolved_is_cursor_position() {
+    Ok(resolved)
   } else {
-    nearest_field_stop(field, hit_point.x())
+    Ok(nearest_field_stop(field, hit_point.x()))
+  }
+}
+
+///|
+fn handle_field_click(
+  field : TextField,
+  position : @primitives.Point,
+  modifiers : @primitives.Modifiers,
+  hit_test : (@text.TextDocument, @primitives.Point) -> Result[
+    @text_layout.TextHit,
+    TextFieldError,
+  ],
+) -> Result[TextField, TextFieldError] {
+  if !field.bounds.contains(position) {
+    return Ok({ ..field, drag_anchor: None, })
+  }
+  let head = match field_head_at_position(field, position, hit_test) {
+    Ok(value) => value
+    Err(error) => return Err(error)
   }
   let selection = field.document.selection()
   let anchor = if modifiers.shift() { selection.anchor() } else { head }
+  field_selection_at(field, anchor, head, true)
+}
+
+///|
+/// Extend an active drag selection to the pointer position. Movement without a
+/// pressed primary button (a plain hover) has no anchor and changes nothing.
+fn handle_field_drag(
+  field : TextField,
+  position : @primitives.Point,
+  hit_test : (@text.TextDocument, @primitives.Point) -> Result[
+    @text_layout.TextHit,
+    TextFieldError,
+  ],
+) -> Result[TextField, TextFieldError] {
+  let anchor = match field.drag_anchor {
+    Some(value) => value
+    None => return Ok(field)
+  }
+  if !field.focused {
+    return Ok(field)
+  }
+  let head = match field_head_at_position(field, position, hit_test) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   field_selection_at(field, anchor, head, true)
 }
 
@@ -1154,7 +1391,8 @@ pub fn TextField::handle_input(
     match event {
       @primitives.TextInput(..)
       | @primitives.KeyPressed(..)
-      | @primitives.PointerButtonPressed(..) => return Err(CompositionActive)
+      | @primitives.PointerButtonPressed(..)
+      | @primitives.PointerButtonMultiClick(..) => return Err(CompositionActive)
       _ => ()
     }
   }
@@ -1179,6 +1417,29 @@ pub fn TextField::handle_input(
     @primitives.KeyPressed(key~, modifiers~, repeat=_) => {
       if !self.focused {
         return Ok((self, None))
+      }
+      // Option-only word editing (macOS); Ctrl-only is handled in the
+      // shortcut branch below so Ctrl+A/C/V/X keep their meaning.
+      if modifiers.alt() && !modifiers.control() && !modifiers.meta() {
+        match key {
+          @primitives.ArrowLeft =>
+            return field_without_action(
+              selection_word_left(self, modifiers.shift()),
+            )
+          @primitives.ArrowRight =>
+            return field_without_action(
+              selection_word_right(self, modifiers.shift()),
+            )
+          @primitives.Backspace =>
+            return field_without_action(
+              delete_word_field_selection(self, true, measure, admit),
+            )
+          @primitives.Delete =>
+            return field_without_action(
+              delete_word_field_selection(self, false, measure, admit),
+            )
+          _ => ()
+        }
       }
       if modifiers.control() || modifiers.meta() {
         if modifiers.alt() {
@@ -1227,6 +1488,27 @@ pub fn TextField::handle_input(
         if is_field_shortcut(key, "v") {
           return Ok((self, Some(Paste)))
         }
+        if modifiers.control() && !modifiers.alt() {
+          match key {
+            @primitives.ArrowLeft =>
+              return field_without_action(
+                selection_word_left(self, modifiers.shift()),
+              )
+            @primitives.ArrowRight =>
+              return field_without_action(
+                selection_word_right(self, modifiers.shift()),
+              )
+            @primitives.Backspace =>
+              return field_without_action(
+                delete_word_field_selection(self, true, measure, admit),
+              )
+            @primitives.Delete =>
+              return field_without_action(
+                delete_word_field_selection(self, false, measure, admit),
+              )
+            _ => ()
+          }
+        }
         return Ok((self, None))
       }
       match key {
@@ -1255,10 +1537,64 @@ pub fn TextField::handle_input(
       position~,
       button=@primitives.Primary,
       modifiers~
-    ) =>
-      field_without_action(
-        handle_field_click(self, position, modifiers, hit_test),
-      )
+    ) => {
+      let clicked = match
+        handle_field_click(self, position, modifiers, hit_test) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      // A press inside the field starts a drag; a release ends it. Hover moves
+      // without an anchor never change the selection.
+      let anchor = if self.bounds.contains(position) {
+        Some(clicked.selection().anchor())
+      } else {
+        None
+      }
+      Ok(({ ..clicked, drag_anchor: anchor, }, None))
+    }
+    @primitives.PointerButtonMultiClick(
+      position~,
+      button=@primitives.Primary,
+      modifiers~,
+      click_count~
+    ) => {
+      if !self.focused {
+        return Ok((self, None))
+      }
+      let head = match field_head_at_position(self, position, hit_test) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let (start, end) = if click_count >= 3 {
+        (0, self.document.utf16_length())
+      } else {
+        field_word_range_at(self, head)
+      }
+      let selection = self.document.selection()
+      let (anchor, next_head) = if modifiers.shift() &&
+        !selection.is_collapsed() {
+        if head < selection.anchor() {
+          (selection.anchor(), start)
+        } else {
+          (selection.anchor(), end)
+        }
+      } else {
+        (start, end)
+      }
+      let candidate = match field_selection_at(self, anchor, next_head, true) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      Ok(({ ..candidate, drag_anchor: Some(anchor), }, None))
+    }
+    @primitives.PointerMoved(position~) =>
+      field_without_action(handle_field_drag(self, position, hit_test))
+    @primitives.PointerButtonReleased(button=@primitives.Primary, ..) =>
+      if self.drag_anchor is Some(_) {
+        Ok(({ ..self, drag_anchor: None, }, None))
+      } else {
+        Ok((self, None))
+      }
     @primitives.Scroll(position~, delta~, modifiers=_) => {
       if !self.focused || !self.bounds.contains(position) || delta.x() == 0.0 {
         return Ok((self, None))

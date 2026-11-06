@@ -653,6 +653,8 @@ pub fn ElementTree::dispatch_input(
     @primitives.PointerMoved(position~) => self.dispatch_pointer(position)
     @primitives.PointerButtonPressed(position~, ..) =>
       self.dispatch_pointer(position)
+    @primitives.PointerButtonMultiClick(position~, ..) =>
+      self.dispatch_pointer(position)
     @primitives.PointerButtonReleased(position~, ..) =>
       self.dispatch_pointer(position)
     @primitives.Scroll(position~, ..) => self.dispatch_pointer(position)

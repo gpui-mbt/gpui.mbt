@@ -73,6 +73,7 @@ pub(all) enum InputEvent {
   TextInput(text~ : String)
   PointerMoved(position~ : Point)
   PointerButtonPressed(position~ : Point, button~ : MouseButton, modifiers~ : Modifiers)
+  PointerButtonMultiClick(position~ : Point, button~ : MouseButton, modifiers~ : Modifiers, click_count~ : Int)
   PointerButtonReleased(position~ : Point, button~ : MouseButton, modifiers~ : Modifiers)
   Scroll(position~ : Point, delta~ : Point, modifiers~ : Modifiers)
 } derive(Eq)

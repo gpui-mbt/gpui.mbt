@@ -391,7 +391,13 @@ fn apply_event(model : DemoModel, event : @platform.Event) -> DemoModel {
           )
           updated.last_event = "pointer move"
         }
-        @primitives.PointerButtonPressed(position~, button~, modifiers~) => {
+        @primitives.PointerButtonPressed(position~, button~, modifiers~)
+        | @primitives.PointerButtonMultiClick(
+          position~,
+          button~,
+          modifiers~,
+          ..
+        ) => {
           updated.last_modifiers = modifiers
           updated.pressed_buttons.push(button)
           updated.pointer_downs += 1

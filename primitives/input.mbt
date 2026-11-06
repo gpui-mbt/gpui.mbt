@@ -112,6 +112,16 @@ pub(all) enum InputEvent {
     button~ : MouseButton,
     modifiers~ : Modifiers
   )
+  /// A repeated press at the same position (double or triple click).
+  /// `click_count` is at least 2; ordinary presses stay
+  /// `PointerButtonPressed`. Hosts that cannot report a click count never
+  /// produce this variant.
+  PointerButtonMultiClick(
+    position~ : Point,
+    button~ : MouseButton,
+    modifiers~ : Modifiers,
+    click_count~ : Int32
+  )
   PointerButtonReleased(
     position~ : Point,
     button~ : MouseButton,

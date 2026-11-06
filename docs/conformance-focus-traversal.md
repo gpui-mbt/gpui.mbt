@@ -46,8 +46,8 @@ produced paint snapshots. General retained-tree reconciliation is outside scope.
 to `Mouse` and apply `after_input(event)` before dispatching the event:
 
 - `KeyPressed`, including repeats and modified keys, selects `Keyboard`.
-- `PointerMoved` and `PointerButtonPressed`, with any button/modifiers and even
-  outside a hit target, select `Mouse`.
+- `PointerMoved`, `PointerButtonPressed` and `PointerButtonMultiClick`, with
+  any button/modifiers and even outside a hit target, select `Mouse`.
 - `KeyReleased`, `PointerButtonReleased`, `TextInput`, and `Scroll` retain the
   previous modality.
 

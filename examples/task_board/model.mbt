@@ -533,7 +533,8 @@ fn apply_input(model : BoardModel, input : @primitives.InputEvent) -> Unit {
         None
       }
     }
-    @primitives.PointerButtonPressed(position~, button~, ..) => {
+    @primitives.PointerButtonPressed(position~, button~, ..)
+    | @primitives.PointerButtonMultiClick(position~, button~, ..) => {
       cancel_drag(model)
       if !model.visible || !(button is @primitives.Primary) {
         return

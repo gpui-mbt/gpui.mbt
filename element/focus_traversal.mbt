@@ -21,7 +21,9 @@ pub fn InputModality::after_input(
 ) -> InputModality {
   match event {
     @primitives.KeyPressed(..) => Keyboard
-    @primitives.PointerMoved(..) | @primitives.PointerButtonPressed(..) => Mouse
+    @primitives.PointerMoved(..)
+    | @primitives.PointerButtonPressed(..)
+    | @primitives.PointerButtonMultiClick(..) => Mouse
     @primitives.KeyReleased(..)
     | @primitives.PointerButtonReleased(..)
     | @primitives.TextInput(..)
