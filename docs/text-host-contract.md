@@ -213,6 +213,14 @@ The interactive `--run` loop does not pump the text host, so live composition
 in the palette is not wired. Only the opt-in `--text-host` mode applies
 preedit, commit and cancel.
 
+Wiring the pump into the live loop was attempted and reverted. With one
+transport bound to the palette field, the loop observed the synthetic commit
+record but no preedit record, so the adapter rejected the commit with
+`session_no_composition`. The host keeps ordered records per armed session, and
+the loop's event pump drains the window queue between frames; a live path needs
+a dedicated record pump (or a host-side queue) before composition can run in
+the interactive loop.
+
 ## Relationship to text_session
 
 The intended adapter order is:
