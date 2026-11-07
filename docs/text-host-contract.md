@@ -221,11 +221,15 @@ window queue between frames; the adapter then rejected the commit with
 The macOS host now mirrors each armed composition record on the ordinary event
 queue as kind 20, and `Host::next_event` parks it in the owner's portable
 `TextHostQueue` instead of delivering it as a platform event, so
-`next_text_input` still returns every record in order. The second attempt still
-observed only the commit: the loop starts the transport after the synthetic
-frames were already posted, so those records were dropped before the session
-was armed. A live path must arm the transport before the first frame and pump
-the text queue on every loop iteration; that ordering is not implemented.
+`next_text_input` returns parked records in order.
+
+A third attempt armed the transport before each loop iteration and still
+observed only the commit. The synthetic frames are posted in one stage, so the
+preedit record is produced and consumed before the loop reaches the arm step;
+the session therefore never sees the preview that the commit follows. A live
+path needs the transport armed before the first frame of a composition (for
+example by arming on palette open and pumping between frames), which the sample
+does not do.
 
 ## Relationship to text_session
 

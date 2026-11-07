@@ -141,7 +141,8 @@
   20 and park them in the host's portable `TextHostQueue`, so an application
   that pumps platform events keeps the text records in order instead of losing
   a preedit before its commit. Cancelling a session drops records from the
-  replaced epoch.
+  replaced epoch. Arming the transport before the first composition frame is
+  still required, so the interactive palette loop remains unwired.
 - Add the portable `text_adapter/` package: `start_host_text`,
   `receive_host_text` and `end_host_text` validate the event window/epoch, map
   `Preedit`/`Commit`/`Cancel` through `TextSession::apply_batch`, republish the
