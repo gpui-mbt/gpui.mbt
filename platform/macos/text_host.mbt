@@ -3,15 +3,26 @@
 /// ordered record stream; this state only fences operations from the owner.
 /// The macOS client is window-scoped, so the portable root stays the owner's
 /// routing identity and is not subdivided by this transport.
+///
+/// `queue` holds text records that an ordinary event pump has already read out
+/// of the native window queue. Without it a host that pumps platform events
+/// would discard composition records before the text route can observe them,
+/// which is why a live composition loop could see a commit without its preedit.
 priv struct TextInputOwner {
   epoch : UInt64
   window : Int64
   armed : Bool
+  queue : @text_host.TextHostQueue
 }
 
 ///|
 fn text_input_owner() -> TextInputOwner {
-  { epoch: 0UL, window: 0L, armed: false, }
+  {
+    epoch: 0UL,
+    window: 0L,
+    armed: false,
+    queue: @text_host.TextHostQueue::new(),
+  }
 }
 
 ///|
@@ -85,7 +96,12 @@ pub impl @text_host.TextInputHost for Host with fn begin_text_input(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      self.text.val = { epoch, window: window.value(), armed: true, }
+      let queue = @text_host.TextHostQueue::new()
+      match queue.begin(window) {
+        Ok(_) => ()
+        Err(error) => return Err(error)
+      }
+      self.text.val = { epoch, window: window.value(), armed: true, queue, }
       Ok(epoch)
     }
   }
@@ -108,6 +124,10 @@ pub impl @text_host.TextInputHost for Host with fn update_text_input(
   let owner = self.text.val
   if !owner.armed || epoch != owner.epoch {
     return Err(text_input_error(@diagnostics.StaleHandle, "update_text_input"))
+  }
+  match owner.queue.update(epoch, state) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
   }
   match state.preedit() {
     None => ()
@@ -184,6 +204,11 @@ pub impl @text_host.TextInputHost for Host with fn cancel_text_input(
         Err(error) => return Err(error)
         Ok(value) => value
       }
+      // The replacement epoch supersedes every queued record of the old one.
+      match owner.queue.cancel(epoch) {
+        Ok(_) => ()
+        Err(error) => return Err(error)
+      }
       self.text.val = { ..owner, epoch: replacement, }
       Ok(replacement)
     }
@@ -232,6 +257,17 @@ pub impl @text_host.TextInputHost for Host with fn next_text_input(
   let owner = self.text.val
   if !owner.armed {
     return Err(text_input_error(@diagnostics.StaleHandle, "next_text_input"))
+  }
+  // Records that an ordinary event pump already removed from the window queue
+  // are delivered first, in their original order.
+  match owner.queue.take_text() {
+    Some(event) =>
+      if event.epoch() == owner.epoch {
+        return Ok(Some(event))
+      } else {
+        return Ok(None)
+      }
+    None => ()
   }
   let fields = FixedArray::make(6, 0.0)
   let payload = FixedArray::make(65_536, b'\x00')

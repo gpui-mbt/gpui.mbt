@@ -91,6 +91,13 @@ static void emit_composition(GPWindow *w, int code, NSString *text,
     [text_events addObject:@{@"kind":@(code), @"token":@(w.token),
       @"seq":@(sequence), @"epoch":@(w.text_epoch), @"cursor":@((double)cursor),
       @"text":data}];
+    /* Mirror the record on the ordinary event queue as kind 20 so an
+     * application that pumps platform events parks it instead of losing it. */
+    if (events.count >= 4096) { overflow = YES; return; }
+    [events addObject:@{@"kind":@(20), @"token":@(w.token),
+      @"seq":@(++w.sequence), @"scale":@(w.scale), @"x":@(0.0), @"y":@(0.0),
+      @"mods":@(0), @"code":@(code), @"repeat":@(0),
+      @"width":@((double)cursor), @"height":@(0.0), @"text":data}];
     return;
   }
   if (events.count >= 4096) { overflow = YES; return; }

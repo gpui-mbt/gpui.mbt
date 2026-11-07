@@ -100,6 +100,24 @@ pub fn Host::next_event(
         Err(error) => return Err(error)
       }
     }
+    // A composition record for an armed text session. The ordinary event pump
+    // must not discard it: it is parked in the host's text queue so that
+    // `next_text_input` can deliver it in order.
+    20 => {
+      let text = match read_text() {
+        Ok(text) => text
+        Err(error) => return Err(error)
+      }
+      let kind = match
+        decode_composition(integer(5).to_int(), text, number(3), "next_event") {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      match self.park_text_record(kind) {
+        Ok(_) => @platform.Wake
+        Err(error) => return Err(error)
+      }
+    }
     12 => @platform.CloseRequested
     13 => @platform.Destroyed
     14 => @platform.Wake
@@ -114,6 +132,28 @@ pub fn Host::next_event(
       kind,
     }),
   )
+}
+
+///|
+/// Park one composition record that the ordinary event pump read while a text
+/// session is armed. The record keeps its place in the text stream; the pump
+/// reports a wake so the application can call `next_text_input`.
+fn Host::park_text_record(
+  self : Host,
+  kind : @primitives.CompositionEvent,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  let owner = self.text.val
+  if !owner.armed {
+    return Err(error(@diagnostics.StaleHandle, "next_event"))
+  }
+  let event = match kind {
+    @primitives.Start => return Ok(())
+    @primitives.Update(text~, cursor_utf16~) =>
+      @text_host.Preedit(text~, cursor=cursor_utf16)
+    @primitives.Commit(text~) => @text_host.Commit(text~)
+    @primitives.Cancel => @text_host.Cancel
+  }
+  owner.queue.emit(event)
 }
 
 ///|
