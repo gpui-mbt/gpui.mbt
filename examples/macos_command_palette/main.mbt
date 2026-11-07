@@ -463,6 +463,8 @@ fn mac_palette_text_host_cases(
         ),
       )
   }
+  // The transport is already armed by `MacPaletteTextHost::start`; posting the
+  // frames now lets the text route observe the preview before its commit.
   match host.post_test_composition(window, @primitives.Start) {
     Ok(_) => ()
     Err(error) => return Err(error)

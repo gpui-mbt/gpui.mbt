@@ -224,12 +224,18 @@ queue as kind 20, and `Host::next_event` parks it in the owner's portable
 `next_text_input` returns parked records in order.
 
 A third attempt armed the transport before each loop iteration and still
-observed only the commit. The synthetic frames are posted in one stage, so the
-preedit record is produced and consumed before the loop reaches the arm step;
-the session therefore never sees the preview that the commit follows. A live
-path needs the transport armed before the first frame of a composition (for
-example by arming on palette open and pumping between frames), which the sample
-does not do.
+observed only the commit. Instrumenting the native emission showed why: the
+synthetic frames are posted in one stage, and the only composition frame the
+native side ever emitted was the commit. The preview frame is produced and
+consumed before the loop reaches the arm step, so the session never sees the
+preview that the commit follows.
+
+A live path therefore needs two things the sample does not do: arm the
+transport before the first frame of a composition (for example on palette open,
+before the key that starts it), and post or read composition frames one at a
+time between loop iterations. `MacPaletteTextHost::start` already arms the
+transport, so the remaining work is the loop ordering and a per-frame E2E
+stage, not the transport itself.
 
 ## Relationship to text_session
 
