@@ -230,12 +230,16 @@ native side ever emitted was the commit. The preview frame is produced and
 consumed before the loop reaches the arm step, so the session never sees the
 preview that the commit follows.
 
-A live path therefore needs two things the sample does not do: arm the
-transport before the first frame of a composition (for example on palette open,
-before the key that starts it), and post or read composition frames one at a
-time between loop iterations. `MacPaletteTextHost::start` already arms the
-transport, so the remaining work is the loop ordering and a per-frame E2E
-stage, not the transport itself.
+A fifth attempt armed the transport in the loop and split the E2E into
+per-frame stages. The preview was then applied twice: the loop's pump consumed
+both the parked record and the native record for the same frame, so the second
+preview opened a new composition and the following commit was rejected with
+`session_no_composition`. The transport is therefore not the blocker; the
+sample needs a single reader that owns both the parked queue and the native
+record stream, and a way to tell a re-delivered frame from a new one.
+
+`MacPaletteTextHost::start` already arms the transport, so the remaining work is
+a de-duplicated single-reader pump in the sample, not a transport change.
 
 ## Relationship to text_session
 
