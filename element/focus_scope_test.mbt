@@ -1201,3 +1201,228 @@ test "live exact previous owner takes precedence over a different live explicit 
   assert_true(session.snapshot().focused() == Some(2))
   assert_true(session.snapshot().node(31) is Some(_))
 }
+
+///|
+fn scope_adopted_tree() -> @element.ElementTree {
+  unwrap_tree([
+    @element.ElementNode::new(1, None, element_rect(0, 0, 1000, 240)),
+    @element.ElementNode::new(2, Some(1), element_rect(0, 0, 80, 120))
+    .with_focusable(true)
+    .with_tab_stop(true),
+    @element.ElementNode::new(3, Some(1), element_rect(0, 120, 80, 120))
+    .with_focusable(true)
+    .with_tab_stop(true),
+    @element.ElementNode::new(10, Some(1), element_rect(100, 0, 200, 240)).with_focusable(
+      true,
+    ),
+    @element.ElementNode::new(11, Some(10), element_rect(110, 10, 50, 60))
+    .with_focusable(true)
+    .with_tab_stop(true),
+    @element.ElementNode::new(12, Some(10), element_rect(170, 10, 50, 60))
+    .with_focusable(true)
+    .with_tab_stop(true),
+    @element.ElementNode::new(15, Some(10), element_rect(110, 120, 150, 90)).with_focusable(
+      true,
+    ),
+    @element.ElementNode::new(16, Some(15), element_rect(120, 130, 50, 60))
+    .with_focusable(true)
+    .with_tab_stop(true),
+    @element.ElementNode::new(20, Some(1), element_rect(400, 0, 200, 240)).with_focusable(
+      true,
+    ),
+    @element.ElementNode::new(21, Some(20), element_rect(410, 10, 50, 60))
+    .with_focusable(true)
+    .with_tab_stop(true),
+    @element.ElementNode::new(22, Some(20), element_rect(470, 10, 50, 60))
+    .with_focusable(true)
+    .with_tab_stop(true),
+    @element.ElementNode::new(30, Some(1), element_rect(700, 0, 200, 240)).with_focusable(
+      true,
+    ),
+    @element.ElementNode::new(31, Some(30), element_rect(710, 10, 50, 60))
+    .with_focusable(true)
+    .with_tab_stop(true),
+  ])
+}
+
+///|
+fn scope_adopt_without(removed : Array[UInt64]) -> @element.ElementTree {
+  let kept = []
+  for node in scope_adopted_tree().nodes() {
+    if !removed.contains(node.id()) {
+      kept.push(node)
+    }
+  }
+  unwrap_tree(kept)
+}
+
+///|
+test "adoption keeps modal frames exact owners and rebuilt geometry" {
+  let before = owner_test_focus(scope_tree(), 2)
+  let saved = before.focus_owner()
+  let session = scope_session(before)
+  let handle = scope_open(session, 10)
+  scope_ok(session.request_focus(session.target(), 12))
+  scope_ok(
+    session.adopt_tree(
+      session.target(),
+      scope_adopted_tree(),
+      Some(12),
+      scope_allow,
+    ),
+  )
+  assert_eq(session.scope_count(), 1)
+  assert_true(session.focused() == Some(12))
+  assert_true(
+    session.snapshot().node(11) is Some(node) &&
+    node.bounds().left() == 110.0 &&
+    node.bounds().size().height() == 60.0,
+  )
+  scope_ok(session.close_scope(session.target(), handle, scope_allow))
+  assert_eq(session.scope_count(), 0)
+  assert_true(session.snapshot().focus_owner() == saved)
+  assert_true(session.snapshot().node(10) is None)
+  assert_true(session.snapshot().node(2) is Some(_))
+}
+
+///|
+test "adoption rejects background focus and a stale revision without publishing" {
+  let session = scope_session(owner_test_focus(scope_tree(), 2))
+  let handle = scope_open(session, 10)
+  let target = session.target()
+  assert_true(
+    session.adopt_tree(target, scope_adopted_tree(), Some(2), scope_allow)
+    is Err(@element.OutsideScope),
+  )
+  assert_true(session.focused() == Some(11))
+  assert_true(
+    session.snapshot().node(11) is Some(node) &&
+    node.bounds().size().height() == 50.0,
+  )
+  scope_ok(
+    session.adopt_tree(
+      session.target(),
+      scope_adopted_tree(),
+      Some(12),
+      scope_allow,
+    ),
+  )
+  assert_true(
+    session.adopt_tree(target, scope_adopted_tree(), Some(11), scope_allow)
+    is Err(@element.StaleTarget),
+  )
+  assert_true(session.focused() == Some(12))
+  scope_ok(session.close_scope(session.target(), handle, scope_allow))
+}
+
+///|
+test "adoption without a frame applies only the requested acquisition" {
+  let session = scope_session(owner_test_focus(scope_tree(), 2))
+  scope_ok(
+    session.adopt_tree(
+      session.target(),
+      scope_adopted_tree(),
+      Some(3),
+      scope_allow,
+    ),
+  )
+  assert_true(session.focused() == Some(3))
+  scope_ok(
+    session.adopt_tree(
+      session.target(),
+      scope_adopted_tree(),
+      None,
+      scope_allow,
+    ),
+  )
+  assert_true(session.focused() is None)
+  assert_true(session.snapshot().node(3) is Some(_))
+}
+
+///|
+test "adoption of a tree without its scope root revokes the suffix once and restores" {
+  let before = owner_test_focus(scope_tree(), 2)
+  let saved = before.focus_owner()
+  let session = scope_session(before)
+  let handle = scope_open(session, 10)
+  scope_ok(session.request_focus(session.target(), 12))
+  let without = scope_adopt_without([10UL, 11UL, 12UL, 15UL, 16UL])
+  let calls = Ref(0)
+  let receipt : Ref[@element.FocusScopeBoundary?] = Ref(None)
+  scope_ok(
+    session.adopt_tree(session.target(), without, Some(20), boundary => {
+      calls.val += 1
+      receipt.val = Some(boundary)
+      Ok(())
+    }),
+  )
+  assert_eq(calls.val, 1)
+  assert_eq(session.scope_count(), 0)
+  assert_true(session.snapshot().focus_owner() == saved)
+  assert_true(session.snapshot().node(10) is None)
+  let boundary = receipt.val.unwrap()
+  assert_true(boundary.kind() is @element.Removed)
+  assert_true(boundary.removed_roots() == [10UL])
+  assert_true(boundary.previous_root() == Some(10UL))
+  assert_true(boundary.next_root() is None)
+  assert_true(
+    session.close_scope(session.target(), handle, scope_allow)
+    is Err(@element.StaleHandle),
+  )
+}
+
+///|
+test "adoption revokes nested suffix roots and keeps the outer frame" {
+  let session = scope_session(owner_test_focus(scope_tree(), 2))
+  let outer = scope_open(session, 10)
+  scope_ok(session.request_focus(session.target(), 12))
+  let inner = scope_open(session, 20)
+  assert_true(session.focused() == Some(21))
+  let without = scope_adopt_without([20UL, 21UL, 22UL])
+  scope_ok(session.adopt_tree(session.target(), without, None, scope_allow))
+  assert_eq(session.scope_count(), 1)
+  assert_true(session.focused() == Some(12))
+  assert_true(session.snapshot().node(20) is None)
+  assert_true(
+    session.close_scope(session.target(), inner, scope_allow)
+    is Err(@element.StaleHandle),
+  )
+  scope_ok(session.close_scope(session.target(), outer, scope_allow))
+}
+
+///|
+test "adoption removal hook reentry rejects publication" {
+  let session = scope_session(owner_test_focus(scope_tree(), 2))
+  let handle = scope_open(session, 10)
+  scope_ok(session.request_focus(session.target(), 12))
+  let without = scope_adopt_without([10UL, 11UL, 12UL, 15UL, 16UL])
+  assert_true(
+    session.adopt_tree(session.target(), without, None, _boundary => {
+      ignore(session.request_focus(session.target(), 2))
+      Ok(())
+    })
+    is Err(@element.ReentrantMutation),
+  )
+  assert_eq(session.scope_count(), 1)
+  assert_true(session.focused() == Some(12))
+  scope_ok(session.close_scope(session.target(), handle, scope_allow))
+}
+
+///|
+test "clearing focus keeps modal frames and is idempotent" {
+  let before = owner_test_focus(scope_tree(), 2)
+  let saved = before.focus_owner()
+  let session = scope_session(before)
+  let handle = scope_open(session, 10)
+  let target = session.target()
+  scope_ok(session.clear_focus(target))
+  assert_true(session.focused() is None)
+  assert_eq(session.scope_count(), 1)
+  let after = session.target()
+  assert_true(after != target)
+  scope_ok(session.clear_focus(after))
+  assert_true(session.target() == after)
+  scope_ok(session.close_scope(after, handle, scope_allow))
+  assert_true(session.snapshot().focus_owner() == saved)
+  assert_true(session.focused() == Some(2))
+}

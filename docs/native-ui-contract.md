@@ -56,3 +56,11 @@ HTML output and CSS remain compatible.
   `NSWindow` path into the application event loop. This is synthetic host-event
   delivery evidence, not physical hardware input. Linux and Windows continue
   to use their OS-level CI input drivers.
+- The macOS composition client publishes `NSTextInputClient` callbacks as
+  `platform.EventKind::Composition` while no portable text session is armed. An
+  armed `text_host.TextInputHost` session moves those records to an
+  epoch-tagged queue that `next_text_input` drains; `next_event` never steals
+  them. The native E2E harness posts synthetic composition through the test hook
+  and checks begin, caret update, preedit/commit order, cancel replacement,
+  stale-epoch rejection and end. That evidence does not qualify a live Japanese
+  input method, candidate placement or accessibility.

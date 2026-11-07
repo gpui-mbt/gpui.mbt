@@ -316,6 +316,7 @@ fn mixed_layout_at(
     placements,
     scale_factor,
     anchored_layout: None,
+    root_box: false,
     viewport: bounds.size(),
     layout,
     query_lease: if has_query {

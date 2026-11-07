@@ -12,6 +12,10 @@ pub const MAX_GRID_CELLS : Int = 4096
 
 pub fn layout_flex(FlexContainer, Array[FlexItem]) -> Result[FlexLayout, LayoutError]
 
+pub fn layout_flex_root_box(UInt64, @primitives.Size, FlexTreeStyle, Array[FlexTreeNode]) -> Result[FlexTreeLayout, TreeLayoutError]
+
+pub fn layout_flex_root_box_with_device_scale(UInt64, @primitives.Size, FlexTreeStyle, Array[FlexTreeNode], Double) -> Result[FlexTreeLayout, TreeLayoutError]
+
 pub fn layout_flex_tree(UInt64, @primitives.Size, FlexTreeStyle, Array[FlexTreeNode]) -> Result[FlexTreeLayout, TreeLayoutError]
 
 pub fn layout_flex_tree_with_device_scale(UInt64, @primitives.Size, FlexTreeStyle, Array[FlexTreeNode], Double) -> Result[FlexTreeLayout, TreeLayoutError]
@@ -57,6 +61,25 @@ pub fn AlignItems::not_equal(Self, Self) -> Bool
 pub fn AlignItems::start() -> Self
 pub fn AlignItems::stretch() -> Self
 
+pub enum AlignSelf {
+  Auto
+  Start
+  Center
+  End
+  Stretch
+  FlexStart
+  FlexEnd
+} derive(Eq)
+pub fn AlignSelf::auto() -> Self
+pub fn AlignSelf::center() -> Self
+pub fn AlignSelf::end() -> Self
+pub fn AlignSelf::equal(Self, Self) -> Bool
+pub fn AlignSelf::flex_end() -> Self
+pub fn AlignSelf::flex_start() -> Self
+pub fn AlignSelf::not_equal(Self, Self) -> Bool
+pub fn AlignSelf::start() -> Self
+pub fn AlignSelf::stretch() -> Self
+
 pub enum Dimension {
   Auto
   Points(Double)
@@ -67,6 +90,17 @@ pub fn Dimension::equal(Self, Self) -> Bool
 pub fn Dimension::not_equal(Self, Self) -> Bool
 pub fn Dimension::percent(Double) -> Result[Self, LayoutError]
 pub fn Dimension::points(Double) -> Result[Self, LayoutError]
+
+pub enum FlexBasis {
+  Auto
+  Points(Double)
+  Percent(Double)
+} derive(Eq)
+pub fn FlexBasis::auto() -> Self
+pub fn FlexBasis::equal(Self, Self) -> Bool
+pub fn FlexBasis::not_equal(Self, Self) -> Bool
+pub fn FlexBasis::percent(Double) -> Result[Self, LayoutError]
+pub fn FlexBasis::points(Double) -> Result[Self, LayoutError]
 
 pub struct FlexContainer {
   direction : FlowDirection
@@ -101,11 +135,15 @@ pub struct FlexItem {
   max_main : Double?
   min_cross : Double
   max_cross : Double?
+  align_self : AlignSelf
+  flex_basis : FlexBasis
 }
 pub fn FlexItem::id(Self) -> UInt64
 pub fn FlexItem::new(UInt64, Dimension, Dimension, @primitives.Size) -> Self
+pub fn FlexItem::with_align_self(Self, AlignSelf) -> Self
 pub fn FlexItem::with_cross_limits(Self, Double, Double?) -> Result[Self, LayoutError]
 pub fn FlexItem::with_flex(Self, Double, Double) -> Result[Self, LayoutError]
+pub fn FlexItem::with_flex_basis(Self, FlexBasis) -> Self
 pub fn FlexItem::with_intrinsic(Self, @primitives.Size) -> Self
 pub fn FlexItem::with_main_limits(Self, Double, Double?) -> Result[Self, LayoutError]
 
@@ -268,10 +306,14 @@ pub enum JustifyContent {
   SpaceBetween
   SpaceAround
   SpaceEvenly
+  FlexStart
+  FlexEnd
 } derive(Eq)
 pub fn JustifyContent::center() -> Self
 pub fn JustifyContent::end() -> Self
 pub fn JustifyContent::equal(Self, Self) -> Bool
+pub fn JustifyContent::flex_end() -> Self
+pub fn JustifyContent::flex_start() -> Self
 pub fn JustifyContent::not_equal(Self, Self) -> Bool
 pub fn JustifyContent::space_around() -> Self
 pub fn JustifyContent::space_between() -> Self
@@ -336,6 +378,7 @@ pub(all) enum TreeLayoutError {
   Grid(GridLayoutError)
   MismatchedItem
   UnsupportedIntrinsicGrid
+  UnsupportedIntrinsicFlexBasis
 } derive(Eq)
 pub fn TreeLayoutError::equal(Self, Self) -> Bool
 pub fn TreeLayoutError::not_equal(Self, Self) -> Bool

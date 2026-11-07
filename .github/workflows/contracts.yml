@@ -62,6 +62,8 @@ jobs:
         run: sh tests/x11/run_contract.sh
       - name: Check formatting
         run: moon fmt --check
+      - name: Test the prebuild hook
+        run: moon test script/macos_text_prebuild.mbtx
       - name: Check all targets with warnings denied
         run: moon check --target all --deny-warn
       - name: Test all targets with warnings denied

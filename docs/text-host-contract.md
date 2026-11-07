@@ -1,11 +1,9 @@
 # Native text host contract (GP-01B)
 
-Status: additive contract in `text_host/`. The macOS AppKit host implements it
-and a portable `text_adapter/` consumes it; Ubuntu, Windows and X11 keep
-returning `UnsupportedCapability`. A host that provides the trait still needs an
-exact-source runtime profile before it can claim text or IME support. The macOS
-route has synthetic `NSTextInputClient` evidence only; real Kotoeri/IME stays
-`NOT_RUN`.
+Status: additive contract in `text_host/`, implemented by `platform/macos` over
+the AppKit `NSTextInputClient` client and by the opt-in Ubuntu and Windows
+`TextHostRoute` adapters. A host that provides the trait still needs an
+exact-source runtime profile before it can claim text or IME support.
 
 ## Why this package exists
 
@@ -19,6 +17,14 @@ no text input at all.
 implements `TextInputHost`; an application adapter feeds the ordered observations
 into `TextSession` and keeps the existing `TextField` as the value model. The
 package does not duplicate `TextSession`, `TextField`, shaping, or accessibility.
+
+`TextHostQueue` is the shared state for hosts whose native route exposes one
+ordered editor stream instead of a separate text queue. It owns the host-issued
+epoch, observation sequence, pending text observations, bounded parked platform
+events and a sticky unsupported-record failure. A host adapter maps its native
+records into `emit`/`park` and exposes `take_text`/`take_parked`; it remains
+responsible for begin/update/cancel/end against its own session. Parking is
+bounded and a full queue reports failure instead of dropping a record.
 
 ## Host obligations
 
@@ -34,8 +40,10 @@ package does not duplicate `TextSession`, `TextField`, shaping, or accessibility
 - `cancel_text_input(epoch)` cancels the active composition and returns the
   replacement epoch. It does not commit the preedit. The returned value is the
   only valid epoch for later calls; a host is not required to increment it.
-- `end_text_input(epoch)` revokes the session. Repeated or stale epochs are
-  rejected by the host.
+- `end_text_input(epoch)` revokes the session. Zero, repeated, inactive or stale
+  epochs are rejected before calling the native end operation. A failed native
+  end leaves the adapter's current epoch, started state and queues unchanged;
+  this does not establish rollback of effects inside a native host.
 - `next_text_input(timeout_ms?)` drains one ordered observation. A timeout is
   `Ok(None)`, not an error.
 
@@ -43,6 +51,39 @@ An epoch is host-issued and never reused across sessions. Numeric values are
 diagnostic; callers must retain the exact value returned by the host. A host
 must reject a stale window, root, epoch, sequence, or replacement before it
 publishes a document or acknowledges a commit.
+
+## Parked platform event lifetime
+
+Ordinary platform events belong to the application event stream, not to one
+text-input epoch. For `TextHostQueue` and the Ubuntu/Windows adapters:
+
+- `cancel` invalidates the old text epoch but retains parked platform events.
+- `end` revokes text ownership and discards pending text observations, while
+  retaining parked platform events in FIFO order.
+- `begin` issues a fresh text epoch without clearing parked platform events,
+  including events parked while no text session was active. Each event keeps
+  its original window, sequence and payload even if the new session uses a
+  different window.
+- `reset` discards both text state and parked events. It is the explicit
+  teardown operation for a destroyed window or a stopped host.
+
+Applications must continue using `TextHostRoute::next_platform_event` to drain
+already parked events after `end_text_input`, even before another session
+begins. For example, when `next_text_input` returns `FocusLost`, ending that
+session must not erase the ordinary `FocusChanged(false)` record parked while
+reading it. Text end/begin does not free the bounded 1024-event parking capacity;
+only draining or explicit reset does.
+
+Both Ubuntu/Windows pumps observe a newly read `FocusChanged(false)` for the
+active session's window. Each such native record queues one `FocusLost` after
+any preceding text observations, even when `next_platform_event` reads it
+first. Reading the ordinary record later from the parked FIFO does not emit it
+again. An inactive route or a focus record for another window produces no text
+observation; the ordinary record is still delivered unchanged.
+
+This preserves the parked ordinary-event FIFO. It does not add a combined
+text/platform ordering protocol or acknowledge pending text commits. Consumers
+must resolve the required text observations before revoking the text epoch.
 
 ## Event values
 
@@ -91,6 +132,87 @@ maps one observation stream as follows:
 `end_text_input` remain host methods because they carry owner state, caret
 geometry and epoch replacement. Do not flatten them into a stateless event.
 
+## macOS route
+
+`platform/macos.Host` implements the trait over the existing AppKit composition
+client. The host advertises `Capability::TextInput` only when the loaded library
+exports the session and record operations. It does not advertise
+`TextInputGeometry`: AppKit reports the caret to the client but keeps the
+candidate window position inside the input method.
+
+- `begin_text_input` enables the client, makes the content view the first
+  responder, issues a fresh epoch, and rejects a second begin with `Busy`. The
+  client is window-scoped: the portable `root` stays the owner's routing identity
+  and this transport does not subdivide a window by root.
+- While a session is armed, composition records go to the host's ordered
+  text-input queue instead of `platform.EventKind::Composition`. Key and pointer
+  events keep using the ordinary `next_event` queue, so an owner pumps both.
+  The older `set_text_composition` operation is rejected with `Busy` while a
+  session is armed.
+- `update_text_input` installs the logical caret rectangle. The committed
+  document and the owner preedit are validated but not written back: the
+  `NSTextInputClient` route never queries the document, and republishing marked
+  text would inject a synthetic composition into the input method.
+- `cancel_text_input` discards the marked text without publishing a redundant
+  `Cancel`, invalidates the old epoch and returns the replacement. Records from
+  the replaced epoch are dropped before they can reach the owner.
+- `end_text_input` disables the client and drops the window's queued records;
+  window destruction and host stop do the same. Window focus loss publishes
+  `FocusLost` after the native `Cancel`.
+- `next_text_input` returns `Ok(None)` on timeout and never consumes ordinary
+  platform events.
+- Test hooks expose an explicit ANSI key code with characters and the current
+  caret rectangle in screen coordinates. Both require `GPUI_NATIVE_E2E=1` and a
+  test-hooks library. The key hook replaces only AppKit's hardware event source:
+  the live input method still processes the key. Neither hook synthesizes a
+  composition or proves a real input method by itself.
+
+## Windows route (bounded)
+
+`windows.TextHostRoute` adapts the existing default-off IMM32 session. `Marked`
+becomes `Preedit` (a missing cursor becomes -1), `Inserted` with an empty
+replacement range becomes `Commit`, `Cancelled` becomes `Cancel`, and
+composition start/end produce no observation. A replacement insert cannot be
+represented by the insertion-only portable vocabulary, so the route fails with
+`UnsupportedCapability` and does not flatten it into an insertion.
+
+`begin_text_input` defers the native session until the first `update`, because
+IMM32 begin needs the document, caret and owner generation; the portable `root`
+provides `owner_generation`. `next_text_input` parks ordinary platform records
+for `next_platform_event`, so an application can pump both without losing
+input. Each owned-window focus-loss record emits `FocusLost` once, regardless
+of which pump reads it first. The route is opt-in:
+`Host::require_capability(TextInput)` stays unadvertised until an exact-source
+IME run qualifies it.
+
+## Portable adapter (`text_adapter/`)
+
+`text_adapter` is the portable glue between one `TextInputHost` and one live
+`TextSession`. `start_host_text` begins the transport and publishes the
+committed document and caret, `receive_host_text` drains one observation and
+maps `Preedit`/`Commit`/`Cancel` through `TextSession::apply_batch`, and
+`end_host_text` revokes the binding. `apply_host_text_event` applies an
+already-fetched observation, so a caller can re-bind the session to the current
+field before a preview starts. The adapter never calls `cancel_text_input`;
+cancellation arrives as a `Cancel` observation, and a host that replaces the
+epoch on cancel makes the old binding stale.
+
+`platform/macos_app.MacosTextFieldHost` wraps the adapter for app integration:
+it creates the CoreText-backed field and session, starts the transport, applies
+pumped observations to its stored field, and reports focus loss or an ended
+state. The host stays a caller-supplied value, so the helper is testable with a
+fixture transport.
+
+`examples/macos_command_palette --text-host` uses that split: it opens the
+palette, applies synthetic preedit/commit/cancel frames, installs each applied
+field through `CommandPalette::install_field`, and checks that the committed
+query filters the list and that cancel preserves it. This is transport
+evidence, not real IME qualification (`real_ime: NOT_RUN`).
+
+The interactive `--run` loop does not pump the text host, so live composition
+in the palette is not wired. Only the opt-in `--text-host` mode applies
+preedit, commit and cancel.
+
 ## Relationship to text_session
 
 The intended adapter order is:
@@ -107,99 +229,25 @@ transactions. `text_host` does not add a second history, a second focus model,
 or a second text value model. UTF-16 remains the offset unit of
 `TextDocument`, `TextSelection` and the existing field API.
 
-## macOS route (GP-02-M)
-
-`platform/macos.Host` implements `TextInputHost`. Two additive native
-operations keep the transport single-owner:
-
-- op 22 takes the first queued composition frame for one window token (wait is
-  0-250 ms) and leaves every other queued event in order. With an active
-  session, composition frames therefore no longer appear on `next_event`; that
-  is the single-owner rule, and applications that never call the text API are
-  unaffected.
-- op 23 reports the AppKit key state for the window; `text_host` derives
-  `FocusLost` from it. A test-only op 24 forces the key state under
-  `GPUI_TESTING` + `GPUI_NATIVE_E2E=1`; it never changes the real window state.
-
-Boundary rules:
-
-- one live session per host; a second `begin_text_input` is `Busy`.
-- epochs start at 1, increase monotonically and are never reused, including
-  after a failed native enable. Every other epoch is `StaleHandle`.
-- `update_text_input` publishes the committed document boundary and the painted
-  caret; the caret is rounded outward to integer logical pixels for AppKit.
-  The committed document is not retained by the host: `text_session` stays the
-  only document authority.
-- `FocusLost` is reported at most once, only after the session observed key
-  focus, and carries a negative synthetic sequence that cannot collide with the
-  native per-window sequence.
-- `end_text_input` disables the client and drains at most 64 leftover
-  composition frames for that window, so a revoked transport leaves no
-  stragglers.
-- `Capability::TextInput` is advertised; `Capability::TextInputGeometry` is not,
-  because AppKit places the candidate window from the supplied caret rectangle
-  and no candidate geometry is reported back to the portable layer.
-
-Run the synthetic proof with `./script/test_macos.sh`; it prints
-`GPUI_MACOS_TEXT_HOST {...}` after preedit, commit, cancel, stale-epoch and
-forced focus-loss cases. Real keyboard focus acquisition, candidate placement
-and Japanese IME remain `NOT_RUN`.
-
-## Portable adapter (`text_adapter/`)
-
-`text_adapter` is the application-facing glue between one `TextInputHost` and
-one live `TextSession`:
-
-- `start_host_text(session, host, caret)` begins the transport and publishes
-  the current committed document and caret; a rejected handoff ends it again.
-- `receive_host_text(session, host, binding, measure, admit)` validates the
-  event window and epoch before the document, maps `Preedit` to a checked
-  `Preview`, applies `Commit`/`Cancel` through `TextSession::apply_batch`,
-  republishes the committed document and painted caret, returns `FocusLost`
-  after ending the transport, and treats `Geometry` as a caret update.
-- `end_host_text(session, host, binding)` revokes the binding; callers re-arm
-  with a fresh start after the next real focus.
-
-The adapter owns no document, history or focus model. It maps host failures and
-session rejections into distinct error variants so a caller cannot retag one as
-the other. `platform/macos_app.MacosTextFieldHost` wraps the adapter for
-one-call app integration: it creates the CoreText-backed field and session,
-starts the transport, applies pumped observations to its stored field, and
-reports a focus-loss or ended state. The host remains a caller-supplied value,
-so the helper is testable with a fixture transport.
-
-`text_adapter.apply_host_text_event` separates fetching an observation from
-applying it, so a host can re-bind the portable session to the current field
-before a preview starts. `examples/macos_command_palette --text-host` uses that
-split: it opens the palette, applies synthetic preedit/commit/cancel frames,
-install the resulting field through `CommandPalette::install_field`, and checks
-that the committed query filters the list and that cancel preserves it. This is
-transport evidence, not real IME qualification (`real_ime: NOT_RUN`). The
-sample's interactive ASCII key path is unchanged.
-
-Wiring composition into the live loop was attempted and reverted: with the text
-client enabled, the sample's palette loop observes the synthetic commit frame
-but no preview frame, so the adapter rejects the commit with
-`session_no_composition`. The host keeps only the newest composition frame, and
-the loop's event pump drains the generic queue between frames. A live
-composition path needs a dedicated frame pump (or a host-side composition
-queue) before it can be claimed.
-
 ## Evidence boundary
 
-This package has a transport fixture and headless tests only. They establish
-the type contract, epoch ownership and ordered delivery; they do not establish a
-native window, Japanese composition, candidate placement, screen-reader
-behavior, or a platform support tier. Each OS route needs its own exact-source
-profile:
+The transport fixture and headless tests establish the type contract, epoch
+ownership and ordered delivery. The macOS route adds a host implementation and
+native E2E coverage that drives the real `NSTextInputClient` callbacks through
+the test hook. Neither establishes composition from physical keystrokes,
+candidate placement, screen-reader behavior, or a platform support tier.
+Each OS route needs its own exact-source profile:
 
 - Linux/Wayland: text-input-v1 + IBus/Mozc profile, including candidate panel.
 - Windows: IMM32 route, with real IME and UIA recorded separately.
-- macOS: the NSTextInputClient route is implemented and synthetic start/update/
-  commit/cancel/focus-loss cases run in `./script/test_macos.sh`. The focus case
-  forces the key state through the test hook because the automation context
-  cannot take real keyboard focus. Real Kotoeri composition, candidate
-  placement, and window-activation focus remain `NOT_RUN`.
+- macOS: `NSTextInputClient` route on Apple Silicon, with `platform/macos.Host`
+  implementing `TextInputHost` over an epoch-tagged, ordered queue. The host,
+  epochs, caret update, cancel replacement and `FocusLost` are implemented. A
+  live Kotoeri run through the Yami-kumo native sample on 2026-10-21 recorded
+  preedit, commit (`日本語`), committed-document and candidate-visibility
+  `PASS`; it posted synthetic HID events rather than physical keystrokes, so
+  candidate anchoring, physical-keyboard entry and accessibility remain
+  `NOT_RUN`. The TextField AX observation is a separate bounded service.
 
 Unavailable profiles remain `NOT_RUN`. Build-only or synthetic-event results do
 not become `PASS`.

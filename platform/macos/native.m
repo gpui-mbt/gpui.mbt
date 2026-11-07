@@ -15,6 +15,8 @@
 @property BOOL closing;
 @property BOOL ime_enabled;
 @property NSRect ime_caret;
+@property BOOL text_armed;
+@property int64_t text_epoch, text_sequence;
 @end
 @interface GPView : NSView <NSTextInputClient>
 @property(weak) GPWindow *owner;
@@ -30,19 +32,18 @@
 @end
 static NSMutableDictionary<NSNumber *, GPWindow *> *windows;
 static NSMutableArray<NSDictionary *> *events;
+static NSMutableArray<NSDictionary *> *text_events;
 static NSDictionary *current;
 static id<MTLDevice> device;
 static id<MTLCommandQueue> queue;
 static id<MTLRenderPipelineState> pipeline;
 static id<MTLTexture> white_mask_texture;
-static int64_t next_token, result_token, host_epoch;
-static int64_t focus_result; // last op-23 window key query (0/1)
+static int64_t next_token, result_token, host_epoch, next_text_epoch;
 static NSData *text_result;
 static int state; // 0 uninitialized/stopped, 1 running, 2 quiescing
-static BOOL overflow, background_host;
+static BOOL overflow, text_overflow, background_host;
 #ifdef GPUI_TESTING
 /* -1 uses the real AppKit key state; 0/1 force it for deterministic E2E only. */
-static int test_focus_override = -1;
 static NSData *frame_pixels;
 static NSUInteger frame_width, frame_height, frame_stride;
 static int64_t frame_window_token;
@@ -81,6 +82,17 @@ static void emit_composition(GPWindow *w, int code, NSString *text,
   }
   if (cursor == NSNotFound || cursor > text.length) cursor = text.length;
   NSData *data = [text dataUsingEncoding:NSUTF8StringEncoding] ?: [NSData data];
+  /* An armed text-input session owns composition delivery. A start frame needs
+   * no portable record because the session epoch already identifies it. */
+  if (w.text_armed) {
+    if (code == 0) return;
+    if (text_events.count >= 4096) { text_overflow = YES; return; }
+    int64_t sequence = ++w.text_sequence;
+    [text_events addObject:@{@"kind":@(code), @"token":@(w.token),
+      @"seq":@(sequence), @"epoch":@(w.text_epoch), @"cursor":@((double)cursor),
+      @"text":data}];
+    return;
+  }
   if (events.count >= 4096) { overflow = YES; return; }
   int64_t sequence = ++w.sequence;
   [events addObject:@{@"kind":@(17), @"token":@(w.token), @"seq":@(sequence),
@@ -119,6 +131,11 @@ static void resize_surface(GPWindow *w) {
 - (void)windowDidResignKey:(NSNotification *)note {
   (void)note;
   [(GPView *)self.window.contentView unmarkText];
+  if (self.text_armed && text_events.count < 4096) {
+    [text_events addObject:@{@"kind":@(5), @"token":@(self.token),
+      @"seq":@(++self.text_sequence), @"epoch":@(self.text_epoch),
+      @"cursor":@(0.0), @"text":[NSData data]}];
+  }
   emit(self, 6, 0, 0, 0, 0, 0);
 }
 @end
@@ -375,6 +392,12 @@ static void destroy(GPWindow *w) {
     (void)i; (void)stop; return [e[@"token"] longLongValue] == w.token;
   }];
   [events removeObjectsAtIndexes:indices];
+  NSIndexSet *text_indices = [text_events indexesOfObjectsPassingTest:^BOOL(NSDictionary *e, NSUInteger i, BOOL *stop) {
+    (void)i; (void)stop; return [e[@"token"] longLongValue] == w.token;
+  }];
+  [text_events removeObjectsAtIndexes:text_indices];
+  w.text_armed = NO;
+  w.text_epoch = 0;
   w.window.delegate = nil;
   ((GPView *)w.window.contentView).owner = nil;
   w.window.contentView.layer = nil;
@@ -709,6 +732,7 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
       }
       app_delegate = [GPApplicationDelegate new]; NSApp.delegate = app_delegate;
       windows = [NSMutableDictionary new]; events = [NSMutableArray new]; current=nil; overflow=NO;
+      text_events = [NSMutableArray new]; text_overflow=NO; next_text_epoch=0;
       [NSApp finishLaunching]; state = 1; host_epoch++;
       return 0;
     }
@@ -716,7 +740,7 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
     if (op == 2) {
       if (!state) return 0;
       for (GPWindow *w in windows.allValues) destroy(w);
-      events=nil; current=nil; text_result=nil; windows=nil; white_mask_texture=nil; pipeline=nil; queue=nil; device=nil;
+      events=nil; current=nil; text_result=nil; windows=nil; text_events=nil; text_overflow=NO; white_mask_texture=nil; pipeline=nil; queue=nil; device=nil;
 #ifdef GPUI_TESTING
       [test_clipboard releaseGlobally]; test_clipboard=nil;
 #endif
@@ -764,17 +788,6 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
       return 0;
     }
     if (op == 10) { emit(nil,14,0,0,0,0,0); return 0; }
-#ifdef GPUI_TESTING
-    /* Deterministic focus injection for the text-host E2E. It never changes
-     * the window's real AppKit key state. */
-    if (op == 24) {
-      const char *enabled = getenv("GPUI_NATIVE_E2E");
-      if (!enabled || strcmp(enabled, "1") != 0) return 9;
-      if (x != -1.0 && x != 0.0 && x != 1.0) return 5;
-      test_focus_override = (int)x;
-      return 0;
-    }
-#endif
     if (op == 12) {
       switch ((int)x) { case 0: [[NSCursor arrowCursor] set]; break; case 1: [[NSCursor pointingHandCursor] set]; break; case 2: [[NSCursor IBeamCursor] set]; break; default: return 9; }
       return 0;
@@ -823,6 +836,8 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
       case 15: resize_surface(w); current=@{@"width":@(w.window.contentView.bounds.size.width), @"height":@(w.window.contentView.bounds.size.height), @"scale":@(w.scale)}; return 0;
       case 19: {
         if (x != 0.0 && x != 1.0) return 5;
+        /* A portable text-input session owns enablement while it is armed. */
+        if (w.text_armed) return 12;
         GPView *view = (GPView *)w.window.contentView;
         if (x == 0.0) {
           [view unmarkText];
@@ -856,42 +871,6 @@ static int32_t native_call(int32_t op, int64_t token, double x, double y, const 
         }
         return 0;
       }
-      // Take one queued composition frame for this window. Other events stay
-      // in order for the generic pump, so the two readers never reorder each
-      // other. Nothing queued returns an empty current record (kind 0).
-      case 22: {
-        if (!isfinite(x) || x < 0 || x > 250) return 5;
-        current=nil;
-        NSInteger found = -1;
-        for (NSInteger i = 0; i < (NSInteger)events.count; i++) {
-          NSDictionary *queued = events[i];
-          if ([queued[@"kind"] longLongValue] == 17 &&
-              [queued[@"token"] longLongValue] == token) { found = i; break; }
-        }
-        if (found < 0) {
-          int pump = pump_native(x);
-          if (pump) return pump;
-          for (NSInteger i = 0; i < (NSInteger)events.count; i++) {
-            NSDictionary *queued = events[i];
-            if ([queued[@"kind"] longLongValue] == 17 &&
-                [queued[@"token"] longLongValue] == token) { found = i; break; }
-          }
-        }
-        if (found >= 0) { current = events[found]; [events removeObjectAtIndex:found]; }
-        return 0;
-      }
-      // Query the AppKit key state for this window. The result is exposed as
-      // integer field 10 so the text route can synthesize a focus loss without
-      // consuming the window's ordinary FocusChanged event.
-      case 23:
-#ifdef GPUI_TESTING
-        focus_result = test_focus_override >= 0 ? test_focus_override :
-            (w.window.isKeyWindow ? 1 : 0);
-#else
-        focus_result = w.window.isKeyWindow ? 1 : 0;
-#endif
-        current = nil;
-        return 0;
       default: return 9;
     }
   }
@@ -905,7 +884,7 @@ static int64_t native_integer(int32_t field) {
     case 4:return [current[@"mods"] longLongValue]; case 5:return [current[@"code"] longLongValue];
     case 6:return [current[@"repeat"] longLongValue]; case 7:return 1;
     case 8:return [(current[@"text"] ?: text_result) length]; case 9:return host_epoch;
-    case 10:return focus_result; default:return 0;
+    default:return 0;
   }
 }
 enum { MACOS_DISPLAY_CAPACITY = 16, MACOS_DISPLAY_FIELDS = 14 };
@@ -1010,6 +989,129 @@ static double native_number(int32_t field) {
 const GpuiApi *gpui_macos_api_v1(void) {
   static const GpuiApi api={1,sizeof(GpuiApi),native_call,native_integer,native_number};
   return &api;
+}
+
+/* Portable text-input transport. A session owns enablement, epoch, and the
+ * ordered record stream; the ordinary event queue keeps non-composition
+ * records. Epochs are host-issued and never reused. */
+static BOOL text_epoch_current(GPWindow *w, int64_t epoch) {
+  return w && w.text_armed && epoch == w.text_epoch;
+}
+static void drop_text_events(GPWindow *w, BOOL other_epochs_only) {
+  if (!w) return;
+  int64_t token = w.token;
+  int64_t epoch = w.text_epoch;
+  NSIndexSet *indices = [text_events indexesOfObjectsPassingTest:^BOOL(NSDictionary *e, NSUInteger i, BOOL *stop) {
+    (void)i; (void)stop;
+    if ([e[@"token"] longLongValue] != token) return NO;
+    return !other_epochs_only || [e[@"epoch"] longLongValue] != epoch;
+  }];
+  [text_events removeObjectsAtIndexes:indices];
+}
+int32_t gpui_macos_text_available_v1(void) { return 1; }
+int32_t gpui_macos_text_session_v1(int32_t op, int64_t token, int64_t epoch,
+                                   double *fields, const uint8_t *bytes,
+                                   int32_t length) {
+  if (![NSThread isMainThread]) return 18;
+  if (length < 0 || (length > 0 && !bytes)) return 5;
+  @autoreleasepool {
+    if (!state) return 1;
+    GPWindow *w = windows[@(token)];
+    if (!w || w.closing) return 14;
+    GPView *view = (GPView *)w.window.contentView;
+    switch (op) {
+      case 1: {
+        if (w.text_armed) return 12;
+        if (next_text_epoch == INT64_MAX) return 13;
+        w.text_armed = YES;
+        w.text_epoch = ++next_text_epoch;
+        w.text_sequence = 0;
+        [view resetImeState];
+        w.ime_enabled = YES;
+        [w.window makeFirstResponder:view];
+        drop_text_events(w, NO);
+        if (fields) fields[0] = (double)w.text_epoch;
+        return 0;
+      }
+      case 2: {
+        if (!text_epoch_current(w, epoch)) return 10;
+        if (!fields) return 5;
+        double x = fields[0], y = fields[1], width = fields[2], height = fields[3];
+        if (!isfinite(x) || !isfinite(y) || !isfinite(width) || !isfinite(height))
+          return 5;
+        if (x < -8192.0 || y < -8192.0 || x > 8192.0 || y > 8192.0 ||
+            width <= 0.0 || height <= 0.0 || width > 8192.0 || height > 8192.0)
+          return 5;
+        w.ime_caret = NSMakeRect(x, y, width, height);
+        return 0;
+      }
+      case 3: {
+        if (!text_epoch_current(w, epoch)) return 10;
+        if (next_text_epoch == INT64_MAX) return 13;
+        [view resetImeState];
+        w.text_epoch = ++next_text_epoch;
+        /* Records from the replaced epoch must not arrive after cancellation. */
+        drop_text_events(w, YES);
+        if (fields) fields[0] = (double)w.text_epoch;
+        return 0;
+      }
+      case 4: {
+        if (!text_epoch_current(w, epoch)) return 10;
+        [view resetImeState];
+        w.ime_enabled = NO;
+        w.text_armed = NO;
+        w.text_epoch = 0;
+        drop_text_events(w, NO);
+        return 0;
+      }
+      default: return 5;
+    }
+  }
+}
+int32_t gpui_macos_text_next_v1(int64_t token, int64_t epoch, int32_t timeout_ms,
+                                double *fields, uint8_t *payload,
+                                int32_t capacity) {
+  if (![NSThread isMainThread]) return 18;
+  if (!fields || !payload || capacity < 0 || capacity > 16*1024*1024) return 5;
+  if (timeout_ms < 0 || timeout_ms > 250) return 5;
+  @autoreleasepool {
+    if (!state) return 1;
+    GPWindow *w = windows[@(token)];
+    if (!w || w.closing) return 14;
+    if (!text_epoch_current(w, epoch)) return 10;
+    fields[0] = 0.0;
+    NSInteger index = -1;
+    for (NSInteger attempt = 0; attempt < 2 && index < 0; attempt++) {
+      for (NSUInteger i = 0; i < text_events.count; i++) {
+        NSDictionary *record = text_events[i];
+        if ([record[@"token"] longLongValue] == token &&
+            [record[@"epoch"] longLongValue] == epoch) {
+          index = (NSInteger)i;
+          break;
+        }
+      }
+      if (index < 0 && attempt == 0 && timeout_ms > 0) {
+        NSDate *until = [NSDate dateWithTimeIntervalSinceNow:timeout_ms/1000.0];
+        NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:until inMode:NSDefaultRunLoopMode dequeue:YES];
+        if (event) [NSApp sendEvent:event];
+        [NSApp updateWindows];
+      }
+    }
+    if (text_overflow) { text_overflow = NO; return 13; }
+    if (index < 0) return 0;
+    NSDictionary *record = text_events[(NSUInteger)index];
+    NSData *text = record[@"text"] ?: [NSData data];
+    if (text.length > (NSUInteger)capacity) return 13;
+    [text_events removeObjectAtIndex:(NSUInteger)index];
+    fields[0] = 1.0;
+    fields[1] = [record[@"kind"] doubleValue];
+    fields[2] = [record[@"seq"] doubleValue];
+    fields[3] = [record[@"epoch"] doubleValue];
+    fields[4] = [record[@"cursor"] doubleValue];
+    fields[5] = (double)text.length;
+    if (text.length) memcpy(payload, text.bytes, text.length);
+    return 0;
+  }
 }
 
 /* Opt-in E2E access to the last completed native Metal frame. Pixel copying
@@ -1172,6 +1274,27 @@ int32_t gpui_macos_test_post_key_v1(int64_t token, int32_t key_code,
   (void)token; (void)key_code; (void)modifier_bits; (void)bytes; (void)length;
   return 9;
 #endif
+}
+
+int32_t gpui_macos_text_caret_screen_v1(int64_t token, double *output) {
+  if (![NSThread isMainThread]) return 18;
+  const char *enabled = getenv("GPUI_NATIVE_E2E");
+  if (!enabled || strcmp(enabled, "1") != 0) return 9;
+  if (!output) return 5;
+  GPWindow *target = windows[@(token)];
+  if (!target || !target.window || target.closing) return 10;
+  NSRect caret = target.ime_caret;
+  if (!isfinite(NSMinX(caret)) || !isfinite(NSMinY(caret)) ||
+      !isfinite(NSWidth(caret)) || !isfinite(NSHeight(caret)) ||
+      NSWidth(caret) <= 0 || NSHeight(caret) <= 0)
+    caret = NSMakeRect(0, 0, 1, 18);
+  NSRect in_window = [target.window.contentView convertRect:caret toView:nil];
+  NSRect screen = [target.window convertRectToScreen:in_window];
+  output[0] = screen.origin.x;
+  output[1] = screen.origin.y;
+  output[2] = screen.size.width;
+  output[3] = screen.size.height;
+  return 0;
 }
 
 int32_t gpui_macos_test_post_composition_v1(int64_t token, int32_t kind,

@@ -61,7 +61,7 @@ COMMON_HARNESS_FILES = (
     "scripts/wait_wayland_ready.py",
     "scripts/create_field_fixture_run.sh",
     "scripts/encode_field_fixtures.py",
-    "script/linux_text_cc.py",
+    "script/linux_text_cc.sh",
     "tests/ubuntu/backend_test.c",
     "tests/ubuntu/field_gpu_test.c",
     "tests/ubuntu/direct_text_test.c",

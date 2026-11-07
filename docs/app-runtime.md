@@ -101,8 +101,10 @@ skip only `UnsupportedPlatform`; other CoreText failures fail the tests.
 
 With the pinned MoonBit workspace toolchain, member prebuild script paths are
 resolved from the workspace root. An external workspace must provide
-`script/macos_text_prebuild.py` there, copied from this checkout, so the existing
-CoreText framework-link hook can run.
+`script/macos_text_prebuild.mbtx` there, copied from this checkout, so the
+CoreText framework-link hook can run. Moon compiles the script to WebAssembly
+and runs it with the bundled `moonrun`; no Python or Node interpreter is
+involved.
 
 ## Limits
 

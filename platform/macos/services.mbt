@@ -71,10 +71,13 @@ pub fn Host::require_capability(
     | @platform.GrayscaleTextFrames
     | @platform.PointerKeyboard
     | @platform.Clipboard
-    | @platform.Cursor
-    // The bounded native text session exists; candidate geometry still comes
-    // from AppKit and is not reported back to the portable layer.
-    | @platform.TextInput => Ok(())
+    | @platform.Cursor => Ok(())
+    @platform.TextInput =>
+      if text_available() == 1 {
+        Ok(())
+      } else {
+        Err(error(@diagnostics.UnsupportedCapability, "require_capability"))
+      }
     _ => Err(error(@diagnostics.UnsupportedCapability, "require_capability"))
   }
 }

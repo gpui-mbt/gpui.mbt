@@ -42,7 +42,9 @@ pub struct Element {
 
 ///|
 /// Create the root of a declarative element tree. The root fills the supplied
-/// viewport; its style lays out direct children.
+/// viewport when requested with `request_layout`; its style lays out direct
+/// children. `request_layout_root_box` separately opts into an inset-minimum
+/// authored root box while retaining the supplied physical viewport.
 pub fn Element::root(
   id : UInt64,
   children_style : @layout.FlexTreeStyle,
@@ -270,7 +272,8 @@ pub fn[T : IntoElement] into_element(value : T) -> Element {
 
 ///|
 /// Result of the request-layout phase. Layout is resolved against the definite
-/// root viewport and the original declarative tree is retained for prepaint.
+/// root viewport by default, or its inset-minimum authored root box when
+/// explicitly requested. The original declarative tree is retained for prepaint.
 /// For anchored attachments, `layout` describes the ordinary in-flow tree;
 /// separately measured popup subtrees join structural order during prepaint.
 /// Read the resulting ElementTree for complete final bounds and static
@@ -281,6 +284,7 @@ pub struct RequestedLayout {
   priv scale_factor : Double?
   priv query_lease : Ref[Bool]?
   priv anchored_layout : AnchoredLayout?
+  priv root_box : Bool
   viewport : @primitives.Size
   layout : @layout.FlexTreeLayout
 }
@@ -352,11 +356,67 @@ pub fn Element::request_layout_with_device_scale(
 }
 
 ///|
+/// Lay out an authored root border box large enough for its padding and border.
+/// The supplied size remains the physical origin-zero viewport for snapshots
+/// and pointer eligibility, even when the root box grows beyond it. Ordinary
+/// flex and scrolling are supported; grid, queries, anchored/deferred content
+/// and uniform lists return UnsupportedRootBoxComposition.
+pub fn Element::request_layout_root_box(
+  self : Element,
+  viewport : @primitives.Size,
+) -> Result[RequestedLayout, ElementError] {
+  self.request_layout_internal(viewport, None, root_box=true)
+}
+
+///|
+/// Device-scaled authored-root layout. Insets are snapped before calculating
+/// the root minimum; the physical viewport stays exactly the supplied size.
+/// Existing `request_layout_with_device_scale` keeps its fixed-root semantics.
+pub fn Element::request_layout_root_box_with_device_scale(
+  self : Element,
+  viewport : @primitives.Size,
+  scale_factor : Double,
+) -> Result[RequestedLayout, ElementError] {
+  self.request_layout_internal(viewport, Some(scale_factor), root_box=true)
+}
+
+///|
+fn validate_root_box_composition(root : Element) -> Result[Unit, ElementError] {
+  let pending = [(root, 0)]
+  while pending.length() > 0 {
+    let (element, depth) = pending.pop().unwrap()
+    if depth > MAX_ELEMENT_DEPTH {
+      return Err(TreeTooDeep)
+    }
+    if element.grid_item is Some(_) ||
+      element.grid_style is Some(_) ||
+      element.container_query is Some(_) ||
+      element.query_root_size is Some(_) ||
+      element.anchored is Some(_) ||
+      element.deferred is Some(_) ||
+      element.uniform_list is Some(_) {
+      return Err(UnsupportedRootBoxComposition)
+    }
+    for child in element.children {
+      pending.push((child, depth + 1))
+    }
+  }
+  Ok(())
+}
+
+///|
 fn Element::request_layout_internal(
   self : Element,
   viewport : @primitives.Size,
   scale_factor : Double?,
+  root_box~ : Bool = false,
 ) -> Result[RequestedLayout, ElementError] {
+  if root_box {
+    match validate_root_box_composition(self) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
   if has_anchored_elements(self) {
     return request_anchored_layout(self, viewport, scale_factor)
   }
@@ -402,41 +462,40 @@ fn Element::request_layout_internal(
                 }
               }
             }
-            match scale_factor {
-              None =>
-                match
-                  @layout.layout_flex_tree(self.id, viewport, style, nodes) {
-                  Err(error) => Err(LayoutFailure(error))
-                  Ok(layout) =>
-                    Ok({
-                      placements,
-                      viewport,
-                      layout,
-                      scale_factor,
-                      query_lease: None,
-                      anchored_layout: None,
-                    })
-                }
-              Some(scale) =>
-                match
-                  @layout.layout_flex_tree_with_device_scale(
-                    self.id,
-                    viewport,
-                    style,
-                    nodes,
-                    scale,
-                  ) {
-                  Err(error) => Err(LayoutFailure(error))
-                  Ok(layout) =>
-                    Ok({
-                      placements,
-                      viewport,
-                      layout,
-                      scale_factor,
-                      query_lease: None,
-                      anchored_layout: None,
-                    })
-                }
+            let result = match (root_box, scale_factor) {
+              (true, None) =>
+                @layout.layout_flex_root_box(self.id, viewport, style, nodes)
+              (true, Some(scale)) =>
+                @layout.layout_flex_root_box_with_device_scale(
+                  self.id,
+                  viewport,
+                  style,
+                  nodes,
+                  scale,
+                )
+              (false, None) =>
+                @layout.layout_flex_tree(self.id, viewport, style, nodes)
+              (false, Some(scale)) =>
+                @layout.layout_flex_tree_with_device_scale(
+                  self.id,
+                  viewport,
+                  style,
+                  nodes,
+                  scale,
+                )
+            }
+            match result {
+              Err(error) => Err(LayoutFailure(error))
+              Ok(layout) =>
+                Ok({
+                  placements,
+                  viewport,
+                  layout,
+                  scale_factor,
+                  query_lease: None,
+                  anchored_layout: None,
+                  root_box,
+                })
             }
           }
         }
@@ -518,13 +577,33 @@ pub fn RequestedLayout::prepaint(
             Ok(expanded) =>
               match ElementTree::new(expanded) {
                 Err(error) => Err(error)
-                Ok(tree) =>
+                Ok(tree) => {
+                  let viewport_bounds = if self.root_box {
+                    match
+                      @primitives.Rect::new(
+                        0.0,
+                        0.0,
+                        self.viewport.width(),
+                        self.viewport.height(),
+                      ) {
+                      Ok(bounds) => bounds
+                      Err(_) => return Err(GeometryFailure)
+                    }
+                  } else {
+                    root_bounds
+                  }
+                  let tree = if self.root_box {
+                    { ..tree, physical_viewport: Some(viewport_bounds), }
+                  } else {
+                    tree
+                  }
                   Ok({
                     tree,
                     viewport: self.viewport,
-                    viewport_bounds: root_bounds,
+                    viewport_bounds,
                     overflow: self.layout.overflow(),
                   })
+                }
               }
           }
       }

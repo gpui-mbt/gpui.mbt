@@ -70,7 +70,7 @@ pub fn layout_mixed_tree_at(
       if scale <= 0.0 {
         return Err(Flex(NegativeValue))
       }
-      match snap_mixed_style(root_style, scale) {
+      match prepare_mixed_style_in_device_pixels(root_style, scale) {
         Ok(style) => style
         Err(error) => return Err(error)
       }
@@ -82,18 +82,18 @@ pub fn layout_mixed_tree_at(
       Some(scale) => {
         let item = match node.item {
           FlexChild(item) =>
-            match snap_tree_item_to_device_scale(item, scale) {
+            match prepare_tree_item_in_device_pixels(item, scale) {
               Ok(item) => FlexChild(item)
               Err(error) => return Err(Flex(error))
             }
           GridChild(item) => {
             let width = match
-              snap_dimension_to_device_scale(item.width, scale) {
+              prepare_dimension_in_device_pixels(item.width, scale) {
               Ok(value) => value
               Err(error) => return Err(Flex(error))
             }
             let height = match
-              snap_dimension_to_device_scale(item.height, scale) {
+              prepare_dimension_in_device_pixels(item.height, scale) {
               Ok(value) => value
               Err(error) => return Err(Flex(error))
             }
@@ -103,7 +103,7 @@ pub fn layout_mixed_tree_at(
         let children_style = match node.children_style {
           None => None
           Some(style) =>
-            match snap_mixed_style(style, scale) {
+            match prepare_mixed_style_in_device_pixels(style, scale) {
               Ok(style) => Some(style)
               Err(error) => return Err(error)
             }
@@ -112,13 +112,27 @@ pub fn layout_mixed_tree_at(
       }
     }
   }
+  let root_bounds = match scale_factor {
+    None => root_bounds
+    Some(scale) =>
+      match
+        @primitives.Rect::new(
+          root_bounds.left() * scale,
+          root_bounds.top() * scale,
+          root_bounds.size().width() * scale,
+          root_bounds.size().height() * scale,
+        ) {
+        Ok(bounds) => bounds
+        Err(_) => return Err(Flex(NonFiniteValue))
+      }
+  }
   let root_bounds = match root_size {
     None => root_bounds
     Some(size) => {
       let width = match scale_factor {
         None => size.width()
         Some(scale) =>
-          match snap_authored_length_to_device_grid(size.width(), scale) {
+          match authored_length_in_device_pixels(size.width(), scale) {
             Ok(value) => value
             Err(error) => return Err(Flex(error))
           }
@@ -126,7 +140,7 @@ pub fn layout_mixed_tree_at(
       let height = match scale_factor {
         None => size.height()
         Some(scale) =>
-          match snap_authored_length_to_device_grid(size.height(), scale) {
+          match authored_length_in_device_pixels(size.height(), scale) {
             Ok(value) => value
             Err(error) => return Err(Flex(error))
           }
@@ -147,7 +161,14 @@ pub fn layout_mixed_tree_at(
   let overflow = Ref(false)
   match
     layout_mixed_children(
-      root_id, root_bounds, style, prepared, output, overflow, 0,
+      root_id,
+      root_bounds,
+      style,
+      prepared,
+      output,
+      overflow,
+      0,
+      scale_factor is Some(_),
     ) {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -161,21 +182,58 @@ pub fn layout_mixed_tree_at(
         final_items.push(item)
       }
     Some(scale) => {
-      final_root = match snap_absolute_rect_to_device_grid(root_bounds, scale) {
+      final_root = match
+        logical_rect_from_device_pixels(root_bounds, scale, snap_edges=true) {
         Ok(bounds) => bounds
         Err(error) => return Err(Flex(error))
       }
-      if final_root != root_bounds {
-        before_edge_snap.push((root_id, root_bounds))
+      let raw_root = match logical_rect_from_device_pixels(root_bounds, scale) {
+        Ok(bounds) => bounds
+        Err(error) => return Err(Flex(error))
       }
+      if final_root != raw_root {
+        before_edge_snap.push((root_id, raw_root))
+      }
+      let precision_nodes : Array[FlexTreeNode] = []
+      for node in nodes {
+        let item = match node.item {
+          FlexChild(value) => value
+          GridChild(_) => FlexItem::new(node.id(), Auto, Auto, zero)
+        }
+        let children_style = match node.children_style {
+          Some(FlexStyle(value)) => Some(value)
+          _ => None
+        }
+        precision_nodes.push({ item, parent: node.parent, children_style, })
+      }
+      let root_direction = match root_style {
+        FlexStyle(value) => Some(value.direction)
+        GridStyle(_) => None
+      }
+      let precision_ids = intrinsic_percent_precision_ids(
+        root_id, root_direction, precision_nodes,
+      )
       for item in output {
         let bounds = match
-          snap_absolute_rect_to_device_grid(item.bounds, scale) {
+          logical_rect_from_device_pixels(item.bounds, scale, snap_edges=true) {
           Ok(bounds) => bounds
           Err(error) => return Err(Flex(error))
         }
-        if bounds != item.bounds {
-          before_edge_snap.push((item.id, item.bounds))
+        let bounds = match
+          intrinsic_percent_logical_bounds(
+            bounds,
+            precision_ids.contains(item.id),
+          ) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
+        let raw_bounds = match
+          logical_rect_from_device_pixels(item.bounds, scale) {
+          Ok(bounds) => bounds
+          Err(error) => return Err(Flex(error))
+        }
+        if bounds != raw_bounds {
+          before_edge_snap.push((item.id, raw_bounds))
         }
         final_items.push({ ..item, bounds, })
       }
@@ -191,34 +249,32 @@ pub fn layout_mixed_tree_at(
 }
 
 ///|
-fn snap_mixed_style(
+fn prepare_mixed_style_in_device_pixels(
   style : MixedTreeStyle,
   scale : Double,
 ) -> Result[MixedTreeStyle, TreeLayoutError] {
   match style {
     FlexStyle(style) =>
-      match snap_tree_style_to_device_scale(style, scale) {
+      match prepare_tree_style_in_device_pixels(style, scale) {
         Ok(style) => Ok(FlexStyle(style))
         Err(error) => Err(Flex(error))
       }
     GridStyle(style) => {
-      let gap_x = match
-        snap_authored_length_to_device_grid(style.gap_x, scale) {
+      let gap_x = match authored_length_in_device_pixels(style.gap_x, scale) {
         Ok(value) => value
         Err(error) => return Err(Flex(error))
       }
-      let gap_y = match
-        snap_authored_length_to_device_grid(style.gap_y, scale) {
+      let gap_y = match authored_length_in_device_pixels(style.gap_y, scale) {
         Ok(value) => value
         Err(error) => return Err(Flex(error))
       }
       let padding = match
-        snap_layout_insets_to_device_scale(style.padding, scale, false) {
+        prepare_insets_in_device_pixels(style.padding, scale, false) {
         Ok(value) => value
         Err(error) => return Err(Flex(error))
       }
       let border = match
-        snap_layout_insets_to_device_scale(style.border, scale, true) {
+        prepare_insets_in_device_pixels(style.border, scale, true) {
         Ok(value) => value
         Err(error) => return Err(Flex(error))
       }
@@ -236,6 +292,7 @@ fn layout_mixed_children(
   output : Array[TreeLayoutBox],
   overflow : Ref[Bool],
   depth : Int32,
+  device_grid : Bool,
 ) -> Result[Unit, TreeLayoutError] {
   if depth > MAX_FLEX_TREE_DEPTH {
     return Err(TreeTooDeep)
@@ -306,7 +363,17 @@ fn layout_mixed_children(
         Ok(value) => value
         Err(error) => return Err(Flex(error))
       }
-      match layout_flex(container, items) {
+      match
+        layout_flex_internal(
+          container,
+          items,
+          device_grid &&
+          (if style.direction.is_row() {
+            bounds.left() == 0.0
+          } else {
+            bounds.top() == 0.0
+          }),
+        ) {
         Err(error) => return Err(Flex(error))
         Ok(layout) => {
           overflow.val = overflow.val || layout.overflow
@@ -344,6 +411,7 @@ fn layout_mixed_children(
             output,
             overflow,
             depth + 1,
+            device_grid,
           ) {
           Err(error) => return Err(error)
           Ok(_) => ()
@@ -405,6 +473,23 @@ fn measure_mixed_container(
     | (ColumnReverse, HeightAxis) => true
     _ => false
   }
+  let zero_flex_mode = if main_axis {
+    let items : Array[FlexItem] = []
+    for node in nodes {
+      if node.parent == parent {
+        match node.item {
+          FlexChild(item) => items.push(item)
+          _ => return Err(MismatchedItem)
+        }
+      }
+    }
+    match intrinsic_zero_flex_mode(style, items) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  } else {
+    false
+  }
   let mut count = 0
   let mut total = 0.0
   let mut maximum = 0.0
@@ -423,16 +508,45 @@ fn measure_mixed_container(
       if !valid_limits(minimum, limit) {
         return Err(Flex(InvalidMinMax))
       }
-      let value = match resolve_dimension(dimension, None) {
+      let resolved = match resolve_dimension(dimension, None) {
         Err(error) => return Err(Flex(error))
-        Ok(Some(value)) => value
-        Ok(None) =>
-          match measure_mixed_child(node, axis, nodes, depth + 1) {
-            Ok(value) => value
-            Err(error) => return Err(error)
-          }
+        Ok(value) => value
       }
-      let value = clamp_once(value, minimum, limit)
+      let value = if zero_flex_mode && item.flex_basis is Points(_) {
+        match intrinsic_point_contribution(item, resolved) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+      } else if zero_flex_mode && item.flex_basis is Percent(_) {
+        match
+          intrinsic_percent_contribution(
+            item,
+            resolved,
+            node.children_style is Some(_),
+            style.direction,
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+      } else {
+        match resolved {
+          Some(value) => value
+          None =>
+            match measure_mixed_child(node, axis, nodes, depth + 1) {
+              Ok(value) => value
+              Err(error) => return Err(error)
+            }
+        }
+      }
+      let value = if zero_flex_mode {
+        if value < minimum {
+          minimum
+        } else {
+          value
+        }
+      } else {
+        clamp_once(value, minimum, limit)
+      }
       if main_axis {
         total += value
       } else if value > maximum {

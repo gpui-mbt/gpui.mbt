@@ -19,10 +19,10 @@ options(
   "native-stub": [ "backend.c" ],
   link: {
     "native": {
-      "cc": "script/linux_text_cc.py",
+      "cc": "script/linux_text_cc.sh",
       "cc-flags": "-O2 -std=c11 -Wall -Wextra",
       "cc-link-flags": "-lX11 -lEGL -lGLESv2 -lxkbcommon -lpthread -lm",
-      "stub-cc": "script/linux_text_cc.py",
+      "stub-cc": "script/linux_text_cc.sh",
       "stub-cc-flags": "-std=c11 -Wall -Wextra",
     },
   },

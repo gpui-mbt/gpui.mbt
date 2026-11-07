@@ -201,6 +201,13 @@ selection, undo, rendering, and focus policy.
   ambiguous matches fail with InvalidInput rather than releasing another key.
   This bounded matching does not qualify arbitrary keyboard layouts or IME
   repeat.
+- During application cancel/rearm, fresh raw `wl_keyboard` input for the still
+  focused window is admitted under the replacement epoch, including before
+  text-input-v1 `leave`. Held replacement keys survive re-entry for raw/forwarded
+  deduplication; old owners are retired. Forwarded text/key callbacks retain
+  the strict wire-epoch and serial fence. Focus loss and disable still revoke
+  admission. This correction has callback regression coverage; the original
+  x86 DSH hosted trace reproduced dropped `Cr` during this handshake.
 - Application cancel/disable revokes unread composition for the old logical
   target before publishing cancellation; already delivered commits are never
   retracted. Window teardown clears opt-in so a replacement window must opt in
@@ -225,9 +232,25 @@ checks, not actual compositor dispatch or an input-method acceptance run.
 
 The 2026-10-19 cloud run could not start a compositor socket: the default
 execution sandbox rejected AF_UNIX sockets, and the permitted escalated retry
-failed before process execution in the runtime sandbox setup. Headless Weston
-composition E2E and physical IBus 1.5.32 sync + Mozc candidate/commit/cancel
-acceptance are **NOT RUN**, including 1x/2x candidate placement. Keep the opt-in
-gate and use the existing manual profile above before making an IME support
-claim. `post_test_composition` requires `GPUI_NATIVE_E2E=1` and an enabled
-composition session; it is never evidence of physical typing.
+failed before process execution in the runtime sandbox setup. That local failure
+record is unchanged; it is not the current status of subsequent hosted tests.
+
+On 2026-10-20, merged [dsh #74](https://github.com/f4ah6o/dsh.mbt/pull/74)
+completed hosted synthetic acceptance with published `f4ah6o/gpui@0.10.2`.
+[Native assets run 39369670556](https://github.com/f4ah6o/dsh.mbt/actions/runs/39369670556)
+on exact head `7201a050a63f14129b12ebefde7697db7342ad67` passed packaged
+Linux x86-64 and ARM64 Wayland composition/finish-rearm checks and X11 baseline
+acceptance (not X11 composition). Both architectures preserved the full
+`Create and verify a durable file. via Linux keyboard` active-worker prompt,
+including the initial `Cr` lost before the
+[core cancel/rearm repair](https://github.com/gpui-mbt/gpui.mbt/pull/127).
+The earlier [kiosk-shell protocol failure](https://github.com/f4ah6o/dsh.mbt/actions/runs/39333896007)
+and [x86-64 typing failure](https://github.com/f4ah6o/dsh.mbt/actions/runs/39335731870)
+remain historical evidence, not passing runs.
+
+Physical IBus 1.5.32 sync + Mozc candidate/commit/cancel acceptance is still
+**NOT RUN**, including conversion, candidate selection and 1x/2x candidate
+placement. Hosted synthetic tests do not exercise that physical-display profile.
+Keep the opt-in gate and use the existing manual profile above before making a
+physical IME support claim. `post_test_composition` requires `GPUI_NATIVE_E2E=1`
+and an enabled composition session; it is never evidence of physical typing.

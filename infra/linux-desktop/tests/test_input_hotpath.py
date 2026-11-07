@@ -73,7 +73,7 @@ def retained_fixture(root):
              "binary_relative_path": "build/fixture.exe", "binary_sha256": profile.digest(root / "build/fixture.exe"),
              "environment": {"fixture": True}, "runs": [], "behavior_signature": [1, 42]}
     (root / "staging-manifest.json").write_text(json.dumps({"source_files": entries, "source_snapshot": before,
-        "compiler_path_override": str(root / "source/script/linux_text_cc.py"), "environment": value["environment"]}))
+        "compiler_path_override": str(root / "source/script/linux_text_cc.sh"), "environment": value["environment"]}))
     for index in range(7):
         for active in [False, True]:
             rows = fixture(active)

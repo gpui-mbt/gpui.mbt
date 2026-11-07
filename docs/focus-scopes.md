@@ -19,11 +19,14 @@ transport. Existing `ElementTree` methods and traversal contracts are unchanged.
 - `snapshot()` returns a detached immutable observation. Calling `with_focus`,
   `clear_focus`, `without_subtree`, or traversal on it cannot mutate the session.
   Importing a replacement is an explicit separate operation.
-- Accepted focus, open/close, removal, replacement, bounds refresh, and dismissal
-  release transitions advance revision. Pure dispatch, wheel resolution, and
-  traversal that keeps the exact acquisition preserve it. A target is not a
-  one-shot action token. Checking a token and later using a snapshot is not
-  asynchronous admission; dispatch through the live session synchronously.
+- `focused()` and `snapshot()` are readable during callbacks and after terminal
+  close; neither grants admission.
+- Accepted focus, clearing focus, open/close, removal, replacement, frame
+  adoption, bounds refresh, and dismissal release transitions advance revision.
+  Pure dispatch, wheel resolution, and traversal that keeps the exact acquisition
+  preserve it. A target is not a one-shot action token. Checking a token and later
+  using a snapshot is not asynchronous admission; dispatch through the live
+  session synchronously.
 
 ## Open and traversal
 
@@ -83,6 +86,38 @@ refresh. Exact owners and scopes survive, but old admission targets do not.
 caller supplies the same numeric IDs or an old snapshot. It is not reconciliation.
 `close` is terminal across all session copies and leaves an empty readable
 snapshot. Input and mutations then fail with `ClosedSession`.
+
+## Frame adoption
+
+A host that rebuilds its element tree every frame needs one explicit operation to
+keep its live modal frames:
+
+`adopt_tree(target, tree, focused, cancel_interactions)` replaces the node set of
+the current revision. It is frame adoption, not reconciliation: the caller
+asserts that every retained numeric id still denotes the same binding and that the
+supplied tree is the owner's current structure. The session transplants its focus
+lineage onto the adopted nodes, so captured previous/fallback owners stay valid
+for surviving ids without inferring continuity from numeric ids alone.
+
+- `focused` is the caller's exact acquisition for the adopted frame. `Some(id)`
+  must be live, focusable, and inside the active scope; a background or unknown
+  id is rejected atomically with `OutsideScope`. `None` clears focus. Either way
+  every open frame survives.
+- A scope root missing from the adopted tree revokes that suffix, including
+  logical child overlay roots that remain as detached nodes; those are removed
+  from the adopted tree first. Restore happens once from the outermost revoked
+  frame using the ordinary restore order, and `focused` is ignored. Surviving
+  outer frames keep their handles. The removal receipt lists every revoked root,
+  including a root the caller already omitted, so the owner can cancel state that
+  referenced it.
+- Adoption without a revoked frame publishes no receipt and calls no hook: no
+  modal lifetime ends. It still advances revision, because old admission targets
+  must not be reused against different bounds or structure.
+- `clear_focus` drops the acquisition while keeping every frame. It is idempotent:
+  a session that already has no focus and no owner keeps its revision.
+
+`adopt_tree` is not a substitute for `replace_tree` when the owner cannot assert
+id continuity, and neither operation is a reconciliation algorithm.
 
 ## Routing and semantic admission
 
@@ -156,7 +191,8 @@ purport to fence native keyboard transports.
 
 `element/focus_scope_test.mbt` and `focus_scope_wbtest.mbt` cover public contracts,
 identity/revision exhaustion, atomicity, scope routing, lifetime/restoration,
-removal, refresh, and detached observations. The executable
+removal, refresh, frame adoption, focus clearing, and detached observations. The
+executable
 `controls/button/focus_scope_test.mbt` fixture uses the real Button and DragSession
 models for cancellation, scoped delivery, dismissal guard, and simulated capture
 rejection; its host state is explicit.

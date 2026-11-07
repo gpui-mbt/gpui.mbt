@@ -50,8 +50,8 @@ def prepare_fixture(workspace: Path) -> Path:
     # the workspace root. Keep the module's existing CoreText prebuild hook.
     (workspace / "script").mkdir()
     shutil.copyfile(
-        ROOT / "script/macos_text_prebuild.py",
-        workspace / "script/macos_text_prebuild.py",
+        ROOT / "script/macos_text_prebuild.mbtx",
+        workspace / "script/macos_text_prebuild.mbtx",
     )
     (module / "moon.mod").write_text(
         'name = "test/macos_app_consumer"\nversion = "0.0.0"\n'

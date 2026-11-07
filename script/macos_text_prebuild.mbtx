@@ -1,0 +1,44 @@
+import {
+  "moonbitlang/core/env",
+}
+
+///|
+/// Build the prebuild output for one host and backend. Only macOS native
+/// consumers need the CoreText frameworks; every other combination emits an
+/// empty configuration.
+fn link_configs(host : String, backend : String) -> String {
+  if host == "macos" && backend == "native" {
+    "{\"link_configs\":[{\"package\":\"f4ah6o/gpui/platform/macos_text\",\"link_flags\":\"-framework CoreText -framework CoreGraphics -framework CoreFoundation\"}]}"
+  } else {
+    "{}"
+  }
+}
+
+///|
+fn main {
+  let host = match @env.get_env_var("MOON_HOST_OS") {
+    Some(value) => value
+    None => ""
+  }
+  let backend = match @env.get_env_var("MOON_BACKEND") {
+    Some(value) => value
+    None => ""
+  }
+  println(link_configs(host, backend))
+}
+
+///|
+test "macos native propagates CoreText frameworks" {
+  assert_eq(
+    link_configs("macos", "native"),
+    "{\"link_configs\":[{\"package\":\"f4ah6o/gpui/platform/macos_text\",\"link_flags\":\"-framework CoreText -framework CoreGraphics -framework CoreFoundation\"}]}",
+  )
+}
+
+///|
+test "other hosts and backends emit no link config" {
+  assert_eq(link_configs("linux", "native"), "{}")
+  assert_eq(link_configs("windows", "native"), "{}")
+  assert_eq(link_configs("macos", "wasm-gc"), "{}")
+  assert_eq(link_configs("macos", "llvm"), "{}")
+}

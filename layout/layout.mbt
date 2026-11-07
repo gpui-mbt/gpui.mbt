@@ -95,6 +95,8 @@ pub enum JustifyContent {
   SpaceBetween
   SpaceAround
   SpaceEvenly
+  FlexStart
+  FlexEnd
 } derive(Eq)
 
 ///|
@@ -135,6 +137,20 @@ pub fn JustifyContent::space_evenly() -> JustifyContent {
 }
 
 ///|
+/// Anchor at the flex main-start edge (right/bottom for reverse flow).
+/// Unlike physical `start`, this follows the container's flow direction.
+pub fn JustifyContent::flex_start() -> JustifyContent {
+  FlexStart
+}
+
+///|
+/// Anchor at the flex main-end edge (left/top for reverse flow).
+/// Negative free space is preserved: overflow stays opposite this edge.
+pub fn JustifyContent::flex_end() -> JustifyContent {
+  FlexEnd
+}
+
+///|
 /// Cross-axis placement for all items in this first bounded subset.
 pub enum AlignItems {
   Start
@@ -164,6 +180,58 @@ pub fn AlignItems::end() -> AlignItems {
 ///|
 pub fn AlignItems::stretch() -> AlignItems {
   Stretch
+}
+
+///|
+/// Per-item cross-axis alignment. Auto inherits the container's alignment.
+/// Start/End are physical; FlexStart/FlexEnd follow wrap-reverse. Stretch
+/// resizes only auto cross dimensions and retains cross-axis min/max limits.
+pub enum AlignSelf {
+  Auto
+  Start
+  Center
+  End
+  Stretch
+  FlexStart
+  FlexEnd
+} derive(Eq)
+
+///|
+pub extend AlignSelf with Eq::{not_equal, equal}
+
+///|
+pub fn AlignSelf::auto() -> AlignSelf {
+  Auto
+}
+
+///|
+pub fn AlignSelf::start() -> AlignSelf {
+  Start
+}
+
+///|
+pub fn AlignSelf::center() -> AlignSelf {
+  Center
+}
+
+///|
+pub fn AlignSelf::end() -> AlignSelf {
+  End
+}
+
+///|
+pub fn AlignSelf::stretch() -> AlignSelf {
+  Stretch
+}
+
+///|
+pub fn AlignSelf::flex_start() -> AlignSelf {
+  FlexStart
+}
+
+///|
+pub fn AlignSelf::flex_end() -> AlignSelf {
+  FlexEnd
 }
 
 ///|
@@ -365,6 +433,49 @@ pub fn Insets::left(self : Insets) -> Double {
 }
 
 ///|
+/// Independent flex base size. Auto uses the main dimension, then intrinsic
+/// size. Percent is a ratio of the definite container inner main extent;
+/// content basis is not represented. Intrinsic point bases require nowrap
+/// lines whose direct children all have zero grow and shrink.
+pub enum FlexBasis {
+  Auto
+  Points(Double)
+  Percent(Double)
+} derive(Eq)
+
+///|
+pub extend FlexBasis with Eq::{not_equal, equal}
+
+///|
+pub fn FlexBasis::auto() -> FlexBasis {
+  Auto
+}
+
+///|
+pub fn FlexBasis::points(value : Double) -> Result[FlexBasis, LayoutError] {
+  if !finite(value) {
+    Err(NonFiniteValue)
+  } else if value < 0.0 {
+    Err(NegativeValue)
+  } else {
+    Ok(Points(value))
+  }
+}
+
+///|
+/// Set a ratio of the containing inner main extent (1.0 means 100%). Ratios
+/// above one are valid; flex shrink and main limits apply after resolution.
+pub fn FlexBasis::percent(ratio : Double) -> Result[FlexBasis, LayoutError] {
+  if !finite(ratio) {
+    Err(NonFiniteValue)
+  } else if ratio < 0.0 {
+    Err(NegativeValue)
+  } else {
+    Ok(Percent(ratio))
+  }
+}
+
+///|
 /// One child participating in a flex line. Auto main/cross dimensions use the
 /// intrinsic size unless container alignment stretches an auto cross dimension.
 pub struct FlexItem {
@@ -378,6 +489,8 @@ pub struct FlexItem {
   max_main : Double?
   min_cross : Double
   max_cross : Double?
+  align_self : AlignSelf
+  flex_basis : FlexBasis
 }
 
 ///|
@@ -398,6 +511,8 @@ pub fn FlexItem::new(
     max_main: None,
     min_cross: 0.0,
     max_cross: None,
+    align_self: AlignSelf::Auto,
+    flex_basis: FlexBasis::Auto,
   }
 }
 
@@ -424,6 +539,8 @@ pub fn FlexItem::with_intrinsic(
     max_main: self.max_main,
     min_cross: self.min_cross,
     max_cross: self.max_cross,
+    align_self: self.align_self,
+    flex_basis: self.flex_basis,
   }
 }
 
@@ -449,6 +566,8 @@ pub fn FlexItem::with_flex(
       max_main: self.max_main,
       min_cross: self.min_cross,
       max_cross: self.max_cross,
+      align_self: self.align_self,
+      flex_basis: self.flex_basis,
     })
   }
 }
@@ -473,6 +592,8 @@ pub fn FlexItem::with_main_limits(
       max_main: max,
       min_cross: self.min_cross,
       max_cross: self.max_cross,
+      align_self: self.align_self,
+      flex_basis: self.flex_basis,
     })
   }
 }
@@ -497,7 +618,103 @@ pub fn FlexItem::with_cross_limits(
       max_main: self.max_main,
       min_cross: min,
       max_cross: max,
+      align_self: self.align_self,
+      flex_basis: self.flex_basis,
     })
+  }
+}
+
+///|
+/// Override this item's cross-axis placement, or use Auto to inherit again.
+pub fn FlexItem::with_align_self(
+  self : FlexItem,
+  align_self : AlignSelf,
+) -> FlexItem {
+  {
+    id: self.id,
+    main: self.main,
+    cross: self.cross,
+    intrinsic: self.intrinsic,
+    grow: self.grow,
+    shrink: self.shrink,
+    min_main: self.min_main,
+    max_main: self.max_main,
+    min_cross: self.min_cross,
+    max_cross: self.max_cross,
+    align_self,
+    flex_basis: self.flex_basis,
+  }
+}
+
+///|
+/// Set an independent flex base size while preserving the authored main and
+/// cross dimensions. Auto restores the previous main/intrinsic resolution.
+pub fn FlexItem::with_flex_basis(
+  self : FlexItem,
+  flex_basis : FlexBasis,
+) -> FlexItem {
+  { ..self, flex_basis, }
+}
+
+///|
+fn FlexItem::resolved_flex_basis(
+  self : FlexItem,
+  fallback : Double,
+  main_extent : Double,
+) -> Result[Double, LayoutError] {
+  match self.flex_basis {
+    Auto => Ok(fallback)
+    Points(value) =>
+      if !finite(value) {
+        Err(NonFiniteValue)
+      } else if value < 0.0 {
+        Err(NegativeValue)
+      } else {
+        Ok(value)
+      }
+    Percent(ratio) =>
+      match resolve_dimension(Dimension::Percent(ratio), Some(main_extent)) {
+        Ok(Some(resolved)) => Ok(resolved)
+        Ok(None) => Err(IndefinitePercentage)
+        Err(error) => Err(error)
+      }
+  }
+}
+
+///|
+fn FlexItem::effective_align(
+  self : FlexItem,
+  inherited : AlignItems,
+) -> AlignSelf {
+  match self.align_self {
+    AlignSelf::Auto =>
+      match inherited {
+        AlignItems::Start => AlignSelf::FlexStart
+        AlignItems::Center => AlignSelf::Center
+        AlignItems::End => AlignSelf::FlexEnd
+        AlignItems::Stretch => AlignSelf::Stretch
+      }
+    value => value
+  }
+}
+
+///|
+fn cross_alignment_offset(
+  align : AlignSelf,
+  free : Double,
+  wrap_reverse : Bool,
+) -> Double {
+  match align {
+    AlignSelf::Auto | AlignSelf::Start => 0.0
+    AlignSelf::Center => free / 2.0
+    AlignSelf::End => free
+    AlignSelf::FlexStart | AlignSelf::Stretch =>
+      if wrap_reverse {
+        free
+      } else {
+        0.0
+      }
+    AlignSelf::FlexEnd => if wrap_reverse { 0.0 } else { free }
   }
 }
 
@@ -731,9 +948,9 @@ pub fn LayoutBox::overflow(self : LayoutBox) -> Bool {
 }
 
 ///|
-/// Round an authored nonnegative length to the nearest device pixel, with
-/// midpoint ties toward zero. The result remains in logical pixels.
-fn snap_authored_length_to_device_grid(
+// Authored lengths are snapped once before layout; do not divide back into
+// logical units until the complete layout has been solved.
+fn authored_length_in_device_pixels(
   value : Double,
   scale_factor : Double,
 ) -> Result[Double, LayoutError] {
@@ -746,20 +963,13 @@ fn snap_authored_length_to_device_grid(
     if !finite(device_value) {
       Err(NonFiniteValue)
     } else {
-      let result = round_half_toward_zero(device_value) / scale_factor
-      if finite(result) {
-        Ok(result)
-      } else {
-        Err(NonFiniteValue)
-      }
+      Ok(round_half_toward_zero(device_value))
     }
   }
 }
 
 ///|
-/// Round a nonnegative measured size upward to the next device pixel. The
-/// result remains in logical pixels.
-fn ceil_measured_length_to_device_grid(
+fn measured_length_in_device_pixels(
   value : Double,
   scale_factor : Double,
 ) -> Result[Double, LayoutError] {
@@ -772,13 +982,37 @@ fn ceil_measured_length_to_device_grid(
     if !finite(device_value) {
       Err(NonFiniteValue)
     } else {
-      let result = device_value.ceil() / scale_factor
-      if finite(result) {
-        Ok(result)
-      } else {
-        Err(NonFiniteValue)
-      }
+      Ok(device_value.ceil())
     }
+  }
+}
+
+///|
+// Keep layout in device units through final edge snapping. Dividing each
+// authored metric before solving introduces recurring fractions at scales such
+// as 1.5 and can move an exact half-pixel edge just above its tie.
+fn logical_rect_from_device_pixels(
+  bounds : @primitives.Rect,
+  scale_factor : Double,
+  snap_edges~ : Bool = false,
+) -> Result[@primitives.Rect, LayoutError] {
+  let bounds = if snap_edges {
+    match snap_absolute_rect_to_device_grid(bounds, 1.0) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+  } else {
+    bounds
+  }
+  match
+    @primitives.Rect::new(
+      bounds.left() / scale_factor,
+      bounds.top() / scale_factor,
+      bounds.size().width() / scale_factor,
+      bounds.size().height() / scale_factor,
+    ) {
+    Ok(value) => Ok(value)
+    Err(_) => Err(GeometryFailure)
   }
 }
 
@@ -879,6 +1113,15 @@ pub fn layout_flex(
   container : FlexContainer,
   items : Array[FlexItem],
 ) -> Result[FlexLayout, LayoutError] {
+  layout_flex_internal(container, items, false)
+}
+
+///|
+fn layout_flex_internal(
+  container : FlexContainer,
+  items : Array[FlexItem],
+  device_grid : Bool,
+) -> Result[FlexLayout, LayoutError] {
   if has_duplicate_ids(items) {
     Err(DuplicateId)
   } else {
@@ -917,10 +1160,12 @@ pub fn layout_flex(
                 FlexWrap::NoWrap =>
                   place_items(
                     container, prepared, content_bounds, main_extent, cross_extent,
+                    device_grid,
                   )
                 FlexWrap::Wrap | FlexWrap::WrapReverse =>
                   place_wrapped_items(
                     container, prepared, content_bounds, main_extent, cross_extent,
+                    device_grid,
                   )
               }
           }
@@ -971,14 +1216,23 @@ fn prepare_items(
               } else {
                 item.intrinsic.width()
               }
-              let basis = match main_value {
+              let fallback = match main_value {
                 Some(value) => value
                 None => intrinsic_main
+              }
+              let basis = match
+                item.resolved_flex_basis(fallback, main_extent) {
+                Ok(value) => value
+                Err(value) => {
+                  error = Some(value)
+                  index += 1
+                  continue
+                }
               }
               let cross = match cross_value {
                 Some(value) => value
                 None =>
-                  if container.align is Stretch &&
+                  if item.effective_align(container.align) is AlignSelf::Stretch &&
                     container.wrap is FlexWrap::NoWrap {
                     cross_extent
                   } else {
@@ -1019,6 +1273,8 @@ fn main_spacing(
 ) -> (Double, Double) {
   let physical_start = if reverse { leftover } else { 0.0 }
   match justify {
+    FlexStart => (0.0, 0.0)
+    FlexEnd => (leftover, 0.0)
     Start => (physical_start, 0.0)
     Center => (leftover / 2.0, 0.0)
     End => (if reverse { 0.0 } else { leftover }, 0.0)
@@ -1064,6 +1320,7 @@ fn reverse_main_starts(
   )
   let starts = sizes.map(_ => 0.0)
   let anchor_start = justify is Start ||
+    justify is FlexEnd ||
     (
       leftover < 0.0 &&
       (
@@ -1113,12 +1370,80 @@ fn reverse_main_starts(
 }
 
 ///|
+// Taffy evaluates fitting distributed lines in f32, adding the physical
+// content origin before each per-item alignment offset. Only device-grid
+// zero-flex lines opt into this compatibility path; raw Double geometry and
+// very large extents retain the numerically stable layout path above.
+fn device_distributed_starts(
+  sizes : Array[Double],
+  extent : Double,
+  origin : Double,
+  gap : Double,
+  justify : JustifyContent,
+  reverse : Bool,
+) -> Array[Double]? {
+  if sizes.length() <= 1 ||
+    !(justify is SpaceBetween ||
+    justify is SpaceAround ||
+    justify is SpaceEvenly) {
+    return None
+  }
+  let limit = 16777216.0
+  if extent > limit || origin.abs() > limit || gap > limit {
+    return None
+  }
+  let mut sum : Float = 0.0
+  for size in sizes {
+    if size > limit || Float::from_double(size).to_double() != size {
+      return None
+    }
+    sum = sum + Float::from_double(size)
+  }
+  let count = Float::from_int(sizes.length())
+  let gap_f = Float::from_double(gap)
+  let used = gap_f * (count - 1.0) + sum
+  let free = Float::from_double(extent) - used
+  if free <= 0.0 || used.to_double() > limit {
+    return None
+  }
+  let between : Float = match justify {
+    SpaceBetween => free / (count - 1.0)
+    SpaceAround => free / count
+    _ => free / (count + 1.0)
+  }
+  let leading : Float = match justify {
+    SpaceBetween => 0.0
+    SpaceAround => between / 2.0
+    _ => between
+  }
+  let starts = sizes.map(_ => 0.0)
+  let mut cursor = Float::from_double(origin)
+  let mut ordinal = 0
+  while ordinal < sizes.length() {
+    let index = if reverse { sizes.length() - 1 - ordinal } else { ordinal }
+    let offset = if ordinal == 0 { leading } else { gap_f + between }
+    let start = cursor + offset
+    let size = Float::from_double(sizes[index])
+    if round_half_toward_zero((start + size).to_double()) !=
+      round_half_toward_zero(start.to_double() + sizes[index]) {
+      return None
+    }
+    starts[index] = start.to_double()
+    // Match Taffy's grouping: cursor += offset + margin(0) + size.
+    cursor = cursor + (offset + Float::from_double(sizes[index]))
+    ordinal += 1
+  }
+  Some(starts)
+}
+
+///|
 fn place_items(
   container : FlexContainer,
   prepared : Array[PreparedItem],
   content_bounds : @primitives.Rect,
   main_extent : Double,
   cross_extent : Double,
+  device_grid : Bool,
 ) -> Result[FlexLayout, LayoutError] {
   let count = prepared.length()
   let gaps = if count > 1 {
@@ -1139,6 +1464,28 @@ fn place_items(
           leftover,
           reverse=container.direction.is_reverse(),
         )
+        let device_starts = if device_grid &&
+          prepared.all(entry => {
+            entry.item.grow == 0.0 &&
+            entry.item.shrink == 0.0 &&
+            !(entry.item.flex_basis is Percent(_)) &&
+            !(entry.item.main is Dimension::Percent(_))
+          }) {
+          device_distributed_starts(
+            resolved,
+            main_extent,
+            if container.direction.is_row() {
+              content_bounds.left()
+            } else {
+              content_bounds.top()
+            },
+            container.main_gap(),
+            container.justify,
+            container.direction.is_reverse(),
+          )
+        } else {
+          None
+        }
         let reverse_starts = if container.direction.is_reverse() {
           reverse_main_starts(
             resolved,
@@ -1159,25 +1506,31 @@ fn place_items(
           let entry = prepared[index]
           let main_size = resolved[index]
           let cross_size = entry.cross
-          let cross_offset = match container.align {
-            AlignItems::Start | Stretch => 0.0
-            AlignItems::Center => (cross_extent - cross_size) / 2.0
-            AlignItems::End => cross_extent - cross_size
-          }
+          let cross_offset = cross_alignment_offset(
+            entry.item.effective_align(container.align),
+            cross_extent - cross_size,
+            false,
+          )
           let main_start = if container.direction.is_reverse() {
             reverse_starts[index]
           } else {
             cursor
           }
           let x = if container.direction.is_row() {
-            content_bounds.left() + main_start
+            match device_starts {
+              Some(starts) => starts[index]
+              None => content_bounds.left() + main_start
+            }
           } else {
             content_bounds.left() + cross_offset
           }
           let y = if container.direction.is_row() {
             content_bounds.top() + cross_offset
           } else {
-            content_bounds.top() + main_start
+            match device_starts {
+              Some(starts) => starts[index]
+              None => content_bounds.top() + main_start
+            }
           }
           let width = if container.direction.is_row() {
             main_size
@@ -1229,6 +1582,7 @@ fn place_wrapped_items(
   content_bounds : @primitives.Rect,
   main_extent : Double,
   cross_extent : Double,
+  device_grid : Bool,
 ) -> Result[FlexLayout, LayoutError] {
   let lines : Array[Array[PreparedItem]] = []
   let mut current : Array[PreparedItem] = []
@@ -1326,7 +1680,7 @@ fn place_wrapped_items(
             }
             place_wrapped_lines(
               container, lines, resolved_lines, used_main, line_cross_sizes, cross_total,
-              content_bounds, main_extent, cross_extent,
+              content_bounds, main_extent, cross_extent, device_grid,
             )
           }
         }
@@ -1346,6 +1700,7 @@ fn place_wrapped_lines(
   content_bounds : @primitives.Rect,
   main_extent : Double,
   cross_extent : Double,
+  device_grid : Bool,
 ) -> Result[FlexLayout, LayoutError] {
   let line_offsets : Array[Double] = Array::make(lines.length(), 0.0)
   let cross_free = cross_extent - cross_total
@@ -1451,6 +1806,28 @@ fn place_wrapped_lines(
       leftover,
       reverse=container.direction.is_reverse(),
     )
+    let device_starts = if device_grid &&
+      line.all(entry => {
+        entry.item.grow == 0.0 &&
+        entry.item.shrink == 0.0 &&
+        !(entry.item.flex_basis is Percent(_)) &&
+        !(entry.item.main is Dimension::Percent(_))
+      }) {
+      device_distributed_starts(
+        sizes,
+        main_extent,
+        if container.direction.is_row() {
+          content_bounds.left()
+        } else {
+          content_bounds.top()
+        },
+        container.main_gap(),
+        container.justify,
+        container.direction.is_reverse(),
+      )
+    } else {
+      None
+    }
     let reverse_starts = if container.direction.is_reverse() {
       reverse_main_starts(
         sizes,
@@ -1466,34 +1843,19 @@ fn place_wrapped_lines(
     for item_index = 0; item_index < line.length(); item_index = item_index + 1 {
       let entry = line[item_index]
       let main_size = sizes[item_index]
-      let cross_size = if container.align is AlignItems::Stretch &&
+      let align = entry.item.effective_align(container.align)
+      let cross_size = if align is AlignSelf::Stretch &&
         entry.item.cross is Dimension::Auto {
         clamp_once(line_cross, entry.item.min_cross, entry.item.max_cross)
       } else {
         entry.cross
       }
       let cross_free = line_cross - cross_size
-      let cross_alignment = match container.align {
-        AlignItems::Start =>
-          if container.wrap is FlexWrap::WrapReverse {
-            cross_free
-          } else {
-            0.0
-          }
-        AlignItems::Center => cross_free / 2.0
-        AlignItems::End =>
-          if container.wrap is FlexWrap::WrapReverse {
-            0.0
-          } else {
-            cross_free
-          }
-        AlignItems::Stretch =>
-          if container.wrap is FlexWrap::WrapReverse {
-            cross_free
-          } else {
-            0.0
-          }
-      }
+      let cross_alignment = cross_alignment_offset(
+        align,
+        cross_free,
+        container.wrap is FlexWrap::WrapReverse,
+      )
       let cross_start = cross_line_start + cross_alignment
       let main_start = if container.direction.is_reverse() {
         reverse_starts[item_index]
@@ -1501,14 +1863,20 @@ fn place_wrapped_lines(
         main_cursor
       }
       let x = if container.direction.is_row() {
-        content_bounds.left() + main_start
+        match device_starts {
+          Some(starts) => starts[item_index]
+          None => content_bounds.left() + main_start
+        }
       } else {
         content_bounds.left() + cross_start
       }
       let y = if container.direction.is_row() {
         content_bounds.top() + cross_start
       } else {
-        content_bounds.top() + main_start
+        match device_starts {
+          Some(starts) => starts[item_index]
+          None => content_bounds.top() + main_start
+        }
       }
       let width = if container.direction.is_row() {
         main_size

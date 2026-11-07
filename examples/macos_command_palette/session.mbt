@@ -615,8 +615,8 @@ fn MacPaletteTextHost::pump(
 fn MacPaletteTextHost::end(
   self : MacPaletteTextHost,
   host : @macos.Host,
-) -> Unit {
-  ignore(@text_adapter.end_host_text(self.session, host, self.binding))
+) -> Result[Unit, @text_adapter.HostTextError] {
+  @text_adapter.end_host_text(self.session, host, self.binding)
 }
 
 ///|

@@ -34,7 +34,39 @@ extern "C" fn accessibility_publish(
 ) -> Int32 = "gpui_macos_ax_publish"
 
 ///|
+#borrow(payload, output)
+extern "C" fn accessibility_publish_field(
+  window : Int64,
+  binding : Int64,
+  payload : Bytes,
+  length : Int32,
+  output : FixedArray[Int64],
+) -> Int32 = "gpui_macos_ax_publish_field"
+
+///|
+#borrow(payload, output)
+extern "C" fn accessibility_publish_dialog(
+  window : Int64,
+  binding : Int64,
+  payload : Bytes,
+  length : Int32,
+  output : FixedArray[Int64],
+) -> Int32 = "gpui_macos_ax_publish_dialog"
+
+///|
 extern "C" fn accessibility_revoke(window : Int64, binding : Int64) -> Int32 = "gpui_macos_ax_revoke"
+
+///|
+extern "C" fn accessibility_revoke_field(
+  window : Int64,
+  binding : Int64,
+) -> Int32 = "gpui_macos_ax_revoke_field"
+
+///|
+extern "C" fn accessibility_revoke_dialog(
+  window : Int64,
+  binding : Int64,
+) -> Int32 = "gpui_macos_ax_revoke_dialog"
 
 ///|
 #borrow(output)
@@ -83,6 +115,13 @@ extern "C" fn test_post_key(
 ) -> Int32 = "gpui_macos_test_post_key"
 
 ///|
+#borrow(output)
+extern "C" fn native_text_caret_screen(
+  window : Int64,
+  output : FixedArray[Double],
+) -> Int32 = "gpui_macos_text_caret_screen"
+
+///|
 #borrow(text)
 extern "C" fn test_post_composition(
   window : Int64,
@@ -91,3 +130,28 @@ extern "C" fn test_post_composition(
   text : Bytes,
   text_length : Int32,
 ) -> Int32 = "gpui_macos_test_post_composition"
+
+///|
+#borrow(fields, bytes)
+extern "C" fn text_session(
+  op : Int32,
+  window : Int64,
+  epoch : Int64,
+  fields : FixedArray[Double],
+  bytes : Bytes,
+  length : Int32,
+) -> Int32 = "gpui_macos_text_session"
+
+///|
+#borrow(fields, payload)
+extern "C" fn text_next(
+  window : Int64,
+  epoch : Int64,
+  timeout_ms : Int32,
+  fields : FixedArray[Double],
+  payload : FixedArray[Byte],
+  capacity : Int32,
+) -> Int32 = "gpui_macos_text_next"
+
+///|
+extern "C" fn text_available() -> Int32 = "gpui_macos_text_available"

@@ -16,9 +16,9 @@ options(
   "native-stub": [ "linux_text.c" ],
   link: {
     "native": {
-      "cc": "script/linux_text_cc.py",
+      "cc": "script/linux_text_cc.sh",
       "cc-flags": "-O2 -std=c11 -Wall -Wextra",
-      "stub-cc": "script/linux_text_cc.py",
+      "stub-cc": "script/linux_text_cc.sh",
       "stub-cc-flags": "-O2 -std=c11 -Wall -Wextra",
     },
   },

@@ -81,7 +81,10 @@ static int composition_record(struct host *h, int kind,
           ? source->cursor : source->text_length;
     }
   }
-  return ime_record(h, &data);
+  int slot = (h->read + h->count) % QUEUE_CAPACITY;
+  int status = ime_record(h, &data);
+  if (!status) h->ime_queue[slot]->epoch = h->ime.epoch;
+  return status;
 }
 static int composition_resolve(struct host *h, int commit) {
   if (!h->ime.composition_preview)
@@ -360,8 +363,16 @@ static void ime_enter(void *data, struct zwp_text_input_v1 *proxy,
       h->ime.wire_epoch != h->ime.epoch)
     return;
   h->ime.phase = IME_ACTIVE;
-  memset(h->ime.composition_keys, 0, sizeof(h->ime.composition_keys));
-  memset(h->ime.composition_raw_symbols, 0, sizeof(h->ime.composition_raw_symbols));
+  /* Raw input can arrive while the old text-input session leaves. Retain
+   * only replacement-epoch owners so forwarded delivery cannot repeat them. */
+  for (int i = 0; i < 256; ++i)
+    if (h->ime.composition_key_epochs[i] != h->ime.epoch) {
+      h->ime.composition_keys[i] = 0;
+      h->ime.composition_key_consumed[i] = 0;
+    }
+  for (int i = 0; i < GPUI_DIRECT_KEY_CAPACITY; ++i)
+    if (h->ime.composition_raw_epochs[i] != h->ime.epoch)
+      h->ime.composition_raw_symbols[i] = 0;
   (void)ime_lifecycle_record(h, 22);
 }
 static void ime_leave(void *data, struct zwp_text_input_v1 *proxy) {
@@ -648,11 +659,14 @@ static void composition_key(struct host *h, uint32_t state,
       return;
     }
   } else {
-    if (slot >= 0) return; /* Raw and forwarded delivery share ownership. */
+    if (slot >= 0 && h->ime.composition_key_epochs[slot] == h->ime.epoch)
+      return; /* Raw and forwarded delivery share current-epoch ownership. */
+    if (slot >= 0) empty = slot; /* A fresh press supersedes an old owner. */
     if (empty < 0 || !symbol) {
       (void)input_failure(h, GPUI_RESOURCE); return;
     }
     h->ime.composition_keys[empty] = symbol;
+    h->ime.composition_key_epochs[empty] = h->ime.epoch;
     h->ime.composition_key_consumed[empty] = 0;
   }
   uint32_t scalar = xkb_keysym_to_utf32(symbol);
@@ -706,11 +720,18 @@ static void ime_raw_keyboard_key(struct host *h, uint32_t state,
                                   xkb_keysym_t symbol) {
   ime_observe_modifier_release(h, state, symbol);
   if (composition_pending_release(h, state, symbol)) return;
+  /* wl_keyboard callbacks belong to the current physical focus, not the
+   * canceled text-input wire epoch. Keep fresh bounded-composer input during
+   * its leave/rearm handshake; forwarded callbacks remain fully fenced. */
+  int composition_rearming = h->ime.composition_enabled &&
+      (h->ime.phase == IME_DEACTIVATING ||
+       h->ime.phase == IME_DRAINING_MODIFIERS);
   if (!h->ime.requested || h->ime.exhausted || h->state || h->error ||
       !h->keyboard_focus_current || !h->ime.proxy || !h->window ||
-      !h->seat_name || (h->ime.phase != IME_ACTIVE &&
+      !h->seat_name || (!composition_rearming &&
+                       h->ime.phase != IME_ACTIVE &&
                        h->ime.phase != IME_ACTIVATING) ||
-      h->ime.wire_epoch != h->ime.epoch ||
+      (!composition_rearming && h->ime.wire_epoch != h->ime.epoch) ||
       h->ime.wire_window != h->window || h->ime.wire_seat != h->seat_name)
     return;
   if (state > WL_KEYBOARD_KEY_STATE_PRESSED || symbol > 0x1fffffff ||

@@ -12,6 +12,7 @@ pub(all) enum TreeLayoutError {
   Grid(GridLayoutError)
   MismatchedItem
   UnsupportedIntrinsicGrid
+  UnsupportedIntrinsicFlexBasis
 } derive(Eq)
 
 ///|
@@ -257,8 +258,10 @@ pub fn TreeLayoutBox::overflow(self : TreeLayoutBox) -> Bool {
 }
 
 ///|
-/// Recursive layout result. The root owns the definite viewport; `items`
-/// contains every descendant in stable pre-order with absolute coordinates.
+/// Recursive layout result. The root is the solved border box; `items` contains
+/// every descendant in stable pre-order with absolute coordinates. The legacy
+/// tree entry points fix the root to the viewport, while root-box entry points
+/// may expand it to contain the root insets.
 pub struct FlexTreeLayout {
   root_id : UInt64
   root_bounds : @primitives.Rect
@@ -322,18 +325,114 @@ pub fn layout_flex_tree(
   root_style : FlexTreeStyle,
   nodes : Array[FlexTreeNode],
 ) -> Result[FlexTreeLayout, TreeLayoutError] {
+  layout_flex_tree_with_root_sizing(
+    root_id,
+    root_size,
+    root_style,
+    nodes,
+    FixedViewport,
+  )
+}
+
+///|
+/// Lay out an authored root border box using the offered size as a minimum.
+/// Each axis is at least the sum of its root padding and border, even when the
+/// tree has no children. The returned root may therefore exceed the offered
+/// physical viewport; callers must retain that viewport independently.
+/// Descendant layout and validation follow `layout_flex_tree`.
+pub fn layout_flex_root_box(
+  root_id : UInt64,
+  offered_size : @primitives.Size,
+  root_style : FlexTreeStyle,
+  nodes : Array[FlexTreeNode],
+) -> Result[FlexTreeLayout, TreeLayoutError] {
+  layout_flex_tree_with_root_sizing(
+    root_id,
+    offered_size,
+    root_style,
+    nodes,
+    InsetsMinimum,
+  )
+}
+
+///|
+priv enum FlexRootSizing {
+  FixedViewport
+  InsetsMinimum
+}
+
+///|
+fn flex_tree_root_bounds(
+  root_size : @primitives.Size,
+  root_style : FlexTreeStyle,
+  root_sizing : FlexRootSizing,
+) -> Result[@primitives.Rect, TreeLayoutError] {
+  let mut width = root_size.width()
+  let mut height = root_size.height()
+  match root_sizing {
+    FixedViewport => ()
+    InsetsMinimum => {
+      let horizontal = root_style.padding.left() +
+        root_style.padding.right() +
+        root_style.border.left() +
+        root_style.border.right()
+      let vertical = root_style.padding.top() +
+        root_style.padding.bottom() +
+        root_style.border.top() +
+        root_style.border.bottom()
+      if !finite(horizontal) || !finite(vertical) {
+        return Err(Flex(NonFiniteValue))
+      }
+      if horizontal > width {
+        width = horizontal
+      }
+      if vertical > height {
+        height = vertical
+      }
+    }
+  }
+  match @primitives.Rect::new(0.0, 0.0, width, height) {
+    Ok(bounds) => Ok(bounds)
+    Err(_) => Err(GeometryFailure)
+  }
+}
+
+///|
+fn flex_tree_root_exceeds_offer(
+  root_bounds : @primitives.Rect,
+  root_size : @primitives.Size,
+  root_sizing : FlexRootSizing,
+) -> Bool {
+  match root_sizing {
+    FixedViewport => false
+    InsetsMinimum =>
+      root_bounds.size().width() > root_size.width() ||
+      root_bounds.size().height() > root_size.height()
+  }
+}
+
+///|
+fn layout_flex_tree_with_root_sizing(
+  root_id : UInt64,
+  root_size : @primitives.Size,
+  root_style : FlexTreeStyle,
+  nodes : Array[FlexTreeNode],
+  root_sizing : FlexRootSizing,
+  device_grid~ : Bool = false,
+) -> Result[FlexTreeLayout, TreeLayoutError] {
   match validate_tree_preorder(root_id, nodes) {
     Err(error) => Err(error)
     Ok(_) =>
-      match
-        @primitives.Rect::new(0.0, 0.0, root_size.width(), root_size.height()) {
-        Err(_) => Err(GeometryFailure)
+      match flex_tree_root_bounds(root_size, root_style, root_sizing) {
+        Err(error) => Err(error)
         Ok(root_bounds) => {
           let output : Array[TreeLayoutBox] = []
-          let overflow = Ref(false)
+          let overflow = Ref(
+            flex_tree_root_exceeds_offer(root_bounds, root_size, root_sizing),
+          )
           match
             layout_tree_children(
-              root_id, root_bounds, root_style, nodes, output, overflow, 0,
+              root_id, root_bounds, root_style, nodes, output, overflow, 0, device_grid,
             ) {
             Err(error) => Err(error)
             Ok(_) =>
@@ -363,19 +462,69 @@ pub fn layout_flex_tree_with_device_scale(
   nodes : Array[FlexTreeNode],
   scale_factor : Double,
 ) -> Result[FlexTreeLayout, TreeLayoutError] {
+  layout_flex_tree_with_device_scale_and_root_sizing(
+    root_id,
+    root_size,
+    root_style,
+    nodes,
+    scale_factor,
+    FixedViewport,
+  )
+}
+
+///|
+/// Device-grid variant of `layout_flex_root_box`. Authored padding and border
+/// are snapped before the root inset minimum is computed, including the
+/// existing one-device-pixel minimum for positive borders. Final absolute
+/// edges are snapped afterward; `bounds_before_edge_snap` retains the solved
+/// root. The offered physical viewport remains the caller's responsibility.
+pub fn layout_flex_root_box_with_device_scale(
+  root_id : UInt64,
+  offered_size : @primitives.Size,
+  root_style : FlexTreeStyle,
+  nodes : Array[FlexTreeNode],
+  scale_factor : Double,
+) -> Result[FlexTreeLayout, TreeLayoutError] {
+  layout_flex_tree_with_device_scale_and_root_sizing(
+    root_id,
+    offered_size,
+    root_style,
+    nodes,
+    scale_factor,
+    InsetsMinimum,
+  )
+}
+
+///|
+fn layout_flex_tree_with_device_scale_and_root_sizing(
+  root_id : UInt64,
+  root_size : @primitives.Size,
+  root_style : FlexTreeStyle,
+  nodes : Array[FlexTreeNode],
+  scale_factor : Double,
+  root_sizing : FlexRootSizing,
+) -> Result[FlexTreeLayout, TreeLayoutError] {
   if !finite(scale_factor) {
     Err(Flex(NonFiniteValue))
   } else if scale_factor <= 0.0 {
     Err(Flex(NegativeValue))
   } else {
-    match snap_tree_style_to_device_scale(root_style, scale_factor) {
+    let device_root_size = match
+      @primitives.Size::new(
+        root_size.width() * scale_factor,
+        root_size.height() * scale_factor,
+      ) {
+      Ok(value) => value
+      Err(_) => return Err(Flex(NonFiniteValue))
+    }
+    match prepare_tree_style_in_device_pixels(root_style, scale_factor) {
       Err(error) => Err(Flex(error))
       Ok(snapped_root_style) => {
         let snapped_nodes : Array[FlexTreeNode] = []
         let mut failure : TreeLayoutError? = None
         for node in nodes {
           if failure is None {
-            match snap_tree_item_to_device_scale(node.item, scale_factor) {
+            match prepare_tree_item_in_device_pixels(node.item, scale_factor) {
               Err(error) => failure = Some(Flex(error))
               Ok(item) =>
                 match node.children_style {
@@ -386,7 +535,8 @@ pub fn layout_flex_tree_with_device_scale(
                       children_style: None,
                     })
                   Some(style) =>
-                    match snap_tree_style_to_device_scale(style, scale_factor) {
+                    match
+                      prepare_tree_style_in_device_pixels(style, scale_factor) {
                       Err(error) => failure = Some(Flex(error))
                       Ok(children_style) =>
                         snapped_nodes.push({
@@ -403,32 +553,68 @@ pub fn layout_flex_tree_with_device_scale(
           Some(error) => Err(error)
           None =>
             match
-              layout_flex_tree(
-                root_id, root_size, snapped_root_style, snapped_nodes,
+              layout_flex_tree_with_root_sizing(
+                root_id,
+                device_root_size,
+                snapped_root_style,
+                snapped_nodes,
+                root_sizing,
+                device_grid=true,
               ) {
               Err(error) => Err(error)
               Ok(layout) => {
                 let root_bounds = match
-                  snap_absolute_rect_to_device_grid(
+                  logical_rect_from_device_pixels(
+                    layout.root_bounds,
+                    scale_factor,
+                    snap_edges=true,
+                  ) {
+                  Ok(bounds) => bounds
+                  Err(error) => return Err(Flex(error))
+                }
+                let before_edge_snap : Array[(UInt64, @primitives.Rect)] = []
+                let raw_root = match
+                  logical_rect_from_device_pixels(
                     layout.root_bounds,
                     scale_factor,
                   ) {
                   Ok(bounds) => bounds
                   Err(error) => return Err(Flex(error))
                 }
-                let before_edge_snap : Array[(UInt64, @primitives.Rect)] = []
-                if root_bounds != layout.root_bounds {
-                  before_edge_snap.push((layout.root_id, layout.root_bounds))
+                if root_bounds != raw_root {
+                  before_edge_snap.push((layout.root_id, raw_root))
                 }
+                let precision_ids = intrinsic_percent_precision_ids(
+                  root_id,
+                  Some(root_style.direction),
+                  nodes,
+                )
                 let items : Array[TreeLayoutBox] = []
                 for item in layout.items {
                   let bounds = match
-                    snap_absolute_rect_to_device_grid(item.bounds, scale_factor) {
+                    logical_rect_from_device_pixels(
+                      item.bounds,
+                      scale_factor,
+                      snap_edges=true,
+                    ) {
                     Ok(bounds) => bounds
                     Err(error) => return Err(Flex(error))
                   }
-                  if bounds != item.bounds {
-                    before_edge_snap.push((item.id, item.bounds))
+                  let bounds = match
+                    intrinsic_percent_logical_bounds(
+                      bounds,
+                      precision_ids.contains(item.id),
+                    ) {
+                    Ok(value) => value
+                    Err(error) => return Err(error)
+                  }
+                  let raw_bounds = match
+                    logical_rect_from_device_pixels(item.bounds, scale_factor) {
+                    Ok(bounds) => bounds
+                    Err(error) => return Err(Flex(error))
+                  }
+                  if bounds != raw_bounds {
+                    before_edge_snap.push((item.id, raw_bounds))
                   }
                   items.push({ id: item.id, bounds, overflow: item.overflow, })
                 }
@@ -436,7 +622,10 @@ pub fn layout_flex_tree_with_device_scale(
                   root_id: layout.root_id,
                   root_bounds,
                   items,
-                  overflow: layout.overflow,
+                  overflow: layout.overflow ||
+                  flex_tree_root_exceeds_offer(
+                    root_bounds, root_size, root_sizing,
+                  ),
                   before_edge_snap,
                 })
               }
@@ -448,45 +637,55 @@ pub fn layout_flex_tree_with_device_scale(
 }
 
 ///|
-fn snap_tree_item_to_device_scale(
+fn prepare_tree_item_in_device_pixels(
   item : FlexItem,
   scale_factor : Double,
 ) -> Result[FlexItem, LayoutError] {
-  let main = match snap_dimension_to_device_scale(item.main, scale_factor) {
+  let flex_basis = match item.flex_basis {
+    Auto => FlexBasis::Auto
+    Percent(ratio) => FlexBasis::Percent(ratio)
+    Points(value) =>
+      match authored_length_in_device_pixels(value, scale_factor) {
+        Ok(snapped) => FlexBasis::Points(snapped)
+        Err(error) => return Err(error)
+      }
+  }
+  let main = match prepare_dimension_in_device_pixels(item.main, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let cross = match snap_dimension_to_device_scale(item.cross, scale_factor) {
+  let cross = match
+    prepare_dimension_in_device_pixels(item.cross, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let min_main = match
-    snap_authored_length_to_device_grid(item.min_main, scale_factor) {
+    authored_length_in_device_pixels(item.min_main, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let max_main = match
-    snap_optional_length_to_device_scale(item.max_main, scale_factor) {
+    prepare_optional_length_in_device_pixels(item.max_main, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let min_cross = match
-    snap_authored_length_to_device_grid(item.min_cross, scale_factor) {
+    authored_length_in_device_pixels(item.min_cross, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let max_cross = match
-    snap_optional_length_to_device_scale(item.max_cross, scale_factor) {
+    prepare_optional_length_in_device_pixels(item.max_cross, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let intrinsic_width = match
-    ceil_measured_length_to_device_grid(item.intrinsic.width(), scale_factor) {
+    measured_length_in_device_pixels(item.intrinsic.width(), scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let intrinsic_height = match
-    ceil_measured_length_to_device_grid(item.intrinsic.height(), scale_factor) {
+    measured_length_in_device_pixels(item.intrinsic.height(), scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -504,19 +703,21 @@ fn snap_tree_item_to_device_scale(
         max_main,
         min_cross,
         max_cross,
+        align_self: item.align_self,
+        flex_basis,
       })
   }
 }
 
 ///|
-fn snap_dimension_to_device_scale(
+fn prepare_dimension_in_device_pixels(
   dimension : Dimension,
   scale_factor : Double,
 ) -> Result[Dimension, LayoutError] {
   match dimension {
     Auto => Ok(Auto)
     Points(value) =>
-      match snap_authored_length_to_device_grid(value, scale_factor) {
+      match authored_length_in_device_pixels(value, scale_factor) {
         Ok(snapped) => Ok(Points(snapped))
         Err(error) => Err(error)
       }
@@ -525,14 +726,14 @@ fn snap_dimension_to_device_scale(
 }
 
 ///|
-fn snap_optional_length_to_device_scale(
+fn prepare_optional_length_in_device_pixels(
   value : Double?,
   scale_factor : Double,
 ) -> Result[Double?, LayoutError] {
   match value {
     None => Ok(None)
     Some(value) =>
-      match snap_authored_length_to_device_grid(value, scale_factor) {
+      match authored_length_in_device_pixels(value, scale_factor) {
         Ok(snapped) => Ok(Some(snapped))
         Err(error) => Err(error)
       }
@@ -540,32 +741,19 @@ fn snap_optional_length_to_device_scale(
 }
 
 ///|
-fn snap_layout_insets_to_device_scale(
+fn prepare_insets_in_device_pixels(
   insets : Insets,
   scale_factor : Double,
   stroke : Bool,
 ) -> Result[Insets, LayoutError] {
   let snap = fn(value) {
     if stroke && value > 0.0 {
-      match snap_authored_length_to_device_grid(value, scale_factor) {
+      match authored_length_in_device_pixels(value, scale_factor) {
         Err(error) => Err(error)
-        Ok(snapped) => {
-          let one_device_pixel = 1.0 / scale_factor
-          if !finite(one_device_pixel) {
-            Err(NonFiniteValue)
-          } else {
-            Ok(
-              if snapped < one_device_pixel {
-                one_device_pixel
-              } else {
-                snapped
-              },
-            )
-          }
-        }
+        Ok(snapped) => Ok(if snapped < 1.0 { 1.0 } else { snapped })
       }
     } else {
-      snap_authored_length_to_device_grid(value, scale_factor)
+      authored_length_in_device_pixels(value, scale_factor)
     }
   }
   let top = match snap(insets.top()) {
@@ -588,27 +776,27 @@ fn snap_layout_insets_to_device_scale(
 }
 
 ///|
-fn snap_tree_style_to_device_scale(
+fn prepare_tree_style_in_device_pixels(
   style : FlexTreeStyle,
   scale_factor : Double,
 ) -> Result[FlexTreeStyle, LayoutError] {
   let gap_x = match
-    snap_authored_length_to_device_grid(style.gap_x, scale_factor) {
+    authored_length_in_device_pixels(style.gap_x, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let gap_y = match
-    snap_authored_length_to_device_grid(style.gap_y, scale_factor) {
+    authored_length_in_device_pixels(style.gap_y, scale_factor) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let padding = match
-    snap_layout_insets_to_device_scale(style.padding, scale_factor, false) {
+    prepare_insets_in_device_pixels(style.padding, scale_factor, false) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let border = match
-    snap_layout_insets_to_device_scale(style.border, scale_factor, true) {
+    prepare_insets_in_device_pixels(style.border, scale_factor, true) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -634,6 +822,7 @@ fn layout_tree_children(
   output : Array[TreeLayoutBox],
   overflow : Ref[Bool],
   depth : Int32,
+  device_grid : Bool,
 ) -> Result[Unit, TreeLayoutError] {
   let direct_nodes : Array[FlexTreeNode] = []
   for node in nodes {
@@ -657,7 +846,17 @@ fn layout_tree_children(
           measure_direct_items(direct_nodes, style.direction, nodes, depth) {
           Err(error) => Err(error)
           Ok(direct_items) =>
-            match layout_flex(container, direct_items) {
+            match
+              layout_flex_internal(
+                container,
+                direct_items,
+                device_grid &&
+                (if style.direction.is_row() {
+                  parent_bounds.left() == 0.0
+                } else {
+                  parent_bounds.top() == 0.0
+                }),
+              ) {
               Err(error) => Err(Flex(error))
               Ok(line) => {
                 if line.overflow() {
@@ -704,6 +903,7 @@ fn layout_tree_children(
                                 output,
                                 overflow,
                                 depth + 1,
+                                device_grid,
                               ) {
                               Err(error) => failure = Some(error)
                               Ok(_) => ()
@@ -806,9 +1006,79 @@ priv enum MeasureAxis {
 }
 
 ///|
+// Explicit bases in a nowrap, completely inflexible intrinsic line have a
+// bounded max-content contribution. Other intrinsic flex negotiation is not
+// implemented. Auto-only flexible/wrapped lines retain prior measurement.
+fn intrinsic_zero_flex_mode(
+  style : FlexTreeStyle,
+  items : Array[FlexItem],
+) -> Result[Bool, TreeLayoutError] {
+  let mut has_explicit_basis = false
+  for item in items {
+    match item.flex_basis {
+      Auto => ()
+      Points(_) | Percent(_) => has_explicit_basis = true
+    }
+  }
+  let mut bounded = style.wrap is NoWrap
+  for item in items {
+    if item.grow != 0.0 || item.shrink != 0.0 {
+      bounded = false
+    }
+  }
+  if has_explicit_basis && !bounded {
+    Err(UnsupportedIntrinsicFlexBasis)
+  } else {
+    Ok(bounded)
+  }
+}
+
+///|
+// The preferred authored main size can enlarge a zero-flex child's intrinsic
+// contribution beyond its point basis. Its max-main limit bounds the eventual
+// child box, not this contribution (pinned GPUI/Taffy max-content behavior).
+fn intrinsic_point_contribution(
+  item : FlexItem,
+  preferred : Double?,
+) -> Result[Double, TreeLayoutError] {
+  let authored = preferred.unwrap_or(0.0)
+  match item.resolved_flex_basis(authored, 0.0) {
+    Err(error) => Err(Flex(error))
+    Ok(basis) => Ok(if basis > authored { basis } else { authored })
+  }
+}
+
+///|
+// An unresolved percentage basis uses the authored main size during intrinsic
+// measurement, but is retained for final layout against the measured parent.
+// Only definite authored sizes and empty Auto leaves are qualified here;
+// content-dependent and nested Auto fallback remain explicitly unsupported.
+fn intrinsic_percent_contribution(
+  item : FlexItem,
+  preferred : Double?,
+  has_children : Bool,
+  direction : FlowDirection,
+) -> Result[Double, TreeLayoutError] {
+  let intrinsic_main = if direction.is_row() {
+    item.intrinsic.width()
+  } else {
+    item.intrinsic.height()
+  }
+  match preferred {
+    Some(value) => Ok(value)
+    None =>
+      if has_children || intrinsic_main != 0.0 {
+        Err(UnsupportedIntrinsicFlexBasis)
+      } else {
+        Ok(0.0)
+      }
+  }
+}
+
+///|
 /// Measure only the requested physical axis. This is important for mixed
 /// definite/auto containers: a percentage on a definite orthogonal axis is
-/// left for layout, while a percentage against the measured auto axis fails.
+/// left for layout, while an authored percentage dimension against the measured auto axis fails.
 fn measure_container_axis(
   parent_id : UInt64,
   style : FlexTreeStyle,
@@ -825,6 +1095,20 @@ fn measure_container_axis(
       | (Column, HeightAxis)
       | (ColumnReverse, HeightAxis) => true
       _ => false
+    }
+    let zero_flex_mode = if axis_is_main {
+      let items : Array[FlexItem] = []
+      for node in nodes {
+        if node.parent == parent_id {
+          items.push(node.item)
+        }
+      }
+      match intrinsic_zero_flex_mode(style, items) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+    } else {
+      false
     }
     let mut count = 0
     let mut total = 0.0
@@ -845,15 +1129,34 @@ fn measure_container_axis(
           match resolve_dimension(dimension, None) {
             Err(error) => failure = Some(Flex(error))
             Ok(resolved) => {
-              let natural = match resolved {
-                Some(value) => Ok(value)
-                None =>
-                  measure_child_intrinsic_axis(node, axis, nodes, depth + 1)
+              let natural = if zero_flex_mode && item.flex_basis is Points(_) {
+                intrinsic_point_contribution(item, resolved)
+              } else if zero_flex_mode && item.flex_basis is Percent(_) {
+                intrinsic_percent_contribution(
+                  item,
+                  resolved,
+                  node.children_style is Some(_),
+                  style.direction,
+                )
+              } else {
+                match resolved {
+                  Some(value) => Ok(value)
+                  None =>
+                    measure_child_intrinsic_axis(node, axis, nodes, depth + 1)
+                }
               }
               match natural {
                 Err(error) => failure = Some(error)
                 Ok(value) => {
-                  let bounded = clamp_once(value, minimum, maximum_value)
+                  let bounded = if zero_flex_mode {
+                    if value < minimum {
+                      minimum
+                    } else {
+                      value
+                    }
+                  } else {
+                    clamp_once(value, minimum, maximum_value)
+                  }
                   if !finite(bounded) {
                     failure = Some(Flex(NonFiniteValue))
                   } else if axis_is_main {
@@ -1017,4 +1320,88 @@ fn copy_tree_boxes(values : Array[TreeLayoutBox]) -> Array[TreeLayoutBox] {
     copy.push(value)
   }
   copy
+}
+
+///|
+// Select only subtrees that were previously rejected: a Percent basis on the
+// intrinsically measured main axis of a nested flex container. Orientation is
+// resolved in physical axes, so an Auto orthogonal cross axis is not enough.
+// Preorder validation has already run before this helper is used.
+fn intrinsic_percent_precision_ids(
+  root_id : UInt64,
+  root_direction : FlowDirection?,
+  nodes : Array[FlexTreeNode],
+) -> Array[UInt64] {
+  let selected : Array[UInt64] = []
+  for node in nodes {
+    if selected.contains(node.parent) {
+      selected.push(node.id())
+    } else {
+      match node.children_style {
+        None => ()
+        Some(style) => {
+          let mut parent_direction = if node.parent == root_id {
+            root_direction
+          } else {
+            None
+          }
+          for parent in nodes {
+            if parent.id() == node.parent {
+              parent_direction = parent.children_style.map(fn(value) {
+                value.direction
+              })
+            }
+          }
+          match parent_direction {
+            None => ()
+            Some(direction) => {
+              let axis = if direction.is_row() == style.direction.is_row() {
+                node.item.main
+              } else {
+                node.item.cross
+              }
+              if axis is Auto {
+                let mut has_percent = false
+                for child in nodes {
+                  if child.parent == node.id() &&
+                    child.item.flex_basis is Percent(_) {
+                    has_percent = true
+                  }
+                }
+                if has_percent {
+                  selected.push(node.id())
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  selected
+}
+
+///|
+// GPUI exposes Pixels as f32, including the final device-to-logical division.
+// Apply that representation only to newly supported intrinsic-Percent
+// subtrees in device-scale entry points. Raw Double layout and saved unsnapped
+// rectangles retain their prior precision; unrelated siblings are unchanged.
+fn intrinsic_percent_logical_bounds(
+  bounds : @primitives.Rect,
+  selected : Bool,
+) -> Result[@primitives.Rect, TreeLayoutError] {
+  if !selected {
+    Ok(bounds)
+  } else {
+    match
+      @primitives.Rect::new(
+        Float::from_double(bounds.left()).to_double(),
+        Float::from_double(bounds.top()).to_double(),
+        Float::from_double(bounds.size().width()).to_double(),
+        Float::from_double(bounds.size().height()).to_double(),
+      ) {
+      Ok(value) => Ok(value)
+      Err(_) => Err(GeometryFailure)
+    }
+  }
 }

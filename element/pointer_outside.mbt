@@ -27,6 +27,7 @@ pub fn PointerOutsideFrame::new(
   }
   let snapshot : ElementTree = {
     nodes: copy_nodes(tree.nodes),
+    physical_viewport: tree.physical_viewport,
     focused: tree.focused,
     lineage: tree.lineage,
     owner: tree.owner,

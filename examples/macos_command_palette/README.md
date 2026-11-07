@@ -18,6 +18,13 @@ is open; they do not provide copy, paste, or other editing commands.
 This sample does not qualify PR #40's native text-input ownership or Kotoeri
 acceptance. macOS accessibility transport is also outside its scope.
 
+The opt-in `--text-host` mode is separate from the interactive loop: it opens
+the palette, applies synthetic preedit/commit/cancel frames through
+`text_host`/`text_adapter`, installs each applied field with
+`CommandPalette::install_field`, and checks that the committed query filters
+the list. That is transport evidence only; the interactive loop does not pump
+the text host, so live composition remains unwired.
+
 The opt-in E2E sends synthetic key events through the owned NSWindow and
 checks completed Metal frames. It verifies open, ASCII search, disabled-row
 skipping, activation, cancellation, reopening, and teardown. This is host-event

@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 import platform
 import re
-import shlex
 import shutil
 import statistics
 import subprocess
@@ -60,9 +59,10 @@ def retained_files(directory):
 
 
 def environment_words(env, name, default=""):
-    # Match script/linux_text_cc.py exactly, including paths containing spaces.
+    # Match script/linux_text_cc.sh: an existing file path is one word, and any
+    # other value splits on whitespace.
     value = env.get(name, default)
-    return [value] if os.path.isfile(value) else shlex.split(value)
+    return [value] if os.path.isfile(value) else value.split()
 
 
 def tool_identity(command, env, version_flag="--version"):
@@ -80,7 +80,7 @@ def native_build_identity(env):
     compiler = environment_words(env, "GPUI_LINUX_TEXT_CC", env.get("CC", "cc"))
     discovery = environment_words(env, "PKG_CONFIG", "pkg-config")
     identity = {"compiler": tool_identity(compiler, env), "pkg_config": tool_identity(discovery, env),
-                "wrapper_sha256": digest(REPO / "script/linux_text_cc.py"),
+                "wrapper_sha256": digest(REPO / "script/linux_text_cc.sh"),
                 "flags": {name: environment_words(env, name) for name in ["CPPFLAGS", "CFLAGS", "LDFLAGS"]},
                 "discovery_environment": {name: env.get(name) for name in
                     ["PKG_CONFIG_SYSROOT_DIR", "PKG_CONFIG_LIBDIR", "PKG_CONFIG_PATH"]}}
@@ -88,8 +88,8 @@ def native_build_identity(env):
         return subprocess.check_output([*discovery, *args, "pangoft2", "fontconfig"], text=True, env=env).strip()
     subprocess.run([*discovery, "--atleast-version=1.50", "pangoft2"], env=env, check=True)
     identity["package_versions"] = query("--modversion").splitlines()
-    identity["package_cflags"] = shlex.split(query("--cflags"))
-    identity["package_libraries"] = shlex.split(query("--libs"))
+    identity["package_cflags"] = query("--cflags").split()
+    identity["package_libraries"] = query("--libs").split()
     return identity
 
 
@@ -241,8 +241,8 @@ def source_manifest_digest(entries):
 
 
 def restore_compiler_path(data, directory, override=None):
-    return data.replace(json.dumps(override or str(directory / "source/script/linux_text_cc.py")).encode(),
-                        b'"script/linux_text_cc.py"')
+    return data.replace(json.dumps(override or str(directory / "source/script/linux_text_cc.sh")).encode(),
+                        b'"script/linux_text_cc.sh"')
 
 
 def validate_evidence(report, directory):
@@ -299,7 +299,7 @@ def _validate_evidence(report, directory):
         raise RuntimeError("hotpath binary identity does not match its retained executable")
     manifest = json.loads((directory / "staging-manifest.json").read_text())
     override = manifest["compiler_path_override"]
-    if not isinstance(override, str) or not Path(override).is_absolute() or not override.endswith("/source/script/linux_text_cc.py"):
+    if not isinstance(override, str) or not Path(override).is_absolute() or not override.endswith("/source/script/linux_text_cc.sh"):
         raise RuntimeError("retained compiler-path rewrite is malformed")
     if manifest["source_snapshot"] != before:
         raise RuntimeError("hotpath retained source snapshot is stale")
@@ -422,9 +422,9 @@ def stage(output, hotpath, lock):
     # Moon resolves dependency compiler paths relative to the invocation cwd.
     for package in source.rglob("moon.pkg"):
         text = package.read_text()
-        package.write_text(text.replace('"script/linux_text_cc.py"', json.dumps(str(source / "script/linux_text_cc.py"))))
+        package.write_text(text.replace('"script/linux_text_cc.sh"', json.dumps(str(source / "script/linux_text_cc.sh"))))
     package = workload / "moon.pkg"
-    package.write_text(package.read_text().replace('"script/linux_text_cc.py"', json.dumps(str(source / "script/linux_text_cc.py"))))
+    package.write_text(package.read_text().replace('"script/linux_text_cc.sh"', json.dumps(str(source / "script/linux_text_cc.sh"))))
     return feedback, workload, entries
 
 
@@ -478,7 +478,7 @@ def execute(hotpath, output, repeats=7, baseline=None, tolerance=None):
         env_info["cpu_model"] = next((line.split(":", 1)[1].strip() for line in cpu.splitlines() if line.startswith("model name")), None)
         report["environment"] = env_info
         (output / "staging-manifest.json").write_text(json.dumps({"source_files": source_entries, "source_snapshot": before,
-                                                                 "compiler_path_override": str(output / "source/script/linux_text_cc.py"),
+                                                                 "compiler_path_override": str(output / "source/script/linux_text_cc.sh"),
                                                                  "environment": env_info}, indent=2) + "\n")
         command = [moon, "build", ".", "--target", "native", "--release", "--warn-list", "-27-79", "--deny-warn", "--target-dir", str(output / "build")]
         with (output / "build.log").open("w") as stream:

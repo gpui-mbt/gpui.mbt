@@ -8,3 +8,8 @@ import {
 import {
   "f4ah6o/gpui/platform/testing",
 } for "test"
+
+import {
+  "f4ah6o/gpui/element",
+  "f4ah6o/gpui/layout",
+} for "wbtest"

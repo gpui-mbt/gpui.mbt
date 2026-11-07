@@ -2,22 +2,141 @@
 
 ## Unreleased
 
+### Fixed
+
+- Deliver Ubuntu/Windows text-host `FocusLost` observations when either the
+  platform or text pump reads the owned window's focus-loss record first.
+  Draining an already parked record does not duplicate the observation;
+  inactive sessions and unrelated windows do not receive a text notification.
+  Keep Ubuntu forwarded keys ahead of later native platform records.
+
+- Reject stale Ubuntu/Windows text-session end requests before native teardown,
+  so an old owner cannot end the current owner's native session. Keep ordinary
+  platform events queued across text-session end and restart; applications can
+  still drain pending focus, key and resize events through `next_platform_event`.
+  Explicit route reset continues to discard all queued state.
+
+- Match pinned GPUI/Taffy f32 distributed main-axis placement in bounded
+  device-grid zero-flex lines, including forward/reverse flow and wrapping.
+  Preserve raw Double layout and large-extent fallback behavior; do not change
+  edge tie rounding or comparison tolerance.
+
 ### Added
 
+- Support bounded intrinsic point flex-basis in pure and mixed trees for
+  nowrap lines with zero grow/shrink on every direct child. Preserve the
+  distinction between max-content parent contributions and limited child boxes;
+  correct the corresponding Auto-only zero-flex maximum-limit contribution.
+  Other intrinsic point negotiation and indefinite percentages remain rejected.
+
+- Add independent Auto/finite nonnegative point `FlexBasis` on flex items.
+  Preserve it through builders, recursive layout and device-scale preparation;
+  explicitly reject intrinsic-main-axis basis sizing outside this bounded slice.
+  See `docs/flex-basis.md`.
+
+## 0.10.6 - 2026-10-22
+
+### Fixed
+
+- Replace the Python macOS prebuild hook with `script/macos_text_prebuild.mbtx`,
+  a MoonBit script that moon compiles to WebAssembly and runs with `moonrun`.
+  Native and LLVM builds no longer require Python or Node, and macOS consumers
+  still receive the CoreText, CoreGraphics and CoreFoundation link flags.
+- Replace the Python Linux C toolchain wrappers with POSIX shell scripts.
+  `script/linux_text_cc.sh` discovers PangoFT2 and Fontconfig flags through
+  `pkg-config`, and `script/ar`/`script/ranlib` forward to `AR`/`RANLIB`, so
+  Linux native builds no longer require Python.
+
+### Migration
+
+- Native builds require a moon toolchain that supports `.mbtx` prebuild scripts;
+  the toolchain pinned in CI does. No interpreter has to be installed.
+- Linux native builds use `script/linux_text_cc.sh`; `moon.pkg` files that named
+  the removed `script/linux_text_cc.py` must update their `cc` and `stub-cc`
+  paths. `script/ar` and `script/ranlib` keep their names.
+
+## 0.10.5 - 2026-10-21
+
+### Added
+
+- Add opt-in authored flex-root border-box sizing with independently retained
+  physical viewport for snapshots, pointer eligibility and scrolling. Existing
+  fixed-viewport root APIs remain unchanged. See `docs/root-box-viewport.md`.
+
+- Add `JustifyContent::flex_start` and `flex_end` for flow-relative main-axis
+  alignment, including reverse and wrapped lines. Physical start/end defaults
+  remain unchanged.
+
+- Add per-item `layout.AlignSelf` and `FlexItem::with_align_self` for inherited,
+  physical start/end, flex-relative start/end, center, and auto-size stretch.
+  Overrides survive recursive layout, device-scale preparation, and item builders.
+
+- Publish a bounded macOS Dialog accessibility projection:
+  `Host::publish_dialog_accessibility` and
+  `Host::revoke_dialog_accessibility`, with `DialogAccessibilitySnapshot`. An
+  open dialog is exposed as one group with the `AXDialog` subrole carrying its
+  title, focus and frame; the element is revoked when the application closes
+  the dialog. A window keeps at most one dialog element. Dialog actions,
+  field value writes and assistive-technology acceptance remain out of scope.
+
+## 0.10.4 - 2026-10-21
+
+### Added
+
+- Publish a bounded macOS TextField accessibility projection:
+  `Host::publish_text_field_accessibility` and
+  `Host::revoke_text_field_accessibility`, with
+  `TextFieldAccessibilitySnapshot`. A window keeps a registry of AX elements,
+  so a Button and a TextField can be exposed together; the TextField element
+  reports role, value, UTF-16 selection, editable state, focus and frame. A
+  negative or out-of-range selection is rejected before any native call. AX
+  actions, Dialog elements and assistive-technology acceptance remain out of
+  scope.
+- Add macOS test hooks for exact-source text-input harnesses:
+  `Host::post_test_key_code` posts one ANSI key code with explicit characters
+  through the owned `NSWindow`, so a live input method can process the key, and
+  `Host::text_caret_screen` reads the caret rectangle the AppKit client reports
+  to the input method. Both require `GPUI_NATIVE_E2E=1` and a test-hooks
+  library. They do not synthesize composition and are not IME evidence alone.
+- Add `text_host.TextHostQueue`, shared epoch/sequence/text/parked-event state
+  for hosts whose native route exposes one ordered editor stream. It bounds
+  parked platform records, keeps an unsupported-record failure readable instead
+  of substituting an insertion, and discards copied text when the host replaces
+  its native epoch.
+- Add `windows.TextHostRoute`, an opt-in portable `TextInputHost` adapter over
+  the existing IMM32 editor session. It defers the native begin until the first
+  update, maps Marked/empty-Inserted/Cancelled to Preedit/Commit/Cancel, parks
+  ordinary platform records for a paired `next_platform_event`, and reports a
+  replacement insert as `UnsupportedCapability` instead of flattening it.
+  `Capability::TextInput` stays unadvertised until an exact-source IME run
+  qualifies the route.
+- Add `ubuntu.TextHostRoute`, an opt-in portable `TextInputHost` adapter over
+  the existing text-input-v1 session. It maps preedit and no-deletion commits,
+  forwards command keys as platform events in the paired `next_platform_event`
+  queue, and reports a commit that deletes surrounding text as
+  `UnsupportedCapability`. `Capability::TextInput` stays unadvertised until an
+  exact-source Wayland/IBus IME run qualifies the route.
+
+## 0.10.3 - 2026-10-20
+
+### Added
+
+- Implement `text_host.TextInputHost` for `platform/macos.Host` over the AppKit
+  composition client. An armed session owns enablement and an epoch-tagged,
+  ordered text queue that stays separate from `next_event`; the host advertises
+  `Capability::TextInput` when the loaded library exports the route and never
+  advertises `TextInputGeometry`. Window focus loss publishes `FocusLost`.
+- Add `element.FocusScopeSession::adopt_tree` for hosts that rebuild their
+  element tree every frame: it replaces the node set of the current revision,
+  keeps live modal frames and handles, transplants the focus lineage onto
+  surviving ids, and restores once when a scope root disappears. Add
+  `FocusScopeSession::clear_focus` and `FocusScopeSession::focused` for owners
+  that drop the acquisition on window blur without closing a scope.
 - Add the optional `text_host/` native text transport contract
   (`TextInputHost`, `TextInputState`, `TextInputEvent`) between
   `platform.Backend` and `text_session/`, plus
   `Capability::TextInputGeometry`. The package is additive; existing hosts keep
   returning `UnsupportedCapability` until they implement it.
-- Implement `text_host.TextInputHost` for `@macos.Host`. The route issues
-  monotonic never-reused epochs, keeps one live session per host, accepts the
-  committed document boundary plus the outward-rounded painted caret, reports
-  `FocusLost` once after observed key focus, and revokes the epoch on end after
-  draining leftover composition frames. `Capability::TextInput` is now
-  advertised on macOS; `TextInputGeometry` is not.
-- Add the additive native operations 22 (take one queued composition frame for a
-  window without reordering other events) and 23 (report the AppKit key state),
-  plus the test-only op 24 used by the E2E harness to force the key state.
 - Add the portable `text_adapter/` package: `start_host_text`,
   `receive_host_text` and `end_host_text` validate the event window/epoch, map
   `Preedit`/`Commit`/`Cancel` through `TextSession::apply_batch`, republish the
@@ -25,7 +144,9 @@
   transport.
 - Add `examples/native_macos --text-host` and run it from
   `script/test_macos.sh`; it prints `GPUI_MACOS_TEXT_HOST {...}` after synthetic
-  preedit, commit, cancel, stale-epoch and forced focus-loss cases.
+  preedit, commit, epoch-replacing cancel, a stale epoch and an AppKit
+  double-click. Real window-focus loss is `NOT_RUN` because this automation
+  context cannot take real keyboard focus.
 - Add bounded portable text values and selections to the semantic accessibility
   tree: `NodeSpec::with_text`, `AccessibilityTextSelection`,
   `SemanticNode::value`/`selection`, and the corresponding limits and typed
@@ -34,8 +155,9 @@
 - Add word navigation and word deletion (Option-only on macOS, Ctrl-only plus
   the existing shortcuts elsewhere) and pointer drag selection to the shared
   `TextField`. Word boundaries use a documented bounded rule and snap to
-  measured cursor stops; double-click selection and full Unicode segmentation
-  remain out of scope.
+  measured cursor stops. A host-published `PointerButtonMultiClick` selects the
+  word on a double click and the whole document on a triple click; exact Unicode
+  segmentation remains out of scope.
 - Add `platform/macos_app.MacosTextFieldHost`, a reusable CoreText-backed
   TextField/session transport wrapper (`start`, `pump`, `end`, `field`,
   `binding`, `is_ended`), and move `examples/native_macos --text-host` onto it.
@@ -44,14 +166,23 @@
 - Add a `--text-host` mode to the macOS command palette sample and run it from
   `script/build_macos_command_palette.sh --e2e`. It applies synthetic
   preedit/commit/cancel frames, installs the field through
-  `CommandPalette::install_field`, and checks query filtering; the interactive
-  ASCII path is unchanged and real IME remains unqualified.
+  `CommandPalette::install_field`, and checks query filtering. The interactive
+  `--run` loop does not pump the text host, so interactive composition remains
+  unwired and real IME remains unqualified.
 - Add `InputEvent::PointerButtonMultiClick` (position, button, modifiers,
   click count) for double/triple clicks. `TextField` selects the word on count
   2 and the whole document on count 3; macOS publishes the variant from
   `NSEvent.clickCount` and gains `post_test_click_count` for E2E. Linux and
   Windows backends still send ordinary presses. Exhaustive `InputEvent` matches
   need a new arm.
+
+## 0.10.2 - 2026-10-20
+
+### Fixed
+
+- Preserve fresh Wayland composition raw keyboard input while an application
+  cancellation waits for text-input-v1 leave/rearm. Keep replacement-epoch
+  held-key ownership across re-entry without admitting stale forwarded input.
 
 ## 0.10.1 - 2026-10-20
 

@@ -1,6 +1,6 @@
 name = "f4ah6o/gpui"
 
-version = "0.10.1"
+version = "0.10.6"
 
 readme = "README.mbt.md"
 
@@ -13,5 +13,5 @@ source = "."
 description = "An independent MoonBit implementation of the GPUI programming model."
 
 options(
-  "--moonbit-unstable-prebuild": "script/macos_text_prebuild.py",
+  "--moonbit-unstable-prebuild": "script/macos_text_prebuild.mbtx",
 )

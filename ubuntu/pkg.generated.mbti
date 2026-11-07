@@ -9,6 +9,7 @@ import {
   "f4ah6o/gpui/primitives",
   "f4ah6o/gpui/scene",
   "f4ah6o/gpui/text",
+  "f4ah6o/gpui/text_host",
 }
 
 // Values
@@ -136,6 +137,19 @@ pub(all) struct OutputInfo {
 } derive(Eq)
 pub fn OutputInfo::equal(Self, Self) -> Bool
 pub fn OutputInfo::not_equal(Self, Self) -> Bool
+
+pub struct TextHostRoute {
+  // private fields
+}
+pub fn TextHostRoute::begin_text_input(Self, @platform.WindowId, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
+pub fn TextHostRoute::cancel_text_input(Self, UInt64) -> Result[UInt64, @diagnostics.FrameworkError]
+pub fn TextHostRoute::end_text_input(Self, UInt64) -> Result[Unit, @diagnostics.FrameworkError]
+pub fn TextHostRoute::new(Host) -> Self
+pub fn TextHostRoute::next_platform_event(Self, timeout_ms? : Int) -> Result[@platform.Event?, @diagnostics.FrameworkError]
+pub fn TextHostRoute::next_text_input(Self, timeout_ms? : Int) -> Result[@text_host.TextInputEvent?, @diagnostics.FrameworkError]
+pub fn TextHostRoute::reset(Self) -> Unit
+pub fn TextHostRoute::update_text_input(Self, UInt64, @text_host.TextInputState) -> Result[UInt64, @diagnostics.FrameworkError]
+pub impl @text_host.TextInputHost for TextHostRoute
 
 pub(all) struct TextSessionDeletion {
   index_bytes : Int

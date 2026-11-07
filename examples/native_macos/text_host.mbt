@@ -48,6 +48,7 @@ fn native_text_host_e2e(host : @macos.Host) -> Unit {
     host.create_window("gpui.mbt — native text host", 640.0, 360.0),
     "create window",
   )
+
   let document = match @text.TextDocument::new("") {
     Ok(value) => value
     Err(_) => abort("empty document rejected")
@@ -73,6 +74,18 @@ fn native_text_host_e2e(host : @macos.Host) -> Unit {
   if binding.window() != window || binding.epoch() == 0UL {
     abort("start published an invalid binding")
   }
+  // The armed session owns AppKit enablement; the legacy composition switch is
+  // rejected with Busy while a text session is live.
+  match host.set_text_composition(window, true) {
+    Err(error) =>
+      match error.code() {
+        @diagnostics.Busy | @diagnostics.UnsupportedCapability => ()
+        _ => text_host_fail("composition ownership", error)
+      }
+    Ok(_) => abort("the armed session did not own composition enablement")
+  }
+  // The armed session enables the AppKit composition client itself, so the
+  // synthetic frames below must be accepted without a separate enable call.
   text_host_expect(
     host.post_test_composition(window, @primitives.Start),
     "post start",
@@ -178,7 +191,8 @@ fn native_text_host_e2e(host : @macos.Host) -> Unit {
       }
     Ok(_) => abort("stale epoch was accepted")
   }
-  // Cancelling a composition restores the committed value.
+  // The host replaces the epoch on cancel, so the helper's binding is revoked
+  // and the new epoch is the only one the transport accepts afterwards.
   text_host_expect(
     host.post_test_composition(window, @primitives.Start),
     "post cancel start",
@@ -191,52 +205,46 @@ fn native_text_host_e2e(host : @macos.Host) -> Unit {
     "post cancel preedit",
   )
   ignore(helper.pump(host))
-  text_host_expect(
-    host.finish_text_composition(window, false),
-    "finish composition",
-  )
-  match helper.pump(host) {
-    Ok(@text_adapter.Applied(_)) => {
-      if helper.field().committed_document().text() != "日本語" {
-        abort("cancel changed the committed document")
-      }
-      if helper.field().is_composing() {
-        abort("cancel left the field composing")
-      }
-    }
-    _ => abort("cancel was not applied")
+  if !helper.field().is_composing() {
+    abort("preedit did not enter composition before cancel")
   }
-  // This automation context cannot take real keyboard focus, so the key state
-  // is forced through the test hook. Real window-activation loss stays NOT_RUN.
-  text_host_expect(host.post_test_focus(Some(true)), "force focus")
+  match host.cancel_text_input(binding.epoch()) {
+    Err(error) => text_host_fail("cancel", error)
+    Ok(replacement) =>
+      if replacement == binding.epoch() {
+        abort("cancel did not replace the epoch")
+      }
+  }
+  // The helper still holds the old binding. The host filters replaced-epoch
+  // records itself, so the helper observes nothing and stays idle rather than
+  // applying a record from the revoked epoch.
   match helper.pump(host) {
     Ok(@text_adapter.Idle) => ()
-    _ => abort("a focused transport was not idle")
-  }
-  text_host_expect(host.post_test_focus(Some(false)), "drop focus")
-  match helper.pump(host) {
-    Ok(@text_adapter.FocusLost) => ()
-    _ => abort("focus loss was not reported")
-  }
-  text_host_expect(host.post_test_focus(None), "restore focus")
-  if !helper.is_ended() {
-    abort("focus loss did not end the helper")
-  }
-  // The adapter ends the transport when focus is lost.
-  match
-    host.update_text_input(
-      binding.epoch(),
-      @text_host.TextInputState::new(document, caret),
-    ) {
-    Err(error) =>
+    Err(@macos_app.Adapter(@text_adapter.StaleEpoch)) => ()
+    Err(@macos_app.Adapter(@text_adapter.Host(error))) =>
       match error.code() {
         @diagnostics.StaleHandle => ()
-        _ => text_host_fail("ended transport", error)
+        _ => text_host_fail("cancel", error)
       }
-    Ok(_) => abort("the transport stayed live after focus loss")
+    Err(_) => abort("a replaced epoch was rejected unexpectedly")
+    Ok(_) => abort("a replaced epoch produced an observation")
+  }
+  // Real window-activation loss is not reproducible in this automation context,
+  // so focus loss stays NOT_RUN rather than being forced through a hook.
+  // The host replaced the epoch on cancel, so ending the helper's original
+  // binding is expected to be stale; the transport is already revoked.
+  match helper.end(host) {
+    Ok(_) => ()
+    Err(@macos_app.Adapter(@text_adapter.Host(error))) =>
+      match error.code() {
+        @diagnostics.StaleHandle => ()
+        _ => text_host_fail("end transport", error)
+      }
+    Err(@macos_app.Adapter(@text_adapter.StaleEpoch)) => ()
+    Err(_) => abort("end rejected a live transport")
   }
   println(
-    "GPUI_MACOS_TEXT_HOST {\"epoch\":\{binding.epoch()},\"preedit\":true,\"commit\":true,\"cancel\":true,\"double_click\":true,\"multi_click_source\":\"appkit\",\"stale_epoch\":true,\"focus_lost\":true,\"focus_source\":\"test_hook\",\"real_window_focus\":\"NOT_RUN\",\"capability\":\"text_input_only\",\"synthetic_input\":true,\"real_ime\":\"NOT_RUN\"}",
+    "GPUI_MACOS_TEXT_HOST {\"epoch\":\{binding.epoch()},\"preedit\":true,\"commit\":true,\"cancel\":true,\"cancel_replaces_epoch\":true,\"double_click\":true,\"multi_click_source\":\"appkit\",\"stale_epoch\":true,\"enablement\":\"session\",\"focus_lost\":\"NOT_RUN\",\"real_window_focus\":\"NOT_RUN\",\"capability\":\"text_input_only\",\"synthetic_input\":true,\"real_ime\":\"NOT_RUN\"}",
   )
 }
 

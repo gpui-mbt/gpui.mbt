@@ -1329,7 +1329,16 @@ fn handle_field_click(
   ],
 ) -> Result[TextField, TextFieldError] {
   if !field.bounds.contains(position) {
-    return Ok({ ..field, drag_anchor: None, })
+    // A press outside the field cancels any drag. The revision advances so a
+    // later hover cannot re-extend the stale anchor and a repaint is requested.
+    if field.drag_anchor is Some(_) {
+      let revision = match bump_field_revision(field.revision) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      return Ok({ ..field, drag_anchor: None, revision, })
+    }
+    return Ok(field)
   }
   let head = match field_head_at_position(field, position, hit_test) {
     Ok(value) => value
@@ -1543,9 +1552,10 @@ pub fn TextField::handle_input(
         Ok(value) => value
         Err(error) => return Err(error)
       }
-      // A press inside the field starts a drag; a release ends it. Hover moves
-      // without an anchor never change the selection.
-      let anchor = if self.bounds.contains(position) {
+      // A press inside a focused field starts a drag; a release ends it. Hover
+      // moves without an anchor never change the selection, and an unfocused
+      // field never accepts a drag.
+      let anchor = if self.focused && self.bounds.contains(position) {
         Some(clicked.selection().anchor())
       } else {
         None

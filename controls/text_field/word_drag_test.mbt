@@ -293,6 +293,62 @@ test "double click selects a CJK word run" {
 }
 
 ///|
+test "a press outside the field cancels the drag for later hovers" {
+  let field = word_test_field("hello world")
+  let pressed = field_test_event(
+      field,
+      @primitives.PointerButtonPressed(
+        position=word_test_point(field, 1),
+        button=@primitives.Primary,
+        modifiers=@primitives.Modifiers::none(),
+      ),
+    ).0
+  let dragged = field_test_event(
+      pressed,
+      @primitives.PointerMoved(position=word_test_point(pressed, 4)),
+    ).0
+  assert_eq(dragged.selection().anchor(), 1)
+  assert_eq(dragged.selection().head(), 4)
+  let outside = @primitives.Point::new(400.0, 400.0).unwrap()
+  let cancelled = field_test_event(
+      dragged,
+      @primitives.PointerButtonPressed(
+        position=outside,
+        button=@primitives.Primary,
+        modifiers=@primitives.Modifiers::none(),
+      ),
+    ).0
+  assert_true(cancelled.revision() != dragged.revision())
+  let hovered = field_test_event(
+      cancelled,
+      @primitives.PointerMoved(position=word_test_point(cancelled, 8)),
+    ).0
+  assert_eq(hovered.selection().anchor(), 1)
+  assert_eq(hovered.selection().head(), 4)
+}
+
+///|
+test "an unfocused field never starts a drag" {
+  let field = word_test_field("hello world").with_focus(false).unwrap()
+  let pressed = field_test_event(
+      field,
+      @primitives.PointerButtonPressed(
+        position=word_test_point(field, 1),
+        button=@primitives.Primary,
+        modifiers=@primitives.Modifiers::none(),
+      ),
+    ).0
+  let moved = field_test_event(
+      pressed,
+      @primitives.PointerMoved(position=word_test_point(pressed, 6)),
+    ).0
+  // A press still places the caret (and focuses the field); only the drag
+  // anchor is withheld, so a later move cannot extend a selection.
+  assert_true(moved.selection().is_collapsed())
+  assert_eq(moved.selection().head(), 1)
+}
+
+///|
 test "drag beyond the field clamps to the nearest end" {
   let field = word_test_field("abcdef")
   let press = field_test_event(

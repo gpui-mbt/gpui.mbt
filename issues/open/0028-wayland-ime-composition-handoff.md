@@ -1,9 +1,9 @@
 # 0028: Wayland/Linux IME composition transport and desktop integration
 
-Status: bounded implementation; compositor and physical IME acceptance pending
+Status: implemented; hosted synthetic acceptance passed; physical IME acceptance pending
 Model: deepseek-v4.1-flash:1017-cloud
 Created: 2026-10-19
-Updated: 2026-10-19
+Updated: 2026-10-20
 Branch: feat/20261019-wayland-ime-composition
 Related: [0026 macOS text composition host](0026-macos-text-composition-host.md),
 [0027 Windows IME composition](0027-windows-ime-composition-handoff.md),
@@ -16,7 +16,7 @@ Wayland native host の既存 text-input-v1 session を、dsh が使う bounded 
 `EventKind::Composition` transport に接続する。対象は `DSH_DESKTOP_IME=1` の opt-in だけで、
 full editor、surrounding text、X11/XIM は追加しない。
 
-## 背景
+## 背景（2026-10-19 の実装前の状態）
 
 macOS 0.10.0 で platform-neutral な composition 契約ができた。
 
@@ -39,7 +39,7 @@ Linux には既に experimental な Wayland text session がある。
 
 dsh の Linux entrypoint は Wayland / X11 とも現在 `supports_text_composition: false`。
 
-## 問題
+## 問題（当初の課題）
 
 - dsh の Linux Wayland desktop は IME composition を受け取れず、日本語入力は paste のみ。
 - 既存 text session は committed document / selection / surrounding text を要求する full editor
@@ -64,7 +64,9 @@ dsh の Linux entrypoint は Wayland / X11 とも現在 `supports_text_compositi
 - candidate table の選択操作、IME repeat、accessibility。
 - default-on composition、physical IME 未受入での「日本語 IME 対応」表明。
 
-## 提案する方針
+## 提案する方針（当初案）
+
+以下は実装前の案。実装との差分と現在の検証範囲は末尾の checkpoint を参照する。
 
 ### 1. portable host API
 
@@ -155,16 +157,19 @@ dsh は `Backend::next_event` しか呼ばない。Wayland host の `next_event`
 
 ## 受け入れ条件
 
+チェック済みは下記の公開済み証拠で確認した範囲。未チェックの包括的な操作条件は、
+部分的な unit / synthetic coverage だけでは完了扱いにしない。物理 IME の成功は意味しない。
+
 - [ ] Wayland host の 3 API が bounds を検証し、失敗時に composition を壊さない。
 - [ ] `next_event` に composition が順序どおり出て、field example の `EditorEvent` と競合しない。
 - [ ] DirectKeyboardText と composition が二重挿入しない。
 - [ ] Enter / Escape / Send が 1 回だけ commit / cancel / send する。
 - [ ] focus loss / Settings / New / session switch / approval / response cancel で
   native preedit が残らない。
-- [ ] X11 は引き続き typed unsupported で、Wayland だけが opt-in 有効になる。
-- [ ] headless Weston synthetic E2E と dsh offline E2E が pass する。
-- [ ] IBus + Mozc の manual acceptance、または NOT RUN の理由が記録される。
-- [ ] `CHANGES.md` の Migration / Limitations に Wayland-only scope を書く。
+- [x] X11 は引き続き typed unsupported で、Wayland だけが opt-in 有効になる。
+- [x] headless Weston synthetic E2E と dsh offline E2E が pass する。
+- [x] IBus + Mozc の manual acceptance、または NOT RUN の理由が記録される。
+- [x] `CHANGES.md` の Migration / Limitations に Wayland-only scope を書く。
 
 ## テスト計画
 
@@ -262,3 +267,42 @@ cloud Unix-socket restrictions and a pre-execution escalation setup failure;
 physical IBus/Mozc and candidate placement remain NOT RUN. The dsh integration
 is a separate companion change; do not mark its offline E2E complete based only
 on these core transport tests.
+
+## Hosted acceptance checkpoint (2026-10-20)
+
+The bounded core transport and cancel/rearm repair are merged, including
+[gpui #127](https://github.com/gpui-mbt/gpui.mbt/pull/127)
+(main `603cbfe15bf30e775ec71821d8b540e184e738d9`).
+[dsh #74](https://github.com/f4ah6o/dsh.mbt/pull/74) consumes published
+`f4ah6o/gpui@0.10.2` and is merged as
+`a56c1bbe6e940673c8997e44ccf7836a28eae377`. This supersedes the pending
+companion/runtime status in the dated checkpoint above, not its local failure
+record or physical IME limitation.
+
+For exact dsh head `7201a050a63f14129b12ebefde7697db7342ad67`,
+[native assets run 39369670556](https://github.com/f4ah6o/dsh.mbt/actions/runs/39369670556)
+passed packaged Linux x86-64 and ARM64 Wayland synthetic composition and
+finish/rearm acceptance, plus X11 baseline acceptance (composition remains
+unsupported on X11). Both architectures passed the unchanged exact-text
+active-worker oracle, including the initial `Cr` in
+`Create and verify a durable file. via Linux keyboard`.
+[Runtime/browser](https://github.com/f4ah6o/dsh.mbt/actions/runs/39369670751)
+and [Windows runtime](https://github.com/f4ah6o/dsh.mbt/actions/runs/39369670578)
+also passed on that head. Post-merge
+[runtime/browser](https://github.com/f4ah6o/dsh.mbt/actions/runs/39371351921)
+and [Windows runtime](https://github.com/f4ah6o/dsh.mbt/actions/runs/39371351814)
+passed separately; those are not additional physical or packaged IME acceptance.
+
+Historical failures remain available: the first
+[kiosk-shell run](https://github.com/f4ah6o/dsh.mbt/actions/runs/39333896007)
+did not advertise text-input-v1; the later
+[desktop-shell run](https://github.com/f4ah6o/dsh.mbt/actions/runs/39335731870)
+exposed dropped initial `Cr` on x86-64 before the gpui 0.10.2 repair.
+
+Physical IBus 1.5.32 synchronous adapter + Mozc conversion, candidate selection
+and candidate placement at 1x/2x are still **NOT RUN**: the hosted evidence uses
+synthetic hooks and does not exercise that interactive physical-display profile.
+Keep composition opt-in. Follow the manual profile in
+[Ubuntu IME](../../docs/ubuntu-ime.md) before claiming physical Japanese IME
+support; preserve separate results for Enter/Escape/Send and all focus/session
+cancellation paths.

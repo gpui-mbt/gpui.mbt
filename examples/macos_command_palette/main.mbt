@@ -547,7 +547,16 @@ fn mac_palette_text_host_cases(
       ),
     )
   }
-  holder.end(host)
+  match holder.end(host) {
+    Ok(_) => ()
+    Err(error) =>
+      return Err(
+        mac_palette_error(
+          "palette_text_end",
+          "the transport could not be revoked: " + mac_palette_text_error(error),
+        ),
+      )
+  }
   match
     host.update_text_input(
       binding.epoch(),

@@ -30,7 +30,9 @@ struct ime_state {
   int composition_stopping, composition_direct_pending, composition_begin_internal;
   struct ime_payload composition_cache;
   uint32_t composition_keys[256];
+  int composition_key_epochs[256];
   uint32_t composition_raw_symbols[GPUI_DIRECT_KEY_CAPACITY];
+  int composition_raw_epochs[GPUI_DIRECT_KEY_CAPACITY];
   uint8_t composition_key_consumed[256];
   uint32_t modifier_masks[4], known_modifier_mask;
   int modifiers_valid, forwarded_modifiers;

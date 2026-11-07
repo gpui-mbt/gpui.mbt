@@ -48,11 +48,43 @@ int32_t gpui_macos_ax_publish(int64_t window, int64_t binding,
       dlsym(library, "gpui_macos_ax_publish_v1");
   return publish ? publish(window, binding, bytes, length, output) : 9;
 }
+int32_t gpui_macos_ax_publish_field(int64_t window, int64_t binding,
+                                    const uint8_t *bytes, int32_t length,
+                                    int64_t *output) {
+  int status = load();
+  if (status) return status;
+  int32_t (*publish)(int64_t, int64_t, const uint8_t *, int32_t, int64_t *) =
+      dlsym(library, "gpui_macos_ax_publish_field_v1");
+  return publish ? publish(window, binding, bytes, length, output) : 9;
+}
+int32_t gpui_macos_ax_publish_dialog(int64_t window, int64_t binding,
+                                     const uint8_t *bytes, int32_t length,
+                                     int64_t *output) {
+  int status = load();
+  if (status) return status;
+  int32_t (*publish)(int64_t, int64_t, const uint8_t *, int32_t, int64_t *) =
+      dlsym(library, "gpui_macos_ax_publish_dialog_v1");
+  return publish ? publish(window, binding, bytes, length, output) : 9;
+}
 int32_t gpui_macos_ax_revoke(int64_t window, int64_t binding) {
   int status = load();
   if (status) return status;
   int32_t (*revoke)(int64_t, int64_t) =
       dlsym(library, "gpui_macos_ax_revoke_v1");
+  return revoke ? revoke(window, binding) : 9;
+}
+int32_t gpui_macos_ax_revoke_field(int64_t window, int64_t binding) {
+  int status = load();
+  if (status) return status;
+  int32_t (*revoke)(int64_t, int64_t) =
+      dlsym(library, "gpui_macos_ax_revoke_field_v1");
+  return revoke ? revoke(window, binding) : 9;
+}
+int32_t gpui_macos_ax_revoke_dialog(int64_t window, int64_t binding) {
+  int status = load();
+  if (status) return status;
+  int32_t (*revoke)(int64_t, int64_t) =
+      dlsym(library, "gpui_macos_ax_revoke_dialog_v1");
   return revoke ? revoke(window, binding) : 9;
 }
 int32_t gpui_macos_ax_take_request(int64_t window, int64_t *output) {
@@ -72,6 +104,28 @@ int32_t gpui_macos_display_snapshot(int64_t host, double *records,
 }
 int64_t gpui_integer(int32_t field) { return api && pthread_main_np() ? api->integer(field) : 0; }
 double gpui_number(int32_t field) { return api && pthread_main_np() ? api->number(field) : 0; }
+int32_t gpui_macos_text_session(int32_t op, int64_t window, int64_t epoch,
+                                double *fields, const uint8_t *bytes,
+                                int32_t length) {
+  int status = load();
+  if (status) return status;
+  int32_t (*session)(int32_t, int64_t, int64_t, double *, const uint8_t *, int32_t) =
+      dlsym(library, "gpui_macos_text_session_v1");
+  return session ? session(op, window, epoch, fields, bytes, length) : 9;
+}
+int32_t gpui_macos_text_next(int64_t window, int64_t epoch, int32_t timeout_ms,
+                             double *fields, uint8_t *payload, int32_t capacity) {
+  int status = load();
+  if (status) return status;
+  int32_t (*next)(int64_t, int64_t, int32_t, double *, uint8_t *, int32_t) =
+      dlsym(library, "gpui_macos_text_next_v1");
+  return next ? next(window, epoch, timeout_ms, fields, payload, capacity) : 9;
+}
+int32_t gpui_macos_text_available(void) {
+  if (load()) return 0;
+  return dlsym(library, "gpui_macos_text_session_v1") &&
+         dlsym(library, "gpui_macos_text_next_v1") ? 1 : 0;
+}
 int32_t gpui_macos_frame_metrics(int64_t window, double *output) {
   int status = load();
   if (status) return status;
@@ -107,6 +161,13 @@ int32_t gpui_macos_test_post_key(int64_t window, int32_t key_code,
       dlsym(library, "gpui_macos_test_post_key_v1");
   return post ? post(window, key_code, modifiers, text, text_length) : 9;
 }
+int32_t gpui_macos_text_caret_screen(int64_t window, double *output) {
+  int status = load();
+  if (status) return status;
+  int32_t (*read)(int64_t, double *) =
+      dlsym(library, "gpui_macos_text_caret_screen_v1");
+  return read ? read(window, output) : 9;
+}
 int32_t gpui_macos_test_post_escape(int64_t window) {
   int status = load();
   if (status) return status;
@@ -134,7 +195,25 @@ int32_t gpui_macos_ax_publish(int64_t window, int64_t binding,
   (void)window; (void)binding; (void)bytes; (void)length; (void)output;
   return 9;
 }
+int32_t gpui_macos_ax_publish_field(int64_t window, int64_t binding,
+                                    const uint8_t *bytes, int32_t length,
+                                    int64_t *output) {
+  (void)window; (void)binding; (void)bytes; (void)length; (void)output;
+  return 9;
+}
+int32_t gpui_macos_ax_publish_dialog(int64_t window, int64_t binding,
+                                     const uint8_t *bytes, int32_t length,
+                                     int64_t *output) {
+  (void)window; (void)binding; (void)bytes; (void)length; (void)output;
+  return 9;
+}
 int32_t gpui_macos_ax_revoke(int64_t window, int64_t binding) {
+  (void)window; (void)binding; return 9;
+}
+int32_t gpui_macos_ax_revoke_field(int64_t window, int64_t binding) {
+  (void)window; (void)binding; return 9;
+}
+int32_t gpui_macos_ax_revoke_dialog(int64_t window, int64_t binding) {
   (void)window; (void)binding; return 9;
 }
 int32_t gpui_macos_ax_take_request(int64_t window, int64_t *output) {
@@ -156,6 +235,9 @@ int32_t gpui_macos_test_post_key(int64_t window, int32_t key_code,
   (void)window; (void)key_code; (void)modifiers; (void)text; (void)text_length;
   return 9;
 }
+int32_t gpui_macos_text_caret_screen(int64_t window, double *output) {
+  (void)window; (void)output; return 9;
+}
 int32_t gpui_macos_test_post_escape(int64_t window) { (void)window; return 9; }
 int32_t gpui_macos_test_post_composition(int64_t window, int32_t kind,
                                           int32_t cursor, const uint8_t *text,
@@ -163,4 +245,18 @@ int32_t gpui_macos_test_post_composition(int64_t window, int32_t kind,
   (void)window; (void)kind; (void)cursor; (void)text; (void)text_length;
   return 9;
 }
+int32_t gpui_macos_text_session(int32_t op, int64_t window, int64_t epoch,
+                                double *fields, const uint8_t *bytes,
+                                int32_t length) {
+  (void)op; (void)window; (void)epoch; (void)fields; (void)bytes; (void)length;
+  return 9;
+}
+int32_t gpui_macos_text_next(int64_t window, int64_t epoch, int32_t timeout_ms,
+                             double *fields, uint8_t *payload,
+                             int32_t capacity) {
+  (void)window; (void)epoch; (void)timeout_ms; (void)fields; (void)payload;
+  (void)capacity;
+  return 9;
+}
+int32_t gpui_macos_text_available(void) { return 0; }
 #endif

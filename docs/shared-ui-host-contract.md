@@ -93,9 +93,9 @@ host-support claims.
 | Host | Implemented/reusable surface | Missing or unqualified requirement | Packet / existing issue |
 | --- | --- | --- | --- |
 | Linux / Ubuntu | `Host` window/event/scene API; Pango geometry; bounded text field; `DirectKeyboardText`; exported host-local `begin_text_session`, `update_text_session`, `next_editor_event`, `cancel_text_session`, `end_text_session` | Text-input-v1/Weston/IBus/Mozc route is experimental opt-in. Its epoch/FIFO/serial mechanics should be reused, but it is not a shared `platform.Backend` text contract or general public `TextInput` claim. Integrated Japanese composition, candidate placement/selection and wider compositor profiles need exact-source evidence. **GP-02-L-IME**. | [GP-02-L][gp02l], [0007 Ubuntu](../issues/open/0007-ubuntu-native-backend.md), [Ubuntu IME scope](ubuntu-ime.md), [field scope](linux-text-field.md). |
-| Windows | `Host` window/event/scene API; DirectWrite geometry; bounded field; exported host-local session methods and `TextSessionTarget/Event` | IMM32 is private/experimental, default-off. A target/epoch-bearing API exists and should be adapted, not reimplemented in Yami. Common ownership/revision contract plus real Japanese IME and candidate-window qualification remain **GP-02-W-IME**. | [GP-02-W][gp02w], [0008 Windows](../issues/open/0008-windows-native-backend.md), [Windows guide](windows-native.md). |
-| macOS | `Host` AppKit/Metal window/event/scene API; copied CoreText measurement; bounded sample Button AX publish/take/revoke | No shared NSTextInputClient editor/composition bridge or TextField candidate-rectangle service. Lower-ASCII sample key handling is not committed-text/IME. **GP-02-M-IME** needs the host bridge and runtime evidence. | [GP-02-M][gp02m], [0006 macOS](../issues/open/0006-macos-native-backend.md), [macOS guide](macos-native.md). |
-| All native hosts | `AccessibilityModel`; transport-free Linux/Windows projections; sample-specific macOS Button AX route | Linux AT-SPI and Windows UIA providers, complete shared macOS AX mapping, TextField/Dialog semantic actions and assistive-technology acceptance remain **GP-03-AX**. Sample AXPress is not general AX. | [GP-03][gp03], [0004 platform boundary](../issues/open/0004-platform-rendering-and-native-boundaries.md), [accessibility scope](accessibility.md), OS issues above. |
+| Windows | `Host` window/event/scene API; DirectWrite geometry; bounded field; exported host-local session methods and `TextSessionTarget/Event`; opt-in `TextHostRoute` portable adapter | IMM32 is private/experimental, default-off. A target/epoch-bearing API exists and should be adapted, not reimplemented in Yami. Common ownership/revision contract plus real Japanese IME and candidate-window qualification remain **GP-02-W-IME**. | [GP-02-W][gp02w], [0008 Windows](../issues/open/0008-windows-native-backend.md), [Windows guide](windows-native.md). |
+| macOS | `Host` AppKit/Metal window/event/scene API; copied CoreText measurement; bounded sample Button AX publish/take/revoke and TextField AX publish/revoke (role, value, UTF-16 selection, focus, frame) | No shared NSTextInputClient editor/composition bridge or TextField candidate-rectangle service. Lower-ASCII sample key handling is not committed-text/IME. **GP-02-M-IME** needs the host bridge and runtime evidence. | [GP-02-M][gp02m], [0006 macOS](../issues/open/0006-macos-native-backend.md), [macOS guide](macos-native.md). |
+| All native hosts | `AccessibilityModel`; transport-free Linux/Windows projections; sample-specific macOS Button, TextField and Dialog AX observation | Linux AT-SPI and Windows UIA providers, TextField set-value/actions, dialog actions, and assistive-technology acceptance remain **GP-03-AX**. Sample AXPress and copied TextField attributes are not a general AX bridge. | [GP-03][gp03], [0004 platform boundary](../issues/open/0004-platform-rendering-and-native-boundaries.md), [accessibility scope](accessibility.md), OS issues above. |
 
 A method named `set_candidate_rect` or an exported text-session decoder does
 not prove an active, qualified IME. The adapter must use the correct negotiated
@@ -111,18 +111,27 @@ unsupported; these are two different facts.
   revision, session and ordered preview/commit/cancel outcomes. It rejects
   stale/foreign/destroyed targets and preserves an observed OS commit instead of
   rewriting every blur to cancel. See [text_session](../text_session/).
-- **GP-01B (this change)**: `text_host` defines the optional native transport
-  (`TextInputHost`, `TextInputState`, `TextInputEvent`) and
-  `Capability::TextInputGeometry`. Hosts implement it without changing
-  `platform.Backend`; an unanswered route returns `UnsupportedCapability`. See
+- **GP-01B (implemented)**: `text_host` defines the optional native transport
+  (`TextInputHost`, `TextInputState`, `TextInputEvent`), the shared
+  `TextHostQueue` and `Capability::TextInputGeometry`. `platform/macos.Host`
+  implements it over the AppKit composition client with an epoch-tagged, ordered
+  text queue that stays separate from `next_event`. Windows and Ubuntu expose
+  opt-in `TextHostRoute` adapters over their host-local editor sessions; they
+  park platform records for a paired `next_platform_event` and reject records
+  the insertion-only vocabulary cannot express. Their `Capability::TextInput`
+  stays unadvertised until a real IME run qualifies the route. An unanswered
+  route returns `UnsupportedCapability`. See
   [native text host](text-host-contract.md).
 - **GP-01-GEOMETRY**: expose which exact cursor-stop, shaping, candidate-rectangle
   and range capabilities the host supports; reuse strict conversions. Broader
   grapheme/bidi behavior is a separate gate. Tie to GP-01 and 0004.
 - **GP-02-L/W/M-IME**: adapt and qualify each OS against GP-01 separately. Linux
   and Windows are publication/ownership/qualification work over existing
-  experimental routes, not blank-slate editor projects. macOS needs its missing
-  native text client. Keep each OS result independent.
+  experimental routes, not blank-slate editor projects. macOS has the native text
+  client; a live Kotoeri run through the Yami-kumo sample on 2026-10-21 recorded
+  preedit, commit, committed-document and candidate-visibility `PASS` with
+  synthetic HID posting, while candidate anchoring, physical-keyboard entry and
+  AX editing remain unqualified. Keep each OS result independent.
 - **GP-03-FOCUS**: portable `FocusScopeSession` now supplies the bounded live
   modal controller around existing focus/traversal. Hosts must wire its explicit
   cancellation hook, scoped input and Tab commands, and per-window ownership.

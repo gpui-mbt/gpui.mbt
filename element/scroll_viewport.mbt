@@ -173,6 +173,10 @@ fn ElementTree::within_scroll_clips(
   node : ElementNode,
   position : @primitives.Point,
 ) -> Bool {
+  match self.physical_viewport {
+    Some(bounds) if !pointer_in_bounds(bounds, position) => return false
+    _ => ()
+  }
   match node.window_clip {
     Some(bounds) if !pointer_in_bounds(bounds, position) => return false
     _ => ()

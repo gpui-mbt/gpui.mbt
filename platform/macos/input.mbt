@@ -47,15 +47,18 @@ pub fn Host::next_event(
           9 => @primitives.PointerButtonReleased(position~, button~, modifiers~)
           18 => {
             let click_count = integer(6).to_int()
+            // A malformed repeat count degrades to an ordinary press instead of
+            // failing the pump: the frame is already dequeued.
             if click_count < 2 {
-              return Err(error(@diagnostics.InvalidInput, "next_event"))
+              @primitives.PointerButtonPressed(position~, button~, modifiers~)
+            } else {
+              @primitives.PointerButtonMultiClick(
+                position~,
+                button~,
+                modifiers~,
+                click_count~,
+              )
             }
-            @primitives.PointerButtonMultiClick(
-              position~,
-              button~,
-              modifiers~,
-              click_count~,
-            )
           }
           _ => @primitives.PointerMoved(position~)
         },
