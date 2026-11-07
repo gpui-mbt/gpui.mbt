@@ -179,6 +179,35 @@ pub fn TextHostQueue::emit(
 }
 
 ///|
+/// Queue one observation that already carries the host's own sequence. A host
+/// that mirrors records on two streams uses this so a consumer can recognise a
+/// re-delivered copy; the queue keeps the sequence and does not renumber it.
+pub fn TextHostQueue::emit_at(
+  self : TextHostQueue,
+  sequence : Int64,
+  kind : TextInputEventKind,
+) -> Result[Unit, @diagnostics.FrameworkError] {
+  if !self.active {
+    return Err(text_host_queue_error(@diagnostics.StaleHandle, "emit_at"))
+  }
+  let window = match self.window {
+    Some(value) => value
+    None =>
+      return Err(text_host_queue_error(@diagnostics.StaleHandle, "emit_at"))
+  }
+  if sequence <= 0L {
+    return Err(text_host_queue_error(@diagnostics.InvalidInput, "emit_at"))
+  }
+  // The host owns the portable sequence, so the queue adopts the highest value
+  // it has seen instead of requiring the caller to stay below its counter.
+  if sequence > self.sequence {
+    self.sequence = sequence
+  }
+  self.text.push(TextInputEvent::new(window, sequence, self.epoch, kind))
+  Ok(())
+}
+
+///|
 /// Park one ordinary platform event. Returns false when the bounded queue is
 /// full; the caller must not drop the event silently.
 pub fn TextHostQueue::park(

@@ -13,6 +13,10 @@ priv struct TextInputOwner {
   window : Int64
   armed : Bool
   queue : @text_host.TextHostQueue
+  /// Highest portable sequence already delivered to the owner. Records arrive
+  /// on two streams (the native text queue and the mirrored kind-20 copies), so
+  /// this drops a re-delivered copy instead of opening a second composition.
+  mut last_sequence : Int64
 }
 
 ///|
@@ -22,6 +26,7 @@ fn text_input_owner() -> TextInputOwner {
     window: 0L,
     armed: false,
     queue: @text_host.TextHostQueue::new(),
+    last_sequence: 0L,
   }
 }
 
@@ -101,7 +106,13 @@ pub impl @text_host.TextInputHost for Host with fn begin_text_input(
         Ok(_) => ()
         Err(error) => return Err(error)
       }
-      self.text.val = { epoch, window: window.value(), armed: true, queue, }
+      self.text.val = {
+        epoch,
+        window: window.value(),
+        armed: true,
+        queue,
+        last_sequence: 0L,
+      }
       Ok(epoch)
     }
   }
@@ -259,15 +270,19 @@ pub impl @text_host.TextInputHost for Host with fn next_text_input(
     return Err(text_input_error(@diagnostics.StaleHandle, "next_text_input"))
   }
   // Records that an ordinary event pump already removed from the window queue
-  // are delivered first, in their original order.
-  match owner.queue.take_text() {
-    Some(event) =>
-      if event.epoch() == owner.epoch {
-        return Ok(Some(event))
-      } else {
-        return Ok(None)
-      }
-    None => ()
+  // are delivered first, in their original order. A parked record whose
+  // sequence is not newer than the last delivered one is a mirror of a record
+  // this route already returned natively, so it is dropped instead of being
+  // delivered twice.
+  while owner.queue.take_text() is Some(event) {
+    if event.epoch() != owner.epoch {
+      return Ok(None)
+    }
+    if event.sequence() <= owner.last_sequence {
+      continue
+    }
+    owner.last_sequence = event.sequence()
+    return Ok(Some(event))
   }
   let fields = FixedArray::make(6, 0.0)
   let payload = FixedArray::make(65_536, b'\x00')
@@ -297,6 +312,11 @@ pub impl @text_host.TextInputHost for Host with fn next_text_input(
         if epoch != owner.epoch {
           return Ok(None)
         }
+        if sequence <= owner.last_sequence {
+          // A mirrored copy of a record already delivered from the queue.
+          return Ok(None)
+        }
+        owner.last_sequence = sequence
         let text = match decode_text_input(payload, fields[5].to_int()) {
           Err(error) => return Err(error)
           Ok(value) => value

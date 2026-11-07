@@ -92,12 +92,14 @@ static void emit_composition(GPWindow *w, int code, NSString *text,
       @"seq":@(sequence), @"epoch":@(w.text_epoch), @"cursor":@((double)cursor),
       @"text":data}];
     /* Mirror the record on the ordinary event queue as kind 20 so an
-     * application that pumps platform events parks it instead of losing it. */
+     * application that pumps platform events parks it instead of losing it.
+     * The mirror carries the portable sequence in the width slot, so the text
+     * route can drop a parked copy of a record it already read natively. */
     if (events.count >= 4096) { overflow = YES; return; }
     [events addObject:@{@"kind":@(20), @"token":@(w.token),
       @"seq":@(++w.sequence), @"scale":@(w.scale), @"x":@(0.0), @"y":@(0.0),
       @"mods":@(0), @"code":@(code), @"repeat":@(0),
-      @"width":@((double)cursor), @"height":@(0.0), @"text":data}];
+      @"width":@((double)cursor), @"height":@((double)sequence), @"text":data}];
     return;
   }
   if (events.count >= 4096) { overflow = YES; return; }

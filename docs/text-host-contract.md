@@ -234,12 +234,15 @@ A fifth attempt armed the transport in the loop and split the E2E into
 per-frame stages. The preview was then applied twice: the loop's pump consumed
 both the parked record and the native record for the same frame, so the second
 preview opened a new composition and the following commit was rejected with
-`session_no_composition`. The transport is therefore not the blocker; the
-sample needs a single reader that owns both the parked queue and the native
-record stream, and a way to tell a re-delivered frame from a new one.
+`session_no_composition`.
 
-`MacPaletteTextHost::start` already arms the transport, so the remaining work is
-a de-duplicated single-reader pump in the sample, not a transport change.
+The host now fixes that: `next_text_input` drops any record whose sequence is
+not newer than the last one it delivered, and the kind-20 mirror carries the
+portable sequence so a parked copy is recognisable. A sixth attempt wired the
+live pump with that de-duplication and drove the preview, commit and cancel
+through the palette field, but the sample's stage machine could not be
+re-sequenced around the transport teardown on reopen within this change, so the
+live loop remains unwired and the sample keeps its committed flow.
 
 ## Relationship to text_session
 

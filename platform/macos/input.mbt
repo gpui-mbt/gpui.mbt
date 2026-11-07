@@ -113,7 +113,7 @@ pub fn Host::next_event(
         Ok(value) => value
         Err(error) => return Err(error)
       }
-      match self.park_text_record(kind) {
+      match self.park_text_record(kind, number(4).to_int64()) {
         Ok(_) => @platform.Wake
         Err(error) => return Err(error)
       }
@@ -141,6 +141,7 @@ pub fn Host::next_event(
 fn Host::park_text_record(
   self : Host,
   kind : @primitives.CompositionEvent,
+  sequence : Int64,
 ) -> Result[Unit, @diagnostics.FrameworkError] {
   let owner = self.text.val
   if !owner.armed {
@@ -153,7 +154,7 @@ fn Host::park_text_record(
     @primitives.Commit(text~) => @text_host.Commit(text~)
     @primitives.Cancel => @text_host.Cancel
   }
-  owner.queue.emit(event)
+  owner.queue.emit_at(sequence, event)
 }
 
 ///|

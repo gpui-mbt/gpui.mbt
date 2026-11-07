@@ -42,6 +42,27 @@ test "cancelling a parked session drops records from the replaced epoch" {
 }
 
 ///|
+test "emit_at keeps the host sequence so a mirrored copy is recognisable" {
+  let queue = @text_host.TextHostQueue::new()
+  let window = @platform.WindowId::new(6)
+  let epoch = queue.begin(window).unwrap()
+  queue.emit_at(3L, @text_host.Preedit(text="に", cursor=1)).unwrap()
+  queue.emit_at(4L, @text_host.Commit(text="日")).unwrap()
+  match queue.take_text() {
+    Some(event) => {
+      assert_eq(event.sequence(), 3L)
+      assert_eq(event.epoch(), epoch)
+    }
+    None => fail("the parked record was not queued")
+  }
+  match queue.take_text() {
+    Some(event) => assert_eq(event.sequence(), 4L)
+    None => fail("the second parked record was not queued")
+  }
+  assert_true(queue.emit_at(0L, @text_host.Cancel) is Err(_))
+}
+
+///|
 test "text input epochs reject non-positive and non-finite host values" {
   assert_true(text_input_epoch(0.0) is Err(_))
   assert_true(text_input_epoch(-1.0) is Err(_))
